@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+
+{% block nav_settings %}active{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}
+  {% if target_user %}Modifier les informations du compte{% else %}Créer un nouveau compte utilisateur{% endif %}
+{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'core:user_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Retour
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+  <div class="form-layout">
+
+    <form method="post" action="" novalidate>
+      {% csrf_token %}
+
+      <!-- Identity section -->
+      <div class="form-card">
+        <div class="form-card__header">
+          <div class="form-card__icon ic-blue"><i class="bx bxs-user"></i></div>
+          <div>
+            <div class="form-card__title">Identité du compte</div>
+            <div class="form-card__sub">Nom d'utilisateur, prénom, nom et adresse email</div>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="field-group">
+            <label class="field-label" for="{{ form.username.id_for_label }}">
+              Nom d'utilisateur <span class="required">*</span>
+            </label>
+            <div class="input-wrapper">
+              <i class="bx bxs-user input-icon"></i>
+              {{ form.username }}
+            </div>
+            {% if form.username.errors %}
+              {% for err in form.username.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            {% endif %}
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="{{ form.email.id_for_label }}">Email</label>
+            <div class="input-wrapper">
+              <i class="bx bxs-envelope input-icon"></i>
+              {{ form.email }}
+            </div>
+            {% if form.email.errors %}
+              {% for err in form.email.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            {% endif %}
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="{{ form.first_name.id_for_label }}">Prénom</label>
+            <div class="input-wrapper">
+              <i class="bx bxs-id-card input-icon"></i>
+              {{ form.first_name }}
+            </div>
+            {% if form.first_name.errors %}
+              {% for err in form.first_name.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            {% endif %}
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="{{ form.last_name.id_for_label }}">Nom de famille</label>
+            <div class="input-wrapper">
+              <i class="bx bxs-id-card input-icon"></i>
+              {{ form.last_name }}
+            </div>
+            {% if form.last_name.errors %}
+              {% for err in form.last_name.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Role & contact section -->
+      <div class="form-card">
+        <div class="form-card__header">
+          <div class="form-card__icon ic-amber"><i class="bx bxs-slider"></i></div>
+          <div>
+            <div class="form-card__title">Rôle et contact</div>
+            <div class="form-card__sub">Permissions d'accès et coordonnées internes</div>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="field-group">
+            <label class="field-label" for="{{ form.role.id_for_label }}">
+              Rôle <span class="required">*</span>
+            </label>
+            <div class="input-wrapper">
+              <i class="bx bxs-group input-icon"></i>
+              {{ form.role }}
+            </div>
+            {% if form.role.errors %}
+              {% for err in form.role.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            {% endif %}
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="{{ form.telephone.id_for_label }}">Téléphone</label>
+            <div class="input-wrapper">
+              <i class="bx bxs-phone input-icon"></i>
+              {{ form.telephone }}
+            </div>
+            {% if form.telephone.errors %}
+              {% for err in form.telephone.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            {% endif %}
+          </div>
+
+          <div class="field-group field-group--full">
+            <label class="field-label" for="{{ form.notes.id_for_label }}">Notes</label>
+            {{ form.notes }}
+            {% if form.notes.errors %}
+              {% for err in form.notes.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Password section (create only) -->
+      {% if not target_user %}
+      <div class="form-card">
+        <div class="form-card__header">
+          <div class="form-card__icon ic-purple"><i class="bx bxs-lock-alt"></i></div>
+          <div>
+            <div class="form-card__title">Mot de passe</div>
+            <div class="form-card__sub">Définir le mot de passe initial du compte</div>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="field-group">
+            <label class="field-label" for="{{ form.password1.id_for_label }}">
+              Mot de passe <span class="required">*</span>
+            </label>
+            <div class="input-wrapper">
+              <i class="bx bxs-lock-alt input-icon"></i>
+              {{ form.password1 }}
+            </div>
+            {% if form.password1.errors %}
+              {% for err in form.password1.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            {% endif %}
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="{{ form.password2.id_for_label }}">
+              Confirmer le mot de passe <span class="required">*</span>
+            </label>
+            <div class="input-wrapper">
+              <i class="bx bxs-lock input-icon"></i>
+              {{ form.password2 }}
+            </div>
+            {% if form.password2.errors %}
+              {% for err in form.password2.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Non-field errors -->
+      {% if form.non_field_errors %}
+      <div class="error-banner">
+        <i class="bx bxs-error-circle"></i>
+        <div>
+          {% for err in form.non_field_errors %}
+            <div>{{ err }}</div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Actions -->
+      <div class="form-actions">
+        <a href="{% url 'core:user_list' %}" class="btn-ghost">Annuler</a>
+        <button type="submit" class="btn-primary">
+          <i class="bx bxs-save"></i> {{ action_label }}
+        </button>
+      </div>
+
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .form-layout { max-width: 780px; display: flex; flex-direction: column; gap: 18px; }
+
+  .form-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px 24px;
+    animation: fadeIn .3s ease both;
+  }
+  .form-card:nth-child(1) { animation-delay: 0ms; }
+  .form-card:nth-child(2) { animation-delay: 50ms; }
+  .form-card:nth-child(3) { animation-delay: 100ms; }
+
+  .form-card__header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .form-card__icon {
+    width: 40px; height: 40px;
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .ic-blue   { background: rgba(56,189,248,.14); color: #0284c7; }
+  .ic-amber  { background: rgba(245,158,11,.14); color: #b45309; }
+  .ic-purple { background: rgba(167,139,250,.14); color: #7c3aed; }
+  .ic-green  { background: rgba(34,197,94,.14); color: #15803d; }
+  .ic-red    { background: rgba(239,68,68,.12); color: #dc2626; }
+
+  .form-card__title {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+  .form-card__sub { font-size: 12px; color: var(--text-muted); }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+  .field-group--full { grid-column: 1 / -1; }
+
+  .field-group { display: flex; flex-direction: column; gap: 6px; }
+  .field-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: .03em;
+  }
+  .required { color: #dc2626; }
+  .input-wrapper { position: relative; }
+  .input-icon {
+    position: absolute;
+    left: 13px; top: 50%; transform: translateY(-50%);
+    font-size: 15px;
+    color: var(--text-muted);
+    pointer-events: none;
+    transition: color .15s;
+    z-index: 1;
+  }
+  .input-wrapper input,
+  .input-wrapper select {
+    width: 100%;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    padding: 11px 13px 11px 40px;
+    transition: border-color .15s, box-shadow .15s;
+    -webkit-appearance: none;
+  }
+  .input-wrapper input:focus,
+  .input-wrapper select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(34,197,94,.15);
+    outline: none;
+  }
+  .input-wrapper input::placeholder { color: var(--text-muted); }
+  textarea {
+    width: 100%;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    padding: 11px 13px;
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(34,197,94,.15);
+    outline: none;
+  }
+  .field-error {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 12px;
+    color: #dc2626;
+    margin-top: 2px;
+  }
+  .field-error i { font-size: 13px; flex-shrink: 0; }
+
+  .error-banner {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: rgba(239,68,68,.08);
+    border: 1px solid rgba(239,68,68,.2);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    font-size: 13px;
+    color: #dc2626;
+  }
+  .error-banner i { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+  .form-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 4px;
+  }
+
+  .btn-primary {
+    background: var(--accent); color: #fff;
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px;
+    border: none; border-radius: var(--radius-md); padding: 10px 20px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: opacity .18s, transform .12s; text-decoration: none;
+  }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+  .btn-primary:active { transform: scale(.99); }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text-secondary); font-family: 'Nunito', sans-serif;
+    font-weight: 600; font-size: 13px; border-radius: var(--radius-md);
+    padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s, border-color .12s, color .12s; text-decoration: none;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* Promote Django widget classes to match design system inputs */
+  document.querySelectorAll('.input-wrapper input, .input-wrapper select').forEach(function (el) {
+    el.classList.remove('form-control');
+  });
+});
+</script>
+{% endblock %}

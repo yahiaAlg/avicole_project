@@ -1,0 +1,394 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Utilisateurs — Élevage Avicole{% endblock %}
+
+{% block nav_settings %}active{% endblock %}
+
+{% block page_title %}Gestion des utilisateurs{% endblock %}
+{% block page_sub_text %}{{ users|length }} compte{{ users|length|pluralize }} enregistré{{ users|length|pluralize }}{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'core:user_create' %}" class="btn-primary">
+    <i class="bx bx-plus"></i> Nouvel utilisateur
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+
+  <div class="card">
+    <div class="card-header-row">
+      <div class="section-eyebrow">Comptes utilisateurs</div>
+    </div>
+
+    {% if users %}
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Utilisateur</th>
+            <th>Nom complet</th>
+            <th>Email</th>
+            <th>Rôle</th>
+            <th>Statut</th>
+            <th>Créé le</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr class="table-row{% if not u.is_active %} row-inactive{% endif %}" style="--row-i:{{ forloop.counter0 }};">
+            <td>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div class="user-avatar-sm">
+                  {{ u.username|first|upper }}
+                </div>
+                <span style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
+                  {{ u.username }}
+                </span>
+              </div>
+            </td>
+            <td>{{ u.get_full_name|default:"—" }}</td>
+            <td style="color:var(--text-muted);">{{ u.email|default:"—" }}</td>
+            <td>
+              {% if u.profile %}
+                {% if u.profile.role == "admin" %}
+                  <span class="pill-danger">Administrateur</span>
+                {% elif u.profile.role == "manager" %}
+                  <span class="pill-warning">Gérant</span>
+                {% elif u.profile.role == "comptable" %}
+                  <span class="pill-info">Comptable</span>
+                {% else %}
+                  <span class="pill-neutral">Opérateur</span>
+                {% endif %}
+              {% else %}
+                <span class="pill-neutral">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if u.is_active %}
+                <span class="pill-success"><i class="bx bxs-check-circle"></i> Actif</span>
+              {% else %}
+                <span class="pill-neutral"><i class="bx bx-block"></i> Inactif</span>
+              {% endif %}
+            </td>
+            <td style="color:var(--text-muted);">{{ u.date_joined|date:"d/m/Y" }}</td>
+            <td>
+              <div class="actions-cell">
+                <a href="{% url 'core:user_edit' u.pk %}" class="action-btn" title="Modifier">
+                  <i class="bx bxs-pencil"></i>
+                </a>
+                <a href="{% url 'core:user_password_change' u.pk %}" class="action-btn" title="Changer le mot de passe">
+                  <i class="bx bxs-lock-open"></i>
+                </a>
+                {% if u != request.user %}
+                <button type="button"
+                  class="action-btn {% if u.is_active %}action-btn--danger{% endif %}"
+                  data-toggle-user="{{ u.pk }}"
+                  data-username="{{ u.username }}"
+                  data-active="{{ u.is_active|yesno:'true,false' }}"
+                  title="{% if u.is_active %}Désactiver{% else %}Activer{% endif %}">
+                  <i class="bx {% if u.is_active %}bx-block{% else %}bxs-check-circle{% endif %}"></i>
+                </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
+      <i class="bx bxs-user" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
+      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
+        Aucun utilisateur
+      </div>
+      <div style="font-size:13px;">Créez le premier compte utilisateur.</div>
+      <a href="{% url 'core:user_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
+        <i class="bx bx-plus"></i> Créer
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Inline confirmation panel (toggle active) -->
+  <div id="confirm-toggle-panel" class="confirm-panel" style="display:none;">
+    <div class="confirm-panel__inner">
+      <div class="confirm-panel__icon" id="confirm-icon">
+        <i class="bx bx-block"></i>
+      </div>
+      <div>
+        <div class="confirm-panel__title" id="confirm-title">Désactiver l'utilisateur ?</div>
+        <div class="confirm-panel__body" id="confirm-body">
+          L'utilisateur <strong id="confirm-username"></strong> ne pourra plus se connecter.
+        </div>
+      </div>
+      <div class="confirm-panel__actions">
+        <button type="button" id="confirm-cancel-btn" class="btn-ghost">Annuler</button>
+        <form id="confirm-toggle-form" method="post" action="">
+          {% csrf_token %}
+          <button type="submit" id="confirm-submit-btn" class="btn-danger">Confirmer</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .card-header-row {
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-eyebrow {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .table-wrapper { overflow-x: auto; }
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .data-table thead th {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    background: var(--bg-surface);
+  }
+  .data-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn .3s ease both;
+    animation-delay: calc(var(--row-i, 0) * 35ms);
+    transition: background .12s;
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: var(--bg-hover); }
+  .data-table tbody tr.row-inactive { opacity: .55; }
+  .data-table td {
+    padding: 13px 14px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    vertical-align: middle;
+  }
+
+  .user-avatar-sm {
+    width: 32px; height: 32px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-dim);
+    color: var(--accent-text);
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .actions-cell {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+  .action-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 14px;
+    cursor: pointer;
+    transition: background .12s, color .12s, border-color .12s;
+    text-decoration: none;
+  }
+  .action-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+  }
+  .action-btn--danger { color: #dc2626; border-color: rgba(239,68,68,.2); }
+  .action-btn--danger:hover { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.3); }
+
+  /* Confirm panel */
+  .confirm-panel {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.35);
+    z-index: 500;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: fadeIn .2s ease;
+  }
+  .confirm-panel[style*="display:none"] { display: none !important; }
+  .confirm-panel__inner {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 28px;
+    max-width: 420px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.14);
+    animation: fadeIn .2s ease;
+  }
+  .confirm-panel__icon {
+    width: 44px; height: 44px;
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    background: rgba(239,68,68,.1);
+    color: #dc2626;
+  }
+  .confirm-panel__icon.activate {
+    background: rgba(34,197,94,.12);
+    color: var(--accent-text);
+  }
+  .confirm-panel__title {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .confirm-panel__body { font-size: 13px; color: var(--text-secondary); }
+  .confirm-panel__actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+  .confirm-panel__actions form { margin: 0; }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: 13.5px;
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 10px 18px;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: opacity .18s, transform .12s;
+    text-decoration: none;
+  }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+  .btn-primary:active { transform: scale(.99); }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-family: 'Nunito', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    border-radius: var(--radius-md);
+    padding: 9px 16px;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s, border-color .12s, color .12s;
+    text-decoration: none;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+  .btn-danger {
+    background: rgba(239,68,68,.1);
+    border: 1px solid rgba(239,68,68,.22);
+    color: #dc2626;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    border-radius: var(--radius-md);
+    padding: 9px 16px;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s;
+  }
+  .btn-danger:hover { background: rgba(239,68,68,.18); }
+  .btn-success {
+    background: rgba(34,197,94,.12);
+    border: 1px solid rgba(34,197,94,.24);
+    color: var(--accent-text);
+    font-family: 'Nunito', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    border-radius: var(--radius-md);
+    padding: 9px 16px;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s;
+  }
+  .btn-success:hover { background: rgba(34,197,94,.2); }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const panel        = document.getElementById('confirm-toggle-panel');
+  const panelIcon    = document.getElementById('confirm-icon');
+  const panelTitle   = document.getElementById('confirm-title');
+  const panelBody    = document.getElementById('confirm-body');
+  const usernameSpan = document.getElementById('confirm-username');
+  const form         = document.getElementById('confirm-toggle-form');
+  const submitBtn    = document.getElementById('confirm-submit-btn');
+  const cancelBtn    = document.getElementById('confirm-cancel-btn');
+
+  document.querySelectorAll('[data-toggle-user]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const pk       = btn.dataset.toggleUser;
+      const username = btn.dataset.username;
+      const isActive = btn.dataset.active === 'true';
+
+      usernameSpan.textContent = username;
+      form.action = '/parametres/utilisateurs/' + pk + '/activer/';
+
+      if (isActive) {
+        panelIcon.className  = 'confirm-panel__icon';
+        panelIcon.innerHTML  = '<i class="bx bx-block"></i>';
+        panelTitle.textContent = 'Désactiver le compte ?';
+        panelBody.innerHTML  = 'L\'utilisateur <strong>' + username + '</strong> ne pourra plus se connecter.';
+        submitBtn.textContent = 'Désactiver';
+        submitBtn.className  = 'btn-danger';
+      } else {
+        panelIcon.className  = 'confirm-panel__icon activate';
+        panelIcon.innerHTML  = '<i class="bx bxs-check-circle"></i>';
+        panelTitle.textContent = 'Activer le compte ?';
+        panelBody.innerHTML  = 'L\'utilisateur <strong>' + username + '</strong> pourra à nouveau se connecter.';
+        submitBtn.textContent = 'Activer';
+        submitBtn.className  = 'btn-success';
+      }
+      panel.style.display = '';
+    });
+  });
+
+  cancelBtn.addEventListener('click', function () {
+    panel.style.display = 'none';
+  });
+
+  panel.addEventListener('click', function (e) {
+    if (e.target === panel) panel.style.display = 'none';
+  });
+});
+</script>
+{% endblock %}

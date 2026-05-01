@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Mon Profil — Élevage Avicole{% endblock %}
+
+{% block nav_settings %}active{% endblock %}
+
+{% block page_title %}Mon Profil{% endblock %}
+{% block page_sub_text %}{{ target_user.get_full_name|default:target_user.username }} — {{ target_user.profile.get_role_display|default:"Utilisateur" }}{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'core:own_password_change' %}" class="btn-ghost">
+    <i class="bx bxs-lock-open"></i> Changer le mot de passe
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+  <div class="profile-layout">
+
+    <!-- Profile summary card -->
+    <div class="profile-summary-card">
+      <div class="profile-avatar">
+        {{ target_user.username|first|upper }}
+      </div>
+      <div class="profile-name">{{ target_user.get_full_name|default:target_user.username }}</div>
+      <div class="profile-username">@{{ target_user.username }}</div>
+      <div style="margin-top:10px;">
+        {% if target_user.profile %}
+          {% if target_user.profile.role == "admin" %}
+            <span class="pill-danger">Administrateur</span>
+          {% elif target_user.profile.role == "manager" %}
+            <span class="pill-warning">Gérant</span>
+          {% elif target_user.profile.role == "comptable" %}
+            <span class="pill-info">Comptable</span>
+          {% else %}
+            <span class="pill-neutral">Opérateur</span>
+          {% endif %}
+        {% endif %}
+      </div>
+      <div class="profile-meta">
+        {% if target_user.email %}
+        <div class="profile-meta-row">
+          <i class="bx bxs-envelope"></i>
+          <span>{{ target_user.email }}</span>
+        </div>
+        {% endif %}
+        {% if target_user.profile.telephone %}
+        <div class="profile-meta-row">
+          <i class="bx bxs-phone"></i>
+          <span>{{ target_user.profile.telephone }}</span>
+        </div>
+        {% endif %}
+        <div class="profile-meta-row">
+          <i class="bx bxs-calendar"></i>
+          <span>Membre depuis {{ target_user.date_joined|date:"d/m/Y" }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit form -->
+    <div class="profile-form-area">
+      <form method="post" action="{% url 'core:profile' %}" novalidate>
+        {% csrf_token %}
+
+        <div class="form-card">
+          <div class="form-card__header">
+            <div class="form-card__icon ic-green"><i class="bx bxs-user"></i></div>
+            <div>
+              <div class="form-card__title">Informations personnelles</div>
+              <div class="form-card__sub">Prénom, nom et adresse email visibles dans l'application</div>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field-group">
+              <label class="field-label" for="{{ form.first_name.id_for_label }}">Prénom</label>
+              <div class="input-wrapper">
+                <i class="bx bxs-id-card input-icon"></i>
+                {{ form.first_name }}
+              </div>
+              {% for err in form.first_name.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            </div>
+
+            <div class="field-group">
+              <label class="field-label" for="{{ form.last_name.id_for_label }}">Nom de famille</label>
+              <div class="input-wrapper">
+                <i class="bx bxs-id-card input-icon"></i>
+                {{ form.last_name }}
+              </div>
+              {% for err in form.last_name.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            </div>
+
+            <div class="field-group field-group--full">
+              <label class="field-label" for="{{ form.email.id_for_label }}">Email</label>
+              <div class="input-wrapper">
+                <i class="bx bxs-envelope input-icon"></i>
+                {{ form.email }}
+              </div>
+              {% for err in form.email.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <div class="form-card" style="animation-delay:.06s;">
+          <div class="form-card__header">
+            <div class="form-card__icon ic-blue"><i class="bx bxs-phone"></i></div>
+            <div>
+              <div class="form-card__title">Contact &amp; Notes</div>
+              <div class="form-card__sub">Coordonnées internes et remarques</div>
+            </div>
+          </div>
+
+          <div class="form-fields">
+            <div class="field-group">
+              <label class="field-label" for="{{ form.telephone.id_for_label }}">Téléphone</label>
+              <div class="input-wrapper">
+                <i class="bx bxs-phone input-icon"></i>
+                {{ form.telephone }}
+              </div>
+              {% for err in form.telephone.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            </div>
+
+            <div class="field-group">
+              <label class="field-label" for="{{ form.notes.id_for_label }}">Notes</label>
+              {{ form.notes }}
+              {% for err in form.notes.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Role — read-only for non-admins -->
+        <div class="form-card" style="animation-delay:.12s;">
+          <div class="form-card__header">
+            <div class="form-card__icon ic-amber"><i class="bx bxs-slider"></i></div>
+            <div>
+              <div class="form-card__title">Rôle</div>
+              <div class="form-card__sub">
+                {% if request.user.userprofile.role == "admin" %}
+                  Modifiable par les administrateurs
+                {% else %}
+                  Non modifiable — contactez un administrateur
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="{{ form.role.id_for_label }}">Rôle attribué</label>
+            <div class="input-wrapper">
+              <i class="bx bxs-group input-icon"></i>
+              {{ form.role }}
+            </div>
+          </div>
+        </div>
+
+        {% if form.non_field_errors %}
+        <div class="error-banner">
+          <i class="bx bxs-error-circle"></i>
+          <div>{% for err in form.non_field_errors %}<div>{{ err }}</div>{% endfor %}</div>
+        </div>
+        {% endif %}
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">
+            <i class="bx bxs-save"></i> Enregistrer les modifications
+          </button>
+        </div>
+
+      </form>
+    </div><!-- /profile-form-area -->
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .profile-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 768px) {
+    .profile-layout { grid-template-columns: 1fr; }
+  }
+
+  /* Summary sidebar card */
+  .profile-summary-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 28px 20px 22px;
+    text-align: center;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 6px;
+    animation: fadeIn .3s ease;
+    position: sticky; top: calc(var(--topbar-h) + 16px);
+  }
+  .profile-avatar {
+    width: 64px; height: 64px;
+    border-radius: var(--radius-md);
+    background: var(--accent-dim);
+    color: var(--accent-text);
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800; font-size: 26px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 6px;
+  }
+  .profile-name {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700; font-size: 15px;
+    color: var(--text-primary);
+  }
+  .profile-username { font-size: 12px; color: var(--text-muted); }
+  .profile-meta { width: 100%; margin-top: 14px; text-align: left; }
+  .profile-meta-row {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--text-muted);
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .profile-meta-row:last-child { border-bottom: none; }
+  .profile-meta-row i { font-size: 13px; color: var(--text-muted); flex-shrink: 0; }
+
+  /* Form area */
+  .profile-form-area { display: flex; flex-direction: column; gap: 16px; }
+
+  .form-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px 24px;
+    animation: fadeIn .3s ease both;
+  }
+  .form-card__header {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 20px; padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .form-card__icon {
+    width: 40px; height: 40px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .ic-green  { background: rgba(34,197,94,.14);  color: #15803d; }
+  .ic-blue   { background: rgba(56,189,248,.14); color: #0284c7; }
+  .ic-amber  { background: rgba(245,158,11,.14); color: #b45309; }
+
+  .form-card__title {
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
+    color: var(--text-primary); margin-bottom: 2px;
+  }
+  .form-card__sub { font-size: 12px; color: var(--text-muted); }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+  .field-group--full { grid-column: 1 / -1; }
+  .form-fields { display: flex; flex-direction: column; gap: 16px; }
+
+  .field-group { display: flex; flex-direction: column; gap: 6px; }
+  .field-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .03em; }
+  .input-wrapper { position: relative; }
+  .input-icon {
+    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+    font-size: 15px; color: var(--text-muted); pointer-events: none;
+    transition: color .15s; z-index: 1;
+  }
+  .input-wrapper input,
+  .input-wrapper select {
+    width: 100%; background: var(--bg-surface);
+    border: 1px solid var(--border); border-radius: var(--radius-md);
+    color: var(--text-primary); font-family: 'Inter', sans-serif;
+    font-size: 13.5px; padding: 11px 13px 11px 40px;
+    transition: border-color .15s, box-shadow .15s; -webkit-appearance: none;
+  }
+  .input-wrapper input:focus,
+  .input-wrapper select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(34,197,94,.15);
+    outline: none;
+  }
+  .input-wrapper input[disabled],
+  .input-wrapper select[disabled] {
+    opacity: .6; cursor: not-allowed;
+    background: var(--bg-raised);
+  }
+  textarea {
+    width: 100%; background: var(--bg-surface);
+    border: 1px solid var(--border); border-radius: var(--radius-md);
+    color: var(--text-primary); font-family: 'Inter', sans-serif;
+    font-size: 13.5px; padding: 11px 13px;
+    resize: vertical; min-height: 80px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none;
+  }
+  .field-error {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 12px; color: #dc2626;
+  }
+  .field-error i { font-size: 13px; flex-shrink: 0; }
+
+  .error-banner {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2);
+    border-radius: var(--radius-md); padding: 12px 16px;
+    font-size: 13px; color: #dc2626;
+  }
+  .error-banner i { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+  .form-actions {
+    display: flex; align-items: center; justify-content: flex-end;
+    gap: 10px; padding-top: 4px;
+  }
+  .btn-primary {
+    background: var(--accent); color: #fff;
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px;
+    border: none; border-radius: var(--radius-md); padding: 10px 20px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: opacity .18s, transform .12s; text-decoration: none;
+  }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+  .btn-primary:active { transform: scale(.99); }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text-secondary); font-family: 'Nunito', sans-serif;
+    font-weight: 600; font-size: 13px; border-radius: var(--radius-md);
+    padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s, border-color .12s, color .12s; text-decoration: none;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+</style>
+{% endblock %}
+
+{% block extra_js %}{% endblock %}
