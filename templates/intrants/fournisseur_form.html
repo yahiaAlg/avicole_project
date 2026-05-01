@@ -1,0 +1,353 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+
+{% block nav_fournisseurs %}active{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}{% if object %}Modification de la fiche fournisseur{% else %}Nouvelle entrée dans le référentiel fournisseurs{% endif %}{% endblock %}
+
+{% block topbar_actions %}
+  {% if object %}
+  <a href="{% url 'intrants:fournisseur_detail' object.pk %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Retour à la fiche
+  </a>
+  {% else %}
+  <a href="{% url 'intrants:fournisseur_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Retour à la liste
+  </a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+  <form method="post" action="" id="fournisseur-form">
+    {% csrf_token %}
+    <div class="form-grid">
+
+      <!-- Left column -->
+      <div class="form-col">
+
+        <!-- Identité -->
+        <div class="form-card">
+          <div class="form-card__header">
+            <div class="section-eyebrow"><i class="bx bxs-business"></i> Identité</div>
+          </div>
+          <div class="form-card__body">
+
+            <div class="form-group">
+              <label class="form-label" for="{{ form.nom.id_for_label }}">
+                Nom du fournisseur <span class="form-required">*</span>
+              </label>
+              <div class="input-wrapper">
+                <i class="bx bxs-business input-icon"></i>
+                {{ form.nom }}
+              </div>
+              {% for err in form.nom.errors %}
+              <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="{{ form.type_principal.id_for_label }}">
+                Type principal
+              </label>
+              <div class="input-wrapper">
+                <i class="bx bx-category input-icon"></i>
+                {{ form.type_principal }}
+              </div>
+              {% for err in form.type_principal.errors %}
+              <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            </div>
+
+            <div class="form-group form-group--checkbox">
+              <label class="checkbox-label">
+                {{ form.actif }}
+                <span>Fournisseur actif</span>
+              </label>
+              {% for err in form.actif.errors %}
+              <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Coordonnées -->
+        <div class="form-card">
+          <div class="form-card__header">
+            <div class="section-eyebrow"><i class="bx bx-map-pin"></i> Coordonnées</div>
+          </div>
+          <div class="form-card__body">
+
+            <div class="form-group">
+              <label class="form-label" for="{{ form.adresse.id_for_label }}">Adresse</label>
+              <div class="input-wrapper input-wrapper--textarea">
+                {{ form.adresse }}
+              </div>
+              {% for err in form.adresse.errors %}
+              <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.wilaya.id_for_label }}">Wilaya</label>
+                <div class="input-wrapper">
+                  <i class="bx bx-map input-icon"></i>
+                  {{ form.wilaya }}
+                </div>
+                {% for err in form.wilaya.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+                {% endfor %}
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="{{ form.email.id_for_label }}">Email</label>
+                <div class="input-wrapper">
+                  <i class="bx bx-envelope input-icon"></i>
+                  {{ form.email }}
+                </div>
+                {% for err in form.email.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.telephone.id_for_label }}">Téléphone</label>
+                <div class="input-wrapper">
+                  <i class="bx bx-phone input-icon"></i>
+                  {{ form.telephone }}
+                </div>
+                {% for err in form.telephone.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+                {% endfor %}
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="{{ form.telephone_2.id_for_label }}">Téléphone 2</label>
+                <div class="input-wrapper">
+                  <i class="bx bx-phone-call input-icon"></i>
+                  {{ form.telephone_2 }}
+                </div>
+                {% for err in form.telephone_2.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+                {% endfor %}
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right column -->
+      <div class="form-col">
+
+        <!-- Informations légales -->
+        <div class="form-card">
+          <div class="form-card__header">
+            <div class="section-eyebrow"><i class="bx bx-file"></i> Informations légales</div>
+          </div>
+          <div class="form-card__body">
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.nif.id_for_label }}">NIF</label>
+                <div class="input-wrapper">
+                  <i class="bx bx-id-card input-icon"></i>
+                  {{ form.nif }}
+                </div>
+                {% for err in form.nif.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+                {% endfor %}
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="{{ form.rc.id_for_label }}">RC</label>
+                <div class="input-wrapper">
+                  <i class="bx bx-receipt input-icon"></i>
+                  {{ form.rc }}
+                </div>
+                {% for err in form.rc.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+                {% endfor %}
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Contact -->
+        <div class="form-card">
+          <div class="form-card__header">
+            <div class="section-eyebrow"><i class="bx bxs-user-detail"></i> Contact</div>
+          </div>
+          <div class="form-card__body">
+
+            <div class="form-group">
+              <label class="form-label" for="{{ form.contact_nom.id_for_label }}">Nom du contact</label>
+              <div class="input-wrapper">
+                <i class="bx bxs-user input-icon"></i>
+                {{ form.contact_nom }}
+              </div>
+              {% for err in form.contact_nom.errors %}
+              <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="form-card">
+          <div class="form-card__header">
+            <div class="section-eyebrow"><i class="bx bx-note"></i> Notes</div>
+          </div>
+          <div class="form-card__body">
+
+            <div class="form-group" style="margin-bottom:0;">
+              <div class="input-wrapper input-wrapper--textarea">
+                {{ form.notes }}
+              </div>
+              {% for err in form.notes.errors %}
+              <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            </div>
+
+          </div>
+        </div>
+
+        {% if form.non_field_errors %}
+        <div class="field-error" style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:12px 14px;margin-bottom:4px;">
+          {% for err in form.non_field_errors %}
+          <div><i class="bx bxs-x-circle"></i> {{ err }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        <div class="form-actions-footer">
+          {% if object %}
+          <a href="{% url 'intrants:fournisseur_detail' object.pk %}" class="btn-ghost">Annuler</a>
+          {% else %}
+          <a href="{% url 'intrants:fournisseur_list' %}" class="btn-ghost">Annuler</a>
+          {% endif %}
+          <button type="submit" class="btn-primary">
+            <i class="bx bx-check"></i> {{ action_label }}
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    align-items: start;
+  }
+  @media (max-width: 860px) {
+    .form-grid { grid-template-columns: 1fr; }
+  }
+  .form-col { display: flex; flex-direction: column; gap: 18px; }
+  .form-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .form-card__header {
+    padding: 14px 20px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .form-card__body { padding: 20px; }
+  .section-eyebrow {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text-muted);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .section-eyebrow i { font-size: 13px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group:last-child { margin-bottom: 0; }
+  .form-group--checkbox { display: flex; flex-direction: column; gap: 4px; }
+  .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-label {
+    display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary);
+    letter-spacing: .03em; margin-bottom: 6px;
+  }
+  .form-required { color: #dc2626; }
+  .input-wrapper { position: relative; }
+  .input-wrapper--textarea { }
+  .input-icon {
+    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+    color: var(--text-muted); font-size: 15px; pointer-events: none;
+    transition: color .15s;
+  }
+  .input-wrapper:focus-within .input-icon { color: var(--accent-text); }
+  .input-wrapper input[type="text"],
+  .input-wrapper input[type="email"],
+  .input-wrapper select {
+    width: 100%; background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); color: var(--text-primary);
+    font-family: 'Inter', sans-serif; font-size: 13.5px;
+    padding: 10px 12px 10px 40px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .input-wrapper--textarea textarea {
+    width: 100%; background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); color: var(--text-primary);
+    font-family: 'Inter', sans-serif; font-size: 13.5px;
+    padding: 10px 12px; resize: vertical;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .input-wrapper input[type="text"]:focus,
+  .input-wrapper input[type="email"]:focus,
+  .input-wrapper select:focus,
+  .input-wrapper--textarea textarea:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none;
+  }
+  .input-wrapper input::placeholder,
+  .input-wrapper--textarea textarea::placeholder { color: var(--text-muted); }
+  .checkbox-label {
+    display: flex; align-items: center; gap: 9px;
+    font-size: 13.5px; color: var(--text-secondary); cursor: pointer;
+  }
+  .checkbox-label input[type="checkbox"] {
+    width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer;
+  }
+  .field-error {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 12px; color: #dc2626; margin-top: 5px;
+  }
+  .form-actions-footer {
+    display: flex; align-items: center; justify-content: flex-end;
+    gap: 10px; padding: 16px 20px;
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+  .btn-primary {
+    background: var(--accent); color: #fff; font-family: 'Nunito',sans-serif;
+    font-weight: 700; font-size: 13.5px; border: none; border-radius: var(--radius-md);
+    padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center;
+    gap: 6px; transition: opacity .18s; text-decoration: none;
+  }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+    font-family: 'Nunito',sans-serif; font-weight: 600; font-size: 13px;
+    border-radius: var(--radius-md); padding: 9px 16px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s, border-color .12s, color .12s; text-decoration: none;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+</style>
+{% endblock %}
+
+{% block extra_js %}{% endblock %}

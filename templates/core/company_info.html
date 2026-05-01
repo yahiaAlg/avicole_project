@@ -163,7 +163,7 @@
             <div class="field-group">
               <label class="field-label" for="{{ form.regime_fiscal.id_for_label }}">Régime fiscal</label>
               <div class="input-wrapper">
-                <i class="bx bxs-slider input-icon"></i>
+                <i class="bx bxs-cog input-icon"></i>
                 {{ form.regime_fiscal }}
               </div>
             </div>
@@ -172,7 +172,7 @@
             <div class="field-group">
               <label class="field-label" for="{{ form.taux_tva.id_for_label }}">Taux TVA (%)</label>
               <div class="input-wrapper">
-                <i class="bx bx-percent input-icon"></i>
+                <i class="bx bx-percentage input-icon"></i>
                 {{ form.taux_tva }}
               </div>
             </div>
@@ -453,6 +453,20 @@
   }
   .btn-primary:hover { opacity: .88; color: #fff; }
   .btn-primary:active { transform: scale(.99); }
+
+  /* Example: Customizing the percentage icon */
+  .bx-percentage {
+      color: #3498db;    /* Change color */
+      font-size: 24px;   /* Change size */
+      margin: 10px;      /* Add spacing */
+  }
+
+  /* Hover effect */
+  .bx-percentage:hover {
+      color: #2980b9;
+      transform: scale(1.1);
+  }
+
 
   /* Show mobile submit only on small screens */
   .form-actions-mobile { display: none; }

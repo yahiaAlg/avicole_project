@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+
+{% block nav_settings %}active{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}{% if object %}Modification du bâtiment {{ object.nom }}{% else %}Nouveau bâtiment d'élevage{% endif %}{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'intrants:batiment_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Retour à la liste
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+  <div class="form-page-grid">
+
+    <div class="form-card">
+      <div class="form-card__header">
+        <div class="section-eyebrow"><i class="bx bxs-home"></i> Informations du bâtiment</div>
+      </div>
+      <div class="form-card__body">
+        <form method="post" action="">
+          {% csrf_token %}
+
+          <!-- Nom -->
+          <div class="form-group">
+            <label class="form-label" for="{{ form.nom.id_for_label }}">
+              Nom / Numéro <span class="form-required">*</span>
+            </label>
+            <div class="input-wrapper">
+              <i class="bx bxs-home input-icon"></i>
+              {{ form.nom }}
+            </div>
+            {% for err in form.nom.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+            {% endfor %}
+          </div>
+
+          <!-- Capacité -->
+          <div class="form-group">
+            <label class="form-label" for="{{ form.capacite.id_for_label }}">
+              Capacité (têtes)
+            </label>
+            <div class="input-wrapper">
+              <i class="bx bxs-grid-alt input-icon"></i>
+              {{ form.capacite }}
+            </div>
+            <div class="form-hint">Nombre maximum de sujets que peut accueillir ce bâtiment.</div>
+            {% for err in form.capacite.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+            {% endfor %}
+          </div>
+
+          <!-- Description -->
+          <div class="form-group">
+            <label class="form-label" for="{{ form.description.id_for_label }}">Description</label>
+            <div class="input-wrapper input-wrapper--textarea">
+              {{ form.description }}
+            </div>
+            {% for err in form.description.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+            {% endfor %}
+          </div>
+
+          <!-- Actif -->
+          <div class="form-group form-group--checkbox">
+            <label class="checkbox-label">
+              {{ form.actif }}
+              <span>Bâtiment actif</span>
+            </label>
+            {% for err in form.actif.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+            {% endfor %}
+          </div>
+
+          {% if form.non_field_errors %}
+          <div class="field-error" style="margin-bottom:12px;">
+            {% for err in form.non_field_errors %}<div><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+          </div>
+          {% endif %}
+
+          <div class="form-actions">
+            <a href="{% url 'intrants:batiment_list' %}" class="btn-ghost">Annuler</a>
+            <button type="submit" class="btn-primary">
+              <i class="bx bx-check"></i> {{ action_label }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .form-page-grid { display:grid;grid-template-columns:minmax(0,520px);gap:18px; }
+  .form-card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden; }
+  .form-card__header { padding:18px 22px 14px;border-bottom:1px solid var(--border); }
+  .form-card__body { padding:22px; }
+  .section-eyebrow { font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);display:flex;align-items:center;gap:6px; }
+  .section-eyebrow i { font-size:13px; }
+  .form-group { margin-bottom:18px; }
+  .form-group--checkbox { display:flex;flex-direction:column;gap:4px; }
+  .form-label { display:block;font-size:12px;font-weight:500;color:var(--text-secondary);letter-spacing:.03em;margin-bottom:6px; }
+  .form-required { color:#dc2626; }
+  .form-hint { font-size:12px;color:var(--text-muted);margin-top:5px; }
+  .input-wrapper { position:relative; }
+  .input-icon { position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;transition:color .15s; }
+  .input-wrapper:focus-within .input-icon { color:var(--accent-text); }
+  .input-wrapper input[type="text"],
+  .input-wrapper input[type="number"] {
+    width:100%;background:var(--bg-surface);border:1px solid var(--border);
+    border-radius:var(--radius-md);color:var(--text-primary);
+    font-family:'Inter',sans-serif;font-size:13.5px;
+    padding:11px 13px 11px 40px;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  .input-wrapper input[type="text"]:focus,
+  .input-wrapper input[type="number"]:focus {
+    border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.15);outline:none;
+  }
+  .input-wrapper input::placeholder { color:var(--text-muted); }
+  .input-wrapper--textarea textarea {
+    width:100%;background:var(--bg-surface);border:1px solid var(--border);
+    border-radius:var(--radius-md);color:var(--text-primary);
+    font-family:'Inter',sans-serif;font-size:13.5px;
+    padding:10px 12px;resize:vertical;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  .input-wrapper--textarea textarea:focus {
+    border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.15);outline:none;
+  }
+  .checkbox-label { display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--text-secondary);cursor:pointer; }
+  .checkbox-label input[type="checkbox"] { width:16px;height:16px;accent-color:var(--accent);cursor:pointer; }
+  .field-error { display:flex;align-items:center;gap:5px;font-size:12px;color:#dc2626;margin-top:5px; }
+  .form-actions { display:flex;align-items:center;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid var(--border);margin-top:8px; }
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s,transform .12s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s,border-color .12s,color .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+</style>
+{% endblock %}
+
+{% block extra_js %}{% endblock %}

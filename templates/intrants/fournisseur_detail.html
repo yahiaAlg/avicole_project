@@ -1,0 +1,482 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ fournisseur.nom }} — Élevage Avicole{% endblock %}
+
+{% block nav_fournisseurs %}active{% endblock %}
+
+{% block page_title %}{{ fournisseur.nom }}{% endblock %}
+{% block page_sub_text %}
+  {% if fournisseur.type_principal %}{{ fournisseur.type_principal.libelle }} — {% endif %}
+  {% if fournisseur.actif %}Fournisseur actif{% else %}<span style="color:#dc2626;">Inactif</span>{% endif %}
+{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'intrants:fournisseur_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Fournisseurs
+  </a>
+  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'intrants:fournisseur_edit' fournisseur.pk %}" class="btn-primary">
+    <i class="bx bxs-pencil"></i> Modifier
+  </a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+
+  <!-- KPI row -->
+  <div class="kpi-row">
+    <div class="kpi-card kpi-card--danger">
+      <div class="kpi-card__label">Dette globale</div>
+      <div class="kpi-card__value">{{ solde.dette_globale|floatformat:0 }} <span class="kpi-currency">DZD</span></div>
+      <div class="kpi-card__sub">Factures non soldées</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-card__label">Acompte disponible</div>
+      <div class="kpi-card__value">{{ solde.acompte_disponible|floatformat:0 }} <span class="kpi-currency">DZD</span></div>
+      <div class="kpi-card__sub">Avances non imputées</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-card__label">Total réglements</div>
+      <div class="kpi-card__value">{{ solde.total_reglements|floatformat:0 }} <span class="kpi-currency">DZD</span></div>
+      <div class="kpi-card__sub">Cumul des paiements</div>
+    </div>
+    <div class="kpi-card {% if solde.nb_factures_retard > 0 %}kpi-card--warning{% endif %}">
+      <div class="kpi-card__label">Factures en retard</div>
+      <div class="kpi-card__value">{{ solde.nb_factures_retard }}</div>
+      <div class="kpi-card__sub">Dépassement d'échéance</div>
+    </div>
+  </div>
+
+  <div class="detail-grid">
+
+    <!-- Left: fiche fournisseur -->
+    <div class="detail-main">
+
+      <!-- Identité & coordonnées -->
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow">Fiche fournisseur</div>
+          {% if not request.user.userprofile.role == 'viewer' %}
+          <a href="{% url 'intrants:fournisseur_edit' fournisseur.pk %}" class="btn-ghost btn-sm">
+            <i class="bx bxs-pencil"></i> Modifier
+          </a>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="info-label">Nom</div>
+              <div class="info-value">{{ fournisseur.nom }}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Type principal</div>
+              <div class="info-value">
+                {% if fournisseur.type_principal %}
+                  <span class="pill-neutral">{{ fournisseur.type_principal.libelle }}</span>
+                {% else %}—{% endif %}
+              </div>
+            </div>
+            {% if fournisseur.adresse %}
+            <div class="info-item info-item--full">
+              <div class="info-label">Adresse</div>
+              <div class="info-value">{{ fournisseur.adresse }}</div>
+            </div>
+            {% endif %}
+            <div class="info-item">
+              <div class="info-label">Wilaya</div>
+              <div class="info-value">{{ fournisseur.wilaya|default:"—" }}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Téléphone</div>
+              <div class="info-value">{{ fournisseur.telephone|default:"—" }}</div>
+            </div>
+            {% if fournisseur.telephone_2 %}
+            <div class="info-item">
+              <div class="info-label">Téléphone 2</div>
+              <div class="info-value">{{ fournisseur.telephone_2 }}</div>
+            </div>
+            {% endif %}
+            <div class="info-item">
+              <div class="info-label">Email</div>
+              <div class="info-value">{{ fournisseur.email|default:"—" }}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Contact</div>
+              <div class="info-value">{{ fournisseur.contact_nom|default:"—" }}</div>
+            </div>
+            {% if fournisseur.nif %}
+            <div class="info-item">
+              <div class="info-label">NIF</div>
+              <div class="info-value"><code class="mono-code">{{ fournisseur.nif }}</code></div>
+            </div>
+            {% endif %}
+            {% if fournisseur.rc %}
+            <div class="info-item">
+              <div class="info-label">RC</div>
+              <div class="info-value"><code class="mono-code">{{ fournisseur.rc }}</code></div>
+            </div>
+            {% endif %}
+            <div class="info-item">
+              <div class="info-label">Statut</div>
+              <div class="info-value">
+                {% if fournisseur.actif %}
+                  <span class="pill-success"><i class="bx bxs-check-circle"></i> Actif</span>
+                {% else %}
+                  <span class="pill-neutral"><i class="bx bx-block"></i> Inactif</span>
+                {% endif %}
+              </div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Créé le</div>
+              <div class="info-value">{{ fournisseur.created_at|date:"d/m/Y" }}</div>
+            </div>
+          </div>
+          {% if fournisseur.notes %}
+          <div class="notes-block">
+            <div class="info-label" style="margin-bottom:6px;">Notes</div>
+            <div style="font-size:13px;color:var(--text-secondary);white-space:pre-wrap;">{{ fournisseur.notes }}</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- BLs récents -->
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow">BL Fournisseur récents</div>
+          <a href="{% url 'achats:bl_fournisseur_list' %}" class="btn-ghost btn-sm">
+            <i class="bx bx-list-ul"></i> Voir tous
+          </a>
+        </div>
+        {% if bls_recents %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>N° BL</th>
+                <th>Date</th>
+                <th>Statut</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for bl in bls_recents %}
+              <tr style="--row-i:{{ forloop.counter0 }};">
+                <td>
+                  <a href="{% url 'achats:bl_fournisseur_detail' bl.pk %}" class="row-link">
+                    <span style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ bl.numero_bl|default:"BL-"|add:bl.pk }}</span>
+                  </a>
+                </td>
+                <td style="color:var(--text-muted);">{{ bl.date_bl|date:"d/m/Y" }}</td>
+                <td>
+                  {% if bl.statut == 'brouillon' %}
+                    <span class="pill-neutral">Brouillon</span>
+                  {% elif bl.statut == 'livre' %}
+                    <span class="pill-success"><i class="bx bxs-check-circle"></i> Livré</span>
+                  {% elif bl.statut == 'facture' %}
+                    <span class="pill-info">Facturé</span>
+                  {% else %}
+                    <span class="pill-neutral">{{ bl.statut }}</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <div class="actions-cell">
+                    <a href="{% url 'achats:bl_fournisseur_detail' bl.pk %}" class="action-btn" title="Voir">
+                      <i class="bx bx-show"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state empty-state--sm">
+          <i class="bx bx-receipt empty-state__icon"></i>
+          <div class="empty-state__title">Aucun BL</div>
+          <div class="empty-state__body">Aucun bon de livraison enregistré pour ce fournisseur.</div>
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- Right: intrants liés + danger zone -->
+    <div class="detail-aside">
+
+      <!-- Intrants liés -->
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow">Intrants associés</div>
+        </div>
+        {% if intrants_lies %}
+        <div class="intrants-list">
+          {% for intrant in intrants_lies %}
+          <a href="{% url 'intrants:intrant_detail' intrant.pk %}" class="intrant-item">
+            <div>
+              <div class="intrant-item__name">{{ intrant.designation }}</div>
+              <div class="intrant-item__cat">{{ intrant.categorie.libelle }}</div>
+            </div>
+            <span class="intrant-item__unit">{{ intrant.unite_mesure }}</span>
+          </a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state empty-state--sm">
+          <i class="bx bx-package empty-state__icon"></i>
+          <div class="empty-state__title">Aucun intrant</div>
+          <div class="empty-state__body">Ce fournisseur n'est associé à aucun intrant actif.</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Danger zone (admin only) -->
+      {% if request.user.userprofile.is_admin %}
+      <div class="card card--danger">
+        <div class="card-header-row">
+          <div class="section-eyebrow" style="color:#dc2626;">Zone de danger</div>
+        </div>
+        <div class="card-body">
+          <div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:14px;">
+            La désactivation empêche ce fournisseur d'être sélectionné pour de nouveaux BL et Factures.
+            Les données existantes ne sont pas supprimées.
+          </div>
+          <button type="button"
+            id="toggle-active-btn"
+            class="{% if fournisseur.actif %}btn-danger{% else %}btn-success{% endif %} btn-block"
+            data-active="{{ fournisseur.actif|yesno:'true,false' }}"
+            data-nom="{{ fournisseur.nom }}">
+            {% if fournisseur.actif %}
+              <i class="bx bx-block"></i> Désactiver le fournisseur
+            {% else %}
+              <i class="bx bxs-check-circle"></i> Réactiver le fournisseur
+            {% endif %}
+          </button>
+        </div>
+      </div>
+
+      <!-- Confirm panel -->
+      <div id="confirm-toggle-panel" class="confirm-panel" style="display:none;">
+        <div class="confirm-panel__inner">
+          <div class="confirm-panel__icon" id="confirm-icon">
+            <i class="bx bx-block"></i>
+          </div>
+          <div>
+            <div class="confirm-panel__title" id="confirm-title"></div>
+            <div class="confirm-panel__body" id="confirm-body"></div>
+          </div>
+          <div class="confirm-panel__actions">
+            <button type="button" id="confirm-cancel-btn" class="btn-ghost">Annuler</button>
+            <form id="confirm-toggle-form" method="post"
+              action="{% url 'intrants:fournisseur_toggle_active' fournisseur.pk %}">
+              {% csrf_token %}
+              <button type="submit" id="confirm-submit-btn" class="btn-danger">Confirmer</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 900px) { .kpi-row { grid-template-columns: 1fr 1fr; } }
+  .kpi-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px;
+    animation: fadeIn .3s ease both;
+  }
+  .kpi-card--danger { border-color: rgba(239,68,68,.25); background: rgba(239,68,68,.04); }
+  .kpi-card--warning { border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.04); }
+  .kpi-card__label { font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+  .kpi-card__value { font-family: 'Nunito',sans-serif; font-weight: 800; font-size: 22px; color: var(--text-primary); line-height: 1; }
+  .kpi-card--danger .kpi-card__value { color: #dc2626; }
+  .kpi-card--warning .kpi-card__value { color: #b45309; }
+  .kpi-currency { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+  .kpi-card__sub { font-size: 11.5px; color: var(--text-muted); margin-top: 5px; }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 18px;
+    align-items: start;
+  }
+  @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
+  .detail-main { display: flex; flex-direction: column; gap: 18px; }
+  .detail-aside { display: flex; flex-direction: column; gap: 18px; }
+
+  .card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .card--danger { border-color: rgba(239,68,68,.2); }
+  .card-header-row {
+    padding: 14px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-body { padding: 20px; }
+  .section-eyebrow {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 20px;
+  }
+  .info-item { }
+  .info-item--full { grid-column: 1 / -1; }
+  .info-label { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+  .info-value { font-size: 13.5px; color: var(--text-primary); }
+  .mono-code {
+    font-family: 'Inter', monospace; font-size: 12px;
+    background: var(--bg-raised); padding: 2px 7px;
+    border-radius: var(--radius-sm); color: var(--accent-text);
+  }
+  .notes-block {
+    margin-top: 16px; padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--text-muted);
+    padding: 11px 14px; border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .data-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn .3s ease both;
+    animation-delay: calc(var(--row-i, 0) * 30ms);
+    transition: background .12s;
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: var(--bg-hover); }
+  .data-table td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); vertical-align: middle; }
+  .row-link { text-decoration: none; }
+  .row-link:hover span { color: var(--accent-text) !important; }
+  .actions-cell { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+  .action-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-muted); font-size: 14px; cursor: pointer;
+    transition: background .12s, color .12s; text-decoration: none;
+  }
+  .action-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+  .intrants-list { padding: 8px 0; }
+  .intrant-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 20px; text-decoration: none;
+    border-bottom: 1px solid var(--border);
+    transition: background .12s;
+  }
+  .intrant-item:last-child { border-bottom: none; }
+  .intrant-item:hover { background: var(--bg-hover); }
+  .intrant-item__name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .intrant-item__cat { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+  .intrant-item__unit {
+    font-size: 11px; font-weight: 500;
+    background: var(--bg-raised); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 2px 8px;
+    color: var(--text-muted);
+  }
+
+  .empty-state { text-align: center; padding: 36px 20px; color: var(--text-muted); }
+  .empty-state--sm { padding: 24px 20px; }
+  .empty-state__icon { font-size: 28px; display: block; margin-bottom: 10px; color: var(--border-strong); }
+  .empty-state__title { font-family: 'Nunito',sans-serif; font-size: 14px; font-weight: 700; color: var(--text-secondary); margin-bottom: 5px; }
+  .empty-state__body { font-size: 12.5px; }
+
+  .pill-success { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(34,197,94,.14);color:#15803d; }
+  .pill-neutral { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(0,0,0,.06);color:var(--text-secondary); }
+  .pill-info { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(59,130,246,.12);color:#1d4ed8; }
+  .pill-warning { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(245,158,11,.14);color:#b45309; }
+
+  .btn-block { width: 100%; justify-content: center; }
+  .btn-sm { padding: 7px 12px; font-size: 12.5px; }
+
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+  .btn-danger { background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.22);color:#dc2626;font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s; }
+  .btn-danger:hover { background:rgba(239,68,68,.18); }
+  .btn-success { background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.24);color:var(--accent-text);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s; }
+  .btn-success:hover { background:rgba(34,197,94,.2); }
+
+  .confirm-panel { position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:500;display:flex !important;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s ease; }
+  .confirm-panel[style*="display:none"] { display:none !important; }
+  .confirm-panel__inner { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;max-width:420px;width:100%;display:flex;flex-direction:column;gap:16px;box-shadow:0 8px 32px rgba(0,0,0,.14); }
+  .confirm-panel__icon { width:44px;height:44px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:20px;background:rgba(239,68,68,.1);color:#dc2626; }
+  .confirm-panel__icon.activate { background:rgba(34,197,94,.12);color:var(--accent-text); }
+  .confirm-panel__title { font-family:'Nunito',sans-serif;font-weight:700;font-size:15px;color:var(--text-primary);margin-bottom:4px; }
+  .confirm-panel__body { font-size:13px;color:var(--text-secondary); }
+  .confirm-panel__actions { display:flex;gap:10px;justify-content:flex-end; }
+  .confirm-panel__actions form { margin:0; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+{% if request.user.userprofile.is_admin %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const toggleBtn  = document.getElementById('toggle-active-btn');
+  if (!toggleBtn) return;
+  const panel      = document.getElementById('confirm-toggle-panel');
+  const panelIcon  = document.getElementById('confirm-icon');
+  const panelTitle = document.getElementById('confirm-title');
+  const panelBody  = document.getElementById('confirm-body');
+  const cancelBtn  = document.getElementById('confirm-cancel-btn');
+  const submitBtn  = document.getElementById('confirm-submit-btn');
+  const nom        = toggleBtn.dataset.nom;
+  const isActive   = toggleBtn.dataset.active === 'true';
+
+  toggleBtn.addEventListener('click', function () {
+    if (isActive) {
+      panelIcon.className = 'confirm-panel__icon';
+      panelIcon.innerHTML = '<i class="bx bx-block"></i>';
+      panelTitle.textContent = 'Désactiver le fournisseur ?';
+      panelBody.innerHTML = 'Le fournisseur <strong>' + nom + '</strong> sera désactivé. Les données existantes sont conservées.';
+      submitBtn.textContent = 'Désactiver';
+      submitBtn.className = 'btn-danger';
+    } else {
+      panelIcon.className = 'confirm-panel__icon activate';
+      panelIcon.innerHTML = '<i class="bx bxs-check-circle"></i>';
+      panelTitle.textContent = 'Réactiver le fournisseur ?';
+      panelBody.innerHTML = 'Le fournisseur <strong>' + nom + '</strong> sera réactivé.';
+      submitBtn.textContent = 'Réactiver';
+      submitBtn.className = 'btn-success';
+    }
+    panel.style.display = '';
+  });
+
+  cancelBtn.addEventListener('click', function () { panel.style.display = 'none'; });
+  panel.addEventListener('click', function (e) { if (e.target === panel) panel.style.display = 'none'; });
+});
+</script>
+{% endif %}
+{% endblock %}
