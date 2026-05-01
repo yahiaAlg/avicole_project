@@ -1,148 +1,96 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Tableau de Bord — Élevage Avicole{% endblock %}
+{% block title %}Tableau de bord — Élevage Avicole{% endblock %}
 {% block nav_dashboard %}active{% endblock %}
 
-{% block page_title %}Tableau de Bord{% endblock %}
-{% block page_sub_text %}Vue d'ensemble de l'exploitation — {{ lots_ouverts_count }} lot{{ lots_ouverts_count|pluralize }} ouvert{{ lots_ouverts_count|pluralize }}{% endblock %}
+{% block page_title %}Tableau de bord{% endblock %}
+{% block page_sub_text %}Vue d'ensemble · {% now "d/m/Y" %}{% endblock %}
 
 {% block topbar_actions %}
-  <a href="{% url 'elevage:lot_create' %}" class="btn-primary btn-sm">
+{% if request.user.profile %}
+  {% if not request.user.profile.role == 'viewer' %}
+  <a href="{% url 'elevage:lot_create' %}" class="btn-primary">
     <i class="bx bx-plus"></i> Nouveau Lot
   </a>
+  {% endif %}
+{% endif %}
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost">
+  <i class="bx bxs-bar-chart-alt-2"></i> Rapports
+</a>
 {% endblock %}
 
 {% block content %}
 
-<!-- ── KPI Row ─────────────────────────────── -->
+{# ── KPI Metric Cards (populated via AJAX) ─────────────────────────────── #}
 <div class="row g-3 mb-4">
 
-  <!-- Lots ouverts -->
   <div class="col-xl-3 col-md-6">
-    <a href="{% url 'elevage:lot_list' %}" style="text-decoration:none;">
-      <div class="metric-card">
-        <div class="metric-icon ic-green"><i class="bx bxs-grid-alt"></i></div>
-        <div class="metric-label">Lots ouverts</div>
-        <div class="metric-value">{{ lots_ouverts_count }}</div>
-        <span class="metric-delta {% if lots_ouverts_count > 0 %}up{% else %}neutral{% endif %}">
-          <i class="bx bxs-grid-alt"></i> lots actifs
-        </span>
-      </div>
-    </a>
+    <div class="metric-card">
+      <div class="metric-icon ic-green"><i class="bx bxs-grid-alt"></i></div>
+      <div class="metric-label">Lots Ouverts</div>
+      <div class="metric-value" id="kv-lots"><span class="kpi-skel"></span></div>
+      <span class="metric-delta neutral" id="kd-lots" style="display:none;"></span>
+    </div>
   </div>
 
-  <!-- Dette fournisseurs -->
   <div class="col-xl-3 col-md-6">
-    <a href="{% url 'achats:facture_fournisseur_list' %}" style="text-decoration:none;">
-      <div class="metric-card">
-        <div class="metric-icon ic-red"><i class="bx bx-hourglass"></i></div>
-        <div class="metric-label">Dette Fournisseurs</div>
-        <div class="metric-value sm {% if dette_globale_total > 0 %}val-danger{% endif %}">
-          {{ dette_globale_total|floatformat:0 }} DZD
-        </div>
-        {% if factures_fournisseur_retard > 0 %}
-        <span class="metric-delta down">
-          <i class="bx bxs-error-circle"></i> {{ factures_fournisseur_retard }} facture{{ factures_fournisseur_retard|pluralize }} en retard
-        </span>
-        {% else %}
-        <span class="metric-delta neutral">
-          <i class="bx bxs-check-circle"></i> Aucune en retard
-        </span>
-        {% endif %}
-      </div>
-    </a>
+    <div class="metric-card">
+      <div class="metric-icon ic-amber"><i class="bx bxs-coin"></i></div>
+      <div class="metric-label">Dette Fournisseurs</div>
+      <div class="metric-value sm" id="kv-dette"><span class="kpi-skel wide"></span></div>
+      <span class="metric-delta neutral" id="kd-dette" style="display:none;"></span>
+    </div>
   </div>
 
-  <!-- Créances clients -->
   <div class="col-xl-3 col-md-6">
-    <a href="{% url 'clients:facture_client_list' %}" style="text-decoration:none;">
-      <div class="metric-card">
-        <div class="metric-icon ic-blue"><i class="bx bxs-receipt"></i></div>
-        <div class="metric-label">Créances Clients</div>
-        <div class="metric-value sm {% if creance_globale_total > 0 %}val-warn{% endif %}">
-          {{ creance_globale_total|floatformat:0 }} DZD
-        </div>
-        {% if factures_client_retard > 0 %}
-        <span class="metric-delta down">
-          <i class="bx bxs-error-circle"></i> {{ factures_client_retard }} facture{{ factures_client_retard|pluralize }} en retard
-        </span>
-        {% else %}
-        <span class="metric-delta neutral">
-          <i class="bx bxs-check-circle"></i> Aucune en retard
-        </span>
-        {% endif %}
-      </div>
-    </a>
+    <div class="metric-card">
+      <div class="metric-icon ic-blue"><i class="bx bxs-receipt"></i></div>
+      <div class="metric-label">Créances Clients</div>
+      <div class="metric-value sm" id="kv-creances"><span class="kpi-skel wide"></span></div>
+      <span class="metric-delta neutral" id="kd-creances" style="display:none;"></span>
+    </div>
   </div>
 
-  <!-- Alertes stock -->
   <div class="col-xl-3 col-md-6">
-    <a href="{% url 'stock:stock_intrant_list' %}" style="text-decoration:none;">
-      <div class="metric-card">
-        <div class="metric-icon {% if nb_alertes_intrants > 0 or nb_alertes_produits > 0 %}ic-amber{% else %}ic-green{% endif %}">
-          <i class="bx bxs-archive"></i>
-        </div>
-        <div class="metric-label">Alertes Stock</div>
-        <div class="metric-value {% if nb_alertes_intrants > 0 or nb_alertes_produits > 0 %}val-warn{% endif %}">
-          {{ nb_alertes_intrants|add:nb_alertes_produits }}
-        </div>
-        <span class="metric-delta {% if nb_alertes_intrants > 0 or nb_alertes_produits > 0 %}warn{% else %}up{% endif %}">
-          <i class="bx {% if nb_alertes_intrants > 0 or nb_alertes_produits > 0 %}bxs-error{% else %}bxs-check-circle{% endif %}"></i>
-          {{ nb_alertes_intrants }} intrant{{ nb_alertes_intrants|pluralize }}, {{ nb_alertes_produits }} produit{{ nb_alertes_produits|pluralize }}
-        </span>
-      </div>
-    </a>
+    <div class="metric-card">
+      <div class="metric-icon ic-red"><i class="bx bxs-error"></i></div>
+      <div class="metric-label">Alertes Stock</div>
+      <div class="metric-value" id="kv-alertes"><span class="kpi-skel"></span></div>
+      <span class="metric-delta neutral" id="kd-alertes" style="display:none;"></span>
+    </div>
   </div>
 
-</div><!-- /KPI row -->
-
-<!-- ── Alert banners ────────────────────────── -->
-{% if bls_non_factures > 0 %}
-<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.20);border-radius:var(--radius-md);padding:11px 16px;display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-  <i class="bx bxs-truck" style="color:#b45309;font-size:15px;flex-shrink:0;"></i>
-  <span style="font-size:13px;color:var(--text-secondary);flex:1;">
-    <strong>{{ bls_non_factures }}</strong> BL fournisseur{{ bls_non_factures|pluralize }} reçu{{ bls_non_factures|pluralize }} en attente de facturation.
-  </span>
-  <a href="{% url 'achats:bl_fournisseur_list' %}" class="btn-ghost btn-sm">Voir les BL</a>
 </div>
-{% endif %}
 
-{% if bls_client_non_factures > 0 %}
-<div style="background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.20);border-radius:var(--radius-md);padding:11px 16px;display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-  <i class="bx bx-link-external" style="color:#0284c7;font-size:15px;flex-shrink:0;"></i>
-  <span style="font-size:13px;color:var(--text-secondary);flex:1;">
-    <strong>{{ bls_client_non_factures }}</strong> BL client{{ bls_client_non_factures|pluralize }} livré{{ bls_client_non_factures|pluralize }} en attente de facturation.
-  </span>
-  <a href="{% url 'clients:bl_client_list' %}" class="btn-ghost btn-sm">Voir les BL</a>
-</div>
-{% endif %}
+{# ── Main row: Lots actifs + Points d'attention ────────────────────────── #}
+<div class="row g-3 mb-4">
 
-<!-- ── Main 2-col layout ─────────────────────── -->
-<div class="row g-3">
-
-  <!-- LEFT: Lots actifs -->
-  <div class="col-xl-7">
-    <div class="section-card">
+  {# Lots en cours #}
+  <div class="col-xl-8">
+    <div class="section-card h-100">
       <div class="section-card__head">
-        <span class="section-card__title"><i class="bx bxs-grid-alt" style="color:var(--accent-text);margin-right:6px;"></i>Lots d'Élevage Actifs</span>
+        <span class="section-card__title">
+          <i class="bx bxs-grid-alt" style="color:var(--accent);margin-right:8px;"></i>Lots en cours
+        </span>
         <a href="{% url 'elevage:lot_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
           Voir tout <i class="bx bx-right-arrow-alt"></i>
         </a>
       </div>
       <div class="section-card__body">
         {% if lots_actifs %}
-          <div style="display:flex;flex-direction:column;gap:12px;">
-            {% for lot in lots_actifs %}
-            <a href="{% url 'elevage:lot_detail' lot.pk %}" style="text-decoration:none;">
-              <div class="lot-card stagger-row">
+        <div class="row g-3">
+          {% for lot in lots_actifs %}
+          <div class="col-md-6">
+            <a href="{% url 'elevage:lot_detail' lot.pk %}" style="text-decoration:none;display:block;">
+              <div class="lot-card">
                 <div class="lot-card__header">
                   <span class="lot-card__name">{{ lot.designation }}</span>
-                  <span class="pill-success pill-base">Ouvert</span>
+                  <span class="pill-base pill-success">Ouvert</span>
                 </div>
                 <div class="lot-card__grid">
                   <div>
-                    <div class="lot-stat-label">Effectif vivant</div>
+                    <div class="lot-stat-label">Effectif</div>
                     <div class="lot-stat-val">{{ lot.effectif_vivant|floatformat:0 }}</div>
                   </div>
                   <div>
@@ -152,106 +100,459 @@
                     </div>
                   </div>
                   <div>
-                    <div class="lot-stat-label">Bâtiment</div>
-                    <div class="lot-stat-val" style="font-size:14px;">{{ lot.batiment.nom }}</div>
+                    <div class="lot-stat-label">Jours</div>
+                    <div class="lot-stat-val">{{ lot.duree_elevage }}j</div>
                   </div>
                   <div>
-                    <div class="lot-stat-label">Jours</div>
-                    <div class="lot-stat-val">{{ lot.duree_elevage }}</div>
+                    <div class="lot-stat-label">Bâtiment</div>
+                    <div class="lot-stat-val" style="font-size:13px;font-weight:600;">{{ lot.batiment.nom }}</div>
                   </div>
                 </div>
               </div>
             </a>
-            {% endfor %}
           </div>
+          {% endfor %}
+        </div>
         {% else %}
-          <div class="empty-state">
-            <i class="bx bxs-grid-alt empty-state__icon"></i>
-            <div class="empty-state__title">Aucun lot ouvert</div>
-            <div class="empty-state__text">Créez un nouveau lot pour démarrer l'élevage.</div>
-            <a href="{% url 'elevage:lot_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
-              <i class="bx bx-plus"></i> Créer un Lot
-            </a>
-          </div>
+        <div class="empty-state">
+          <i class="bx bxs-grid-alt empty-state__icon"></i>
+          <div class="empty-state__title">Aucun lot ouvert</div>
+          <div class="empty-state__text">Ouvrez un nouveau lot pour commencer le suivi d'élevage.</div>
+          {% if not request.user.profile.role == 'viewer' %}
+          <a href="{% url 'elevage:lot_create' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
+            <i class="bx bx-plus"></i> Nouveau Lot
+          </a>
+          {% endif %}
+        </div>
         {% endif %}
       </div>
     </div>
   </div>
 
-  <!-- RIGHT: Recent stock movements + quick alerts -->
-  <div class="col-xl-5">
-
-    <!-- Stock alerts summary -->
-    {% if alertes_stock.intrants or alertes_stock.produits_finis %}
-    <div class="section-card" style="margin-bottom:14px;">
+  {# Points d'attention #}
+  <div class="col-xl-4">
+    <div class="section-card h-100">
       <div class="section-card__head">
-        <span class="section-card__title"><i class="bx bxs-error" style="color:#b45309;margin-right:6px;"></i>Alertes Stock</span>
-        <a href="{% url 'stock:stock_intrant_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
-          Gérer <i class="bx bx-right-arrow-alt"></i>
-        </a>
-      </div>
-      <div class="section-card__body no-pad">
-        {% for item in alertes_stock.intrants %}
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);font-size:12.5px;">
-          <span style="color:var(--text-secondary);">{{ item.intrant.designation }}</span>
-          <span class="pill-warning pill-base">{{ item.quantite|floatformat:0 }} {{ item.intrant.unite_mesure }}</span>
-        </div>
-        {% endfor %}
-        {% for item in alertes_stock.produits_finis %}
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);font-size:12.5px;">
-          <span style="color:var(--text-secondary);">{{ item.produit_fini.designation }}</span>
-          <span class="pill-warning pill-base">{{ item.quantite|floatformat:0 }} {{ item.produit_fini.unite_mesure }}</span>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- Recent stock movements -->
-    <div class="section-card">
-      <div class="section-card__head">
-        <span class="section-card__title"><i class="bx bxs-archive" style="color:var(--accent-text);margin-right:6px;"></i>Mouvements Récents</span>
-        <a href="{% url 'stock:stock_mouvement_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
-          Voir tout <i class="bx bx-right-arrow-alt"></i>
-        </a>
-      </div>
-      <div class="section-card__body no-pad">
-        {% if mouvements_recents %}
-        {% for mvt in mouvements_recents %}
-        <div class="stagger-row" style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);">
-          <div style="width:28px;height:28px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0;
-            {% if mvt.type_mouvement == 'entree' %}background:var(--success-bg);{% elif mvt.type_mouvement == 'sortie' %}background:var(--danger-bg);{% else %}background:var(--warning-bg);{% endif %}">
-            <i class="bx {% if mvt.type_mouvement == 'entree' %}bx-trending-up{% elif mvt.type_mouvement == 'sortie' %}bx-trending-down{% else %}bx-transfer{% endif %}"
-               style="font-size:13px;{% if mvt.type_mouvement == 'entree' %}color:#16a34a;{% elif mvt.type_mouvement == 'sortie' %}color:#dc2626;{% else %}color:#b45309;{% endif %}"></i>
-          </div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:12.5px;color:var(--text-primary);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-              {% if mvt.intrant %}{{ mvt.intrant.designation }}{% elif mvt.produit_fini %}{{ mvt.produit_fini.designation }}{% endif %}
-            </div>
-            <div style="font-size:11px;color:var(--text-muted);">{{ mvt.get_source_display }} · {{ mvt.date_mouvement|date:"d/m/Y" }}</div>
-          </div>
-          <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:12.5px;white-space:nowrap;
-            {% if mvt.type_mouvement == 'entree' %}color:#16a34a;{% elif mvt.type_mouvement == 'sortie' %}color:#dc2626;{% else %}color:#b45309;{% endif %}">
-            {% if mvt.type_mouvement == 'entree' %}+{% elif mvt.type_mouvement == 'sortie' %}−{% endif %}{{ mvt.quantite|floatformat:0 }}
-          </div>
-        </div>
-        {% endfor %}
-        {% else %}
-          <div class="empty-state" style="padding:28px 20px;">
-            <i class="bx bxs-archive empty-state__icon" style="font-size:24px;"></i>
-            <div class="empty-state__text">Aucun mouvement récent</div>
-          </div>
+        <span class="section-card__title">
+          <i class="bx bxs-error" style="color:#b45309;margin-right:8px;"></i>Points d'attention
+        </span>
+        {% if total_alertes > 0 %}
+        <span class="pill-base pill-danger">{{ total_alertes }}</span>
         {% endif %}
       </div>
-    </div>
+      <div class="section-card__body no-pad">
 
-  </div><!-- /col right -->
-</div><!-- /row -->
+        {% if bls_non_factures > 0 %}
+        <a href="{% url 'achats:bl_fournisseur_list' %}" class="alert-item-row">
+          <div class="alert-item-icon ic-amber"><i class="bx bxs-truck"></i></div>
+          <div class="alert-item-text">
+            <div class="alert-item-label">BL Fournisseurs non facturés</div>
+            <div class="alert-item-sub">En attente de facturation</div>
+          </div>
+          <span class="pill-base pill-warning">{{ bls_non_factures }}</span>
+        </a>
+        {% endif %}
+
+        {% if factures_fournisseur_retard > 0 %}
+        <a href="{% url 'achats:facture_fournisseur_list' %}" class="alert-item-row">
+          <div class="alert-item-icon ic-red"><i class="bx bxs-file-txt"></i></div>
+          <div class="alert-item-text">
+            <div class="alert-item-label">Factures fournisseurs en retard</div>
+            <div class="alert-item-sub">Échéance dépassée — règlement urgent</div>
+          </div>
+          <span class="pill-base pill-danger">{{ factures_fournisseur_retard }}</span>
+        </a>
+        {% endif %}
+
+        {% if bls_client_non_factures > 0 %}
+        <a href="{% url 'clients:bl_client_list' %}" class="alert-item-row">
+          <div class="alert-item-icon ic-blue"><i class="bx bx-link-external"></i></div>
+          <div class="alert-item-text">
+            <div class="alert-item-label">BL Clients non facturés</div>
+            <div class="alert-item-sub">Livrés, en attente de facturation</div>
+          </div>
+          <span class="pill-base pill-info">{{ bls_client_non_factures }}</span>
+        </a>
+        {% endif %}
+
+        {% if factures_client_retard > 0 %}
+        <a href="{% url 'clients:facture_client_list' %}" class="alert-item-row">
+          <div class="alert-item-icon ic-red"><i class="bx bxs-receipt"></i></div>
+          <div class="alert-item-text">
+            <div class="alert-item-label">Factures clients en retard</div>
+            <div class="alert-item-sub">Recouvrement à relancer</div>
+          </div>
+          <span class="pill-base pill-danger">{{ factures_client_retard }}</span>
+        </a>
+        {% endif %}
+
+        {% if nb_alertes_intrants > 0 %}
+        <a href="{% url 'stock:stock_intrant_list' %}" class="alert-item-row">
+          <div class="alert-item-icon ic-orange"><i class="bx bxs-archive"></i></div>
+          <div class="alert-item-text">
+            <div class="alert-item-label">Intrants sous seuil d'alerte</div>
+            <div class="alert-item-sub">Stock en dessous du minimum</div>
+          </div>
+          <span class="pill-base pill-warning">{{ nb_alertes_intrants }}</span>
+        </a>
+        {% endif %}
+
+        {% if nb_alertes_produits > 0 %}
+        <a href="{% url 'stock:stock_produit_fini_list' %}" class="alert-item-row">
+          <div class="alert-item-icon ic-orange"><i class="bx bxs-badge-check"></i></div>
+          <div class="alert-item-text">
+            <div class="alert-item-label">Produits finis sous seuil</div>
+            <div class="alert-item-sub">Stock en dessous du minimum</div>
+          </div>
+          <span class="pill-base pill-warning">{{ nb_alertes_produits }}</span>
+        </a>
+        {% endif %}
+
+        {% if total_alertes == 0 and bls_non_factures == 0 and bls_client_non_factures == 0 %}
+        <div class="empty-state" style="padding:36px 20px;">
+          <i class="bx bxs-check-circle empty-state__icon" style="color:var(--accent);"></i>
+          <div class="empty-state__title">Tout est en ordre</div>
+          <div class="empty-state__text">Aucun point d'attention détecté.</div>
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{# ── Charts row ────────────────────────────────────────────────────────── #}
+<div class="row g-3 mb-4">
+
+  <div class="col-xl-6">
+    <div class="section-card">
+      <div class="section-card__head">
+        <span class="section-card__title">Position Financière</span>
+        <span style="font-size:11px;color:var(--text-muted);">Dette vs Créances</span>
+      </div>
+      <div class="section-card__body" style="height:260px;display:flex;align-items:center;justify-content:center;">
+        <div id="chartFinancierWrap" style="position:relative;width:100%;height:240px;">
+          <canvas id="chartFinancier"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-6">
+    <div class="section-card">
+      <div class="section-card__head">
+        <span class="section-card__title">Alertes Opérationnelles</span>
+        <span style="font-size:11px;color:var(--text-muted);">Indicateurs clés</span>
+      </div>
+      <div class="section-card__body" style="height:260px;">
+        <canvas id="chartAlertes" style="height:240px;"></canvas>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{# ── Mouvements de stock récents ───────────────────────────────────────── #}
+<div class="section-card">
+  <div class="section-card__head">
+    <span class="section-card__title">
+      <i class="bx bxs-archive" style="color:var(--text-muted);margin-right:8px;"></i>Mouvements de stock récents
+    </span>
+    <a href="{% url 'stock:stock_mouvement_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
+      Voir tout <i class="bx bx-right-arrow-alt"></i>
+    </a>
+  </div>
+  <div class="section-card__body no-pad">
+    {% if mouvements_recents %}
+    <table class="table-base">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Article</th>
+          <th>Source</th>
+          <th>Référence</th>
+          <th style="text-align:right;">Quantité</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in mouvements_recents %}
+        <tr class="stagger-row">
+          <td style="color:var(--text-muted);white-space:nowrap;">{{ m.date_mouvement|date:"d/m/Y" }}</td>
+          <td>
+            {% if m.type_mouvement == 'entree' %}
+            <span class="pill-base pill-success"><i class="bx bx-trending-up"></i> Entrée</span>
+            {% elif m.type_mouvement == 'sortie' %}
+            <span class="pill-base pill-danger"><i class="bx bx-trending-down"></i> Sortie</span>
+            {% else %}
+            <span class="pill-base pill-warning"><i class="bx bx-transfer"></i> Ajustement</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="val-money">
+              {% if m.intrant %}{{ m.intrant.designation }}{% elif m.produit_fini %}{{ m.produit_fini.designation }}{% else %}—{% endif %}
+            </span>
+          </td>
+          <td style="color:var(--text-muted);font-size:12px;">{{ m.get_source_display }}</td>
+          <td class="text-mono" style="font-size:12px;color:var(--text-muted);">{{ m.reference_label|default:"—" }}</td>
+          <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
+            {{ m.quantite|floatformat:2 }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bxs-archive empty-state__icon"></i>
+      <div class="empty-state__title">Aucun mouvement enregistré</div>
+      <div class="empty-state__text">Les mouvements de stock apparaîtront ici.</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
 
 {% endblock %}
 
+
 {% block extra_css %}
 <style>
-  .lot-card { cursor: pointer; }
+/* ── KPI skeleton loader ─────────────────────────────────────────────── */
+.kpi-skel {
+  display: inline-block;
+  height: 22px;
+  width: 56px;
+  background: linear-gradient(90deg, var(--bg-raised) 25%, var(--bg-hover) 50%, var(--bg-raised) 75%);
+  background-size: 200% 100%;
+  border-radius: 4px;
+  animation: skel-shimmer 1.4s infinite;
+}
+.kpi-skel.wide { width: 120px; }
+@keyframes skel-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Alert item rows in the attention panel ──────────────────────────── */
+.alert-item-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.12s;
+}
+.alert-item-row:last-child { border-bottom: none; }
+.alert-item-row:hover { background: var(--bg-raised); }
+.alert-item-icon {
+  width: 36px; height: 36px;
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.alert-item-text { flex: 1; min-width: 0; }
+.alert-item-label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.alert-item-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ── Lot cards hover ─────────────────────────────────────────────────── */
+.lot-card { transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s; }
+.lot-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(34,197,94,.10);
+}
+
+/* ── Section card full height utility ────────────────────────────────── */
+.h-100 { height: 100%; }
 </style>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  /* ── Design system chart color sequence ─────────────────────────── */
+  var DS = {
+    green:  '#22c55e',
+    blue:   '#38bdf8',
+    amber:  '#f59e0b',
+    violet: '#c4b5fd',
+    orange: '#fb923c',
+    teal:   '#5eead4',
+    red:    '#f87171',
+  };
+
+  var tipConfig = {
+    backgroundColor: '#ffffff',
+    borderColor:     'rgba(0,0,0,.12)',
+    borderWidth:     1,
+    titleColor:      '#1a2219',
+    bodyColor:       '#3d5242',
+    padding:         10,
+    cornerRadius:    8,
+  };
+
+  function fmtDZD(n) {
+    return new Intl.NumberFormat('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(Math.round(n)) + ' DZD';
+  }
+
+  /* ── Fetch KPI data from reporting AJAX endpoint ─────────────────── */
+  var kpiUrl = "{% url 'reporting:kpi_summary_json' %}";
+
+  fetch(kpiUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+
+      /* Populate KPI cards */
+      document.getElementById('kv-lots').textContent    = d.nb_lots_ouverts;
+      document.getElementById('kv-dette').textContent   = fmtDZD(d.dette_fournisseurs_totale);
+      document.getElementById('kv-creances').textContent = fmtDZD(d.creances_clients_totale);
+      document.getElementById('kv-alertes').textContent = d.nb_stocks_en_alerte + d.nb_ruptures_stock;
+
+      /* Delta badges */
+      function showDelta(id, count, label) {
+        if (count > 0) {
+          var el = document.getElementById(id);
+          if (!el) return;
+          el.innerHTML = '<i class="bx bxs-error"></i> ' + count + ' ' + label;
+          el.className = 'metric-delta down';
+          el.style.display = '';
+        }
+      }
+      showDelta('kd-dette',    d.nb_factures_fournisseur_retard, 'en retard');
+      showDelta('kd-creances', d.nb_factures_client_retard,      'en retard');
+      if (d.nb_ruptures_stock > 0) {
+        showDelta('kd-alertes', d.nb_ruptures_stock, 'rupture(s)');
+      }
+
+      /* Draw charts */
+      drawFinancialChart(d);
+      drawAlertChart(d);
+    })
+    .catch(function () {
+      ['kv-lots','kv-dette','kv-creances','kv-alertes'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = '—';
+      });
+    });
+
+  /* ── Doughnut: Position Financière ──────────────────────────────── */
+  function drawFinancialChart(d) {
+    var canvas = document.getElementById('chartFinancier');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    var total = d.dette_fournisseurs_totale + d.creances_clients_totale;
+    if (total === 0) {
+      document.getElementById('chartFinancierWrap').innerHTML =
+        '<div style="text-align:center;padding:48px 20px;color:var(--text-muted);font-size:13px;">' +
+        '<i class="bx bxs-check-circle" style="font-size:28px;display:block;margin-bottom:8px;color:var(--accent);"></i>' +
+        'Aucune dette ni créance en cours</div>';
+      return;
+    }
+
+    new Chart(canvas, {
+      type: 'doughnut',
+      data: {
+        labels: ['Dette Fournisseurs', 'Créances Clients'],
+        datasets: [{
+          data:            [d.dette_fournisseurs_totale, d.creances_clients_totale],
+          backgroundColor: [DS.amber, DS.blue],
+          borderColor:     '#ffffff',
+          borderWidth:     3,
+        }]
+      },
+      options: {
+        cutout: '68%',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { padding: 16, font: { size: 11 } }
+          },
+          tooltip: Object.assign({}, tipConfig, {
+            callbacks: {
+              label: function (ctx) {
+                return ctx.label + ' : ' + fmtDZD(ctx.raw);
+              }
+            }
+          })
+        }
+      }
+    });
+  }
+
+  /* ── Horizontal bar: Alertes Opérationnelles ─────────────────────── */
+  function drawAlertChart(d) {
+    var canvas = document.getElementById('chartAlertes');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: [
+          'Lots ouverts',
+          'Stock seuil',
+          'Ruptures stock',
+          'Fact. fourn. retard',
+          'Fact. client retard'
+        ],
+        datasets: [{
+          label: 'Nombre',
+          data: [
+            d.nb_lots_ouverts,
+            d.nb_stocks_en_alerte,
+            d.nb_ruptures_stock,
+            d.nb_factures_fournisseur_retard,
+            d.nb_factures_client_retard
+          ],
+          backgroundColor: [DS.green, DS.amber, DS.red, DS.orange, DS.red],
+          borderRadius: 6,
+          borderSkipped: false,
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: tipConfig
+        },
+        scales: {
+          x: {
+            grid:  { color: 'rgba(0,0,0,0.05)', drawBorder: false },
+            ticks: { color: '#7a8c78', font: { size: 10.5 } },
+            beginAtZero: true
+          },
+          y: {
+            grid:  { display: false },
+            ticks: { color: '#7a8c78', font: { size: 10.5 } }
+          }
+        }
+      }
+    });
+  }
+
+});
+</script>
 {% endblock %}
