@@ -1,115 +1,121 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Lots d'Élevage — Élevage Avicole{% endblock %}
+{% block title %}Lots d'élevage — Élevage Avicole{% endblock %}
+
 {% block nav_lots %}active{% endblock %}
 
 {% block page_title %}Lots d'Élevage{% endblock %}
-{% block page_sub_text %}{{ nb_ouverts }} ouvert{{ nb_ouverts|pluralize }} · {{ nb_fermes }} fermé{{ nb_fermes|pluralize }} · {{ page.paginator.count }} total{% endblock %}
+{% block page_sub_text %}{{ nb_ouverts }} ouvert{{ nb_ouverts|pluralize }} · {{ nb_fermes }} clôturé{{ nb_fermes|pluralize }}{% endblock %}
 
 {% block topbar_actions %}
-{% if request.user.userprofile %}
-  {% if not request.user.userprofile.role == 'viewer' %}
+  {% if request.user.userprofile.role != 'viewer' %}
   <a href="{% url 'elevage:lot_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouveau Lot
+    <i class="bx bx-plus"></i> Nouveau lot
   </a>
   {% endif %}
-{% endif %}
 {% endblock %}
 
 {% block content %}
+<div class="page-body">
 
-<!-- Filter bar -->
-<div class="filter-bar">
-  <form method="get" action="{% url 'elevage:lot_list' %}" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;">
-    <div class="input-wrapper" style="position:relative;flex:1;min-width:220px;">
-      <i class="bx bx-search input-icon"></i>
-      <input type="text" name="q" class="field-input has-icon" placeholder="Rechercher un lot..." value="{{ q }}" />
+  <!-- Filters -->
+  <div class="filter-bar card mb-3">
+    <form method="get" id="filter-form" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 18px;">
+      <div class="search-field-wrap" style="flex:1;min-width:200px;position:relative;">
+        <i class="bx bx-search" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;"></i>
+        <input type="text" name="q" value="{{ q }}" placeholder="Désignation, souche…"
+          class="filter-input" style="padding-left:40px;">
+      </div>
+      <div style="position:relative;min-width:150px;">
+        <i class="bx bxs-grid-alt" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;"></i>
+        <select name="statut" class="filter-input" id="select-statut" style="padding-left:40px;">
+          <option value="">Tous les statuts</option>
+          {% for val, label in statut_choices %}
+          <option value="{{ val }}" {% if statut == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="position:relative;min-width:160px;">
+        <i class="bx bxs-buildings" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;"></i>
+        <select name="batiment" class="filter-input" id="select-batiment" style="padding-left:40px;">
+          <option value="">Tous les bâtiments</option>
+          {% for b in batiments %}
+          <option value="{{ b.pk }}" {% if batiment_pk == b.pk|stringformat:"s" %}selected{% endif %}>{{ b.nom }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn-ghost"><i class="bx bxs-filter-alt"></i> Filtrer</button>
+      {% if q or statut or batiment_pk %}
+      <a href="{% url 'elevage:lot_list' %}" class="btn-ghost" style="color:#dc2626;border-color:rgba(239,68,68,.2);">
+        <i class="bx bx-x"></i> Réinitialiser
+      </a>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- Table -->
+  <div class="card">
+    <div class="card-header-row">
+      <div class="section-eyebrow">
+        {% if page.paginator.count %}{{ page.paginator.count }} lot{{ page.paginator.count|pluralize }}{% else %}Aucun résultat{% endif %}
+      </div>
     </div>
-    <select name="statut" class="field-input" onchange="this.form.submit()" style="min-width:140px;">
-      <option value="">Tous les statuts</option>
-      {% for code, label in statut_choices %}
-      <option value="{{ code }}" {% if statut == code %}selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
-    <select name="batiment" class="field-input" onchange="this.form.submit()" style="min-width:160px;">
-      <option value="">Tous les bâtiments</option>
-      {% for b in batiments %}
-      <option value="{{ b.pk }}" {% if batiment_pk == b.pk|stringformat:"s" %}selected{% endif %}>{{ b.nom }}</option>
-      {% endfor %}
-    </select>
-    {% if q or statut or batiment_pk %}
-    <a href="{% url 'elevage:lot_list' %}" class="btn-ghost btn-sm">
-      <i class="bx bx-x"></i> Réinitialiser
-    </a>
-    {% endif %}
-  </form>
-</div>
 
-<!-- Lot table -->
-<div class="section-card">
-  <div class="section-card__body no-pad">
     {% if page.object_list %}
     <div class="table-wrapper">
-      <table class="table-base">
+      <table class="data-table">
         <thead>
           <tr>
-            <th>Lot</th>
-            <th>Date ouverture</th>
+            <th>Désignation</th>
             <th>Bâtiment</th>
-            <th style="text-align:right;">Poussins</th>
-            <th style="text-align:right;">Effectif</th>
-            <th style="text-align:right;">Mortalité</th>
-            <th style="text-align:center;">Jours</th>
-            <th style="text-align:center;">Statut</th>
+            <th>Ouverture</th>
+            <th>Poussins initiaux</th>
+            <th>Effectif vivant</th>
+            <th>Mortalité</th>
+            <th>Durée (j)</th>
+            <th>Statut</th>
             <th style="text-align:right;">Actions</th>
           </tr>
         </thead>
         <tbody>
           {% for lot in page.object_list %}
-          <tr class="stagger-row">
+          <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
             <td>
-              <a href="{% url 'elevage:lot_detail' lot.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;">
+              <a href="{% url 'elevage:lot_detail' lot.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;display:flex;align-items:center;gap:8px;">
+                <div style="width:30px;height:30px;border-radius:var(--radius-sm);background:var(--accent-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                  <i class="bx bxs-grid-alt" style="color:var(--accent-text);font-size:13px;"></i>
+                </div>
                 {{ lot.designation }}
               </a>
-              {% if lot.souche %}<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">{{ lot.souche }}</div>{% endif %}
+              {% if lot.souche %}<div style="font-size:11px;color:var(--text-muted);padding-left:38px;">{{ lot.souche }}</div>{% endif %}
             </td>
-            <td style="color:var(--text-muted);white-space:nowrap;">{{ lot.date_ouverture|date:"d/m/Y" }}</td>
             <td>{{ lot.batiment.nom }}</td>
-            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ lot.nombre_poussins_initial|floatformat:0 }}</td>
-            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ lot.effectif_vivant|floatformat:0 }}</td>
-            <td style="text-align:right;">
-              <span class="{% if lot.taux_mortalite > 5 %}val-danger{% elif lot.taux_mortalite > 3 %}val-warn{% endif %}" style="font-family:'Nunito',sans-serif;font-weight:700;">
+            <td style="color:var(--text-muted);">{{ lot.date_ouverture|date:"d/m/Y" }}</td>
+            <td style="font-family:'Nunito',sans-serif;font-weight:700;">{{ lot.nombre_poussins_initial|floatformat:0 }}</td>
+            <td style="font-family:'Nunito',sans-serif;font-weight:800;color:var(--accent-text);">{{ lot.effectif_vivant|floatformat:0 }}</td>
+            <td>
+              <span class="{% if lot.taux_mortalite > 5 %}val-danger{% else %}val-normal{% endif %}">
                 {{ lot.taux_mortalite|floatformat:2 }}%
               </span>
             </td>
-            <td style="text-align:center;color:var(--text-muted);">{{ lot.duree_elevage }}j</td>
-            <td style="text-align:center;">
-              {% if lot.statut == lot.STATUT_OUVERT %}
-              <span class="pill-base pill-success">Ouvert</span>
+            <td style="color:var(--text-muted);">{{ lot.duree_elevage }}</td>
+            <td>
+              {% if lot.statut == 'ouvert' %}
+                <span class="pill-success"><i class="bx bxs-check-circle"></i> Ouvert</span>
               {% else %}
-              <span class="pill-base pill-neutral"><i class="bx bxs-lock" style="font-size:10px;"></i> Fermé</span>
+                <span class="pill-neutral"><i class="bx bxs-lock"></i> Clôturé</span>
               {% endif %}
             </td>
-            <td style="text-align:right;">
+            <td>
               <div class="actions-cell">
                 <a href="{% url 'elevage:lot_detail' lot.pk %}" class="action-btn" title="Détail">
-                  <i class="bx bx-show"></i>
+                  <i class="bx bxs-show"></i>
                 </a>
-                {% if lot.statut == lot.STATUT_OUVERT %}
-                  {% if request.user.userprofile %}
-                    {% if not request.user.userprofile.role == 'viewer' %}
-                    <a href="{% url 'elevage:mortalite_create' lot.pk %}" class="action-btn success" title="Mortalité">
-                      <i class="bx bxs-heart"></i>
-                    </a>
-                    <a href="{% url 'elevage:consommation_create' lot.pk %}" class="action-btn success" title="Consommation">
-                      <i class="bx bxs-droplet"></i>
-                    </a>
-                    <a href="{% url 'elevage:lot_edit' lot.pk %}" class="action-btn" title="Modifier">
-                      <i class="bx bxs-pencil"></i>
-                    </a>
-                    {% endif %}
-                  {% endif %}
+                {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+                <a href="{% url 'elevage:lot_edit' lot.pk %}" class="action-btn" title="Modifier">
+                  <i class="bx bxs-pencil"></i>
+                </a>
                 {% endif %}
               </div>
             </td>
@@ -122,61 +128,145 @@
     <!-- Pagination -->
     {% if page.has_other_pages %}
     <div class="pagination-bar">
-      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
-      <div class="page-links">
-        {% if page.has_previous %}
-        <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if batiment_pk %}&batiment={{ batiment_pk }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>
-        {% else %}
-        <span class="page-link disabled"><i class="bx bx-chevron-left"></i></span>
-        {% endif %}
-        {% for num in page.paginator.page_range %}
-          {% if num == page.number %}
-          <span class="page-link active">{{ num }}</span>
-          {% elif num > page.number|add:-3 and num < page.number|add:3 %}
-          <a href="?page={{ num }}{% if q %}&q={{ q }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if batiment_pk %}&batiment={{ batiment_pk }}{% endif %}" class="page-link">{{ num }}</a>
-          {% endif %}
-        {% endfor %}
-        {% if page.has_next %}
-        <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if batiment_pk %}&batiment={{ batiment_pk }}{% endif %}" class="page-link"><i class="bx bx-chevron-right"></i></a>
-        {% else %}
-        <span class="page-link disabled"><i class="bx bx-chevron-right"></i></span>
-        {% endif %}
-      </div>
+      {% if page.has_previous %}
+      <a href="?{% if q %}q={{ q }}&{% endif %}{% if statut %}statut={{ statut }}&{% endif %}{% if batiment_pk %}batiment={{ batiment_pk }}&{% endif %}page={{ page.previous_page_number }}" class="page-btn">
+        <i class="bx bx-chevron-left"></i>
+      </a>
+      {% endif %}
+      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}
+      <a href="?{% if q %}q={{ q }}&{% endif %}{% if statut %}statut={{ statut }}&{% endif %}{% if batiment_pk %}batiment={{ batiment_pk }}&{% endif %}page={{ page.next_page_number }}" class="page-btn">
+        <i class="bx bx-chevron-right"></i>
+      </a>
+      {% endif %}
     </div>
     {% endif %}
 
     {% else %}
-    <div class="empty-state">
-      <i class="bx bxs-grid-alt empty-state__icon"></i>
-      <div class="empty-state__title">Aucun lot trouvé</div>
-      <div class="empty-state__text">Ajustez les filtres ou créez un nouveau lot.</div>
-      {% if request.user.userprofile %}
-        {% if not request.user.userprofile.role == 'viewer' %}
-        <a href="{% url 'elevage:lot_create' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
-          <i class="bx bx-plus"></i> Nouveau Lot
-        </a>
-        {% endif %}
+    <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
+      <i class="bx bxs-grid-alt" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
+      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
+        {% if q or statut or batiment_pk %}Aucun lot ne correspond aux filtres{% else %}Aucun lot enregistré{% endif %}
+      </div>
+      <div style="font-size:13px;">
+        {% if q or statut or batiment_pk %}Essayez de modifier vos critères.{% else %}Ouvrez le premier lot pour commencer le suivi.{% endif %}
+      </div>
+      {% if not q and not statut and not batiment_pk and request.user.userprofile.role != 'viewer' %}
+      <a href="{% url 'elevage:lot_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
+        <i class="bx bx-plus"></i> Nouveau lot
+      </a>
       {% endif %}
     </div>
     {% endif %}
   </div>
-</div>
 
+</div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.table-wrapper { overflow-x: auto; }
-.actions-cell {
-  display: flex; align-items: center; justify-content: flex-end; gap: 4px;
-}
+  .card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .card-header-row {
+    padding: 14px 20px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-eyebrow {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+  .filter-bar { overflow: visible; }
+  .filter-input {
+    width: 100%;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    padding: 10px 13px;
+    transition: border-color .15s, box-shadow .15s;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .filter-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(34,197,94,.15);
+    outline: none;
+  }
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--text-muted);
+    padding: 11px 14px; border-bottom: 1px solid var(--border);
+    white-space: nowrap; background: var(--bg-surface);
+  }
+  .data-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn .3s ease both;
+    animation-delay: calc(var(--row-i, 0) * 35ms);
+    transition: background .12s;
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: var(--bg-hover); }
+  .data-table td { padding: 13px 14px; font-size: 13px; color: var(--text-secondary); vertical-align: middle; }
+  .val-danger { color: #dc2626; font-family: 'Nunito', sans-serif; font-weight: 700; }
+  .val-normal { color: var(--accent-text); font-family: 'Nunito', sans-serif; font-weight: 700; }
+  .actions-cell { display:flex;align-items:center;justify-content:flex-end;gap:4px; }
+  .action-btn {
+    display:inline-flex;align-items:center;justify-content:center;
+    width:30px;height:30px;border-radius:var(--radius-sm);
+    border:1px solid var(--border);background:transparent;
+    color:var(--text-muted);font-size:14px;cursor:pointer;
+    transition:background .12s,color .12s,border-color .12s;text-decoration:none;
+  }
+  .action-btn:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+  .pill-success { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(34,197,94,.14);color:#15803d; }
+  .pill-neutral { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(0,0,0,.06);color:var(--text-secondary); }
+  .btn-primary {
+    background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;
+    border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:6px;transition:opacity .18s,transform .12s;text-decoration:none;
+  }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost {
+    background:transparent;border:1px solid var(--border);color:var(--text-secondary);
+    font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;
+    border-radius:var(--radius-md);padding:9px 14px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:6px;
+    transition:background .12s,border-color .12s,color .12s;text-decoration:none;
+  }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+  .pagination-bar {
+    display:flex;align-items:center;gap:8px;justify-content:center;
+    padding:14px 18px;border-top:1px solid var(--border);
+  }
+  .page-btn {
+    display:inline-flex;align-items:center;justify-content:center;
+    width:32px;height:32px;border-radius:var(--radius-sm);
+    border:1px solid var(--border);background:var(--bg-surface);
+    color:var(--text-secondary);font-size:16px;text-decoration:none;
+    transition:background .12s;
+  }
+  .page-btn:hover { background:var(--bg-hover); }
+  .page-info { font-size:12px;color:var(--text-muted); }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  /* Filter form submit on select change handled inline via onchange */
+  document.getElementById('select-statut').addEventListener('change', function () {
+    document.getElementById('filter-form').submit();
+  });
+  document.getElementById('select-batiment').addEventListener('change', function () {
+    document.getElementById('filter-form').submit();
+  });
 });
 </script>
 {% endblock %}

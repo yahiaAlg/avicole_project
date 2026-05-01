@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}Nouvelle Facture — Choisir un fournisseur — Élevage Avicole{% endblock %}
+
 {% block nav_factures_fournisseurs %}active{% endblock %}
 
-{% block page_title %}Nouvelle facture{% endblock %}
-{% block page_sub_text %}Étape 1 — Choisir un fournisseur{% endblock %}
+{% block page_title %}Nouvelle Facture Fournisseur{% endblock %}
+{% block page_sub_text %}Étape 1 — Sélectionner un fournisseur{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'achats:facture_fournisseur_list' %}" class="btn-ghost">
@@ -14,104 +15,152 @@
 {% endblock %}
 
 {% block content %}
-
-<div class="section-card" style="max-width:640px;margin:0 auto;">
-  <div class="section-card__head">
-    <span class="section-card__title"><i class="bx bxs-building" style="color:var(--accent);margin-right:8px;"></i>Sélection du fournisseur</span>
-  </div>
-  <div class="section-card__body">
-
-    <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">
-      Choisissez le fournisseur pour lequel vous souhaitez créer une facture. Seuls les fournisseurs actifs ayant des BL au statut <strong>Reçu</strong> sont affichés.
-    </p>
+<div class="step-layout">
+  <div class="step-card">
+    <div class="step-header">
+      <div class="step-badge">1</div>
+      <div>
+        <div class="step-title">Choisir le fournisseur</div>
+        <div class="step-sub">Sélectionnez le fournisseur pour filtrer ses BLs en statut Reçu.</div>
+      </div>
+    </div>
 
     {% if fournisseurs %}
     <div class="fournisseur-grid">
       {% for f in fournisseurs %}
       <a href="{% url 'achats:facture_fournisseur_create' %}?fournisseur={{ f.pk }}" class="fournisseur-card">
-        <div class="fournisseur-icon ic-green"><i class="bx bxs-building"></i></div>
-        <div class="fournisseur-info">
-          <div class="fournisseur-name">{{ f.nom }}</div>
-          {% if f.adresse %}
-          <div class="fournisseur-meta"><i class="bx bxs-map"></i> {{ f.adresse }}</div>
-          {% endif %}
-          {% if f.telephone %}
-          <div class="fournisseur-meta"><i class="bx bxs-phone"></i> {{ f.telephone }}</div>
-          {% endif %}
+        <div class="fournisseur-card__avatar">
+          {{ f.nom|slice:":2"|upper }}
         </div>
-        <i class="bx bx-chevron-right" style="color:var(--text-muted);font-size:20px;margin-left:auto;flex-shrink:0;"></i>
+        <div class="fournisseur-card__info">
+          <div class="fournisseur-card__name">{{ f.nom }}</div>
+          {% if f.type_principal %}
+          <div class="fournisseur-card__type">{{ f.type_principal.libelle }}</div>
+          {% endif %}
+          <div class="fournisseur-card__meta">
+            <span style="color:{% if f.dette_globale > 0 %}#dc2626{% else %}var(--accent-text){% endif %};">
+              {{ f.dette_globale|floatformat:0 }} DZD
+            </span>
+            <span style="color:var(--text-muted);font-size:11px;"> dette</span>
+          </div>
+        </div>
+        <i class="bx bx-chevron-right fournisseur-card__arrow"></i>
       </a>
       {% endfor %}
     </div>
     {% else %}
-    <div class="empty-state" style="padding:32px 20px;">
-      <i class="bx bxs-building empty-state__icon"></i>
-      <div class="empty-state__title">Aucun fournisseur éligible</div>
-      <div class="empty-state__text">
-        Il n'y a aucun fournisseur actif avec des BL au statut Reçu. Validez des BL avant de créer une facture.
-      </div>
-      <a href="{% url 'achats:bl_fournisseur_list' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
-        <i class="bx bxs-truck"></i> Voir les BL
-      </a>
+    <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
+      <i class="bx bxs-building" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
+      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">Aucun fournisseur actif</div>
+      <div style="font-size:13px;">Créez d'abord un fournisseur dans le module Fournisseurs.</div>
     </div>
     {% endif %}
-
   </div>
 </div>
-
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.fournisseur-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.fournisseur-card {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  text-decoration: none;
-  color: inherit;
-  transition: border-color 0.18s, transform 0.15s, box-shadow 0.15s;
-}
-.fournisseur-card:hover {
-  border-color: var(--accent);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(34,197,94,.10);
-}
-.fournisseur-icon {
-  width: 40px; height: 40px;
-  border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
-  flex-shrink: 0;
-}
-.fournisseur-info { flex: 1; min-width: 0; }
-.fournisseur-name {
-  font-family: 'Nunito', sans-serif;
-  font-weight: 700;
-  font-size: 14px;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.fournisseur-meta {
-  font-size: 11.5px;
-  color: var(--text-muted);
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.fournisseur-meta i { font-size: 12px; margin-right: 3px; }
+  .step-layout {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  .step-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 28px;
+    animation: fadeIn .3s ease;
+  }
+  .step-header {
+    display: flex; align-items: flex-start; gap: 14px;
+    margin-bottom: 24px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .step-badge {
+    width: 36px; height: 36px;
+    background: var(--accent-dim);
+    color: var(--accent-text);
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800; font-size: 16px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .step-title {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700; font-size: 15px;
+    color: var(--text-primary); margin-bottom: 3px;
+  }
+  .step-sub { font-size: 13px; color: var(--text-muted); }
+
+  .fournisseur-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .fournisseur-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color .15s, background .15s, transform .12s;
+    cursor: pointer;
+  }
+  .fournisseur-card:hover {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    transform: translateX(3px);
+  }
+  .fournisseur-card__avatar {
+    width: 40px; height: 40px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-raised);
+    color: var(--text-secondary);
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: background .15s, color .15s;
+  }
+  .fournisseur-card:hover .fournisseur-card__avatar {
+    background: rgba(34,197,94,.2);
+    color: var(--accent-text);
+  }
+  .fournisseur-card__info { flex: 1; }
+  .fournisseur-card__name {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700; font-size: 13.5px;
+    color: var(--text-primary);
+  }
+  .fournisseur-card__type {
+    font-size: 11.5px; color: var(--text-muted); margin-top: 1px;
+  }
+  .fournisseur-card__meta {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700; font-size: 12px;
+    margin-top: 3px;
+  }
+  .fournisseur-card__arrow {
+    font-size: 18px; color: var(--text-muted);
+    transition: color .15s;
+  }
+  .fournisseur-card:hover .fournisseur-card__arrow { color: var(--accent-text); }
+
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px;
+    border-radius: var(--radius-md); padding: 9px 16px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s; text-decoration: none;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
 </style>
 {% endblock %}
-
-{% block extra_js %}{% endblock %}

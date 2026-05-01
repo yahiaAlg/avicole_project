@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
-{% block nav_reglements_fournisseurs %}active{% endblock %}
+{% block title %}Règlement — {{ reglement.fournisseur.nom }} — Élevage Avicole{% endblock %}
 
-{% block page_title %}Règlement{% endblock %}
-{% block page_sub_text %}{{ reglement.fournisseur.nom }} — {{ reglement.date_reglement|date:"d/m/Y" }}{% endblock %}
+{% block nav_reglements %}active{% endblock %}
+
+{% block page_title %}Règlement Fournisseur{% endblock %}
+{% block page_sub_text %}{{ reglement.fournisseur.nom }} · {{ reglement.date_reglement|date:"d/m/Y" }}{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'achats:reglement_fournisseur_list' %}" class="btn-ghost">
@@ -14,307 +15,345 @@
 {% endblock %}
 
 {% block content %}
-
 <div class="detail-layout">
 
-  <!-- Left column -->
+  <!-- ── Main ── -->
   <div class="detail-main">
 
-    <!-- Status banner -->
-    <div class="status-banner" style="margin-bottom:18px;">
-      {% if reglement.is_reconcilie %}
-      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius-md);">
-        <i class="bx bxs-check-circle" style="color:#15803d;font-size:16px;"></i>
-        <span style="font-size:13px;color:var(--text-secondary);">
-          <strong style="color:#15803d;">Réconcilié</strong> — Le montant est entièrement alloué aux factures.
-        </span>
+    <!-- Header card -->
+    <div class="detail-card detail-card--header">
+      <div class="detail-header-grid">
+        <div>
+          <div class="detail-eyebrow">Fournisseur</div>
+          <div class="detail-title-val">
+            <a href="{% url 'achats:fournisseur_tableau_de_bord' reglement.fournisseur.pk %}" class="link-accent">
+              {{ reglement.fournisseur.nom }}
+            </a>
+          </div>
+        </div>
+        <div>
+          <div class="detail-eyebrow">Date</div>
+          <div class="detail-title-val">{{ reglement.date_reglement|date:"d/m/Y" }}</div>
+        </div>
+        <div>
+          <div class="detail-eyebrow">Montant</div>
+          <div class="detail-title-val amount-primary">{{ reglement.montant|floatformat:0 }} DZD</div>
+        </div>
+        <div>
+          <div class="detail-eyebrow">Mode de paiement</div>
+          <div class="detail-title-val">
+            <span class="mode-badge mode-{{ reglement.mode_paiement }}">
+              {% if reglement.mode_paiement == "especes" %}<i class="bx bxs-coin"></i>
+              {% elif reglement.mode_paiement == "cheque" %}<i class="bx bxs-check-square"></i>
+              {% elif reglement.mode_paiement == "virement" %}<i class="bx bxs-bank"></i>
+              {% else %}<i class="bx bxs-wallet"></i>{% endif %}
+              {{ reglement.get_mode_paiement_display }}
+            </span>
+          </div>
+        </div>
+        <div>
+          <div class="detail-eyebrow">Référence paiement</div>
+          <div class="detail-title-val" style="color:var(--text-muted);">{{ reglement.reference_paiement|default:"—" }}</div>
+        </div>
+        <div>
+          <div class="detail-eyebrow">Statut</div>
+          <div class="detail-title-val">
+            <span class="pill-neutral immutable-badge"><i class="bx bxs-lock"></i> Immuable</span>
+          </div>
+        </div>
       </div>
-      {% else %}
-      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-md);">
-        <i class="bx bxs-hourglass" style="color:#b45309;font-size:16px;"></i>
-        <span style="font-size:13px;color:var(--text-secondary);">
-          <strong style="color:#b45309;">Allocation partielle</strong> — {{ reglement.montant_reconcilie|floatformat:0 }} DZD sur {{ reglement.montant|floatformat:0 }} DZD alloués.
-        </span>
+    </div>
+
+    <!-- Allocation summary bar -->
+    <div class="alloc-summary">
+      <div class="alloc-summary__item">
+        <div class="alloc-summary__label">Montant total</div>
+        <div class="alloc-summary__val">{{ reglement.montant|floatformat:0 }} DZD</div>
+      </div>
+      <div class="alloc-summary__sep">→</div>
+      <div class="alloc-summary__item">
+        <div class="alloc-summary__label">Alloué aux factures</div>
+        <div class="alloc-summary__val alloc-summary__val--green">{{ allocations_total|floatformat:0 }} DZD</div>
+      </div>
+      {% if acompte %}
+      <div class="alloc-summary__sep">+</div>
+      <div class="alloc-summary__item">
+        <div class="alloc-summary__label">Acompte généré</div>
+        <div class="alloc-summary__val alloc-summary__val--amber">{{ acompte.montant|floatformat:0 }} DZD</div>
       </div>
       {% endif %}
     </div>
 
-    <!-- Header info -->
-    <div class="section-card" style="margin-bottom:18px;">
-      <div class="section-card__head">
-        <span class="section-card__title">Informations du règlement</span>
-        <span class="pill-base pill-neutral">{{ reglement.get_mode_paiement_display }}</span>
+    <!-- FIFO Allocation lines -->
+    <div class="section-card">
+      <div class="section-card__header">
+        <div class="section-eyebrow"><i class="bx bx-transfer"></i> Allocations FIFO</div>
+        <span style="font-size:12px;color:var(--text-muted);">{{ allocations.count }} facture{{ allocations.count|pluralize }}</span>
       </div>
-      <div class="section-card__body">
-        <div class="detail-grid">
+      {% if allocations %}
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Facture</th>
+              <th>Fournisseur</th>
+              <th>Date facture</th>
+              <th style="text-align:right;">Montant alloué</th>
+              <th>Statut facture</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for alloc in allocations %}
+            <tr style="--row-i:{{ forloop.counter0 }};">
+              <td>
+                <a href="{% url 'achats:facture_fournisseur_detail' alloc.facture.pk %}" class="ref-link">
+                  {{ alloc.facture.reference }}
+                </a>
+              </td>
+              <td style="color:var(--text-muted);">{{ alloc.facture.fournisseur.nom }}</td>
+              <td style="color:var(--text-muted);">{{ alloc.facture.date_facture|date:"d/m/Y" }}</td>
+              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;color:var(--accent-text);">
+                {{ alloc.montant_alloue|floatformat:0 }} DZD
+              </td>
+              <td>
+                {% if alloc.facture.statut == "non_paye" %}<span class="pill-danger">Non payée</span>
+                {% elif alloc.facture.statut == "partiellement_paye" %}<span class="pill-warning">Part. payée</span>
+                {% elif alloc.facture.statut == "paye" %}<span class="pill-success">Payée</span>
+                {% elif alloc.facture.statut == "en_litige" %}<span class="pill-danger"><i class="bx bxs-error"></i> Litige</span>
+                {% endif %}
+              </td>
+              <td>
+                <a href="{% url 'achats:facture_fournisseur_detail' alloc.facture.pk %}" class="action-btn" title="Voir facture">
+                  <i class="bx bxs-show"></i>
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div style="text-align:center;padding:28px;color:var(--text-muted);font-size:13px;">
+        <i class="bx bx-transfer" style="font-size:24px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
+        Aucune allocation — tout le montant a généré un acompte.
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Acompte block -->
+    {% if acompte %}
+    <div class="section-card acompte-card">
+      <div class="section-card__header">
+        <div class="section-eyebrow"><i class="bx bxs-piggy-bank"></i> Acompte généré (surplus)</div>
+      </div>
+      <div style="padding:16px 18px;">
+        <div class="acompte-grid">
           <div>
-            <div class="detail-label">Fournisseur</div>
-            <div class="detail-value">
-              <a href="{% url 'achats:fournisseur_tableau_de_bord' reglement.fournisseur.pk %}" style="color:var(--accent-text);">{{ reglement.fournisseur.nom }}</a>
+            <div class="detail-eyebrow">Montant acompte</div>
+            <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:20px;color:#b45309;">
+              {{ acompte.montant|floatformat:0 }} DZD
             </div>
           </div>
           <div>
-            <div class="detail-label">Date du règlement</div>
-            <div class="detail-value">{{ reglement.date_reglement|date:"d/m/Y" }}</div>
+            <div class="detail-eyebrow">Date</div>
+            <div class="detail-title-val">{{ acompte.date|date:"d/m/Y" }}</div>
           </div>
           <div>
-            <div class="detail-label">Montant</div>
-            <div class="detail-value val-money" style="font-size:16px;">{{ reglement.montant|floatformat:0 }} DZD</div>
-          </div>
-          <div>
-            <div class="detail-label">Montant réconcilié</div>
-            <div class="detail-value" style="color:#15803d;font-weight:700;">{{ reglement.montant_reconcilie|floatformat:0 }} DZD</div>
-          </div>
-          <div>
-            <div class="detail-label">Mode de paiement</div>
-            <div class="detail-value">{{ reglement.get_mode_paiement_display }}</div>
-          </div>
-          <div>
-            <div class="detail-label">Référence</div>
-            <div class="detail-value">{{ reglement.reference_paiement|default:"—" }}</div>
-          </div>
-          {% if reglement.banque %}
-          <div>
-            <div class="detail-label">Banque</div>
-            <div class="detail-value">{{ reglement.banque }}</div>
-          </div>
-          {% endif %}
-          {% if reglement.numero_cheque %}
-          <div>
-            <div class="detail-label">Numéro de chèque</div>
-            <div class="detail-value">{{ reglement.numero_cheque }}</div>
-          </div>
-          {% endif %}
-          <div>
-            <div class="detail-label">Créé par</div>
-            <div class="detail-value">{{ reglement.created_by.get_full_name|default:reglement.created_by.username|default:"—" }}</div>
-          </div>
-          <div>
-            <div class="detail-label">Date de création</div>
-            <div class="detail-value">{{ reglement.created_at|date:"d/m/Y H:i" }}</div>
+            <div class="detail-eyebrow">Statut</div>
+            <div>
+              {% if acompte.utilise %}
+                <span class="pill-neutral">Utilisé</span>
+              {% else %}
+                <span class="pill-warning">En attente</span>
+              {% endif %}
+            </div>
           </div>
         </div>
-        {% if reglement.notes %}
-        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
-          <div class="detail-label">Notes</div>
-          <div style="font-size:13px;color:var(--text-secondary);white-space:pre-wrap;">{{ reglement.notes }}</div>
-        </div>
+        {% if acompte.notes %}
+        <div style="margin-top:12px;font-size:12.5px;color:var(--text-muted);line-height:1.5;">{{ acompte.notes }}</div>
         {% endif %}
+        <div style="margin-top:10px;">
+          <a href="{% url 'achats:acompte_fournisseur_detail' acompte.pk %}" class="btn-ghost btn-sm">
+            <i class="bx bxs-piggy-bank"></i> Voir l'acompte
+          </a>
+        </div>
       </div>
     </div>
+    {% endif %}
 
-    <!-- Allocations detail -->
-    <div class="section-card" style="margin-bottom:18px;">
-      <div class="section-card__head">
-        <span class="section-card__title"><i class="bx bxs-file-txt" style="color:var(--accent);margin-right:8px;"></i>Allocations aux factures</span>
+    <!-- Notes -->
+    {% if reglement.notes %}
+    <div class="section-card">
+      <div class="section-card__header">
+        <div class="section-eyebrow"><i class="bx bx-note"></i> Notes</div>
       </div>
-      <div class="section-card__body no-pad">
-        {% if allocations %}
-        <div class="table-wrap">
-          <table class="table-base">
-            <thead>
-              <tr>
-                <th>Facture</th>
-                <th>Date</th>
-                <th style="text-align:right;">Montant total</th>
-                <th style="text-align:right;">Reste avant</th>
-                <th style="text-align:right;">Alloué</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for alloc in allocations %}
-              <tr class="stagger-row">
-                <td>
-                  <a href="{% url 'achats:facture_fournisseur_detail' alloc.facture.pk %}" class="text-mono" style="color:var(--text-primary);font-weight:600;">
-                    {{ alloc.facture.reference }}
-                  </a>
-                </td>
-                <td style="color:var(--text-muted);white-space:nowrap;">{{ alloc.facture.date_facture|date:"d/m/Y" }}</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:600;white-space:nowrap;">
-                  {{ alloc.facture.montant_total|floatformat:0 }} DZD
-                </td>
-                <td style="text-align:right;color:var(--text-muted);white-space:nowrap;">
-                  {{ alloc.reste_avant|floatformat:0 }} DZD
-                </td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;white-space:nowrap;">
-                  {{ alloc.montant_alloue|floatformat:2 }} DZD
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        {% else %}
-        <div style="padding:24px 20px;text-align:center;color:var(--text-muted);font-size:13px;">
-          <i class="bx bxs-file-txt" style="display:block;font-size:24px;margin-bottom:8px;color:var(--border-strong);"></i>
-          Aucune allocation. Le montant a été enregistré comme acompte.
-        </div>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- Danger zone -->
-    {% if not reglement.is_reconcilie %}
-    <div class="danger-zone">
-      <div class="danger-zone__title"><i class="bx bxs-error me-1"></i> Zone sensible</div>
-      <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px;">
-        La suppression d'un règlement non réconcilié libère le montant. Les allocations partielles seront annulées.
-      </p>
-      <form method="post" action="{% url 'achats:reglement_fournisseur_delete' reglement.pk %}" onsubmit="return confirm('Confirmer la suppression de ce règlement ? Cette action est irréversible.');" style="display:inline;">
-        {% csrf_token %}
-        <button type="submit" class="btn-danger btn-sm">
-          <i class="bx bxs-trash"></i> Supprimer ce règlement
-        </button>
-      </form>
+      <p style="padding:14px 18px;font-size:13px;color:var(--text-secondary);line-height:1.6;">{{ reglement.notes }}</p>
     </div>
     {% endif %}
 
   </div>
 
-  <!-- Right column -->
-  <div class="detail-side">
-
-    <!-- Balance summary -->
-    <div class="section-card" style="margin-bottom:16px;">
-      <div class="section-card__head">
-        <span class="section-card__title">Récapitulatif</span>
+  <!-- ── Aside ── -->
+  <div class="detail-aside">
+    <div class="aside-info-card">
+      <div class="aside-info-card__title">Informations</div>
+      <div class="aside-info-row">
+        <span class="aside-info-label">Enregistré par</span>
+        <span class="aside-info-val">{{ reglement.created_by.get_full_name|default:reglement.created_by.username|default:"—" }}</span>
       </div>
-      <div class="section-card__body">
-
-        <!-- Total -->
-        <div style="margin-bottom:14px;">
-          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Montant total</div>
-          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;color:var(--text-primary);">
-            {{ reglement.montant|floatformat:0 }} DZD
-          </div>
-        </div>
-
-        <!-- Réconcilié -->
-        <div style="margin-bottom:14px;">
-          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Réconcilié</div>
-          <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:18px;color:#15803d;">
-            {{ reglement.montant_reconcilie|floatformat:0 }} DZD
-          </div>
-        </div>
-
-        <!-- Non alloué -->
-        <div style="padding-top:14px;border-top:2px solid var(--border);">
-          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Non alloué / Acompte</div>
-          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:18px;{% if reglement.reste_non_alloue > 0 %}color:#b45309;{% else %}color:#15803d;{% endif %}">
-            {% if reglement.reste_non_alloue > 0 %}
-            {{ reglement.reste_non_alloue|floatformat:0 }} DZD
-            {% else %}
-            0 DZD
-            {% endif %}
-          </div>
-        </div>
-
-        <!-- Progress bar -->
-        {% if reglement.montant > 0 %}
-        <div class="debt-bar" style="margin-top:14px;margin-bottom:4px;">
-          <div class="debt-bar__track">
-            <div class="debt-bar__fill" style="width:{{ reglement.montant_reconcilie|default:0|floatformat:0 }}%"></div>
-          </div>
-        </div>
-        <div style="font-size:11px;color:var(--text-muted);text-align:right;">
-          {{ reglement.montant_reconcilie|floatformat:0 }} / {{ reglement.montant|floatformat:0 }} DZD
-        </div>
-        {% endif %}
-
+      <div class="aside-info-row">
+        <span class="aside-info-label">Créé le</span>
+        <span class="aside-info-val">{{ reglement.created_at|date:"d/m/Y" }}</span>
       </div>
     </div>
 
-    <!-- Quick links -->
-    <div class="section-card">
-      <div class="section-card__head">
-        <span class="section-card__title">Liens rapides</span>
-      </div>
-      <div class="section-card__body no-pad">
-        <a href="{% url 'achats:fournisseur_tableau_de_bord' reglement.fournisseur.pk %}" class="side-link-row">
-          <i class="bx bxs-building" style="color:var(--text-muted);"></i>
-          <span>Tableau de bord fournisseur</span>
-          <i class="bx bx-chevron-right" style="color:var(--text-muted);margin-left:auto;"></i>
+    <div class="aside-info-card">
+      <div class="aside-info-card__title">Actions rapides</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ reglement.fournisseur.pk }}" class="aside-action-btn">
+          <i class="bx bxs-coin"></i> Nouveau règlement
         </a>
-        <a href="{% url 'achats:facture_fournisseur_list' %}?fournisseur={{ reglement.fournisseur.pk }}" class="side-link-row">
-          <i class="bx bxs-file-txt" style="color:var(--text-muted);"></i>
-          <span>Factures de {{ reglement.fournisseur.nom }}</span>
-          <i class="bx bx-chevron-right" style="color:var(--text-muted);margin-left:auto;"></i>
+        <a href="{% url 'achats:reglement_fournisseur_list' %}?fournisseur={{ reglement.fournisseur.pk }}" class="aside-action-btn">
+          <i class="bx bxs-coin"></i> Règlements de {{ reglement.fournisseur.nom }}
         </a>
-        <a href="{% url 'achats:bl_fournisseur_list' %}?fournisseur={{ reglement.fournisseur.pk }}" class="side-link-row">
-          <i class="bx bxs-truck" style="color:var(--text-muted);"></i>
-          <span>BL de {{ reglement.fournisseur.nom }}</span>
-          <i class="bx bx-chevron-right" style="color:var(--text-muted);margin-left:auto;"></i>
+        <a href="{% url 'achats:fournisseur_tableau_de_bord' reglement.fournisseur.pk %}" class="aside-action-btn aside-action-btn--primary">
+          <i class="bx bxs-dashboard"></i> Tableau de bord fournisseur
         </a>
       </div>
     </div>
 
+    <div class="immutability-notice">
+      <i class="bx bxs-lock" style="color:#b45309;flex-shrink:0;font-size:15px;"></i>
+      <div>
+        <div style="font-weight:700;font-size:12px;color:#b45309;margin-bottom:3px;">Règlement immuable</div>
+        <div style="font-size:11.5px;color:var(--text-muted);line-height:1.5;">Les règlements ne peuvent pas être modifiés ni supprimés après création (BR-REG-06).</div>
+      </div>
+    </div>
   </div>
 
 </div>
-
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.detail-layout {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 20px;
-  align-items: start;
-}
-@media (max-width: 1024px) { .detail-layout { grid-template-columns: 1fr; } }
+  .detail-layout { display: grid; grid-template-columns: 1fr 260px; gap: 18px; align-items: start; }
+  @media (max-width: 900px) { .detail-layout { grid-template-columns: 1fr; } }
 
-.detail-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px 20px;
-}
-@media (max-width: 600px) { .detail-grid { grid-template-columns: 1fr; } }
+  .detail-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 20px 22px; margin-bottom: 14px;
+    animation: fadeIn .3s ease;
+  }
+  .detail-card--header { border-top: 3px solid var(--accent); }
+  .detail-header-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 700px) { .detail-header-grid { grid-template-columns: 1fr 1fr; } }
+  .detail-eyebrow { font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+  .detail-title-val { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px; color: var(--text-primary); }
+  .amount-primary { font-size: 20px; font-weight: 800; color: var(--accent-text); }
 
-.detail-label {
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: .07em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 3px;
-}
-.detail-value {
-  font-size: 13.5px;
-  color: var(--text-primary);
-  font-weight: 500;
-}
+  .link-accent { color: var(--accent-text); text-decoration: none; }
+  .link-accent:hover { color: var(--accent); }
 
-.side-link-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  text-decoration: none;
-  color: inherit;
-  font-size: 13px;
-  transition: background 0.12s;
-}
-.side-link-row:last-child { border-bottom: none; }
-.side-link-row:hover { background: var(--bg-raised); }
+  .mode-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: var(--radius-sm);
+    font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+  .mode-especes  { background: rgba(34,197,94,.1);  color: #15803d; }
+  .mode-cheque   { background: rgba(56,189,248,.1); color: #0284c7; }
+  .mode-virement { background: rgba(99,102,241,.1); color: #4338ca; }
+  .mode-autre    { background: rgba(0,0,0,.06);     color: var(--text-secondary); }
 
-.table-wrap { overflow-x: auto; }
+  /* Allocation summary */
+  .alloc-summary {
+    display: flex; align-items: center; gap: 16px;
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 14px;
+    animation: fadeIn .3s ease;
+  }
+  .alloc-summary__item { text-align: center; }
+  .alloc-summary__label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); margin-bottom: 4px; }
+  .alloc-summary__val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 18px; color: var(--text-primary); }
+  .alloc-summary__val--green { color: var(--accent-text); }
+  .alloc-summary__val--amber { color: #b45309; }
+  .alloc-summary__sep { font-size: 18px; color: var(--text-muted); }
 
-.debt-bar { margin: 8px 0 0; }
-.debt-bar__track {
-  height: 6px;
-  background: var(--border);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.debt-bar__fill {
-  height: 6px;
-  background: var(--accent);
-  border-radius: 3px;
-  transition: width 0.3s;
-}
+  .section-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 14px; }
+  .section-card__header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 10px; border-bottom: 1px solid var(--border); }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 5px; }
+
+  .acompte-card { border-top: 3px solid #f59e0b; }
+  .acompte-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--text-muted); padding: 10px 14px; border-bottom: 1px solid var(--border);
+    white-space: nowrap; background: var(--bg-surface);
+  }
+  .data-table tbody tr {
+    border-bottom: 1px solid var(--border); transition: background .12s;
+    animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i,0)*35ms);
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: var(--bg-hover); }
+  .data-table td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); vertical-align: middle; }
+
+  .ref-link { font-family: 'Nunito', sans-serif; font-weight: 700; color: var(--accent-text); text-decoration: none; }
+  .ref-link:hover { color: var(--accent); }
+
+  .pill-warning { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(245,158,11,.14); color: #b45309; }
+  .pill-success { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(34,197,94,.14); color: #15803d; }
+  .pill-danger  { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(239,68,68,.10); color: #dc2626; }
+  .pill-neutral { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(0,0,0,.06); color: var(--text-secondary); }
+  .immutable-badge { font-size: 10.5px; }
+
+  .action-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: transparent; color: var(--text-muted);
+    font-size: 14px; text-decoration: none; transition: background .12s;
+  }
+  .action-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-strong); }
+
+  /* Aside */
+  .aside-info-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 16px 18px; margin-bottom: 12px;
+  }
+  .aside-info-card__title { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
+  .aside-info-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--border); }
+  .aside-info-row:last-child { border-bottom: none; }
+  .aside-info-label { font-size: 11.5px; color: var(--text-muted); }
+  .aside-info-val { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+
+  .aside-action-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 12px; border-radius: var(--radius-md);
+    border: 1px solid var(--border); background: var(--bg-surface);
+    color: var(--text-secondary); font-size: 13px; text-decoration: none;
+    transition: background .12s, border-color .12s;
+  }
+  .aside-action-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-strong); }
+  .aside-action-btn--primary { background: var(--accent-dim); border-color: rgba(34,197,94,.3); color: var(--accent-text); font-weight: 600; }
+  .aside-action-btn--primary:hover { background: rgba(34,197,94,.2); }
+
+  .immutability-notice {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.22);
+    border-radius: var(--radius-md); padding: 12px 14px;
+  }
+
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+    font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px;
+    border-radius: var(--radius-md); padding: 9px 16px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s; text-decoration: none;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .btn-sm { padding: 7px 13px !important; font-size: 12px !important; }
 </style>
 {% endblock %}
-
-{% block extra_js %}{% endblock %}

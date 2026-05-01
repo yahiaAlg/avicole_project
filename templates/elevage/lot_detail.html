@@ -2,325 +2,438 @@
 {% load static %}
 
 {% block title %}{{ lot.designation }} — Élevage Avicole{% endblock %}
+
 {% block nav_lots %}active{% endblock %}
 
 {% block page_title %}{{ lot.designation }}{% endblock %}
 {% block page_sub_text %}
-{{ lot.souche }} · {{ lot.date_ouverture|date:"d/m/Y" }} · {{ lot.batiment.nom }} ·
-{% if lot.statut == lot.STATUT_OUVERT %}<span style="color:#22c55e;">Ouvert</span>{% else %}<span style="color:var(--text-muted);">Fermé le {{ lot.date_fermeture|date:"d/m/Y" }}</span>{% endif %}
+  {{ lot.batiment.nom }} · Ouvert le {{ lot.date_ouverture|date:"d/m/Y" }}
+  {% if lot.statut == 'ferme' %} · Fermé le {{ lot.date_fermeture|date:"d/m/Y" }}{% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
-{% if lot.statut == lot.STATUT_OUVERT %}
-  {% if request.user.userprofile %}
-    {% if not request.user.userprofile.role == 'viewer' %}
-    <a href="{% url 'elevage:mortalite_create' lot.pk %}" class="btn-ghost">
-      <i class="bx bxs-heart" style="color:#dc2626;"></i> Mortalité
-    </a>
-    <a href="{% url 'elevage:consommation_create' lot.pk %}" class="btn-ghost">
-      <i class="bx bxs-droplet"></i> Consommation
-    </a>
-    <a href="{% url 'elevage:lot_edit' lot.pk %}" class="btn-ghost">
-      <i class="bx bxs-pencil"></i> Modifier
-    </a>
-    {% endif %}
-  {% endif %}
-  {% if can_close %}
-  <a href="{% url 'elevage:lot_fermer' lot.pk %}" class="btn-primary" style="background:#dc2626;border-color:#dc2626;">
-    <i class="bx bxs-lock"></i> Fermer le lot
+  <a href="{% url 'elevage:lot_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Lots
+  </a>
+  {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+  <a href="{% url 'elevage:lot_edit' lot.pk %}" class="btn-ghost">
+    <i class="bx bxs-pencil"></i> Modifier
+  </a>
+  <a href="{% url 'elevage:lot_fermer' lot.pk %}" class="btn-warning" id="btn-fermer">
+    <i class="bx bxs-lock"></i> Clôturer
   </a>
   {% endif %}
-{% else %}
-<a href="{% url 'elevage:lot_list' %}" class="btn-ghost">
-  <i class="bx bx-arrow-back"></i> Liste
-</a>
-{% endif %}
 {% endblock %}
 
 {% block content %}
+<div class="page-body">
 
-<!-- KPIs -->
-<div class="row g-3 mb-4">
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-green"><i class="bx bxs-heart"></i></div>
-      <div class="metric-label">Effectif Vivant</div>
-      <div class="metric-value">{{ lot.effectif_vivant|floatformat:0 }}</div>
-      <span class="metric-delta neutral">
-        <i class="bx bx-minus"></i> sur {{ lot.nombre_poussins_initial|floatformat:0 }} initiaux
-      </span>
-    </div>
+  <!-- Closed lot banner -->
+  {% if lot.statut == 'ferme' %}
+  <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+    <i class="bx bxs-lock" style="color:#b45309;font-size:15px;"></i>
+    <span style="font-size:13px;color:var(--text-secondary);">Ce lot est <strong style="color:#b45309;">clôturé</strong> — aucune saisie n'est possible.</span>
   </div>
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-red"><i class="bx bxs-error"></i></div>
-      <div class="metric-label">Mortalité cumulée</div>
-      <div class="metric-value"{% if taux_mortalite > 5 %} style="color:#dc2626;"{% endif %}>
-        {{ taux_mortalite|floatformat:2 }}%
+  {% endif %}
+
+  <!-- Abnormal mortality alert -->
+  {% if mortalite_anormale %}
+  <div style="background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+    <i class="bx bxs-error" style="color:#dc2626;font-size:16px;flex-shrink:0;"></i>
+    <span style="font-size:13px;color:var(--text-secondary);">
+      <strong style="color:#dc2626;">Alerte mortalité anormale</strong> — La mortalité journalière a dépassé 5 % de l'effectif initial. Vérifiez l'état sanitaire du lot.
+    </span>
+  </div>
+  {% endif %}
+
+  <!-- KPI cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-green"><i class="bx bxs-user-voice"></i></div>
+        <div class="metric-label">EFFECTIF VIVANT</div>
+        <div class="metric-value">{{ summary.effectif_vivant|floatformat:0 }}</div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> Initial : {{ lot.nombre_poussins_initial|floatformat:0 }}</span>
       </div>
-      <span class="metric-delta {% if taux_mortalite > 5 %}down{% elif taux_mortalite > 3 %}warn{% else %}up{% endif %}">
-        {% if taux_mortalite > 5 %}<i class="bx bxs-error"></i> Seuil critique{% elif taux_mortalite > 3 %}<i class="bx bxs-error"></i> Surveillance{% else %}<i class="bx bxs-check-circle"></i> Normal{% endif %}
-      </span>
     </div>
-  </div>
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-amber"><i class="bx bxs-droplet"></i></div>
-      <div class="metric-label">Consommations</div>
-      <div class="metric-value sm">
-        {{ total_aliment|floatformat:2 }}<span style="font-size:13px;color:var(--text-muted);"> kg aliment</span>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-red"><i class="bx bxs-heart"></i></div>
+        <div class="metric-label">TAUX DE MORTALITÉ</div>
+        <div class="metric-value {% if summary.taux_mortalite > 5 %}danger{% endif %}">{{ summary.taux_mortalite|floatformat:2 }}%</div>
+        <span class="metric-delta {% if summary.taux_mortalite > 5 %}down{% else %}neutral{% endif %}">
+          <i class="bx {% if summary.taux_mortalite > 5 %}bx-trending-up{% else %}bx-minus{% endif %}"></i>
+          {{ summary.total_mortalite|floatformat:0 }} mort{{ summary.total_mortalite|pluralize }}
+        </span>
       </div>
-      <span class="metric-delta neutral">
-        <i class="bx bx-minus"></i> {{ total_eau|floatformat:2 }} L eau
-      </span>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-amber"><i class="bx bxs-droplet"></i></div>
+        <div class="metric-label">ALIMENT CONSOMMÉ</div>
+        <div class="metric-value">{{ summary.consommation_totale_aliment_kg|floatformat:0 }}</div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> kg cumulés</span>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-blue"><i class="bx bxs-calendar"></i></div>
+        <div class="metric-label">DURÉE D'ÉLEVAGE</div>
+        <div class="metric-value">{{ summary.duree_elevage }}</div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> jours</span>
+      </div>
     </div>
   </div>
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-blue"><i class="bx bxs-time"></i></div>
-      <div class="metric-label">Âge du lot</div>
-      <div class="metric-value">{{ lot.duree_elevage }}<span style="font-size:18px;color:var(--text-muted);"> jours</span></div>
-      <span class="metric-delta neutral">
-        {% if lot.statut == lot.STATUT_OUVERT %}<i class="bx bx-minus"></i> Actif{% else %}<i class="bx bxs-lock"></i> Fermé{% endif %}
-      </span>
+
+  <!-- Financial + IC row -->
+  <div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-amber"><i class="bx bxs-wallet"></i></div>
+        <div class="metric-label">COÛT INTRANTS</div>
+        <div class="metric-value" style="font-size:20px;">{{ summary.cout_total_intrants|floatformat:0 }}</div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> DZD</span>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-orange"><i class="bx bxs-wallet"></i></div>
+        <div class="metric-label">COÛT DÉPENSES</div>
+        <div class="metric-value" style="font-size:20px;">{{ summary.cout_total_depenses|floatformat:0 }}</div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> DZD</span>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-green"><i class="bx bxs-bar-chart-alt-2"></i></div>
+        <div class="metric-label">REVENUS VENTES</div>
+        <div class="metric-value" style="font-size:20px;">{{ summary.revenus_ventes|floatformat:0 }}</div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> DZD</span>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon {% if summary.marge_brute >= 0 %}ic-green{% else %}ic-red{% endif %}">
+          <i class="bx bxs-coin"></i>
+        </div>
+        <div class="metric-label">MARGE BRUTE</div>
+        <div class="metric-value {% if summary.marge_brute < 0 %}danger{% endif %}" style="font-size:20px;">
+          {{ summary.marge_brute|floatformat:0 }}
+        </div>
+        <span class="metric-delta {% if summary.marge_brute >= 0 %}up{% else %}down{% endif %}">
+          <i class="bx {% if summary.marge_brute >= 0 %}bx-trending-up{% else %}bx-trending-down{% endif %}"></i>
+          DZD
+          {% if summary.ic %} · IC {{ summary.ic }}{% endif %}
+        </span>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- Alert banner -->
-{% if taux_mortalite > 5 and lot.statut == lot.STATUT_OUVERT %}
-<div class="alert-banner-red mb-4">
-  <i class="bx bxs-error-circle"></i>
-  <span style="font-weight:600;">Alerte mortalité :</span> taux cumulé de {{ taux_mortalite|floatformat:2 }}% — vérification sanitaire recommandée.
-</div>
-{% endif %}
+  <div class="row g-3">
+    <!-- Left column: Mortalites + Consommations -->
+    <div class="col-xl-8">
 
-<!-- Tabs -->
-<div class="section-card">
-  <div class="section-card__body no-pad">
-    <div class="detail-tabs">
-      <button class="tab-btn active" data-tab="tab-mortalites">
-        <i class="bx bxs-heart"></i> Mortalités ({{ mortalites|length }})
-      </button>
-      <button class="tab-btn" data-tab="tab-consommations">
-        <i class="bx bxs-droplet"></i> Consommations ({{ consommations|length }})
-      </button>
-      <button class="tab-btn" data-tab="tab-production">
-        <i class="bx bxs-line-chart"></i> Production
-      </button>
-      <button class="tab-btn" data-tab="tab-historique">
-        <i class="bx bxs-detail"></i> Historique
-      </button>
-    </div>
-
-    <!-- Tab: Mortalités -->
-    <div id="tab-mortalites" class="tab-panel active">
-      <div class="tab-panel__body">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h3 class="card-title-sm">Enregistrements de mortalité</h3>
-          {% if lot.statut == lot.STATUT_OUVERT and request.user.userprofile %}
-            {% if not request.user.userprofile.role == 'viewer' %}
-            <a href="{% url 'elevage:mortalite_create' lot.pk %}" class="btn-primary btn-sm">
-              <i class="bx bx-plus"></i> Enregistrer
-            </a>
-            {% endif %}
+      <!-- Mortalités section -->
+      <div class="card mb-3">
+        <div class="section-header">
+          <span class="section-eyebrow"><i class="bx bxs-heart" style="font-size:12px;color:#dc2626;"></i> Mortalités</span>
+          {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+          <a href="{% url 'elevage:mortalite_create' lot.pk %}" class="btn-ghost btn-sm">
+            <i class="bx bx-plus"></i> Saisir
+          </a>
           {% endif %}
         </div>
-        {% if mortalites %}
+
+        {% if mortalites_page.object_list %}
         <div class="table-wrapper">
-          <table class="table-base">
+          <table class="data-table">
             <thead>
               <tr>
                 <th>Date</th>
-                <th style="text-align:right;">Nombre</th>
+                <th>Nombre</th>
                 <th>Cause</th>
-                <th>Note</th>
-                <th style="text-align:right;">Actions</th>
+                <th>Notes</th>
+                {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}<th style="text-align:right;">Actions</th>{% endif %}
               </tr>
             </thead>
             <tbody>
-              {% for m in mortalites %}
-              <tr>
-                <td style="white-space:nowrap;color:var(--text-muted);">{{ m.date|date:"d/m/Y" }}</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;">{{ m.nombre }}</td>
-                <td>{% if m.cause %}<span class="pill-base pill-neutral">{{ m.cause }}</span>{% else %}—{% endif %}</td>
-                <td style="color:var(--text-muted);">{{ m.note|default:"—" }}</td>
-                <td style="text-align:right;">
-                  {% if lot.statut == lot.STATUT_OUVERT %}
-                    {% if request.user.userprofile %}
-                      {% if not request.user.userprofile.role == 'viewer' %}
-                      <div class="actions-cell">
-                        <a href="{% url 'elevage:mortalite_edit' lot.pk m.pk %}" class="action-btn" title="Modifier"><i class="bx bxs-pencil"></i></a>
-                      </div>
-                      {% endif %}
-                    {% endif %}
-                  {% endif %}
+              {% for mort in mortalites_page.object_list %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td style="color:var(--text-muted);">{{ mort.date|date:"d/m/Y" }}</td>
+                <td style="font-family:'Nunito',sans-serif;font-weight:800;color:#dc2626;">–{{ mort.nombre|floatformat:0 }}</td>
+                <td>{{ mort.cause|default:"—" }}</td>
+                <td style="color:var(--text-muted);font-size:12px;">{{ mort.notes|default:"—" }}</td>
+                {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+                <td>
+                  <div class="actions-cell">
+                    <a href="{% url 'elevage:mortalite_edit' mort.pk %}" class="action-btn" title="Modifier"><i class="bx bxs-pencil"></i></a>
+                    <button type="button" class="action-btn action-btn--danger"
+                      data-delete-mort="{{ mort.pk }}"
+                      data-date="{{ mort.date|date:'d/m/Y' }}"
+                      data-nombre="{{ mort.nombre }}"
+                      title="Supprimer">
+                      <i class="bx bxs-trash"></i>
+                    </button>
+                  </div>
                 </td>
+                {% endif %}
               </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
+        {% if mortalites_page.has_other_pages %}
+        <div class="pagination-bar">
+          {% if mortalites_page.has_previous %}<a href="?page_mort={{ mortalites_page.previous_page_number }}{% if consommations_page.number > 1 %}&page_conso={{ consommations_page.number }}{% endif %}" class="page-btn"><i class="bx bx-chevron-left"></i></a>{% endif %}
+          <span class="page-info">{{ mortalites_page.number }} / {{ mortalites_page.paginator.num_pages }}</span>
+          {% if mortalites_page.has_next %}<a href="?page_mort={{ mortalites_page.next_page_number }}{% if consommations_page.number > 1 %}&page_conso={{ consommations_page.number }}{% endif %}" class="page-btn"><i class="bx bx-chevron-right"></i></a>{% endif %}
+        </div>
+        {% endif %}
         {% else %}
-        <div class="empty-state compact">
-          <i class="bx bxs-heart empty-state__icon"></i>
-          <div class="empty-state__title">Aucune mortalité enregistrée</div>
+        <div class="empty-state-sm">
+          <i class="bx bxs-heart" style="color:var(--border-strong);"></i>
+          <span>Aucune mortalité enregistrée</span>
+          {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+          <a href="{% url 'elevage:mortalite_create' lot.pk %}" class="btn-ghost btn-sm"><i class="bx bx-plus"></i> Saisir</a>
+          {% endif %}
         </div>
         {% endif %}
       </div>
-    </div>
 
-    <!-- Tab: Consommations -->
-    <div id="tab-consommations" class="tab-panel">
-      <div class="tab-panel__body">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h3 class="card-title-sm">Enregistrements de consommation</h3>
-          {% if lot.statut == lot.STATUT_OUVERT and request.user.userprofile %}
-            {% if not request.user.userprofile.role == 'viewer' %}
-            <a href="{% url 'elevage:consommation_create' lot.pk %}" class="btn-primary btn-sm">
-              <i class="bx bx-plus"></i> Enregistrer
-            </a>
-            {% endif %}
+      <!-- Consommations section -->
+      <div class="card mb-3">
+        <div class="section-header">
+          <span class="section-eyebrow"><i class="bx bxs-droplet" style="font-size:12px;color:var(--accent-text);"></i> Consommations</span>
+          {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+          <a href="{% url 'elevage:consommation_create' lot.pk %}" class="btn-ghost btn-sm">
+            <i class="bx bx-plus"></i> Saisir
+          </a>
           {% endif %}
         </div>
-        {% if consommations %}
+
+        {% if consommations_page.object_list %}
         <div class="table-wrapper">
-          <table class="table-base">
+          <table class="data-table">
             <thead>
               <tr>
                 <th>Date</th>
                 <th>Intrant</th>
-                <th style="text-align:right;">Quantité</th>
-                <th>BL / Réf</th>
-                <th>Note</th>
-                <th style="text-align:right;">Actions</th>
+                <th>Catégorie</th>
+                <th>Quantité</th>
+                <th>Notes</th>
+                {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}<th style="text-align:right;">Actions</th>{% endif %}
               </tr>
             </thead>
             <tbody>
-              {% for c in consommations %}
-              <tr>
-                <td style="white-space:nowrap;color:var(--text-muted);">{{ c.date|date:"d/m/Y" }}</td>
+              {% for conso in consommations_page.object_list %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td style="color:var(--text-muted);">{{ conso.date|date:"d/m/Y" }}</td>
+                <td style="font-weight:500;color:var(--text-primary);">{{ conso.intrant.designation }}</td>
+                <td><span class="pill-info">{{ conso.intrant.categorie.libelle }}</span></td>
+                <td style="font-family:'Nunito',sans-serif;font-weight:700;">
+                  {{ conso.quantite|floatformat:2 }} <span style="font-size:11px;color:var(--text-muted);">{{ conso.intrant.unite_mesure }}</span>
+                </td>
+                <td style="color:var(--text-muted);font-size:12px;">{{ conso.notes|default:"—" }}</td>
+                {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
                 <td>
-                  <div style="font-family:'Nunito',sans-serif;font-weight:600;">{{ c.intrant.nom }}</div>
-                  <div style="font-size:11px;color:var(--text-muted);">{{ c.intrant.type_intrant.name }}</div>
+                  <div class="actions-cell">
+                    <a href="{% url 'elevage:consommation_edit' conso.pk %}" class="action-btn" title="Modifier"><i class="bx bxs-pencil"></i></a>
+                    <button type="button" class="action-btn action-btn--danger"
+                      data-delete-conso="{{ conso.pk }}"
+                      data-date="{{ conso.date|date:'d/m/Y' }}"
+                      data-intrant="{{ conso.intrant.designation }}"
+                      title="Supprimer">
+                      <i class="bx bxs-trash"></i>
+                    </button>
+                  </div>
                 </td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
-                  {{ c.quantite|floatformat:2 }} {{ c.intrant.unite_mesure }}
-                </td>
-                <td style="color:var(--text-muted);">{{ c.bl_fournisseur|default:"—" }}</td>
-                <td style="color:var(--text-muted);">{{ c.note|default:"—" }}</td>
-                <td style="text-align:right;">
-                  {% if lot.statut == lot.STATUT_OUVERT %}
-                    {% if request.user.userprofile %}
-                      {% if not request.user.userprofile.role == 'viewer' %}
-                      <div class="actions-cell">
-                        <a href="{% url 'elevage:consommation_edit' lot.pk c.pk %}" class="action-btn" title="Modifier"><i class="bx bxs-pencil"></i></a>
-                      </div>
-                      {% endif %}
-                    {% endif %}
-                  {% endif %}
-                </td>
+                {% endif %}
               </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
+        {% if consommations_page.has_other_pages %}
+        <div class="pagination-bar">
+          {% if consommations_page.has_previous %}<a href="?page_conso={{ consommations_page.previous_page_number }}{% if mortalites_page.number > 1 %}&page_mort={{ mortalites_page.number }}{% endif %}" class="page-btn"><i class="bx bx-chevron-left"></i></a>{% endif %}
+          <span class="page-info">{{ consommations_page.number }} / {{ consommations_page.paginator.num_pages }}</span>
+          {% if consommations_page.has_next %}<a href="?page_conso={{ consommations_page.next_page_number }}{% if mortalites_page.number > 1 %}&page_mort={{ mortalites_page.number }}{% endif %}" class="page-btn"><i class="bx bx-chevron-right"></i></a>{% endif %}
+        </div>
+        {% endif %}
         {% else %}
-        <div class="empty-state compact">
-          <i class="bx bxs-droplet empty-state__icon"></i>
-          <div class="empty-state__title">Aucune consommation enregistrée</div>
+        <div class="empty-state-sm">
+          <i class="bx bxs-droplet" style="color:var(--border-strong);"></i>
+          <span>Aucune consommation enregistrée</span>
+          {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+          <a href="{% url 'elevage:consommation_create' lot.pk %}" class="btn-ghost btn-sm"><i class="bx bx-plus"></i> Saisir</a>
+          {% endif %}
         </div>
         {% endif %}
       </div>
-    </div>
 
-    <!-- Tab: Production -->
-    <div id="tab-production" class="tab-panel">
-      <div class="tab-panel__body">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h3 class="card-title-sm">Courbes de production</h3>
-        </div>
-        {% if poids_moyen_entries or aliment_entries %}
-        <div class="chart-row">
-          <div class="chart-card">
-            <div class="chart-card__header">
-              <div class="chart-card__icon ic-blue"><i class="bx bxs-weight"></i></div>
-              <div>
-                <div class="chart-card__title">Poids moyen (g)</div>
-                <div class="chart-card__sub">Évolution hebdomadaire du poids moyen</div>
-              </div>
-            </div>
-            <div class="chart-card__body">
-              <canvas id="chart-poids"></canvas>
-            </div>
-          </div>
-          <div class="chart-card">
-            <div class="chart-card__header">
-              <div class="chart-card__icon ic-amber"><i class="bx bxs-droplet"></i></div>
-              <div>
-                <div class="chart-card__title">Aliment consommé (kg)</div>
-                <div class="chart-card__sub">Quantité totale d'aliment par relevé</div>
-              </div>
-            </div>
-            <div class="chart-card__body">
-              <canvas id="chart-aliment"></canvas>
-            </div>
-          </div>
-        </div>
-        {% else %}
-        <div class="empty-state compact">
-          <i class="bx bxs-line-chart empty-state__icon"></i>
-          <div class="empty-state__title">Aucune donnée de production</div>
-          <div class="empty-state__text">Les courbes apparaîtront après les premiers relevés de poids et d'aliment.</div>
-        </div>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- Tab: Historique -->
-    <div id="tab-historique" class="tab-panel">
-      <div class="tab-panel__body">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h3 class="card-title-sm">Tous les enregistrements</h3>
+      <!-- Productions section -->
+      <div class="card">
+        <div class="section-header">
+          <span class="section-eyebrow"><i class="bx bx-refresh" style="font-size:12px;color:#0284c7;"></i> Productions validées</span>
         </div>
         {% if productions %}
         <div class="table-wrapper">
-          <table class="table-base">
+          <table class="data-table">
             <thead>
               <tr>
+                <th>Référence</th>
                 <th>Date</th>
-                <th>Type</th>
-                <th>Éffectif</th>
-                <th style="text-align:right;">Valeur</th>
-                <th>Note</th>
+                <th>Poids total (kg)</th>
+                <th>Statut</th>
               </tr>
             </thead>
             <tbody>
-              {% for entry in productions %}
-              <tr>
-                <td style="white-space:nowrap;color:var(--text-muted);">{{ entry.date|date:"d/m/Y" }}</td>
-                <td>
-                  <span class="pill-base pill-neutral">{{ entry.get_type_display }}</span>
-                </td>
-                <td>{{ entry.effectif|default:"—" }}</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
-                  {% if entry.valeur %}{{ entry.valeur|floatformat:2 }}{% if entry.type == 'poids_moyen' %} g{% elif entry.type == 'aliment' %} kg{% endif %}{% else %}—{% endif %}
-                </td>
-                <td style="color:var(--text-muted);">{{ entry.note|default:"—" }}</td>
+              {% for prod in productions %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td style="font-weight:600;color:var(--text-primary);">{{ prod.reference }}</td>
+                <td style="color:var(--text-muted);">{{ prod.date|date:"d/m/Y" }}</td>
+                <td style="font-family:'Nunito',sans-serif;font-weight:700;">{{ prod.poids_total_kg|floatformat:2 }} kg</td>
+                <td><span class="pill-success">Validé</span></td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
         {% else %}
-        <div class="empty-state compact">
-          <i class="bx bxs-detail empty-state__icon"></i>
-          <div class="empty-state__title">Aucun enregistrement</div>
+        <div class="empty-state-sm">
+          <i class="bx bx-refresh" style="color:var(--border-strong);"></i>
+          <span>Aucune production validée — requis avant clôture (BR-LOT-04)</span>
         </div>
         {% endif %}
       </div>
+
     </div>
 
+    <!-- Right column: info + danger zone -->
+    <div class="col-xl-4">
+      <!-- Lot info card -->
+      <div class="card mb-3">
+        <div class="section-header">
+          <span class="section-eyebrow">Informations du lot</span>
+        </div>
+        <div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
+          <div class="info-row">
+            <span class="info-label">Fournisseur poussins</span>
+            <span class="info-val">{{ lot.fournisseur_poussins.nom }}</span>
+          </div>
+          {% if lot.bl_fournisseur_poussins %}
+          <div class="info-row">
+            <span class="info-label">BL Fournisseur</span>
+            <span class="info-val">{{ lot.bl_fournisseur_poussins.reference }}</span>
+          </div>
+          {% endif %}
+          {% if lot.souche %}
+          <div class="info-row">
+            <span class="info-label">Souche</span>
+            <span class="info-val">{{ lot.souche }}</span>
+          </div>
+          {% endif %}
+          <div class="info-row">
+            <span class="info-label">Bâtiment</span>
+            <span class="info-val">{{ lot.batiment.nom }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Statut</span>
+            <span class="info-val">
+              {% if lot.statut == 'ouvert' %}
+                <span class="pill-success"><i class="bx bxs-check-circle"></i> Ouvert</span>
+              {% else %}
+                <span class="pill-neutral"><i class="bx bxs-lock"></i> Clôturé</span>
+              {% endif %}
+            </span>
+          </div>
+          {% if lot.created_by %}
+          <div class="info-row">
+            <span class="info-label">Créé par</span>
+            <span class="info-val">{{ lot.created_by.get_full_name|default:lot.created_by.username }}</span>
+          </div>
+          {% endif %}
+          {% if lot.notes %}
+          <div style="padding-top:10px;border-top:1px solid var(--border);">
+            <div class="info-label" style="margin-bottom:4px;">Notes</div>
+            <div style="font-size:13px;color:var(--text-secondary);">{{ lot.notes }}</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Depenses section -->
+      {% if depenses %}
+      <div class="card mb-3">
+        <div class="section-header">
+          <span class="section-eyebrow"><i class="bx bxs-wallet" style="font-size:12px;color:#b45309;"></i> Dépenses liées</span>
+        </div>
+        <div style="padding:0;">
+          {% for dep in depenses %}
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;color:var(--text-primary);font-weight:500;">{{ dep.description|default:dep.categorie.libelle }}</div>
+              <div style="font-size:11px;color:var(--text-muted);">{{ dep.date|date:"d/m/Y" }}</div>
+            </div>
+            <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:var(--text-primary);flex-shrink:0;">{{ dep.montant|floatformat:0 }} DZD</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Danger zone: close lot -->
+      {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+      <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:16px 18px;">
+        <div style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;margin-bottom:4px;font-size:14px;">
+          <i class="bx bxs-error me-1"></i> Zone sensible
+        </div>
+        <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px;">
+          La clôture du lot est irréversible. Au moins une production validée est requise (BR-LOT-04).
+        </p>
+        <a href="{% url 'elevage:lot_fermer' lot.pk %}" class="btn-danger">
+          <i class="bx bxs-lock"></i> Clôturer le lot
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Mortalité delete confirm panel -->
+<div id="confirm-mort-panel" class="confirm-panel" style="display:none;">
+  <div class="confirm-panel__inner">
+    <div class="confirm-panel__icon"><i class="bx bxs-trash"></i></div>
+    <div>
+      <div class="confirm-panel__title">Supprimer cette mortalité ?</div>
+      <div class="confirm-panel__body" id="confirm-mort-body"></div>
+    </div>
+    <div class="confirm-panel__actions">
+      <button type="button" id="confirm-mort-cancel" class="btn-ghost">Annuler</button>
+      <form id="confirm-mort-form" method="post" action="">
+        {% csrf_token %}
+        <button type="submit" class="btn-danger">Supprimer</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Consommation delete confirm panel -->
+<div id="confirm-conso-panel" class="confirm-panel" style="display:none;">
+  <div class="confirm-panel__inner">
+    <div class="confirm-panel__icon"><i class="bx bxs-trash"></i></div>
+    <div>
+      <div class="confirm-panel__title">Supprimer cette consommation ?</div>
+      <div class="confirm-panel__body" id="confirm-conso-body"></div>
+    </div>
+    <div class="confirm-panel__actions">
+      <button type="button" id="confirm-conso-cancel" class="btn-ghost">Annuler</button>
+      <form id="confirm-conso-form" method="post" action="">
+        {% csrf_token %}
+        <button type="submit" class="btn-danger">Supprimer</button>
+      </form>
+    </div>
   </div>
 </div>
 
@@ -328,143 +441,143 @@
 
 {% block extra_css %}
 <style>
-.alert-banner-red {
-  display: flex; align-items: center; gap: 10px;
-  background: rgba(220,38,38,.08); border: 1px solid rgba(220,38,38,.2);
-  border-radius: var(--radius-md); padding: 12px 16px;
-  font-size: 13px; color: #991b1b;
-}
-.alert-banner-red i { font-size: 18px; flex-shrink: 0; }
+  .card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden; }
+  .section-header {
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 18px 12px;border-bottom:1px solid var(--border);
+  }
+  .section-eyebrow { font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted); }
+  .metric-card {
+    background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+    padding:18px 20px;display:flex;flex-direction:column;gap:6px;
+    transition:border-color .18s,transform .18s;animation:fadeIn .3s ease;
+  }
+  .metric-card:hover { border-color:var(--border-strong);transform:translateY(-1px); }
+  .metric-icon { width:40px;height:40px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:4px; }
+  .ic-green { background:rgba(34,197,94,.14);color:var(--accent-text); }
+  .ic-blue  { background:rgba(56,189,248,.14);color:#0284c7; }
+  .ic-amber { background:rgba(245,158,11,.14);color:#b45309; }
+  .ic-orange { background:rgba(251,146,60,.14);color:#ea580c; }
+  .ic-red   { background:rgba(239,68,68,.12);color:#dc2626; }
+  .metric-label { font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted); }
+  .metric-value { font-family:'Nunito',sans-serif;font-weight:800;font-size:26px;color:var(--text-primary);line-height:1; }
+  .metric-value.danger { color:#dc2626; }
+  .metric-delta { font-size:11px;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;width:fit-content; }
+  .metric-delta.up      { background:rgba(34,197,94,.12);color:var(--accent-text); }
+  .metric-delta.down    { background:rgba(239,68,68,.10);color:#dc2626; }
+  .metric-delta.neutral { background:rgba(0,0,0,.06);color:var(--text-secondary); }
 
-.detail-tabs {
-  display: flex; border-bottom: 1px solid var(--border);
-  padding: 0 16px; gap: 4px; flex-wrap: wrap;
-}
-.tab-btn {
-  padding: 10px 16px; font-size: 12.5px; font-weight: 600;
-  color: var(--text-muted); cursor: pointer; border: none; background: none;
-  border-bottom: 2px solid transparent; transition: color .12s, border-color .12s;
-  display: flex; align-items: center; gap: 6px; white-space: nowrap;
-}
-.tab-btn.active { color: var(--text-primary); border-bottom-color: var(--accent-text); }
-.tab-btn:hover { color: var(--text-primary); }
+  .table-wrapper { overflow-x:auto; }
+  .data-table { width:100%;border-collapse:collapse; }
+  .data-table thead th {
+    font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+    color:var(--text-muted);padding:10px 14px;border-bottom:1px solid var(--border);
+    white-space:nowrap;background:var(--bg-surface);
+  }
+  .data-table tbody tr {
+    border-bottom:1px solid var(--border);
+    animation:fadeIn .3s ease both;
+    animation-delay:calc(var(--row-i,0) * 35ms);
+    transition:background .12s;
+  }
+  .data-table tbody tr:last-child { border-bottom:none; }
+  .data-table tbody tr:hover { background:var(--bg-hover); }
+  .data-table td { padding:11px 14px;font-size:13px;color:var(--text-secondary);vertical-align:middle; }
 
-.tab-panel { display: none; }
-.tab-panel.active { display: block; animation: fadeIn .18s ease both; }
-.tab-panel__body { padding: 18px 20px; }
+  .empty-state-sm {
+    display:flex;align-items:center;gap:10px;padding:18px 18px;
+    font-size:13px;color:var(--text-muted);
+  }
+  .empty-state-sm i { font-size:18px; }
 
-.card-title-sm {
-  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px; color: var(--text-primary); margin: 0;
-}
+  .actions-cell { display:flex;align-items:center;justify-content:flex-end;gap:4px; }
+  .action-btn {
+    display:inline-flex;align-items:center;justify-content:center;
+    width:28px;height:28px;border-radius:var(--radius-sm);
+    border:1px solid var(--border);background:transparent;
+    color:var(--text-muted);font-size:13px;cursor:pointer;
+    transition:background .12s,color .12s,border-color .12s;text-decoration:none;
+  }
+  .action-btn:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+  .action-btn--danger { color:#dc2626;border-color:rgba(239,68,68,.2); }
+  .action-btn--danger:hover { background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3); }
 
-.d-flex { display: flex; }
-.justify-content-between { justify-content: space-between; }
-.align-items-center { align-items: center; }
-.mb-3 { margin-bottom: 12px; }
+  .info-row { display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-size:13px; }
+  .info-label { color:var(--text-muted);font-size:12px;flex-shrink:0; }
+  .info-val { color:var(--text-primary);font-weight:500;text-align:right; }
 
-.compact.empty-state { padding: 36px 0; }
-.compact .empty-state__icon { font-size: 28px; margin-bottom: 8px; }
-.compact .empty-state__title { font-size: 14px; }
+  .pill-success { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(34,197,94,.14);color:#15803d; }
+  .pill-neutral { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(0,0,0,.06);color:var(--text-secondary); }
+  .pill-info    { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(56,189,248,.14);color:#0284c7; }
 
-.chart-row {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px;
-}
-.chart-card {
-  background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
-}
-.chart-card__header {
-  display: flex; align-items: center; gap: 10px;
-  padding: 16px; border-bottom: 1px solid var(--border);
-}
-.chart-card__icon {
-  width: 32px; height: 32px; border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center; font-size: 15px;
-}
-.chart-card__title {
-  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px; color: var(--text-primary);
-}
-.chart-card__sub { font-size: 11.5px; color: var(--text-muted); }
-.chart-card__body {
-  padding: 16px; min-height: 220px; display: flex; align-items: center; justify-content: center;
-}
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s,transform .12s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s,border-color .12s,color .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+  .btn-ghost.btn-sm { padding:6px 10px;font-size:12px; }
+  .btn-warning { background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.22);color:#b45309;font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-warning:hover { background:rgba(245,158,11,.20); }
+  .btn-danger { background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.22);color:#dc2626;font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-danger:hover { background:rgba(239,68,68,.18); }
+
+  .confirm-panel { position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s ease; }
+  .confirm-panel[style*="display:none"] { display:none !important; }
+  .confirm-panel__inner { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;max-width:420px;width:100%;display:flex;flex-direction:column;gap:14px;box-shadow:0 8px 32px rgba(0,0,0,.14);animation:fadeIn .2s ease; }
+  .confirm-panel__icon { width:44px;height:44px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:20px;background:rgba(239,68,68,.1);color:#dc2626; }
+  .confirm-panel__title { font-family:'Nunito',sans-serif;font-weight:700;font-size:15px;color:var(--text-primary);margin-bottom:4px; }
+  .confirm-panel__body { font-size:13px;color:var(--text-secondary); }
+  .confirm-panel__actions { display:flex;gap:10px;justify-content:flex-end; }
+  .confirm-panel__actions form { margin:0; }
+
+  .pagination-bar { display:flex;align-items:center;gap:8px;justify-content:center;padding:12px 18px;border-top:1px solid var(--border); }
+  .page-btn { display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-surface);color:var(--text-secondary);font-size:15px;text-decoration:none;transition:background .12s; }
+  .page-btn:hover { background:var(--bg-hover); }
+  .page-info { font-size:12px;color:var(--text-muted); }
 </style>
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  /* ---- Tabs ---- */
-  const tabBtns = document.querySelectorAll('.tab-btn');
-  const tabPanels = document.querySelectorAll('.tab-panel');
-  tabBtns.forEach(btn => {
+
+  /* Mortalité delete confirm */
+  const mortPanel   = document.getElementById('confirm-mort-panel');
+  const mortBody    = document.getElementById('confirm-mort-body');
+  const mortForm    = document.getElementById('confirm-mort-form');
+  const mortCancel  = document.getElementById('confirm-mort-cancel');
+
+  document.querySelectorAll('[data-delete-mort]').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      const target = this.getAttribute('data-tab');
-      tabBtns.forEach(b => b.classList.toggle('active', b === this));
-      tabPanels.forEach(p => p.classList.toggle('active', p.id === target));
+      const pk    = btn.dataset.deleteMort;
+      const date  = btn.dataset.date;
+      const n     = btn.dataset.nombre;
+      mortBody.textContent = date + ' — ' + n + ' mort(s). Cette action est irréversible.';
+      mortForm.action = '/elevage/mortalites/' + pk + '/supprimer/';
+      mortPanel.style.display = '';
     });
   });
+  mortCancel.addEventListener('click', function () { mortPanel.style.display = 'none'; });
+  mortPanel.addEventListener('click', function (e) { if (e.target === mortPanel) mortPanel.style.display = 'none'; });
 
-  /* ---- Charts ---- */
-  Chart.defaults.font.family = "'Inter', sans-serif";
-  Chart.defaults.color = '#9aa0a6';
+  /* Consommation delete confirm */
+  const consoPanel  = document.getElementById('confirm-conso-panel');
+  const consoBody   = document.getElementById('confirm-conso-body');
+  const consoForm   = document.getElementById('confirm-conso-form');
+  const consoCancel = document.getElementById('confirm-conso-cancel');
 
-  /* Poids moyen chart */
-  {% if poids_moyen_entries %}
-  const ctxPoids = document.getElementById('chart-poids');
-  if (ctxPoids) {
-    new Chart(ctxPoids, {
-      type: 'line',
-      data: {
-        labels: [{% for e in poids_moyen_entries %}"{{ e.date|date:\"d/m\" }}"{% if not forloop.last %},{% endif %}{% endfor %}],
-        datasets: [{
-          label: 'Poids moyen (g)',
-          data: [{% for e in poids_moyen_entries %}{{ e.valeur|default:0 }}{% if not forloop.last %},{% endif %}{% endfor %}],
-          borderColor: '#3b82f6',
-          backgroundColor: 'rgba(59,130,246,.10)',
-          borderWidth: 2, pointRadius: 3, pointHoverRadius: 5,
-          fill: true, tension: 0.3
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,.06)' } },
-          x: { grid: { display: false } }
-        }
-      }
+  document.querySelectorAll('[data-delete-conso]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const pk      = btn.dataset.deleteConso;
+      const date    = btn.dataset.date;
+      const intrant = btn.dataset.intrant;
+      consoBody.textContent = date + ' — ' + intrant + '. Le stock sera restauré.';
+      consoForm.action = '/elevage/consommations/' + pk + '/supprimer/';
+      consoPanel.style.display = '';
     });
-  }
-  {% endif %}
+  });
+  consoCancel.addEventListener('click', function () { consoPanel.style.display = 'none'; });
+  consoPanel.addEventListener('click', function (e) { if (e.target === consoPanel) consoPanel.style.display = 'none'; });
 
-  /* Aliment chart */
-  {% if aliment_entries %}
-  const ctxAliment = document.getElementById('chart-aliment');
-  if (ctxAliment) {
-    new Chart(ctxAliment, {
-      type: 'bar',
-      data: {
-        labels: [{% for e in aliment_entries %}"{{ e.date|date:\"d/m\" }}"{% if not forloop.last %},{% endif %}{% endfor %}],
-        datasets: [{
-          label: 'Aliment (kg)',
-          data: [{% for e in aliment_entries %}{{ e.valeur|default:0 }}{% if not forloop.last %},{% endif %}{% endfor %}],
-          backgroundColor: 'rgba(34,197,94,.65)',
-          borderColor: '#22c55e',
-          borderWidth: 1, borderRadius: 4, barPercentage: 0.6
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,.06)' } },
-          x: { grid: { display: false } }
-        }
-      }
-    });
-  }
-  {% endif %}
 });
 </script>
 {% endblock %}

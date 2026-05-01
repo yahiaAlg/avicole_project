@@ -1,11 +1,14 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}Nouvelle Facture Fournisseur — Élevage Avicole{% endblock %}
+
 {% block nav_factures_fournisseurs %}active{% endblock %}
 
-{% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{% if fournisseur %}{{ fournisseur.nom }}{% else %}Sélectionnez les BL à facturer{% endif %}{% endblock %}
+{% block page_title %}Nouvelle Facture Fournisseur{% endblock %}
+{% block page_sub_text %}
+  {% if fournisseur %}Étape 2 — {{ fournisseur.nom }}{% else %}Nouvelle facture{% endif %}
+{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'achats:facture_fournisseur_list' %}" class="btn-ghost">
@@ -14,276 +17,471 @@
 {% endblock %}
 
 {% block content %}
+<div class="form-layout">
 
-<form method="post" novalidate>
-  {% csrf_token %}
-  {{ form.fournisseur }}
+  <!-- Left column: form -->
+  <div class="form-main">
 
-  <div class="invoice-layout">
-
-    <!-- Left column: BL selection -->
-    <div class="invoice-main">
-
-      <!-- Reference & dates -->
-      <div class="section-card" style="margin-bottom:18px;">
-        <div class="section-card__head">
-          <span class="section-card__title"><i class="bx bxs-file-txt" style="color:var(--accent);margin-right:8px;"></i>Informations de la facture</span>
-        </div>
-        <div class="section-card__body">
-          <div class="form-grid">
-            <div class="field-group">
-              <label class="field-label" for="{{ form.reference.id_for_label }}">Référence facture <span class="req">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bxs-file-txt input-icon"></i>
-                {{ form.reference }}
-              </div>
-              {% for err in form.reference.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
-            <div class="field-group">
-              <label class="field-label" for="{{ form.date_facture.id_for_label }}">Date de facture <span class="req">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bxs-calendar input-icon"></i>
-                {{ form.date_facture }}
-              </div>
-              {% for err in form.date_facture.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
-            <div class="field-group">
-              <label class="field-label" for="{{ form.date_echeance.id_for_label }}">Date d'échéance</label>
-              <div class="input-wrapper">
-                <i class="bx bxs-calendar input-icon"></i>
-                {{ form.date_echeance }}
-              </div>
-              {% for err in form.date_echeance.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
-            <div class="field-group">
-              <label class="field-label" for="{{ form.type_facture.id_for_label }}">Type de facture</label>
-              <div class="input-wrapper">
-                <i class="bx bxs-cog input-icon"></i>
-                {{ form.type_facture }}
-              </div>
-              {% for err in form.type_facture.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
-          </div>
-          {% if form.non_field_errors %}
-          <div class="field-error" style="margin-top:12px;">
-            <i class="bx bxs-error-circle"></i> {% for err in form.non_field_errors %}{{ err }}{% endfor %}
-          </div>
-          {% endif %}
+    <!-- Supplier banner -->
+    {% if fournisseur %}
+    <div class="supplier-banner">
+      <div class="supplier-banner__avatar">{{ fournisseur.nom|slice:":2"|upper }}</div>
+      <div class="supplier-banner__info">
+        <div class="supplier-banner__name">{{ fournisseur.nom }}</div>
+        {% if fournisseur.type_principal %}
+        <div class="supplier-banner__type">{{ fournisseur.type_principal.libelle }}</div>
+        {% endif %}
+      </div>
+      <div class="supplier-banner__debt">
+        <div class="supplier-banner__debt-label">Dette globale</div>
+        <div class="supplier-banner__debt-val {% if fournisseur.dette_globale > 0 %}debt-red{% endif %}">
+          {{ fournisseur.dette_globale|floatformat:0 }} DZD
         </div>
       </div>
-
-      <!-- BL Selection -->
-      <div class="section-card">
-        <div class="section-card__head">
-          <span class="section-card__title"><i class="bx bxs-truck" style="color:var(--accent);margin-right:8px;"></i>Sélection des BL</span>
-          <span style="font-size:12px;color:var(--text-muted);">{{ bls_recu|length }} BL{% if bls_recu|length > 1 %}s{% endif %} Reçu{% if bls_recu|length > 1 %}s{% endif %} disponible{% if bls_recu|length > 1 %}s{% endif %}</span>
-        </div>
-        <div class="section-card__body no-pad">
-          {% if bls_recu %}
-          <div class="table-wrap">
-            <table class="table-base">
-              <thead>
-                <tr>
-                  <th style="width:40px;text-align:center;">
-                    <input type="checkbox" id="select-all-bls" title="Tout sélectionner" style="accent-color:var(--accent);">
-                  </th>
-                  <th>BL</th>
-                  <th>Date</th>
-                  <th style="text-align:right;">Montant</th>
-                  <th>Lignes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for bl in bls_recu %}
-                <tr class="bl-select-row">
-                  <td style="text-align:center;">
-                    <input type="checkbox" name="bls" value="{{ bl.pk }}" class="bl-checkbox" data-bl-pk="{{ bl.pk }}" style="accent-color:var(--accent);">
-                  </td>
-                  <td>
-                    <span class="text-mono val-money" style="color:var(--text-primary);">{{ bl.reference }}</span>
-                  </td>
-                  <td style="color:var(--text-muted);white-space:nowrap;">{{ bl.date_bl|date:"d/m/Y" }}</td>
-                  <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;white-space:nowrap;" data-bl-montant="{{ bl.montant_total }}">
-                    {{ bl.montant_total|floatformat:2 }} DZD
-                  </td>
-                  <td style="color:var(--text-muted);font-size:12px;">
-                    {% for ligne in bl.lignes.all %}
-                      {{ ligne.intrant.designation }} × {{ ligne.quantite|floatformat:0 }}{% if not forloop.last %}, {% endif %}
-                    {% endfor %}
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-          {% else %}
-          <div class="empty-state" style="padding:32px 20px;">
-            <i class="bx bxs-truck empty-state__icon"></i>
-            <div class="empty-state__title">Aucun BL disponible</div>
-            <div class="empty-state__text">
-              Ce fournisseur n'a aucun BL au statut Reçu. Validez des BL avant de créer une facture.
-            </div>
-          </div>
-          {% endif %}
-        </div>
-      </div>
-
+      <a href="{% url 'achats:facture_fournisseur_create' %}" class="btn-ghost btn-sm">
+        <i class="bx bx-refresh"></i> Changer
+      </a>
     </div>
+    {% endif %}
 
-    <!-- Right column: Summary + actions -->
-    <div class="invoice-side">
+    <!-- Form errors -->
+    {% if form.non_field_errors %}
+    <div class="form-error-banner">
+      <i class="bx bxs-error-circle"></i>
+      {% for err in form.non_field_errors %}{{ err }}{% endfor %}
+    </div>
+    {% endif %}
 
-      <!-- Running total card -->
-      <div class="section-card" style="margin-bottom:16px;">
-        <div class="section-card__head">
-          <span class="section-card__title">Récapitulatif</span>
+    <form method="post" id="facture-form">
+      {% csrf_token %}
+
+      <!-- Hidden fournisseur field -->
+      {{ form.fournisseur }}
+
+      <!-- Section: Identification -->
+      <div class="form-card">
+        <div class="form-card__title"><i class="bx bxs-file-txt"></i> Identification</div>
+        <div class="form-row-2">
+          <div class="field-group">
+            <label for="{{ form.reference.id_for_label }}" class="field-label">
+              Référence facture <span class="required-star">*</span>
+            </label>
+            {{ form.reference }}
+            {% if form.reference.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.reference.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div class="field-group">
+            <label for="{{ form.type_facture.id_for_label }}" class="field-label">
+              Type de facture <span class="required-star">*</span>
+            </label>
+            {{ form.type_facture }}
+            {% if form.type_facture.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.type_facture.errors.0 }}</div>
+            {% endif %}
+          </div>
         </div>
-        <div class="section-card__body">
-
-          <!-- Statut -->
-          <div class="field-group" style="margin-bottom:14px;">
-            <label class="field-label" for="{{ form.statut.id_for_label }}">Statut initial</label>
+        <div class="form-row-2">
+          <div class="field-group">
+            <label for="{{ form.date_facture.id_for_label }}" class="field-label">
+              Date de la facture <span class="required-star">*</span>
+            </label>
+            <div class="input-icon-wrap">
+              <i class="bx bxs-calendar"></i>
+              {{ form.date_facture }}
+            </div>
+            {% if form.date_facture.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.date_facture.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div class="field-group">
+            <label for="{{ form.date_echeance.id_for_label }}" class="field-label">
+              Date d'échéance
+            </label>
+            <div class="input-icon-wrap">
+              <i class="bx bxs-calendar"></i>
+              {{ form.date_echeance }}
+            </div>
+            {% if form.date_echeance.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.date_echeance.errors.0 }}</div>
+            {% endif %}
+          </div>
+        </div>
+        <div class="form-row-2">
+          <div class="field-group">
+            <label for="{{ form.statut.id_for_label }}" class="field-label">
+              Statut <span class="required-star">*</span>
+            </label>
             {{ form.statut }}
-            {% for err in form.statut.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            {% if form.statut.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.statut.errors.0 }}</div>
+            {% endif %}
           </div>
-
-          <!-- Notes -->
-          <div class="field-group" style="margin-bottom:16px;">
-            <label class="field-label" for="{{ form.notes.id_for_label }}">Notes</label>
-            {{ form.notes }}
-            {% for err in form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-          </div>
-
-          <!-- Computed total (read-only) -->
-          <div style="background:var(--bg-raised);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:16px;">
-            <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Montant total calculé</div>
-            <div id="montant-total-display" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:24px;color:var(--text-primary);">
-              0 DZD
-            </div>
-            <div id="montant-total-detail" style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">
-              Sélectionnez un ou plusieurs BL
+          <div class="field-group">
+            <label class="field-label">Montant total (calculé)</label>
+            <div class="readonly-value" id="montant-total-display">— DZD</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+              <i class="bx bx-info-circle"></i> Calculé automatiquement depuis les BLs sélectionnés
             </div>
           </div>
-
-          <!-- BL count -->
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border);">
-            <span style="font-size:12.5px;color:var(--text-muted);">BL sélectionnés</span>
-            <span id="bl-count" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">0</span>
-          </div>
-
+        </div>
+        <div class="field-group">
+          <label for="{{ form.notes.id_for_label }}" class="field-label">Notes</label>
+          {{ form.notes }}
+          {% if form.notes.errors %}
+          <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.notes.errors.0 }}</div>
+          {% endif %}
         </div>
       </div>
 
-      <!-- Actions -->
-      <div class="section-card">
-        <div class="section-card__body">
-          <button type="submit" class="btn-primary" style="width:100%;justify-content:center;" id="btn-create-invoice" disabled>
-            <i class="bx bx-plus"></i> {{ action_label|default:"Créer la facture" }}
-          </button>
-          <a href="{% url 'achats:facture_fournisseur_list' %}" class="btn-ghost" style="width:100%;justify-content:center;margin-top:10px;display:flex;">
-            Annuler
+      <!-- Section: BL Selection -->
+      {% if fournisseur %}
+      <div class="form-card">
+        <div class="form-card__title"><i class="bx bxs-truck"></i> BLs à inclure
+          <span style="font-size:11px;font-weight:400;color:var(--text-muted);margin-left:8px;">Sélectionnez un ou plusieurs BLs au statut Reçu</span>
+        </div>
+        {% if form.bls.errors %}
+        <div class="field-error" style="margin-bottom:12px;"><i class="bx bxs-x-circle"></i> {{ form.bls.errors.0 }}</div>
+        {% endif %}
+        {% if bls_recu %}
+        <div class="bl-select-list" id="bl-checkbox-list">
+          {% for bl in bls_recu %}
+          <label class="bl-select-item" data-pk="{{ bl.pk }}" data-amount="{{ bl.montant_total }}">
+            <input type="checkbox" name="bls" value="{{ bl.pk }}" id="bl_{{ bl.pk }}"
+              {% for selected in form.bls.value %}{% if selected == bl.pk|stringformat:"i" %}checked{% endif %}{% endfor %}
+              class="bl-checkbox">
+            <div class="bl-select-item__info">
+              <div class="bl-select-item__ref">{{ bl.reference }}</div>
+              <div class="bl-select-item__meta">
+                {{ bl.date_bl|date:"d/m/Y" }}
+                {% if bl.reference_fournisseur %} · Réf. four. : {{ bl.reference_fournisseur }}{% endif %}
+                · {{ bl.lignes.count }} ligne{{ bl.lignes.count|pluralize }}
+              </div>
+            </div>
+            <div class="bl-select-item__amount">{{ bl.montant_total|floatformat:0 }} DZD</div>
+          </label>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:28px 16px;color:var(--text-muted);">
+          <i class="bx bxs-truck" style="font-size:28px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
+          <div style="font-size:13px;">Aucun BL au statut <strong>Reçu</strong> pour ce fournisseur.</div>
+          <a href="{% url 'achats:bl_fournisseur_create' %}" class="btn-ghost" style="margin-top:12px;display:inline-flex;">
+            <i class="bx bx-plus"></i> Créer un BL
           </a>
         </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <!-- Service type warning (BR-AP/dépense separation) -->
+      <div class="service-warning" id="service-warning" style="display:none;">
+        <i class="bx bxs-error" style="color:#b45309;flex-shrink:0;"></i>
+        <span>Ce type de facture est <strong>Service</strong> — elle n'impacte pas le stock. Vérifiez qu'il ne s'agit pas d'une dépense opérationnelle à enregistrer dans le module <strong>Dépenses</strong>.</span>
       </div>
 
-    </div>
-
+      <div class="form-actions">
+        <a href="{% url 'achats:facture_fournisseur_list' %}" class="btn-ghost">Annuler</a>
+        <button type="submit" class="btn-primary" id="submit-btn" {% if not bls_recu and fournisseur %}disabled{% endif %}>
+          <i class="bx bxs-file-txt"></i> {{ action_label }}
+        </button>
+      </div>
+    </form>
   </div>
 
-</form>
+  <!-- Right column: summary sidebar -->
+  <div class="form-aside">
+    <div class="aside-card">
+      <div class="aside-card__title"><i class="bx bx-info-circle"></i> Récapitulatif</div>
+      <div class="summary-row">
+        <span class="summary-label">Fournisseur</span>
+        <span class="summary-val">{% if fournisseur %}{{ fournisseur.nom }}{% else %}—{% endif %}</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">BLs sélectionnés</span>
+        <span class="summary-val" id="bl-count-display">0</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">Montant total calculé</span>
+        <span class="summary-val summary-val--accent" id="aside-total-display">0 DZD</span>
+      </div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:10px 0;">
+      <div style="font-size:11.5px;color:var(--text-muted);line-height:1.6;">
+        <i class="bx bxs-info-circle" style="color:var(--accent-text);"></i>
+        Le montant total sera <strong>calculé automatiquement</strong> depuis les lignes des BLs sélectionnés (BR-FAF-01). Les BLs inclus passeront au statut <strong>Facturé</strong> et seront verrouillés.
+      </div>
+    </div>
 
+    {% if fournisseur and fournisseur.dette_globale > 0 %}
+    <div class="aside-card aside-card--warning">
+      <div class="aside-card__title"><i class="bx bx-hourglass"></i> Situation actuelle</div>
+      <div class="summary-row">
+        <span class="summary-label">Dette globale</span>
+        <span class="summary-val" style="color:#dc2626;font-weight:700;">{{ fournisseur.dette_globale|floatformat:0 }} DZD</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">Acompte disponible</span>
+        <span class="summary-val" style="color:var(--accent-text);">{{ fournisseur.acompte_disponible|floatformat:0 }} DZD</span>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.invoice-layout {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 20px;
-  align-items: start;
-}
-@media (max-width: 1024px) { .invoice-layout { grid-template-columns: 1fr; } }
+  .form-layout {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 18px;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .form-layout { grid-template-columns: 1fr; }
+  }
 
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-@media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+  /* Supplier banner */
+  .supplier-banner {
+    display: flex; align-items: center; gap: 14px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px 18px;
+    margin-bottom: 14px;
+    animation: fadeIn .25s ease;
+  }
+  .supplier-banner__avatar {
+    width: 40px; height: 40px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-dim);
+    color: var(--accent-text);
+    font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 14px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .supplier-banner__info { flex: 1; }
+  .supplier-banner__name { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px; color: var(--text-primary); }
+  .supplier-banner__type { font-size: 11.5px; color: var(--text-muted); }
+  .supplier-banner__debt { text-align: right; }
+  .supplier-banner__debt-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); }
+  .supplier-banner__debt-val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px; color: var(--text-primary); }
+  .supplier-banner__debt-val.debt-red { color: #dc2626; }
+  .btn-sm { padding: 7px 13px !important; font-size: 12px !important; }
 
-.table-wrap { overflow-x: auto; }
+  /* Form error banner */
+  .form-error-banner {
+    background: rgba(239,68,68,.06);
+    border: 1px solid rgba(239,68,68,.2);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    display: flex; align-items: flex-start; gap: 8px;
+    font-size: 13px; color: #dc2626;
+    margin-bottom: 14px;
+  }
 
-.bl-select-row { transition: background 0.12s; }
-.bl-select-row:hover { background: var(--bg-hover); }
-.bl-select-row:has(.bl-checkbox:checked) { background: var(--accent-dim); }
+  /* Form card */
+  .form-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 22px;
+    margin-bottom: 14px;
+    animation: fadeIn .3s ease;
+  }
+  .form-card__title {
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px;
+    color: var(--text-primary); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .field-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .field-group:last-child { margin-bottom: 0; }
+  .field-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .03em; }
+  .required-star { color: #dc2626; }
+  .field-error { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #dc2626; }
+
+  /* Input styles */
+  .form-card input[type="text"],
+  .form-card input[type="date"],
+  .form-card input[type="number"],
+  .form-card select,
+  .form-card textarea {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    padding: 10px 13px;
+    width: 100%;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .form-card input[type="date"],
+  .input-icon-wrap input[type="date"] {
+    padding-left: 38px;
+  }
+  .form-card input:focus,
+  .form-card select:focus,
+  .form-card textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  .input-icon-wrap { position: relative; display: flex; align-items: center; }
+  .input-icon-wrap > i {
+    position: absolute; left: 12px; font-size: 15px;
+    color: var(--text-muted); pointer-events: none; z-index: 1;
+  }
+  .input-icon-wrap input { width: 100%; }
+
+  /* Read-only computed field */
+  .readonly-value {
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 10px 13px;
+    font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 16px;
+    color: var(--text-primary);
+    cursor: not-allowed; opacity: .7;
+  }
+
+  /* BL checkbox list */
+  .bl-select-list { display: flex; flex-direction: column; gap: 6px; }
+  .bl-select-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .bl-select-item:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+  .bl-select-item:has(.bl-checkbox:checked) {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+  }
+  .bl-select-item input[type="checkbox"] {
+    width: 16px; height: 16px;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .bl-select-item__info { flex: 1; }
+  .bl-select-item__ref { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px; color: var(--text-primary); }
+  .bl-select-item__meta { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+  .bl-select-item__amount { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
+
+  /* Service warning */
+  .service-warning {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: rgba(245,158,11,.08);
+    border: 1px solid rgba(245,158,11,.22);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    font-size: 13px; color: var(--text-secondary);
+    margin-bottom: 14px;
+    animation: fadeIn .2s ease;
+  }
+
+  /* Form actions */
+  .form-actions {
+    display: flex; justify-content: flex-end; gap: 10px;
+    padding-top: 4px;
+  }
+
+  /* Aside */
+  .aside-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px 18px;
+    margin-bottom: 12px;
+  }
+  .aside-card--warning { border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.04); }
+  .aside-card__title {
+    font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 12px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .summary-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .summary-row:last-of-type { border-bottom: none; }
+  .summary-label { font-size: 12px; color: var(--text-muted); }
+  .summary-val { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px; color: var(--text-primary); }
+  .summary-val--accent { color: var(--accent-text); font-size: 15px; }
+
+  .btn-primary {
+    background: var(--accent); color: #fff;
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px;
+    border: none; border-radius: var(--radius-md); padding: 10px 18px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: opacity .18s; text-decoration: none;
+  }
+  .btn-primary:hover { opacity: .88; }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+    font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px;
+    border-radius: var(--radius-md); padding: 9px 16px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s; text-decoration: none;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+  const checkboxes = document.querySelectorAll('.bl-checkbox');
+  const totalDisplay = document.getElementById('montant-total-display');
+  const asideTotal = document.getElementById('aside-total-display');
+  const blCountDisplay = document.getElementById('bl-count-display');
+  const submitBtn = document.getElementById('submit-btn');
+  const typeSelect = document.querySelector('[name="type_facture"]');
+  const serviceWarning = document.getElementById('service-warning');
 
-  var checkboxes = document.querySelectorAll('.bl-checkbox');
-  var selectAll = document.getElementById('select-all-bls');
-  var totalDisplay = document.getElementById('montant-total-display');
-  var totalDetail = document.getElementById('montant-total-detail');
-  var blCount = document.getElementById('bl-count');
-  var submitBtn = document.getElementById('btn-create-invoice');
+  // BL amounts map: { pk: amount }
+  const blAmounts = {};
+  {% for bl in bls_recu %}
+  blAmounts[{{ bl.pk }}] = {{ bl.montant_total }};
+  {% endfor %}
 
-  function fmtDZD(n) {
-    return new Intl.NumberFormat('fr-FR', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2
-    }).format(n) + ' DZD';
+  function formatNum(n) {
+    return Math.round(n).toLocaleString('fr-DZ') + ' DZD';
   }
 
   function updateTotal() {
-    var selected = [];
-    var total = 0;
+    let total = 0;
+    let count = 0;
     checkboxes.forEach(function (cb) {
       if (cb.checked) {
-        selected.push(cb.dataset.blPk);
-        var row = cb.closest('.bl-select-row');
-        if (row) {
-          var montantCell = row.querySelector('[data-bl-montant]');
-          if (montantCell) {
-            total += parseFloat(montantCell.dataset.blMontant) || 0;
-          }
-        }
+        const pk = parseInt(cb.value);
+        total += blAmounts[pk] || 0;
+        count++;
       }
     });
-
-    totalDisplay.textContent = fmtDZD(total);
-    blCount.textContent = selected.length;
-
-    if (selected.length === 0) {
-      totalDetail.textContent = 'Sélectionnez un ou plusieurs BL';
-      submitBtn.disabled = true;
-    } else {
-      totalDetail.textContent = 'Montant calculé depuis les lignes BL sélectionnées';
-      submitBtn.disabled = false;
-    }
-
-    // Store selected BLs for potential AJAX call
-    return selected;
+    if (totalDisplay) totalDisplay.textContent = formatNum(total);
+    if (asideTotal) asideTotal.textContent = formatNum(total);
+    if (blCountDisplay) blCountDisplay.textContent = count;
+    if (submitBtn) submitBtn.disabled = count === 0;
   }
 
   checkboxes.forEach(function (cb) {
     cb.addEventListener('change', updateTotal);
   });
 
-  if (selectAll) {
-    selectAll.addEventListener('change', function () {
-      checkboxes.forEach(function (cb) {
-        cb.checked = selectAll.checked;
-      });
-      updateTotal();
-    });
+  // Service type warning
+  function checkServiceType() {
+    if (!typeSelect || !serviceWarning) return;
+    serviceWarning.style.display = typeSelect.value === 'service' ? 'flex' : 'none';
+  }
+  if (typeSelect) {
+    typeSelect.addEventListener('change', checkServiceType);
+    checkServiceType();
   }
 
-  // Initial update
   updateTotal();
-
 });
 </script>
 {% endblock %}

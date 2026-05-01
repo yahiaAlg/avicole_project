@@ -5,166 +5,252 @@
 {% block nav_stock_intrants %}active{% endblock %}
 
 {% block page_title %}Mouvements de stock{% endblock %}
-{% block page_sub_text %}Audit trail · {{ page.paginator.count }} mouvement{{ page.paginator.count|pluralize }}{% endblock %}
+{% block page_sub_text %}Journal d'audit complet · {{ page.paginator.count }} enregistrement{{ page.paginator.count|pluralize }}{% endblock %}
 
 {% block topbar_actions %}
-<a href="{% url 'stock:stock_ajustement_list' %}" class="btn-ghost">
-  <i class="bx bx-transfer"></i> Ajustements
+<a href="{% url 'stock:dashboard' %}" class="btn-ghost">
+  <i class="bx bx-arrow-back"></i> Tableau de bord
 </a>
 {% endblock %}
 
 {% block content %}
 
-{# ── Filter bar ──────────────────────────────────────────────────────── #}
-<div class="filter-bar">
-  <form method="get" action="{% url 'stock:stock_mouvement_list' %}" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;">
-    <div class="input-wrapper" style="flex:1;min-width:180px;">
-      <i class="bx bx-search input-icon"></i>
-      <input type="text" name="q" value="{{ q }}" class="field-input has-icon" placeholder="Rechercher un article ou référence…" />
-    </div>
-    <select name="segment" class="field-input" style="min-width:140px;" onchange="this.form.submit()">
-      <option value="">Tous segments</option>
-      <option value="intrant" {% if segment == 'intrant' %}selected{% endif %}>Intrants</option>
-      <option value="produit_fini" {% if segment == 'produit_fini' %}selected{% endif %}>Produits finis</option>
-    </select>
-    <select name="type_mouvement" class="field-input" style="min-width:140px;" onchange="this.form.submit()">
-      <option value="">Tous types</option>
-      {% for code, label in type_choices %}
-      <option value="{{ code }}" {% if type_mouvement == code %}selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
-    <select name="source" class="field-input" style="min-width:160px;" onchange="this.form.submit()">
-      <option value="">Toutes sources</option>
-      {% for code, label in source_choices %}
-      <option value="{{ code }}" {% if source == code %}selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
-    <div class="input-wrapper" style="min-width:130px;">
-      <i class="bx bxs-calendar input-icon"></i>
-      <input type="date" name="date_debut" value="{{ date_debut }}" class="field-input has-icon" style="padding-left:34px;" onchange="this.form.submit()" />
-    </div>
-    <div class="input-wrapper" style="min-width:130px;">
-      <i class="bx bxs-calendar input-icon"></i>
-      <input type="date" name="date_fin" value="{{ date_fin }}" class="field-input has-icon" style="padding-left:34px;" onchange="this.form.submit()" />
-    </div>
-  </form>
-  {% if q or segment or type_mouvement or source or date_debut or date_fin %}
-  <a href="{% url 'stock:stock_mouvement_list' %}" class="btn-ghost btn-sm">
-    <i class="bx bx-x"></i> Réinitialiser
-  </a>
-  {% endif %}
+{# ── Filters ─────────────────────────────────────────────────────────────── #}
+<div class="section-card mb-4">
+  <div class="section-card__body">
+    <form method="get" class="filter-row" id="filter-form">
+      <div class="filter-field" style="flex:2;min-width:200px;">
+        <div class="input-wrap">
+          <i class="bx bx-search input-icon"></i>
+          <input type="text" name="q" value="{{ q }}" placeholder="Article, référence, notes…" class="form-input">
+        </div>
+      </div>
+
+      <div class="filter-field">
+        <div class="input-wrap">
+          <i class="bx bxs-filter-alt input-icon"></i>
+          <select name="segment" class="form-input" id="seg-select">
+            <option value="">Tous les segments</option>
+            <option value="intrant" {% if segment == 'intrant' %}selected{% endif %}>Stock Intrants</option>
+            <option value="produit_fini" {% if segment == 'produit_fini' %}selected{% endif %}>Produits Finis</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="filter-field">
+        <div class="input-wrap">
+          <i class="bx bx-transfer input-icon"></i>
+          <select name="type_mouvement" class="form-input" id="type-select">
+            <option value="">Tous les types</option>
+            {% for val, label in type_choices %}
+            <option value="{{ val }}" {% if type_mouvement == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="filter-field">
+        <div class="input-wrap">
+          <i class="bx bxs-filter-alt input-icon"></i>
+          <select name="source" class="form-input" id="src-select">
+            <option value="">Toutes les sources</option>
+            {% for val, label in source_choices %}
+            <option value="{{ val }}" {% if source == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="filter-field" style="min-width:130px;">
+        <div class="input-wrap">
+          <i class="bx bxs-calendar input-icon"></i>
+          <input type="date" name="date_debut" value="{{ date_debut }}" class="form-input" title="Date début">
+        </div>
+      </div>
+
+      <div class="filter-field" style="min-width:130px;">
+        <div class="input-wrap">
+          <i class="bx bxs-calendar input-icon"></i>
+          <input type="date" name="date_fin" value="{{ date_fin }}" class="form-input" title="Date fin">
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary" style="flex:0 0 auto;">
+        <i class="bx bxs-filter-alt"></i> Filtrer
+      </button>
+      {% if q or segment or type_mouvement or source or date_debut or date_fin %}
+      <a href="{% url 'stock:stock_mouvement_list' %}" class="btn-ghost" style="flex:0 0 auto;">
+        <i class="bx bx-x"></i> Effacer
+      </a>
+      {% endif %}
+    </form>
+  </div>
 </div>
 
-{# ── Movement table ──────────────────────────────────────────────────── #}
+{# ── Table ───────────────────────────────────────────────────────────────── #}
 <div class="section-card">
-  <div class="section-card__body no-pad">
-    {% if page.object_list %}
-    <table class="table-base">
+  {% if page.object_list %}
+  <div class="table-responsive">
+    <table class="data-table w-100">
       <thead>
         <tr>
           <th>Date</th>
-          <th>Type</th>
-          <th>Segment</th>
           <th>Article</th>
+          <th>Segment</th>
+          <th>Type</th>
           <th>Source</th>
           <th>Référence</th>
-          <th style="text-align:right;">Qté</th>
-          <th style="text-align:center;">Avant → Après</th>
-          <th style="text-align:right;">Par</th>
+          <th class="text-end">Quantité</th>
+          <th class="text-end">Avant</th>
+          <th class="text-end">Après</th>
+          <th>Saisi par</th>
         </tr>
       </thead>
       <tbody>
         {% for m in page.object_list %}
-        <tr class="stagger-row">
-          <td style="color:var(--text-muted);white-space:nowrap;font-size:12px;">
-            {{ m.date_mouvement|date:"d/m/Y" }}<br>
-            <span style="font-size:10.5px;">{{ m.created_at|date:"H:i" }}</span>
+        <tr class="tbl-row" style="--row-i:{{ forloop.counter0 }};">
+          <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">
+            {{ m.date_mouvement|date:"d/m/Y" }}
+          </td>
+          <td>
+            {% if m.intrant %}
+              <a href="{% url 'stock:stock_intrant_detail' m.intrant.stock.pk %}"
+                 style="font-weight:600;color:var(--text-primary);text-decoration:none;">
+                {{ m.intrant.designation }}
+              </a>
+            {% elif m.produit_fini %}
+              <a href="{% url 'stock:stock_produit_fini_detail' m.produit_fini.stock.pk %}"
+                 style="font-weight:600;color:var(--text-primary);text-decoration:none;">
+                {{ m.produit_fini.designation }}
+              </a>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if m.intrant %}
+              <span class="pill-info">Intrant</span>
+            {% else %}
+              <span class="pill-neutral">Produit fini</span>
+            {% endif %}
           </td>
           <td>
             {% if m.type_mouvement == 'entree' %}
-            <span class="pill-base pill-success"><i class="bx bx-trending-up"></i> Entrée</span>
+              <span class="pill-success"><i class="bx bx-up-arrow-alt"></i> Entrée</span>
             {% elif m.type_mouvement == 'sortie' %}
-            <span class="pill-base pill-danger"><i class="bx bx-trending-down"></i> Sortie</span>
+              <span class="pill-danger"><i class="bx bx-down-arrow-alt"></i> Sortie</span>
             {% else %}
-            <span class="pill-base pill-warning"><i class="bx bx-transfer"></i> Ajustement</span>
+              <span class="pill-warning"><i class="bx bxs-pencil"></i> Ajustement</span>
             {% endif %}
           </td>
+          <td style="font-size:12px;color:var(--text-muted);">{{ m.get_source_display }}</td>
+          <td style="font-size:12px;">
+            {% if m.reference_label %}
+              <span style="font-family:'Inter',monospace;color:var(--text-secondary);">{{ m.reference_label }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-end" style="font-weight:700;">
+            {% if m.type_mouvement == 'entree' %}
+              <span style="color:#15803d;">+{{ m.quantite|floatformat:2 }}</span>
+            {% elif m.type_mouvement == 'sortie' %}
+              <span style="color:#dc2626;">-{{ m.quantite|floatformat:2 }}</span>
+            {% else %}
+              <span style="color:#b45309;">{{ m.quantite|floatformat:2 }}</span>
+            {% endif %}
+          </td>
+          <td class="text-end" style="font-size:12px;color:var(--text-muted);">
+            {{ m.quantite_avant|floatformat:2 }}
+          </td>
+          <td class="text-end" style="font-size:12px;font-weight:600;">
+            {{ m.quantite_apres|floatformat:2 }}
+          </td>
           <td style="font-size:12px;color:var(--text-muted);">
-            {% if m.intrant %}Intrant{% elif m.produit_fini %}Produit fini{% else %}—{% endif %}
-          </td>
-          <td>
-            <span class="val-money">
-              {% if m.intrant %}{{ m.intrant.designation }}{% elif m.produit_fini %}{{ m.produit_fini.designation }}{% else %}—{% endif %}
-            </span>
-          </td>
-          <td style="color:var(--text-muted);font-size:12px;">{{ m.get_source_display }}</td>
-          <td class="text-mono" style="font-size:11px;color:var(--text-muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;">
-            {{ m.reference_label|default:"—" }}
-          </td>
-          <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
-            {{ m.quantite|floatformat:2 }}
-          </td>
-          <td style="text-align:center;font-size:12px;color:var(--text-muted);white-space:nowrap;">
-            {{ m.quantite_avant|floatformat:2 }} → {{ m.quantite_apres|floatformat:2 }}
-          </td>
-          <td style="text-align:right;font-size:12px;color:var(--text-muted);white-space:nowrap;">
-            {{ m.created_by.get_full_name|default:m.created_by.username|default:"Système" }}
+            {{ m.created_by.username|default:"Système" }}
           </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
+  </div>
 
-    {# ── Pagination ─────────────────────────────────────────────────── #}
-    {% if page.paginator.num_pages > 1 %}
-    <div class="pagination-bar">
-      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
-      <div class="page-links">
-        {% if page.has_previous %}
-        <a href="?{% if q %}q={{ q }}&{% endif %}{% if segment %}segment={{ segment }}&{% endif %}{% if type_mouvement %}type_mouvement={{ type_mouvement }}&{% endif %}{% if source %}source={{ source }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ page.previous_page_number }}" class="page-link">
-          <i class="bx bx-chevron-left"></i>
-        </a>
-        {% else %}
-        <span class="page-link disabled"><i class="bx bx-chevron-left"></i></span>
-        {% endif %}
-        {% for p in page.paginator.page_range %}
-          {% if p == page.number %}
-          <span class="page-link active">{{ p }}</span>
-          {% elif p >= page.number|add:"-2" and p <= page.number|add:"2" %}
-          <a href="?{% if q %}q={{ q }}&{% endif %}{% if segment %}segment={{ segment }}&{% endif %}{% if type_mouvement %}type_mouvement={{ type_mouvement }}&{% endif %}{% if source %}source={{ source }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ p }}" class="page-link">{{ p }}</a>
-          {% endif %}
-        {% endfor %}
-        {% if page.has_next %}
-        <a href="?{% if q %}q={{ q }}&{% endif %}{% if segment %}segment={{ segment }}&{% endif %}{% if type_mouvement %}type_mouvement={{ type_mouvement }}&{% endif %}{% if source %}source={{ source }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ page.next_page_number }}" class="page-link">
-          <i class="bx bx-chevron-right"></i>
-        </a>
-        {% else %}
-        <span class="page-link disabled"><i class="bx bx-chevron-right"></i></span>
-        {% endif %}
-      </div>
-    </div>
+  {% if page.has_other_pages %}
+  <div class="pagination-bar">
+    {% if page.has_previous %}
+    <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if segment %}&segment={{ segment }}{% endif %}{% if type_mouvement %}&type_mouvement={{ type_mouvement }}{% endif %}{% if source %}&source={{ source }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}"
+       class="page-btn"><i class="bx bx-chevron-left"></i></a>
     {% endif %}
-
-    {% else %}
-    <div class="empty-state">
-      <i class="bx bxs-transfer empty-state__icon"></i>
-      <div class="empty-state__title">Aucun mouvement</div>
-      <div class="empty-state__text">Les mouvements de stock apparaîtront ici.</div>
-    </div>
+    <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}
+    <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if segment %}&segment={{ segment }}{% endif %}{% if type_mouvement %}&type_mouvement={{ type_mouvement }}{% endif %}{% if source %}&source={{ source }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}"
+       class="page-btn"><i class="bx bx-chevron-right"></i></a>
     {% endif %}
   </div>
+  {% endif %}
+
+  {% else %}
+  <div style="text-align:center;padding:56px 20px;color:var(--text-muted);">
+    <i class="bx bx-transfer" style="font-size:36px;display:block;margin-bottom:14px;color:var(--border-strong);"></i>
+    <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
+      Aucun mouvement trouvé
+    </div>
+    <div style="font-size:13px;">
+      {% if q or segment or type_mouvement or source or date_debut or date_fin %}
+        Modifiez vos critères de filtre.
+      {% else %}
+        Les mouvements de stock apparaîtront ici au fur et à mesure des opérations.
+      {% endif %}
+    </div>
+    {% if q or segment or type_mouvement or source or date_debut or date_fin %}
+    <a href="{% url 'stock:stock_mouvement_list' %}" class="btn-ghost" style="margin-top:16px;display:inline-flex;">
+      <i class="bx bx-x"></i> Effacer les filtres
+    </a>
+    {% endif %}
+  </div>
+  {% endif %}
 </div>
 
 {% endblock %}
 
 {% block extra_css %}
 <style>
-/* No page-unique styles needed */
+.filter-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.filter-field { flex:1; min-width:130px; }
+.input-wrap { position:relative; }
+.input-icon {
+  position:absolute; left:12px; top:50%; transform:translateY(-50%);
+  color:var(--text-muted); font-size:15px; pointer-events:none;
+}
+.form-input {
+  width:100%; padding:10px 13px 10px 38px;
+  border:1px solid var(--border); border-radius:var(--radius-md);
+  background:var(--bg-surface); color:var(--text-primary);
+  font-family:'Inter',sans-serif; font-size:13.5px;
+  transition:border-color .18s, box-shadow .18s; appearance:none;
+}
+.form-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow); outline:none; }
+.tbl-row { animation:fadeIn 0.3s ease both; animation-delay:calc(var(--row-i) * 35ms); }
+.pagination-bar {
+  display:flex; align-items:center; justify-content:center;
+  gap:10px; padding:16px; border-top:1px solid var(--border);
+}
+.page-btn {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:34px; height:34px; border-radius:var(--radius-sm);
+  border:1px solid var(--border); color:var(--text-secondary);
+  text-decoration:none; font-size:16px; transition:border-color .18s, background .18s;
+}
+.page-btn:hover { border-color:var(--border-strong); background:var(--bg-hover); }
+.page-info { font-size:12px; color:var(--text-muted); }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-/* Filter form auto-submits on select/change */
+document.addEventListener('DOMContentLoaded', function () {
+  ['seg-select', 'type-select', 'src-select'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('change', function () {
+      document.getElementById('filter-form').submit();
+    });
+  });
+});
 </script>
 {% endblock %}

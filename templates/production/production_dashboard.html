@@ -1,209 +1,199 @@
-
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}Tableau de bord Production — Élevage Avicole{% endblock %}
+
 {% block nav_production %}active{% endblock %}
 
 {% block page_title %}Tableau de bord — Production{% endblock %}
-{% block page_sub_text %}Vue d'ensemble de l'activité de production{% endblock %}
+{% block page_sub_text %}Vue d'ensemble des abattages et produits finis{% endblock %}
 
 {% block topbar_actions %}
-{% if not request.user.profile.role == 'viewer' %}
-<a href="{% url 'production:production_record_create' %}" class="btn-primary">
-  <i class="bx bx-plus"></i> Nouvelle Production
-</a>
-{% endif %}
+  <a href="{% url 'production:production_record_create' %}" class="btn-primary">
+    <i class="bx bx-plus"></i> Nouvel enregistrement
+  </a>
+  <a href="{% url 'production:produit_fini_list' %}" class="btn-ghost">
+    <i class="bx bxs-badge-check"></i> Catalogue produits
+  </a>
 {% endblock %}
 
 {% block content %}
-<!-- Filters -->
-<div class="filter-bar" style="margin-bottom:8px;">
-  <form method="get" action="{% url 'production:production_dashboard' %}" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex:1;">
-    <div style="display:flex;align-items:center;gap:6px;">
-      <label style="font-size:12px;color:var(--text-muted);white-space:nowrap;">Du</label>
-      <input type="date" name="date_debut" class="field-input" style="max-width:150px;" value="{{ date_debut }}" />
+<div class="page-body">
+
+  <!-- Date filter -->
+  <form method="get" class="filter-bar" style="margin-bottom:18px;">
+    <div class="filter-group">
+      <div class="field-wrap">
+        <i class="bx bxs-calendar field-icon"></i>
+        <input type="date" name="date_debut" value="{{ date_debut }}" class="field-input" placeholder="Date début">
+      </div>
+      <div class="field-wrap">
+        <i class="bx bxs-calendar field-icon"></i>
+        <input type="date" name="date_fin" value="{{ date_fin }}" class="field-input" placeholder="Date fin">
+      </div>
+      <button type="submit" class="btn-ghost"><i class="bx bxs-filter-alt"></i> Filtrer</button>
+      {% if date_debut or date_fin %}
+        <a href="{% url 'production:dashboard' %}" class="btn-ghost" style="color:var(--text-muted);">
+          <i class="bx bx-x"></i> Effacer
+        </a>
+      {% endif %}
     </div>
-    <div style="display:flex;align-items:center;gap:6px;">
-      <label style="font-size:12px;color:var(--text-muted);white-space:nowrap;">Au</label>
-      <input type="date" name="date_fin" class="field-input" style="max-width:150px;" value="{{ date_fin }}" />
-    </div>
-    <button type="submit" class="btn-primary btn-sm">Filtrer</button>
-    <a href="{% url 'production:production_dashboard' %}" class="btn-ghost btn-sm">
-      <i class="bx bx-reset"></i> Réinitialiser
-    </a>
   </form>
-</div>
 
-<!-- KPIs -->
-<div class="row g-3 mb-4">
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-green"><i class="bx bx-refresh"></i></div>
-      <div class="metric-label">Productions validées</div>
-      <div class="metric-value sm">{{ totaux.nombre_productions|default:"0" }}</div>
-      <span class="metric-delta positive"><i class="bx bx-check"></i> Validées</span>
-    </div>
-  </div>
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-blue"><i class="bx bxs-face"></i></div>
-      <div class="metric-label">Oiseaux abattus</div>
-      <div class="metric-value sm">{{ totaux.total_oiseaux|floatformat:0|default:"0" }}</div>
-      <span class="metric-delta neutral">unités</span>
-    </div>
-  </div>
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-amber"><i class="bx bx-scale"></i></div>
-      <div class="metric-label">Poids total</div>
-      <div class="metric-value sm">{{ totaux.total_poids|floatformat:2|default:"0" }} kg</div>
-      <span class="metric-delta neutral">abattage</span>
-    </div>
-  </div>
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-purple"><i class="bx bxs-coin"></i></div>
-      <div class="metric-label">Valeur de production</div>
-      <div class="metric-value sm">{{ totaux.valeur_totale|floatformat:0|default:"0" }} DZD</div>
-      <span class="metric-delta neutral">valorisation</span>
-    </div>
-  </div>
-</div>
-
-<div class="row g-3">
-  <!-- Per-lot summary -->
-  <div class="col-xl-8">
-    <div class="section-card h-100">
-      <div class="section-card__head">
-        <span class="section-card__title"><i class="bx bxs-home" style="color:var(--accent);margin-right:8px;"></i>Résumé par lot</span>
+  <!-- KPI cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-green"><i class="bx bx-refresh" style="font-size:18px;"></i></div>
+        <div class="metric-label">ENREGISTREMENTS VALIDÉS</div>
+        <div class="metric-value">{{ dashboard_rows|length }}</div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> lots productifs</span>
       </div>
-      <div class="section-card__body no-pad">
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-amber"><i class="bx bxs-error" style="font-size:18px;"></i></div>
+        <div class="metric-label">BROUILLONS EN ATTENTE</div>
+        <div class="metric-value">{{ brouillons|length }}</div>
+        <span class="metric-delta {% if brouillons %}down{% else %}neutral{% endif %}">
+          <i class="bx {% if brouillons %}bx-trending-up{% else %}bx-minus{% endif %}"></i>
+          {% if brouillons %}À valider{% else %}Aucun{% endif %}
+        </span>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-blue"><i class="bx bxs-group" style="font-size:18px;"></i></div>
+        <div class="metric-label">OISEAUX ABATTUS (PÉRIODE)</div>
+        <div class="metric-value">{{ totaux.total_oiseaux|default:0|floatformat:0 }}</div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> têtes</span>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-teal"><i class="bx bxs-badge-check" style="font-size:18px;"></i></div>
+        <div class="metric-label">POIDS TOTAL (PÉRIODE)</div>
+        <div class="metric-value">{{ totaux.total_poids|default:0|floatformat:2 }} <small style="font-size:14px;font-weight:600;">kg</small></div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> poids cumulé</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+
+    <!-- Per-lot summary table -->
+    <div class="col-xl-8">
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow">Synthèse par lot — Période filtrée</div>
+        </div>
         {% if dashboard_rows %}
-        <table class="table-base">
-          <thead>
-            <tr>
-              <th>Lot</th>
-              <th style="text-align:right;">Productions</th>
-              <th style="text-align:right;">Oiseaux</th>
-              <th style="text-align:right;">Poids (kg)</th>
-              <th style="text-align:right;">Valeur (DZD)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in dashboard_rows %}
-            <tr class="stagger-row">
-              <td>
-                <a href="{% url 'elevage:lot_detail' row.lot.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;">
-                  {{ row.lot.designation }}
-                </a>
-                <span class="pill-base pill-neutral" style="margin-left:6px;">{{ row.lot.get_type_lot_display }}</span>
-              </td>
-              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
-                {{ row.nb_productions }}
-              </td>
-              <td style="text-align:right;">
-                {{ row.total_oiseaux|floatformat:0 }}
-              </td>
-              <td style="text-align:right;">
-                {{ row.total_poids|floatformat:3 }}
-              </td>
-              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
-                {{ row.valeur_totale|floatformat:0 }}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Lot</th>
+                <th>Dernière production</th>
+                <th style="text-align:right;">Oiseaux abattus</th>
+                <th style="text-align:right;">Poids total (kg)</th>
+                <th style="text-align:right;">Poids moyen (kg)</th>
+                <th style="text-align:right;">Coût estimé (DZD)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in dashboard_rows %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td>
+                  <a href="{% url 'production:production_record_list' %}?lot={{ row.lot.pk }}"
+                     style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;">
+                    {{ row.lot.designation }}
+                  </a>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+                    {{ row.lot.batiment }}
+                  </div>
+                </td>
+                <td style="color:var(--text-muted);">{{ row.date_production|date:"d/m/Y" }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ row.nb_oiseaux_abattus|floatformat:0 }}</td>
+                <td style="text-align:right;">{{ row.poids_total_kg|floatformat:2 }}</td>
+                <td style="text-align:right;">{{ row.poids_moyen_kg|floatformat:3 }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">{{ row.cout_total_dzd|floatformat:0 }} DZD</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
         {% else %}
-        <div class="empty-state">
-          <i class="bx bx-refresh empty-state__icon"></i>
-          <div class="empty-state__title">Aucune donnée</div>
-          <div class="empty-state__text">Aucune production validée dans cette période.</div>
+        <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
+          <i class="bx bx-refresh" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
+          <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">Aucune production</div>
+          <div style="font-size:13px;">Aucun enregistrement validé pour la période sélectionnée.</div>
         </div>
         {% endif %}
       </div>
     </div>
-  </div>
 
-  <!-- Side panels -->
-  <div class="col-xl-4">
-    <!-- Drafts -->
-    <div class="section-card mb-3">
-      <div class="section-card__head">
-        <span class="section-card__title"><i class="bx bxs-edit-alt" style="color:var(--warning);margin-right:8px;"></i>Brouillons en cours</span>
-      </div>
-      <div class="section-card__body no-pad">
+    <!-- Right column: brouillons + récents -->
+    <div class="col-xl-4">
+
+      <!-- Brouillons -->
+      <div class="card mb-3">
+        <div class="card-header-row" style="display:flex;align-items:center;justify-content:space-between;">
+          <div class="section-eyebrow">Brouillons à valider</div>
+          {% if brouillons %}
+            <span class="pill-warning">{{ brouillons|length }}</span>
+          {% endif %}
+        </div>
         {% if brouillons %}
-        <table class="table-base">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Lot</th>
-              <th style="text-align:right;">Qté</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for b in brouillons %}
-            <tr class="stagger-row">
-              <td style="color:var(--text-muted);white-space:nowrap;font-size:12px;">{{ b.date_production|date:"d/m/Y" }}</td>
-              <td>
-                <a href="{% url 'production:production_record_detail' b.pk %}" style="font-weight:500;color:var(--text-primary);text-decoration:none;">
-                  {{ b.lot.designation }}
-                </a>
-              </td>
-              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;">
-                {{ b.nombre_oiseaux_abattus|floatformat:0 }}
-              </td>
-            </tr>
+          <div style="padding:6px 0;">
+            {% for rec in brouillons %}
+            <a href="{% url 'production:production_record_detail' rec.pk %}"
+               class="mini-row" style="--row-i:{{ forloop.counter0 }};">
+              <div>
+                <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:var(--text-primary);">
+                  {{ rec.lot.designation }}
+                </div>
+                <div style="font-size:11px;color:var(--text-muted);">{{ rec.date_production|date:"d/m/Y" }} · {{ rec.nombre_oiseaux_abattus|floatformat:0 }} oiseaux</div>
+              </div>
+              <span class="pill-warning">Brouillon</span>
+            </a>
             {% endfor %}
-          </tbody>
-        </table>
+          </div>
         {% else %}
-        <div class="empty-state" style="padding:24px;">
-          <div class="empty-state__text">Aucun brouillon en cours.</div>
-        </div>
+          <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px;">
+            Aucun brouillon en attente.
+          </div>
         {% endif %}
       </div>
-    </div>
 
-    <!-- Recent validated -->
-    <div class="section-card">
-      <div class="section-card__head">
-        <span class="section-card__title"><i class="bx bxs-check-circle" style="color:var(--success);margin-right:8px;"></i>Validations récentes</span>
-      </div>
-      <div class="section-card__body no-pad">
-        {% if valides_recents %}
-        <table class="table-base">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Lot</th>
-              <th style="text-align:right;">Qté</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for v in valides_recents %}
-            <tr class="stagger-row">
-              <td style="color:var(--text-muted);white-space:nowrap;font-size:12px;">{{ v.date_production|date:"d/m/Y" }}</td>
-              <td>
-                <a href="{% url 'production:production_record_detail' v.pk %}" style="font-weight:500;color:var(--text-primary);text-decoration:none;">
-                  {{ v.lot.designation }}
-                </a>
-              </td>
-              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;">
-                {{ v.nombre_oiseaux_abattus|floatformat:0 }}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        {% else %}
-        <div class="empty-state" style="padding:24px;">
-          <div class="empty-state__text">Aucune validation récente.</div>
+      <!-- Validés récents -->
+      <div class="card">
+        <div class="card-header-row" style="display:flex;align-items:center;justify-content:space-between;">
+          <div class="section-eyebrow">10 dernières validations</div>
+          <a href="{% url 'production:production_record_list' %}?statut=valide"
+             style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
+            Voir tout <i class="bx bx-right-arrow-alt"></i>
+          </a>
         </div>
+        {% if valides_recents %}
+          <div style="padding:6px 0;">
+            {% for rec in valides_recents %}
+            <a href="{% url 'production:production_record_detail' rec.pk %}"
+               class="mini-row" style="--row-i:{{ forloop.counter0 }};">
+              <div>
+                <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:var(--text-primary);">
+                  {{ rec.lot.designation }}
+                </div>
+                <div style="font-size:11px;color:var(--text-muted);">{{ rec.date_production|date:"d/m/Y" }} · {{ rec.nombre_oiseaux_abattus|floatformat:0 }} oiseaux</div>
+              </div>
+              <span class="pill-success">Validé</span>
+            </a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px;">Aucun enregistrement validé.</div>
         {% endif %}
       </div>
+
     </div>
   </div>
 </div>
@@ -211,12 +201,115 @@
 
 {% block extra_css %}
 <style>
-</style>
-{% endblock %}
+  .page-body { padding: 28px 32px; }
+  @media (max-width:768px) { .page-body { padding: 20px 16px; } }
 
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-});
-</script>
+  .filter-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .filter-group { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .field-wrap { position:relative; }
+  .field-icon { position:absolute; left:11px; top:50%; transform:translateY(-50%); font-size:14px; color:var(--text-muted); pointer-events:none; }
+  .field-input {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    padding: 9px 12px 9px 34px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); outline: none; }
+
+  .card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .card-header-row {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-eyebrow {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--text-muted);
+    padding: 11px 14px; border-bottom: 1px solid var(--border);
+    white-space: nowrap; background: var(--bg-surface);
+  }
+  .data-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn .3s ease both;
+    animation-delay: calc(var(--row-i,0) * 35ms);
+    transition: background .12s;
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: var(--bg-hover); }
+  .data-table td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); vertical-align: middle; }
+
+  .metric-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 22px;
+    animation: fadeIn .3s ease both;
+  }
+  .metric-icon {
+    width: 42px; height: 42px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 14px;
+  }
+  .ic-green { background: rgba(34,197,94,.14); color: #15803d; }
+  .ic-amber { background: rgba(245,158,11,.14); color: #b45309; }
+  .ic-blue  { background: rgba(56,189,248,.14); color: #0284c7; }
+  .ic-teal  { background: rgba(45,212,191,.14); color: #0d9488; }
+  .metric-label { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+  .metric-value { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 24px; color: var(--text-primary); margin-bottom: 6px; }
+  .metric-delta { font-size: 11px; font-weight: 500; display: inline-flex; align-items: center; gap: 3px; }
+  .metric-delta.neutral { color: var(--text-muted); }
+  .metric-delta.down { color: #dc2626; }
+
+  .mini-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 18px; text-decoration: none;
+    transition: background .12s;
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn .3s ease both;
+    animation-delay: calc(var(--row-i,0) * 35ms);
+  }
+  .mini-row:last-child { border-bottom: none; }
+  .mini-row:hover { background: var(--bg-hover); }
+
+  .btn-primary {
+    background: var(--accent); color: #fff;
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px;
+    border: none; border-radius: var(--radius-md); padding: 10px 18px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: opacity .18s, transform .12s; text-decoration: none;
+  }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text-secondary); font-family: 'Nunito', sans-serif; font-weight: 600;
+    font-size: 13px; border-radius: var(--radius-md); padding: 9px 16px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s, border-color .12s, color .12s; text-decoration: none;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+
+  .pill-warning { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(245,158,11,.14);color:#b45309; }
+  .pill-success { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(34,197,94,.14);color:#15803d; }
+  .pill-info    { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(56,189,248,.12);color:#0284c7; }
+  .pill-danger  { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(239,68,68,.10);color:#dc2626; }
+  .pill-neutral { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(0,0,0,.06);color:var(--text-secondary); }
+
+  .mb-3 { margin-bottom: 14px !important; }
+  .mb-4 { margin-bottom: 20px !important; }
+</style>
 {% endblock %}

@@ -2,84 +2,141 @@
 {% load static %}
 
 {% block title %}Mortalités — Élevage Avicole{% endblock %}
+
 {% block nav_lots %}active{% endblock %}
 
-{% block page_title %}Suivi des Mortalités{% endblock %}
-{% block page_sub_text %}{{ page.paginator.count }} enregistrement{{ page.paginator.count|pluralize }} · Total : {{ total_morts|floatformat:0 }} morts{% endblock %}
+{% block page_title %}Mortalités{% endblock %}
+{% block page_sub_text %}
+  {% if total_mortalite %}{{ total_mortalite|floatformat:0 }} mort{{ total_mortalite|pluralize }} enregistré{{ total_mortalite|pluralize }}{% if date_debut or date_fin %} sur la période filtrée{% endif %}{% else %}Historique des mortalités — tous lots{% endif %}
+{% endblock %}
 
 {% block topbar_actions %}
-{% if request.user.userprofile %}
-  {% if not request.user.userprofile.role == 'viewer' %}
-  <a href="{% url 'elevage:mortalite_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouvelle mortalité
+  <a href="{% url 'elevage:lot_list' %}" class="btn-ghost">
+    <i class="bx bxs-grid-alt"></i> Lots d'élevage
   </a>
-  {% endif %}
-{% endif %}
 {% endblock %}
 
 {% block content %}
+<div class="page-body">
 
-<!-- Filters -->
-<div class="filter-bar">
-  <form method="get" action="{% url 'elevage:mortalite_list' %}" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;">
-    <div class="input-wrapper" style="position:relative;flex:1;min-width:180px;">
-      <i class="bx bx-search input-icon"></i>
-      <input type="text" name="q" class="field-input has-icon" placeholder="Rechercher un lot..." value="{{ q }}" />
+  <!-- Summary metric -->
+  {% if total_mortalite %}
+  <div class="mort-summary-bar mb-3">
+    <div class="mort-kpi-card">
+      <div class="mort-kpi-icon"><i class="bx bxs-heart"></i></div>
+      <div>
+        <div class="mort-kpi-val">{{ total_mortalite|floatformat:0 }}</div>
+        <div class="mort-kpi-label">Total morts {% if date_debut or date_fin %}(période filtrée){% else %}(tous enregistrements){% endif %}</div>
+      </div>
     </div>
-    <input type="date" name="date" class="field-input" value="{{ date|date:'Y-m-d' }}" style="min-width:150px;" />
-    <select name="lot" class="field-input" onchange="this.form.submit()" style="min-width:180px;">
-      <option value="">Tous les lots</option>
-      {% for l in lots %}
-      <option value="{{ l.pk }}" {% if lot_pk == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.designation }}</option>
-      {% endfor %}
-    </select>
-    {% if q or date or lot_pk %}
-    <a href="{% url 'elevage:mortalite_list' %}" class="btn-ghost btn-sm">
-      <i class="bx bx-x"></i> Réinitialiser
-    </a>
-    {% endif %}
-  </form>
-</div>
+  </div>
+  {% endif %}
 
-<!-- Table -->
-<div class="section-card">
-  <div class="section-card__body no-pad">
+  <!-- Filters -->
+  <div class="card filter-bar mb-3">
+    <form method="get" id="filter-form" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 18px;">
+
+      <!-- Search -->
+      <div style="flex:1;min-width:200px;position:relative;">
+        <i class="bx bx-search" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;"></i>
+        <input type="text" name="q" value="{{ q }}" placeholder="Lot, cause…" class="filter-input" style="padding-left:40px;">
+      </div>
+
+      <!-- Lot filter -->
+      <div style="position:relative;min-width:180px;">
+        <i class="bx bxs-grid-alt" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;"></i>
+        <select name="lot" id="select-lot" class="filter-input" style="padding-left:40px;">
+          <option value="">Tous les lots</option>
+          {% for l in lots %}
+          <option value="{{ l.pk }}" {% if lot_pk == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.designation }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Date début -->
+      <div style="position:relative;min-width:150px;">
+        <i class="bx bxs-calendar" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;pointer-events:none;"></i>
+        <input type="date" name="date_debut" value="{{ date_debut }}" class="filter-input" style="padding-left:40px;" title="Date début">
+      </div>
+
+      <!-- Date fin -->
+      <div style="position:relative;min-width:150px;">
+        <i class="bx bxs-calendar-check" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;pointer-events:none;"></i>
+        <input type="date" name="date_fin" value="{{ date_fin }}" class="filter-input" style="padding-left:40px;" title="Date fin">
+      </div>
+
+      <button type="submit" class="btn-ghost"><i class="bx bxs-filter-alt"></i> Filtrer</button>
+      {% if q or lot_pk or date_debut or date_fin %}
+      <a href="{% url 'elevage:mortalite_list' %}" class="btn-ghost" style="color:#dc2626;border-color:rgba(239,68,68,.2);">
+        <i class="bx bx-x"></i> Réinitialiser
+      </a>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- Table -->
+  <div class="card">
+    <div class="card-header-row">
+      <div class="section-eyebrow">
+        {% if page.paginator.count %}{{ page.paginator.count }} enregistrement{{ page.paginator.count|pluralize }}{% else %}Aucun résultat{% endif %}
+      </div>
+    </div>
+
     {% if page.object_list %}
     <div class="table-wrapper">
-      <table class="table-base">
+      <table class="data-table">
         <thead>
           <tr>
             <th>Date</th>
             <th>Lot</th>
-            <th style="text-align:right;">Nombre</th>
+            <th style="text-align:right;">Nombre de morts</th>
             <th>Cause</th>
-            <th>Note</th>
+            <th>Notes</th>
             <th style="text-align:right;">Actions</th>
           </tr>
         </thead>
         <tbody>
-          {% for m in page.object_list %}
-          <tr class="stagger-row">
-            <td style="white-space:nowrap;color:var(--text-muted);">{{ m.date|date:"d/m/Y" }}</td>
+          {% for mort in page.object_list %}
+          <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+            <td style="white-space:nowrap;color:var(--text-muted);">{{ mort.date|date:"d/m/Y" }}</td>
             <td>
-              <a href="{% url 'elevage:lot_detail' m.lot.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;">
-                {{ m.lot.designation }}
+              <a href="{% url 'elevage:lot_detail' mort.lot.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;display:inline-flex;align-items:center;gap:7px;">
+                <div style="width:26px;height:26px;border-radius:var(--radius-sm);background:var(--accent-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                  <i class="bx bxs-grid-alt" style="color:var(--accent-text);font-size:12px;"></i>
+                </div>
+                {{ mort.lot.designation }}
               </a>
-              <div style="font-size:11px;color:var(--text-muted);">{{ m.lot.batiment.nom }}</div>
-            </td>
-            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;">{{ m.nombre }}</td>
-            <td>{% if m.cause %}<span class="pill-base pill-neutral">{{ m.cause }}</span>{% else %}—{% endif %}</td>
-            <td style="color:var(--text-muted);">{{ m.note|default:"—" }}</td>
-            <td style="text-align:right;">
-              {% if m.lot.statut == m.lot.STATUT_OUVERT %}
-                {% if request.user.userprofile %}
-                  {% if not request.user.userprofile.role == 'viewer' %}
-                  <div class="actions-cell">
-                    <a href="{% url 'elevage:mortalite_edit' m.lot.pk m.pk %}" class="action-btn" title="Modifier"><i class="bx bxs-pencil"></i></a>
-                  </div>
-                  {% endif %}
-                {% endif %}
+              {% if mort.lot.statut == 'ferme' %}
+              <span class="pill-neutral" style="margin-left:6px;font-size:10px;"><i class="bx bxs-lock"></i> Clôturé</span>
               {% endif %}
+            </td>
+            <td style="text-align:right;">
+              <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:#dc2626;">{{ mort.nombre|floatformat:0 }}</span>
+            </td>
+            <td style="color:var(--text-secondary);font-size:13px;">
+              {% if mort.cause %}{{ mort.cause }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+            </td>
+            <td style="color:var(--text-muted);font-size:12px;max-width:200px;">
+              {% if mort.notes %}<span class="notes-truncate">{{ mort.notes }}</span>{% else %}—{% endif %}
+            </td>
+            <td>
+              <div class="actions-cell">
+                <a href="{% url 'elevage:lot_detail' mort.lot.pk %}" class="action-btn" title="Voir le lot">
+                  <i class="bx bxs-show"></i>
+                </a>
+                {% if mort.lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+                <a href="{% url 'elevage:mortalite_edit' mort.pk %}" class="action-btn" title="Modifier">
+                  <i class="bx bxs-pencil"></i>
+                </a>
+                <button type="button" class="action-btn action-btn--danger"
+                  data-mort-pk="{{ mort.pk }}"
+                  data-mort-date="{{ mort.date|date:'d/m/Y' }}"
+                  data-mort-nombre="{{ mort.nombre }}"
+                  title="Supprimer">
+                  <i class="bx bxs-trash"></i>
+                </button>
+                {% endif %}
+              </div>
             </td>
           </tr>
           {% endfor %}
@@ -90,58 +147,240 @@
     <!-- Pagination -->
     {% if page.has_other_pages %}
     <div class="pagination-bar">
-      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
-      <div class="page-links">
-        {% if page.has_previous %}
-        <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if date %}&date={{ date|date:'Y-m-d' }}{% endif %}{% if lot_pk %}&lot={{ lot_pk }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>
-        {% else %}
-        <span class="page-link disabled"><i class="bx bx-chevron-left"></i></span>
-        {% endif %}
-        {% for num in page.paginator.page_range %}
-          {% if num == page.number %}
-          <span class="page-link active">{{ num }}</span>
-          {% elif num > page.number|add:-3 and num < page.number|add:3 %}
-          <a href="?page={{ num }}{% if q %}&q={{ q }}{% endif %}{% if date %}&date={{ date|date:'Y-m-d' }}{% endif %}{% if lot_pk %}&lot={{ lot_pk }}{% endif %}" class="page-link">{{ num }}</a>
-          {% endif %}
-        {% endfor %}
-        {% if page.has_next %}
-        <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if date %}&date={{ date|date:'Y-m-d' }}{% endif %}{% if lot_pk %}&lot={{ lot_pk }}{% endif %}" class="page-link"><i class="bx bx-chevron-right"></i></a>
-        {% else %}
-        <span class="page-link disabled"><i class="bx bx-chevron-right"></i></span>
-        {% endif %}
-      </div>
+      {% if page.has_previous %}
+      <a href="?{% if q %}q={{ q }}&{% endif %}{% if lot_pk %}lot={{ lot_pk }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ page.previous_page_number }}" class="page-btn">
+        <i class="bx bx-chevron-left"></i>
+      </a>
+      {% endif %}
+      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}
+      <a href="?{% if q %}q={{ q }}&{% endif %}{% if lot_pk %}lot={{ lot_pk }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ page.next_page_number }}" class="page-btn">
+        <i class="bx bx-chevron-right"></i>
+      </a>
+      {% endif %}
     </div>
     {% endif %}
 
     {% else %}
-    <div class="empty-state">
-      <i class="bx bxs-heart empty-state__icon"></i>
-      <div class="empty-state__title">Aucune mortalité enregistrée</div>
-      <div class="empty-state__text">Les enregistrements apparaîtront après les premières saisies.</div>
-      {% if request.user.userprofile %}
-        {% if not request.user.userprofile.role == 'viewer' %}
-        <a href="{% url 'elevage:mortalite_create' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
-          <i class="bx bx-plus"></i> Nouvelle mortalité
-        </a>
-        {% endif %}
-      {% endif %}
+    <div style="text-align:center;padding:52px 20px;color:var(--text-muted);">
+      <i class="bx bxs-heart" style="font-size:34px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
+      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
+        {% if q or lot_pk or date_debut or date_fin %}Aucune mortalité ne correspond aux filtres{% else %}Aucune mortalité enregistrée{% endif %}
+      </div>
+      <div style="font-size:13px;">
+        {% if q or lot_pk or date_debut or date_fin %}Essayez de modifier vos critères.{% else %}Les mortalités s'enregistrent depuis la fiche d'un lot ouvert.{% endif %}
+      </div>
     </div>
     {% endif %}
   </div>
+
 </div>
 
+<!-- Delete confirmation panel (hidden, revealed by JS) -->
+<div id="delete-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center;">
+  <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px 30px;max-width:420px;width:90%;animation:slideIn .2s ease;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+      <div style="width:40px;height:40px;border-radius:var(--radius-sm);background:rgba(239,68,68,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <i class="bx bxs-trash" style="color:#dc2626;font-size:18px;"></i>
+      </div>
+      <div>
+        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);">Supprimer cet enregistrement</div>
+        <div id="delete-panel-sub" style="font-size:12px;color:var(--text-muted);margin-top:2px;"></div>
+      </div>
+    </div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:20px;">
+      Cette action est irréversible. L'effectif vivant du lot sera recalculé.
+    </p>
+    <div style="display:flex;gap:10px;">
+      <button type="button" id="delete-cancel-btn" class="btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
+      <form id="delete-form" method="post" style="flex:1;">
+        {% csrf_token %}
+        <button type="submit" class="btn-danger" style="width:100%;justify-content:center;">
+          <i class="bx bxs-trash"></i> Supprimer
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.actions-cell { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+  .card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .filter-bar { overflow: visible; }
+  .card-header-row {
+    padding: 13px 20px 11px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-eyebrow {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+
+  /* Summary bar */
+  .mort-summary-bar {
+    display: flex;
+    gap: 12px;
+  }
+  .mort-kpi-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .mort-kpi-icon {
+    width: 42px; height: 42px;
+    border-radius: var(--radius-sm);
+    background: rgba(239,68,68,.10);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: #dc2626; flex-shrink: 0;
+  }
+  .mort-kpi-val {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800; font-size: 26px;
+    color: #dc2626; line-height: 1;
+  }
+  .mort-kpi-label {
+    font-size: 11.5px; color: var(--text-muted); margin-top: 3px;
+  }
+
+  /* Filter inputs */
+  .filter-input {
+    width: 100%;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    padding: 10px 13px;
+    transition: border-color .15s, box-shadow .15s;
+    appearance: none; -webkit-appearance: none;
+  }
+  .filter-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(34,197,94,.15);
+    outline: none;
+  }
+
+  /* Table */
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--text-muted);
+    padding: 11px 14px; border-bottom: 1px solid var(--border);
+    white-space: nowrap; background: var(--bg-surface);
+  }
+  .data-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn .3s ease both;
+    animation-delay: calc(var(--row-i, 0) * 35ms);
+    transition: background .12s;
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: var(--bg-hover); }
+  .data-table td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); vertical-align: middle; }
+
+  .notes-truncate {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Actions */
+  .actions-cell { display:flex;align-items:center;justify-content:flex-end;gap:4px; }
+  .action-btn {
+    display:inline-flex;align-items:center;justify-content:center;
+    width:30px;height:30px;border-radius:var(--radius-sm);
+    border:1px solid var(--border);background:transparent;
+    color:var(--text-muted);font-size:14px;cursor:pointer;
+    transition:background .12s,color .12s,border-color .12s;text-decoration:none;
+  }
+  .action-btn:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+  .action-btn--danger:hover { background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.25);color:#dc2626; }
+
+  /* Pills */
+  .pill-neutral { display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:500;background:rgba(0,0,0,.06);color:var(--text-secondary); }
+
+  /* Buttons */
+  .btn-ghost {
+    background:transparent;border:1px solid var(--border);color:var(--text-secondary);
+    font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;
+    border-radius:var(--radius-md);padding:9px 14px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:6px;
+    transition:background .12s,border-color .12s,color .12s;text-decoration:none;
+  }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+  .btn-danger {
+    background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.22);color:#dc2626;
+    font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;
+    border-radius:var(--radius-md);padding:10px 16px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:6px;
+    transition:background .12s;text-decoration:none;
+  }
+  .btn-danger:hover { background:rgba(239,68,68,.20); }
+
+  /* Pagination */
+  .pagination-bar {
+    display:flex;align-items:center;gap:8px;justify-content:center;
+    padding:14px 18px;border-top:1px solid var(--border);
+  }
+  .page-btn {
+    display:inline-flex;align-items:center;justify-content:center;
+    width:32px;height:32px;border-radius:var(--radius-sm);
+    border:1px solid var(--border);background:var(--bg-surface);
+    color:var(--text-secondary);font-size:16px;text-decoration:none;
+    transition:background .12s;
+  }
+  .page-btn:hover { background:var(--bg-hover); }
+  .page-info { font-size:12px;color:var(--text-muted); }
+
+  .mb-3 { margin-bottom: 16px; }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  /* No inline handlers */
+  /* Auto-submit lot filter on change */
+  document.getElementById('select-lot').addEventListener('change', function () {
+    document.getElementById('filter-form').submit();
+  });
+
+  /* Delete confirmation panel */
+  const overlay   = document.getElementById('delete-overlay');
+  const subLabel  = document.getElementById('delete-panel-sub');
+  const deleteForm = document.getElementById('delete-form');
+  const cancelBtn = document.getElementById('delete-cancel-btn');
+
+  document.querySelectorAll('.action-btn--danger').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const pk     = btn.dataset.mortPk;
+      const date   = btn.dataset.mortDate;
+      const nombre = btn.dataset.mortNombre;
+      subLabel.textContent = nombre + ' mort(s) le ' + date;
+      deleteForm.action = '/api/elevage/mortalites/' + pk + '/supprimer/';
+      overlay.style.display = 'flex';
+    });
+  });
+
+  cancelBtn.addEventListener('click', function () {
+    overlay.style.display = 'none';
+  });
+
+  overlay.addEventListener('click', function (e) {
+    if (e.target === overlay) overlay.style.display = 'none';
+  });
 });
 </script>
 {% endblock %}

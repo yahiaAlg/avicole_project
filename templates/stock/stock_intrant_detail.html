@@ -1,17 +1,23 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}Stock — {{ intrant.designation }} — Élevage Avicole{% endblock %}
 {% block nav_stock_intrants %}active{% endblock %}
 
-{% block page_title %}{{ stock.intrant.designation }}{% endblock %}
-{% block page_sub_text %}{{ stock.intrant.categorie.libelle }} · {{ stock.intrant.unite_mesure }}{% endblock %}
+{% block page_title %}{{ intrant.designation }}{% endblock %}
+{% block page_sub_text %}
+  Fiche de stock · {{ intrant.categorie.libelle }}
+  {% if stock.en_alerte %}
+    · <span style="color:#dc2626;font-weight:600;">⚠ En alerte</span>
+  {% endif %}
+{% endblock %}
 
 {% block topbar_actions %}
 {% if request.user.userprofile %}
   {% if not request.user.userprofile.role == 'viewer' %}
-  <a href="{% url 'stock:stock_ajustement_create' %}?segment=intrant&intrant={{ stock.intrant.pk }}" class="btn-primary">
-    <i class="bx bx-transfer"></i> Ajustement
+  <a href="{% url 'stock:stock_ajustement_create' %}?segment=intrant&intrant={{ intrant.pk }}"
+     class="btn-primary">
+    <i class="bx bxs-pencil"></i> Ajuster le stock
   </a>
   {% endif %}
 {% endif %}
@@ -22,159 +28,219 @@
 
 {% block content %}
 
-{# ── Header card: current balance ──────────────────────────────────────── #}
-<div class="section-card mb-4">
-  <div class="section-card__body">
-    <div class="row g-4">
-
-      <div class="col-md-3">
-        <div style="text-align:center;">
-          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Quantité en stock</div>
-          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:32px;color:{% if stock.en_alerte %}#dc2626{% else %}var(--text-primary){% endif %};">
-            {{ stock.quantite|floatformat:2 }}
-          </div>
-          <div style="font-size:12px;color:var(--text-muted);">{{ stock.intrant.unite_mesure }}</div>
-        </div>
+{# ── KPI Strip ───────────────────────────────────────────────────────────── #}
+<div class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon {% if stock.en_alerte %}ic-red{% else %}ic-green{% endif %}">
+        <i class="bx bxs-archive"></i>
       </div>
-
-      <div class="col-md-3">
-        <div style="text-align:center;">
-          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Prix moyen pondéré</div>
-          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:26px;color:var(--text-primary);">
-            {{ stock.prix_moyen_pondere|floatformat:2 }}
-          </div>
-          <div style="font-size:12px;color:var(--text-muted);">DZD / {{ stock.intrant.unite_mesure }}</div>
-        </div>
+      <div class="metric-label">Quantité en stock</div>
+      <div class="metric-value">
+        {{ stock.quantite|floatformat:2 }}
+        <span style="font-size:14px;font-weight:400;color:var(--text-muted);">{{ intrant.unite_mesure }}</span>
       </div>
+      {% if stock.en_alerte %}
+      <span class="metric-delta down"><i class="bx bxs-error"></i> Sous le seuil</span>
+      {% else %}
+      <span class="metric-delta up"><i class="bx bxs-check-circle"></i> Stock normal</span>
+      {% endif %}
+    </div>
+  </div>
 
-      <div class="col-md-3">
-        <div style="text-align:center;">
-          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Valeur stock</div>
-          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:26px;color:var(--text-primary);">
-            {{ stock.valeur_stock|floatformat:0 }}
-          </div>
-          <div style="font-size:12px;color:var(--text-muted);">DZD</div>
-        </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-amber"><i class="bx bxs-coin"></i></div>
+      <div class="metric-label">Prix Moyen Pondéré</div>
+      <div class="metric-value sm">{{ stock.prix_moyen_pondere|floatformat:2 }} DZD</div>
+    </div>
+  </div>
+
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-blue"><i class="bx bxs-coin"></i></div>
+      <div class="metric-label">Valeur estimée</div>
+      <div class="metric-value sm">{{ stock.valeur_stock|floatformat:0 }} DZD</div>
+    </div>
+  </div>
+
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-amber"><i class="bx bxs-error"></i></div>
+      <div class="metric-label">Seuil d'alerte</div>
+      <div class="metric-value">
+        {{ intrant.seuil_alerte|floatformat:2 }}
+        <span style="font-size:14px;font-weight:400;color:var(--text-muted);">{{ intrant.unite_mesure }}</span>
       </div>
-
-      <div class="col-md-3">
-        <div style="text-align:center;">
-          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Seuil d'alerte</div>
-          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:26px;color:{% if stock.en_alerte %}#b45309{% else %}var(--text-primary){% endif %};">
-            {{ stock.intrant.seuil_alerte|floatformat:2 }}
-          </div>
-          <div style="font-size:12px;color:var(--text-muted);">
-            {% if stock.en_alerte %}
-            <span class="pill-base pill-danger"><i class="bx bxs-error"></i> Sous seuil</span>
-            {% else %}
-            <span class="pill-base pill-success"><i class="bx bxs-check-circle"></i> Normal</span>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-
     </div>
   </div>
 </div>
 
-{# ── Two-column: Mouvements + Ajustements ──────────────────────────────── #}
 <div class="row g-3">
 
-  {# Mouvements récents #}
-  <div class="col-xl-7">
+  {# ── Info fiche ─────────────────────────────────────────────────────── #}
+  <div class="col-xl-4">
     <div class="section-card h-100">
       <div class="section-card__head">
         <span class="section-card__title">
-          <i class="bx bxs-transfer" style="color:var(--text-muted);margin-right:8px;"></i>Mouvements récents
+          <i class="bx bxs-cube-alt" style="color:var(--accent);margin-right:8px;"></i>Informations intrant
         </span>
-        <a href="{% url 'stock:stock_mouvement_list' %}?segment=intrant" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
-          Voir tout <i class="bx bx-right-arrow-alt"></i>
-        </a>
       </div>
-      <div class="section-card__body no-pad">
-        {% if mouvements %}
-        <table class="table-base">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Type</th>
-              <th>Source</th>
-              <th style="text-align:right;">Qté</th>
-              <th style="text-align:center;">Stock</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for m in mouvements %}
-            <tr class="stagger-row">
-              <td style="color:var(--text-muted);white-space:nowrap;font-size:12px;">{{ m.date_mouvement|date:"d/m/Y" }}</td>
-              <td>
-                {% if m.type_mouvement == 'entree' %}
-                <span class="pill-base pill-success"><i class="bx bx-trending-up"></i> Entrée</span>
-                {% elif m.type_mouvement == 'sortie' %}
-                <span class="pill-base pill-danger"><i class="bx bx-trending-down"></i> Sortie</span>
-                {% else %}
-                <span class="pill-base pill-warning"><i class="bx bx-transfer"></i> Ajust.</span>
-                {% endif %}
-              </td>
-              <td style="color:var(--text-muted);font-size:12px;">{{ m.get_source_display }}</td>
-              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ m.quantite|floatformat:2 }}</td>
-              <td style="text-align:center;font-size:12px;color:var(--text-muted);">
-                {{ m.quantite_avant|floatformat:2 }} → {{ m.quantite_apres|floatformat:2 }}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        {% else %}
-        <div class="empty-state" style="padding:36px 20px;">
-          <i class="bx bxs-transfer empty-state__icon"></i>
-          <div class="empty-state__title">Aucun mouvement</div>
-          <div class="empty-state__text">Les mouvements de stock apparaîtront ici.</div>
+      <div class="section-card__body">
+        <dl class="info-dl">
+          <div class="info-dl__row">
+            <dt>Désignation</dt>
+            <dd>{{ intrant.designation }}</dd>
+          </div>
+          <div class="info-dl__row">
+            <dt>Catégorie</dt>
+            <dd>{{ intrant.categorie.libelle }}</dd>
+          </div>
+          <div class="info-dl__row">
+            <dt>Unité de mesure</dt>
+            <dd>{{ intrant.unite_mesure }}</dd>
+          </div>
+          <div class="info-dl__row">
+            <dt>Statut</dt>
+            <dd>
+              {% if intrant.actif %}
+              <span class="pill-success">Actif</span>
+              {% else %}
+              <span class="pill-neutral">Inactif</span>
+              {% endif %}
+            </dd>
+          </div>
+          <div class="info-dl__row">
+            <dt>Dernière MAJ stock</dt>
+            <dd style="font-size:12px;">{{ stock.derniere_mise_a_jour|date:"d/m/Y H:i" }}</dd>
+          </div>
+          {% if intrant.notes %}
+          <div class="info-dl__row">
+            <dt>Notes</dt>
+            <dd style="font-size:12px;color:var(--text-muted);">{{ intrant.notes }}</dd>
+          </div>
+          {% endif %}
+        </dl>
+
+        {# Alert strip when below threshold #}
+        {% if stock.en_alerte %}
+        <div style="margin-top:16px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);
+                    border-radius:var(--radius-md);padding:12px 14px;display:flex;align-items:flex-start;gap:10px;">
+          <i class="bx bxs-error" style="color:#dc2626;font-size:16px;flex-shrink:0;margin-top:1px;"></i>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:3px;">Stock sous le seuil d'alerte</div>
+            <div style="font-size:12px;color:var(--text-secondary);">
+              Stock actuel : <strong>{{ stock.quantite|floatformat:2 }} {{ intrant.unite_mesure }}</strong>
+              &mdash; Seuil : {{ intrant.seuil_alerte|floatformat:2 }} {{ intrant.unite_mesure }}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        {# Recent adjustments #}
+        {% if ajustements %}
+        <div style="margin-top:20px;">
+          <div class="section-eyebrow" style="margin-bottom:10px;">Ajustements récents</div>
+          {% for aj in ajustements %}
+          <div style="padding:9px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;font-size:12px;">
+            <span style="color:var(--text-muted);min-width:70px;">{{ aj.date_ajustement|date:"d/m/Y" }}</span>
+            {% with delta=aj.quantite_apres|add:"-"|add:aj.quantite_avant %}
+            <span style="font-weight:700;flex:1;">
+              {% if aj.quantite_apres > aj.quantite_avant %}
+                <span style="color:#15803d;">+{{ aj.quantite_apres|floatformat:2 }}</span>
+              {% else %}
+                <span style="color:#dc2626;">{{ aj.quantite_apres|floatformat:2 }}</span>
+              {% endif %}
+              → {{ aj.quantite_apres|floatformat:2 }}
+            </span>
+            {% endwith %}
+            <span style="color:var(--text-muted);">{{ aj.effectue_par.username|default:"—" }}</span>
+          </div>
+          {% endfor %}
+          <a href="{% url 'stock:stock_ajustement_list' %}?segment=intrant"
+             style="font-size:12px;color:var(--accent-text);display:inline-flex;align-items:center;gap:4px;margin-top:8px;">
+            Tous les ajustements <i class="bx bx-right-arrow-alt"></i>
+          </a>
         </div>
         {% endif %}
       </div>
     </div>
   </div>
 
-  {# Ajustements récents #}
-  <div class="col-xl-5">
-    <div class="section-card h-100">
+  {# ── Mouvements ──────────────────────────────────────────────────────── #}
+  <div class="col-xl-8">
+    <div class="section-card">
       <div class="section-card__head">
         <span class="section-card__title">
-          <i class="bx bx-transfer" style="color:var(--text-muted);margin-right:8px;"></i>Ajustements
+          <i class="bx bx-transfer" style="color:var(--accent);margin-right:8px;"></i>Historique des mouvements
         </span>
+        <a href="{% url 'stock:stock_mouvement_list' %}?q={{ intrant.designation }}"
+           style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
+          Journal complet <i class="bx bx-right-arrow-alt"></i>
+        </a>
       </div>
-      <div class="section-card__body no-pad">
-        {% if ajustements %}
-        <table class="table-base">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th style="text-align:center;">Ajustement</th>
-              <th style="text-align:right;">Par</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for a in ajustements %}
-            <tr class="stagger-row">
-              <td style="color:var(--text-muted);white-space:nowrap;font-size:12px;">{{ a.date_ajustement|date:"d/m/Y" }}</td>
-              <td style="text-align:center;font-family:'Nunito',sans-serif;font-weight:700;">
-                <span style="color:var(--text-muted);">{{ a.quantite_avant|floatformat:2 }}</span>
-                <i class="bx bx-right-arrow-alt" style="color:var(--text-muted);font-size:11px;"></i>
-                <span style="color:var(--text-primary);">{{ a.quantite_apres|floatformat:2 }}</span>
-              </td>
-              <td style="text-align:right;font-size:12px;color:var(--text-muted);">
-                {{ a.effectue_par.get_full_name|default:a.effectue_par.username|default:"—" }}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+      <div class="section-card__body" style="padding-top:0;">
+        {% if mouvements %}
+        <div class="table-responsive">
+          <table class="data-table w-100">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Source</th>
+                <th>Référence</th>
+                <th class="text-end">Quantité</th>
+                <th class="text-end">Avant</th>
+                <th class="text-end">Après</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for m in mouvements %}
+              <tr class="tbl-row" style="--row-i:{{ forloop.counter0 }};">
+                <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">
+                  {{ m.date_mouvement|date:"d/m/Y" }}
+                </td>
+                <td>
+                  {% if m.type_mouvement == 'entree' %}
+                    <span class="pill-success"><i class="bx bx-up-arrow-alt"></i> Entrée</span>
+                  {% elif m.type_mouvement == 'sortie' %}
+                    <span class="pill-danger"><i class="bx bx-down-arrow-alt"></i> Sortie</span>
+                  {% else %}
+                    <span class="pill-warning"><i class="bx bxs-pencil"></i> Ajust.</span>
+                  {% endif %}
+                </td>
+                <td style="font-size:12px;color:var(--text-muted);">{{ m.get_source_display }}</td>
+                <td style="font-size:12px;">
+                  {% if m.reference_label %}
+                    <span style="font-family:'Inter',monospace;color:var(--text-secondary);">
+                      {{ m.reference_label }}
+                    </span>
+                  {% else %}—{% endif %}
+                </td>
+                <td class="text-end" style="font-weight:700;">
+                  {% if m.type_mouvement == 'entree' %}
+                    <span style="color:#15803d;">+{{ m.quantite|floatformat:2 }}</span>
+                  {% elif m.type_mouvement == 'sortie' %}
+                    <span style="color:#dc2626;">-{{ m.quantite|floatformat:2 }}</span>
+                  {% else %}
+                    <span style="color:#b45309;">{{ m.quantite|floatformat:2 }}</span>
+                  {% endif %}
+                </td>
+                <td class="text-end" style="font-size:12px;color:var(--text-muted);">
+                  {{ m.quantite_avant|floatformat:2 }}
+                </td>
+                <td class="text-end" style="font-size:12px;font-weight:600;">
+                  {{ m.quantite_apres|floatformat:2 }}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
         {% else %}
-        <div class="empty-state" style="padding:36px 20px;">
-          <i class="bx bx-transfer empty-state__icon"></i>
-          <div class="empty-state__title">Aucun ajustement</div>
-          <div class="empty-state__text">Les corrections manuelles apparaîtront ici.</div>
+        <div style="text-align:center;padding:40px 20px;color:var(--text-muted);">
+          <i class="bx bx-transfer" style="font-size:28px;display:block;margin-bottom:10px;color:var(--border-strong);"></i>
+          <div style="font-size:13px;">Aucun mouvement enregistré pour cet intrant.</div>
         </div>
         {% endif %}
       </div>
@@ -182,19 +248,38 @@
   </div>
 
 </div>
-
 {% endblock %}
 
 {% block extra_css %}
 <style>
-/* Page-specific layout */
-.h-100 { height: 100%; }
-.mb-4 { margin-bottom: 1.5rem; }
+.info-dl { margin: 0; }
+.info-dl__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 16px;
+}
+.info-dl__row:last-child { border-bottom: none; }
+.info-dl__row dt {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.info-dl__row dd {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 600;
+  margin: 0;
+  text-align: right;
+}
+.tbl-row {
+  animation: fadeIn 0.3s ease both;
+  animation-delay: calc(var(--row-i) * 35ms);
+}
 </style>
 {% endblock %}
 
-{% block extra_js %}
-<script>
-/* No page-specific JS required */
-</script>
-{% endblock %}
+{% block extra_js %}{% endblock %}

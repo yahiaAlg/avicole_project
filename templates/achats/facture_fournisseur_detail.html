@@ -1,360 +1,495 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}Facture {{ facture.reference }} — Élevage Avicole{% endblock %}
+
 {% block nav_factures_fournisseurs %}active{% endblock %}
 
 {% block page_title %}Facture {{ facture.reference }}{% endblock %}
-{% block page_sub_text %}{{ facture.fournisseur.nom }} — {{ facture.date_facture|date:"d/m/Y" }}{% endblock %}
+{% block page_sub_text %}{{ facture.fournisseur.nom }} · {{ facture.date_facture|date:"d/m/Y" }}{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'achats:facture_fournisseur_print' facture.pk %}" class="btn-ghost" target="_blank">
     <i class="bx bxs-printer"></i> Imprimer
   </a>
-  {% if facture.statut != 'paye' %}
-  <form method="post" action="{% url 'achats:facture_fournisseur_toggle_litige' facture.pk %}" style="display:inline;">
-    {% csrf_token %}
-    <button type="submit" class="btn-warning">
-      <i class="bx bxs-error"></i> {% if facture.statut == 'en_litige' %}Retirer litige{% else %}Litige{% endif %}
-    </button>
-  </form>
+  {% if facture.statut != "paye" %}
+  <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ facture.fournisseur.pk }}"
+     class="btn-primary">
+    <i class="bx bxs-coin"></i> Enregistrer un règlement
+  </a>
   {% endif %}
 {% endblock %}
 
 {% block content %}
-
 <div class="detail-layout">
 
-  <!-- Left column -->
+  <!-- ── LEFT: main detail ── -->
   <div class="detail-main">
 
-    <!-- Status banner -->
-    <div class="status-banner" style="margin-bottom:18px;">
-      {% if facture.statut == 'non_paye' %}
-        {% if facture.est_en_retard %}
-        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius-md);">
-          <i class="bx bxs-error" style="color:#dc2626;font-size:16px;"></i>
-          <span style="font-size:13px;color:var(--text-secondary);">
-            <strong style="color:#dc2626;">En retard</strong> — Échéance dépassée depuis le {{ facture.date_echeance|date:"d/m/Y" }}.
-          </span>
+    <!-- Header card -->
+    <div class="detail-card detail-card--header">
+      <div class="detail-header-grid">
+        <div>
+          <div class="detail-eyebrow">Référence</div>
+          <div class="detail-title-val">{{ facture.reference }}</div>
         </div>
-        {% else %}
-        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius-md);">
-          <i class="bx bxs-x-circle" style="color:#dc2626;font-size:16px;"></i>
-          <span style="font-size:13px;color:var(--text-secondary);">
-            <strong style="color:#dc2626;">Non payé</strong> — Aucun règlement n'a encore été enregistré.
-          </span>
+        <div>
+          <div class="detail-eyebrow">Fournisseur</div>
+          <div class="detail-title-val">
+            <a href="{% url 'achats:fournisseur_tableau_de_bord' facture.fournisseur.pk %}" class="link-accent">
+              {{ facture.fournisseur.nom }}
+            </a>
+          </div>
+        </div>
+        <div>
+          <div class="detail-eyebrow">Date facture</div>
+          <div class="detail-title-val">{{ facture.date_facture|date:"d/m/Y" }}</div>
+        </div>
+        <div>
+          <div class="detail-eyebrow">Échéance</div>
+          <div class="detail-title-val {% if facture.est_en_retard %}val-red{% endif %}">
+            {% if facture.date_echeance %}
+              {% if facture.est_en_retard %}<i class="bx bx-hourglass"></i> {% endif %}
+              {{ facture.date_echeance|date:"d/m/Y" }}
+            {% else %}—{% endif %}
+          </div>
+        </div>
+        <div>
+          <div class="detail-eyebrow">Type</div>
+          <div class="detail-title-val">
+            {% if facture.type_facture == "service" %}
+              <span class="pill-info">Service</span>
+            {% else %}
+              <span class="pill-neutral">Marchandises</span>
+            {% endif %}
+          </div>
+        </div>
+        <div>
+          <div class="detail-eyebrow">Statut</div>
+          <div class="detail-title-val">
+            {% if facture.statut == "non_paye" %}<span class="pill-danger">Non payée</span>
+            {% elif facture.statut == "partiellement_paye" %}<span class="pill-warning">Part. payée</span>
+            {% elif facture.statut == "paye" %}<span class="pill-success">Payée</span>
+            {% elif facture.statut == "en_litige" %}<span class="pill-danger"><i class="bx bxs-error"></i> En litige</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Service warning -->
+    {% if facture.type_facture == "service" %}
+    <div class="service-banner">
+      <i class="bx bxs-error" style="color:#b45309;flex-shrink:0;"></i>
+      <span>Facture de type <strong>Service</strong> — elle n'impacte pas le stock intrants. Si cette charge correspond à une dépense opérationnelle, vérifiez le module <strong>Dépenses</strong>.</span>
+    </div>
+    {% endif %}
+
+    <!-- Financial summary row -->
+    <div class="fin-summary-row">
+      <div class="fin-metric">
+        <div class="fin-metric__label">Montant total</div>
+        <div class="fin-metric__val">{{ facture.montant_total|floatformat:0 }} DZD</div>
+      </div>
+      <div class="fin-metric">
+        <div class="fin-metric__label">Montant réglé</div>
+        <div class="fin-metric__val" style="color:var(--accent-text);">{{ facture.montant_regle|floatformat:0 }} DZD</div>
+      </div>
+      <div class="fin-metric fin-metric--highlight {% if facture.reste_a_payer > 0 %}fin-metric--danger{% endif %}">
+        <div class="fin-metric__label">Reste à payer</div>
+        <div class="fin-metric__val">{{ facture.reste_a_payer|floatformat:0 }} DZD</div>
+      </div>
+    </div>
+
+    <!-- Progress bar -->
+    {% if facture.montant_total > 0 %}
+    <div class="pay-progress-wrap">
+      <div class="pay-progress-bar"
+           style="width:{% widthratio facture.montant_regle facture.montant_total 100 %}%"
+           data-pct="{% widthratio facture.montant_regle facture.montant_total 100 %}"></div>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;text-align:right;">
+      {% widthratio facture.montant_regle facture.montant_total 100 %}% payée
+    </div>
+    {% endif %}
+
+    <!-- Included BLs -->
+    <div class="section-card">
+      <div class="section-card__header">
+        <div class="section-eyebrow"><i class="bx bxs-truck"></i> BLs inclus</div>
+        <span style="font-size:12px;color:var(--text-muted);">{{ bls.count }} BL{{ bls.count|pluralize }}</span>
+      </div>
+      {% for bl in bls %}
+      <div class="bl-block">
+        <div class="bl-block__header">
+          <div>
+            <a href="{% url 'achats:bl_fournisseur_detail' bl.pk %}" class="ref-link">{{ bl.reference }}</a>
+            <span class="pill-success" style="margin-left:6px;font-size:10px;">Facturé</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);">{{ bl.date_bl|date:"d/m/Y" }}</div>
+          <div class="bl-block__total">{{ bl.montant_total|floatformat:0 }} DZD</div>
+        </div>
+        {% if bl.lignes.all %}
+        <div class="bl-lines-table">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Intrant</th>
+                <th>Catégorie</th>
+                <th>Unité</th>
+                <th style="text-align:right;">Quantité</th>
+                <th style="text-align:right;">PU (DZD)</th>
+                <th style="text-align:right;">Montant</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ligne in bl.lignes.all %}
+              <tr>
+                <td style="font-weight:500;">{{ ligne.intrant.designation }}</td>
+                <td style="color:var(--text-muted);">{{ ligne.intrant.categorie.libelle }}</td>
+                <td style="color:var(--text-muted);">{{ ligne.intrant.unite_mesure }}</td>
+                <td style="text-align:right;">{{ ligne.quantite|floatformat:3 }}</td>
+                <td style="text-align:right;color:var(--text-muted);">{{ ligne.prix_unitaire|floatformat:4 }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ ligne.montant_total|floatformat:0 }} DZD</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
         {% endif %}
-      {% elif facture.statut == 'partiellement_paye' %}
-      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-md);">
-        <i class="bx bxs-hourglass" style="color:#b45309;font-size:16px;"></i>
-        <span style="font-size:13px;color:var(--text-secondary);">
-          <strong style="color:#b45309;">Partiellement payé</strong> — {{ facture.montant_regle|floatformat:0 }} DZD réglés sur {{ facture.montant_total|floatformat:0 }} DZD.
-        </span>
       </div>
-      {% elif facture.statut == 'paye' %}
-      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius-md);">
-        <i class="bx bxs-check-circle" style="color:#15803d;font-size:16px;"></i>
-        <span style="font-size:13px;color:var(--text-secondary);">
-          <strong style="color:#15803d;">Payé</strong> — Cette facture est entièrement réglée.
-        </span>
+      {% empty %}
+      <div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px;">Aucun BL associé.</div>
+      {% endfor %}
+    </div>
+
+    <!-- Payment allocations -->
+    <div class="section-card">
+      <div class="section-card__header">
+        <div class="section-eyebrow"><i class="bx bx-transfer"></i> Allocations de règlements</div>
+        <span style="font-size:12px;color:var(--text-muted);">{{ allocations.count }} règlement{{ allocations.count|pluralize }}</span>
       </div>
-      {% elif facture.statut == 'en_litige' %}
-      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius-md);">
-        <i class="bx bxs-error" style="color:#dc2626;font-size:16px;"></i>
-        <span style="font-size:13px;color:var(--text-secondary);">
-          <strong style="color:#dc2626;">En litige</strong> — Cette facture fait l'objet d'un litige. Le règlement est suspendu.
-        </span>
+      {% if allocations %}
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date règlement</th>
+              <th>Règlement</th>
+              <th>Mode</th>
+              <th style="text-align:right;">Montant alloué</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for alloc in allocations %}
+            <tr style="--row-i:{{ forloop.counter0 }};">
+              <td>{{ alloc.reglement.date_reglement|date:"d/m/Y" }}</td>
+              <td>
+                <a href="{% url 'achats:reglement_fournisseur_detail' alloc.reglement.pk %}" class="ref-link">
+                  Règlement #{{ alloc.reglement.pk }}
+                </a>
+              </td>
+              <td style="color:var(--text-muted);">{{ alloc.reglement.get_mode_paiement_display }}</td>
+              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">
+                {{ alloc.montant_alloue|floatformat:0 }} DZD
+              </td>
+              <td></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div style="text-align:center;padding:24px;color:var(--text-muted);">
+        <i class="bx bxs-coin" style="font-size:24px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
+        <div style="font-size:13px;">Aucun règlement enregistré.</div>
+        {% if facture.statut != "paye" %}
+        <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ facture.fournisseur.pk }}"
+           class="btn-primary" style="display:inline-flex;margin-top:12px;">
+          <i class="bx bxs-coin"></i> Enregistrer un règlement
+        </a>
+        {% endif %}
       </div>
       {% endif %}
     </div>
 
-    <!-- Header info -->
-    <div class="section-card" style="margin-bottom:18px;">
-      <div class="section-card__head">
-        <span class="section-card__title">Informations</span>
-        {% if facture.type_facture == 'service' %}
-        <span class="pill-base pill-info">Service</span>
-        {% else %}
-        <span class="pill-base pill-neutral">Marchandises</span>
-        {% endif %}
+    <!-- Notes -->
+    {% if facture.notes %}
+    <div class="section-card">
+      <div class="section-card__header">
+        <div class="section-eyebrow"><i class="bx bx-note"></i> Notes</div>
       </div>
-      <div class="section-card__body">
-        <div class="detail-grid">
-          <div>
-            <div class="detail-label">Référence</div>
-            <div class="detail-value text-mono">{{ facture.reference }}</div>
-          </div>
-          <div>
-            <div class="detail-label">Fournisseur</div>
-            <div class="detail-value">
-              <a href="{% url 'achats:fournisseur_tableau_de_bord' facture.fournisseur.pk %}" style="color:var(--accent-text);">{{ facture.fournisseur.nom }}</a>
-            </div>
-          </div>
-          <div>
-            <div class="detail-label">Date de facture</div>
-            <div class="detail-value">{{ facture.date_facture|date:"d/m/Y" }}</div>
-          </div>
-          <div>
-            <div class="detail-label">Date d'échéance</div>
-            <div class="detail-value">{{ facture.date_echeance|date:"d/m/Y"|default:"—" }}</div>
-          </div>
-          <div>
-            <div class="detail-label">Créé par</div>
-            <div class="detail-value">{{ facture.created_by.get_full_name|default:facture.created_by.username|default:"—" }}</div>
-          </div>
-          <div>
-            <div class="detail-label">Date de création</div>
-            <div class="detail-value">{{ facture.created_at|date:"d/m/Y H:i" }}</div>
-          </div>
-        </div>
-        {% if facture.notes %}
-        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
-          <div class="detail-label">Notes</div>
-          <div style="font-size:13px;color:var(--text-secondary);white-space:pre-wrap;">{{ facture.notes }}</div>
-        </div>
-        {% endif %}
-      </div>
+      <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;padding:0 2px;">{{ facture.notes }}</p>
     </div>
-
-    <!-- BLs included -->
-    <div class="section-card" style="margin-bottom:18px;">
-      <div class="section-card__head">
-        <span class="section-card__title"><i class="bx bxs-truck" style="color:var(--accent);margin-right:8px;"></i>BL inclus</span>
-        <span class="val-money" style="font-size:14px;">{{ bls|length }} BL</span>
-      </div>
-      <div class="section-card__body no-pad">
-        {% if bls %}
-        <div class="table-wrap">
-          <table class="table-base">
-            <thead>
-              <tr>
-                <th>BL</th>
-                <th>Date</th>
-                <th>Intrant</th>
-                <th style="text-align:right;">Qté</th>
-                <th style="text-align:right;">P.U.</th>
-                <th style="text-align:right;">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for bl in bls %}
-                {% for ligne in bl.lignes.all %}
-                <tr class="stagger-row">
-                  <td class="text-mono">
-                    <a href="{% url 'achats:bl_fournisseur_detail' bl.pk %}" style="color:var(--text-primary);font-weight:600;">{{ bl.reference }}</a>
-                  </td>
-                  <td style="color:var(--text-muted);white-space:nowrap;">{{ bl.date_bl|date:"d/m/Y" }}</td>
-                  <td>{{ ligne.intrant.designation }}</td>
-                  <td style="text-align:right;">{{ ligne.quantite|floatformat:3 }}</td>
-                  <td style="text-align:right;color:var(--text-muted);">{{ ligne.prix_unitaire|floatformat:4 }}</td>
-                  <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
-                    {{ ligne.montant_total|floatformat:2 }} DZD
-                  </td>
-                </tr>
-                {% endfor %}
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        {% else %}
-        <div class="empty-state" style="padding:32px 20px;">
-          <i class="bx bxs-truck empty-state__icon"></i>
-          <div class="empty-state__title">Aucun BL lié</div>
-          <div class="empty-state__text">Cette facture n'est liée à aucun BL.</div>
-        </div>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- Allocations / payment history -->
-    <div class="section-card" style="margin-bottom:18px;">
-      <div class="section-card__head">
-        <span class="section-card__title"><i class="bx bxs-coin" style="color:var(--accent);margin-right:8px;"></i>Historique des règlements</span>
-      </div>
-      <div class="section-card__body no-pad">
-        {% if allocations %}
-        <div class="table-wrap">
-          <table class="table-base">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Règlement</th>
-                <th style="text-align:right;">Montant alloué</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for alloc in allocations %}
-              <tr class="stagger-row">
-                <td style="color:var(--text-muted);white-space:nowrap;">{{ alloc.reglement.date_reglement|date:"d/m/Y" }}</td>
-                <td>
-                  <a href="{% url 'achats:reglement_fournisseur_detail' alloc.reglement.pk %}" style="color:var(--accent-text);">
-                    Règlement {{ alloc.reglement.date_reglement|date:"d/m/Y" }}
-                  </a>
-                  <span style="font-size:11px;color:var(--text-muted);display:block;">{{ alloc.reglement.mode_paiement }}</span>
-                </td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">
-                  {{ alloc.montant_alloue|floatformat:2 }} DZD
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        {% else %}
-        <div style="padding:24px 20px;text-align:center;color:var(--text-muted);font-size:13px;">
-          <i class="bx bxs-coin" style="display:block;font-size:24px;margin-bottom:8px;color:var(--border-strong);"></i>
-          Aucun règlement enregistré sur cette facture.
-        </div>
-        {% endif %}
-      </div>
-    </div>
+    {% endif %}
 
   </div>
 
-  <!-- Right column: balance summary -->
-  <div class="detail-side">
+  <!-- ── RIGHT: aside ── -->
+  <div class="detail-aside">
 
-    <!-- Balance card -->
-    <div class="section-card" style="margin-bottom:16px;">
-      <div class="section-card__head">
-        <span class="section-card__title">Solde</span>
+    <!-- Metadata -->
+    <div class="aside-info-card">
+      <div class="aside-info-card__title">Informations</div>
+      <div class="aside-info-row">
+        <span class="aside-info-label">Créé par</span>
+        <span class="aside-info-val">{{ facture.created_by.get_full_name|default:facture.created_by.username|default:"—" }}</span>
       </div>
-      <div class="section-card__body">
-
-        <!-- Montant total -->
-        <div style="margin-bottom:14px;">
-          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Montant total</div>
-          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;color:var(--text-primary);">
-            {{ facture.montant_total|floatformat:0 }} DZD
-          </div>
-        </div>
-
-        <!-- Montant réglé -->
-        <div style="margin-bottom:14px;">
-          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Montant réglé</div>
-          <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:18px;color:#15803d;">
-            {{ facture.montant_regle|floatformat:0 }} DZD
-          </div>
-        </div>
-
-        <!-- Reste à payer -->
-        <div style="padding-top:14px;border-top:2px solid var(--border);">
-          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Reste à payer</div>
-          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:24px;{% if facture.reste_a_payer > 0 %}color:#dc2626;{% else %}color:#15803d;{% endif %}">
-            {% if facture.reste_a_payer > 0 %}
-            {{ facture.reste_a_payer|floatformat:0 }} DZD
-            {% else %}
-            0 DZD
-            {% endif %}
-          </div>
-        </div>
-
-        <!-- Progress bar -->
-        {% if facture.montant_total > 0 %}
-        <div class="debt-bar" style="margin-top:14px;margin-bottom:4px;">
-          <div class="debt-bar__track">
-            <div class="debt-bar__fill" style="width:{{ facture.montant_regle|default:0|floatformat:0 }}%"></div>
-          </div>
-        </div>
-        <div style="font-size:11px;color:var(--text-muted);text-align:right;">
-          {{ facture.montant_regle|floatformat:0 }} / {{ facture.montant_total|floatformat:0 }} DZD
-        </div>
-        {% endif %}
-
+      <div class="aside-info-row">
+        <span class="aside-info-label">Créé le</span>
+        <span class="aside-info-val">{{ facture.created_at|date:"d/m/Y" }}</span>
+      </div>
+      <div class="aside-info-row">
+        <span class="aside-info-label">Modifié le</span>
+        <span class="aside-info-val">{{ facture.updated_at|date:"d/m/Y" }}</span>
       </div>
     </div>
 
-    <!-- Quick actions -->
-    <div class="section-card" style="margin-bottom:16px;">
-      <div class="section-card__head">
-        <span class="section-card__title">Actions</span>
-      </div>
-      <div class="section-card__body no-pad">
-        {% if facture.reste_a_payer > 0 and facture.statut != 'en_litige' %}
-        <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ facture.fournisseur.pk }}" class="side-link-row">
-          <i class="bx bxs-coin" style="color:var(--accent-text);"></i>
-          <span>Enregistrer un règlement</span>
-          <i class="bx bx-chevron-right" style="color:var(--text-muted);margin-left:auto;"></i>
+    <!-- Actions -->
+    <div class="aside-info-card">
+      <div class="aside-info-card__title">Actions</div>
+      <div class="aside-actions-list">
+        <a href="{% url 'achats:facture_fournisseur_print' facture.pk %}" target="_blank" class="aside-action-btn">
+          <i class="bx bxs-printer"></i> Imprimer la facture
+        </a>
+        <a href="{% url 'achats:facture_fournisseur_list' %}?fournisseur={{ facture.fournisseur.pk }}" class="aside-action-btn">
+          <i class="bx bxs-file-txt"></i> Factures de {{ facture.fournisseur.nom }}
+        </a>
+        {% if facture.statut != "paye" %}
+        <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ facture.fournisseur.pk }}" class="aside-action-btn aside-action-btn--primary">
+          <i class="bx bxs-coin"></i> Enregistrer un règlement
         </a>
         {% endif %}
-        <a href="{% url 'achats:bl_fournisseur_list' %}?fournisseur={{ facture.fournisseur.pk }}" class="side-link-row">
-          <i class="bx bxs-truck" style="color:var(--text-muted);"></i>
-          <span>BL de {{ facture.fournisseur.nom }}</span>
-          <i class="bx bx-chevron-right" style="color:var(--text-muted);margin-left:auto;"></i>
-        </a>
-        <a href="{% url 'achats:reglement_fournisseur_list' %}?fournisseur={{ facture.fournisseur.pk }}" class="side-link-row">
-          <i class="bx bxs-coin" style="color:var(--text-muted);"></i>
-          <span>Règlements de {{ facture.fournisseur.nom }}</span>
-          <i class="bx bx-chevron-right" style="color:var(--text-muted);margin-left:auto;"></i>
-        </a>
-        <a href="{% url 'achats:fournisseur_tableau_de_bord' facture.fournisseur.pk %}" class="side-link-row">
-          <i class="bx bxs-building" style="color:var(--text-muted);"></i>
-          <span>Tableau de bord fournisseur</span>
-          <i class="bx bx-chevron-right" style="color:var(--text-muted);margin-left:auto;"></i>
-        </a>
       </div>
     </div>
+
+    <!-- Litige toggle — danger zone -->
+    {% if facture.statut != "paye" %}
+    <div class="danger-zone-card">
+      <div class="danger-zone-card__title"><i class="bx bxs-error"></i> Zone sensible</div>
+      {% if facture.statut == "en_litige" %}
+      <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px;">
+        Cette facture est actuellement <strong style="color:#dc2626;">En litige</strong>. Cliquez pour retirer le statut litige et reprendre les allocations normales.
+      </p>
+      {% else %}
+      <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px;">
+        Marquer cette facture <strong style="color:#dc2626;">En litige</strong> suspend toute nouvelle allocation FIFO jusqu'à résolution.
+      </p>
+      {% endif %}
+      <button class="btn-danger" id="litige-toggle-btn">
+        {% if facture.statut == "en_litige" %}
+        <i class="bx bxs-check-circle"></i> Retirer du litige
+        {% else %}
+        <i class="bx bxs-error"></i> Mettre en litige
+        {% endif %}
+      </button>
+      <!-- Inline confirmation panel -->
+      <div class="confirm-panel" id="litige-confirm" style="display:none;">
+        <div class="confirm-panel__text">
+          {% if facture.statut == "en_litige" %}Confirmez-vous le retrait du statut litige ?
+          {% else %}Confirmez-vous la mise en litige de cette facture ?{% endif %}
+        </div>
+        <form method="post" action="{% url 'achats:facture_fournisseur_toggle_litige' facture.pk %}" id="litige-form">
+          {% csrf_token %}
+          <div class="confirm-panel__actions">
+            <button type="button" class="btn-ghost btn-sm" id="litige-cancel">Annuler</button>
+            <button type="submit" class="btn-danger btn-sm">Confirmer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
 
   </div>
-
 </div>
-
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.detail-layout {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 20px;
-  align-items: start;
-}
-@media (max-width: 1024px) { .detail-layout { grid-template-columns: 1fr; } }
+  .detail-layout { display: grid; grid-template-columns: 1fr 260px; gap: 18px; align-items: start; }
+  @media (max-width: 900px) { .detail-layout { grid-template-columns: 1fr; } }
 
-.detail-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px 20px;
-}
-@media (max-width: 600px) { .detail-grid { grid-template-columns: 1fr; } }
+  .detail-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 20px 22px;
+    margin-bottom: 14px; animation: fadeIn .3s ease;
+  }
+  .detail-card--header { border-top: 3px solid var(--accent); }
+  .detail-header-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 700px) { .detail-header-grid { grid-template-columns: 1fr 1fr; } }
+  .detail-eyebrow { font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+  .detail-title-val { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px; color: var(--text-primary); }
+  .val-red { color: #dc2626; }
+  .link-accent { color: var(--accent-text); text-decoration: none; }
+  .link-accent:hover { color: var(--accent); }
 
-.detail-label {
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: .07em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 3px;
-}
-.detail-value {
-  font-size: 13.5px;
-  color: var(--text-primary);
-  font-weight: 500;
-}
+  /* Service warning */
+  .service-banner {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.22);
+    border-radius: var(--radius-md); padding: 12px 16px;
+    font-size: 13px; color: var(--text-secondary); margin-bottom: 14px;
+  }
 
-.side-link-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  text-decoration: none;
-  color: inherit;
-  font-size: 13px;
-  transition: background 0.12s;
-}
-.side-link-row:last-child { border-bottom: none; }
-.side-link-row:hover { background: var(--bg-raised); }
+  /* Financial summary */
+  .fin-summary-row {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+    margin-bottom: 10px;
+  }
+  .fin-metric {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); padding: 14px 16px;
+  }
+  .fin-metric--highlight { background: var(--bg-raised); }
+  .fin-metric--danger { border-color: rgba(239,68,68,.25); background: rgba(239,68,68,.04); }
+  .fin-metric--danger .fin-metric__val { color: #dc2626; }
+  .fin-metric__label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); margin-bottom: 6px; }
+  .fin-metric__val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 18px; color: var(--text-primary); }
 
-.table-wrap { overflow-x: auto; }
+  /* Pay progress */
+  .pay-progress-wrap { height: 6px; background: var(--bg-hover); border-radius: 4px; overflow: hidden; margin-bottom: 4px; }
+  .pay-progress-bar { height: 100%; border-radius: 4px; background: var(--accent); transition: width .4s ease; min-width: 2px; }
 
-/* Debt bar fill percentage — use a CSS custom property approach via inline style */
-.debt-bar__fill {
-  width: 0%;
-}
+  /* Section card */
+  .section-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 14px;
+  }
+  .section-card__header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px 10px; border-bottom: 1px solid var(--border);
+  }
+
+  /* BL block */
+  .bl-block { border-bottom: 1px solid var(--border); }
+  .bl-block:last-child { border-bottom: none; }
+  .bl-block__header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 18px; background: var(--bg-raised);
+  }
+  .bl-block__header > div:first-child { flex: 1; }
+  .bl-block__total { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px; color: var(--text-primary); }
+
+  .bl-lines-table { padding: 0 0 0 0; }
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--text-muted); padding: 10px 14px; border-bottom: 1px solid var(--border);
+    white-space: nowrap; background: var(--bg-surface);
+  }
+  .data-table tbody tr {
+    border-bottom: 1px solid var(--border); transition: background .12s;
+    animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i,0)*35ms);
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: var(--bg-hover); }
+  .data-table td { padding: 11px 14px; font-size: 13px; color: var(--text-secondary); vertical-align: middle; }
+
+  .ref-link { font-family: 'Nunito', sans-serif; font-weight: 700; color: var(--accent-text); text-decoration: none; }
+  .ref-link:hover { color: var(--accent); }
+
+  .pill-warning, .pill-info, .pill-success, .pill-danger, .pill-neutral {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 9px; border-radius: 20px;
+    font-size: 11px; font-weight: 500; font-family: 'Inter', sans-serif; white-space: nowrap;
+  }
+  .pill-warning { background: rgba(245,158,11,.14); color: #b45309; }
+  .pill-info    { background: rgba(56,189,248,.14); color: #0284c7; }
+  .pill-success { background: rgba(34,197,94,.14);  color: #15803d; }
+  .pill-danger  { background: rgba(239,68,68,.10);  color: #dc2626; }
+  .pill-neutral { background: rgba(0,0,0,.06);      color: var(--text-secondary); }
+
+  /* Aside */
+  .aside-info-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 16px 18px; margin-bottom: 12px;
+  }
+  .aside-info-card__title {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 12px;
+  }
+  .aside-info-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--border); }
+  .aside-info-row:last-child { border-bottom: none; }
+  .aside-info-label { font-size: 11.5px; color: var(--text-muted); }
+  .aside-info-val { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+
+  .aside-actions-list { display: flex; flex-direction: column; gap: 6px; }
+  .aside-action-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 12px; border-radius: var(--radius-md);
+    border: 1px solid var(--border); background: var(--bg-surface);
+    color: var(--text-secondary); font-size: 13px; text-decoration: none;
+    transition: background .12s, border-color .12s;
+  }
+  .aside-action-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-strong); }
+  .aside-action-btn--primary { background: var(--accent-dim); border-color: rgba(34,197,94,.3); color: var(--accent-text); font-weight: 600; }
+  .aside-action-btn--primary:hover { background: rgba(34,197,94,.2); }
+
+  /* Danger zone */
+  .danger-zone-card {
+    background: rgba(239,68,68,.04); border: 1px solid rgba(239,68,68,.16);
+    border-radius: var(--radius-lg); padding: 16px 18px; margin-bottom: 12px;
+  }
+  .danger-zone-card__title {
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 12px;
+    color: #dc2626; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .btn-danger {
+    background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.22);
+    color: #dc2626; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px;
+    border-radius: var(--radius-md); padding: 9px 14px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s;
+  }
+  .btn-danger:hover { background: rgba(239,68,68,.18); }
+  .confirm-panel {
+    margin-top: 12px; padding: 12px; background: var(--bg-raised);
+    border: 1px solid var(--border-strong); border-radius: var(--radius-md);
+    animation: fadeIn .2s ease;
+  }
+  .confirm-panel__text { font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; }
+  .confirm-panel__actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+    font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px;
+    border-radius: var(--radius-md); padding: 9px 16px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s; text-decoration: none;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .btn-sm { padding: 6px 11px !important; font-size: 12px !important; }
+  .btn-primary {
+    background: var(--accent); color: #fff; font-family: 'Nunito', sans-serif;
+    font-weight: 700; font-size: 13.5px; border: none; border-radius: var(--radius-md);
+    padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: opacity .18s; text-decoration: none;
+  }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 5px; }
 </style>
 {% endblock %}
 
-{% block extra_js %}{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const toggleBtn = document.getElementById('litige-toggle-btn');
+  const confirmPanel = document.getElementById('litige-confirm');
+  const cancelBtn = document.getElementById('litige-cancel');
+
+  if (toggleBtn && confirmPanel) {
+    toggleBtn.addEventListener('click', function () {
+      confirmPanel.style.display = confirmPanel.style.display === 'none' ? 'block' : 'none';
+    });
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', function () {
+        confirmPanel.style.display = 'none';
+      });
+    }
+  }
+});
+</script>
+{% endblock %}

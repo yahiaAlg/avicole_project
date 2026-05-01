@@ -1,294 +1,248 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Nouvel ajustement — Stock — Élevage Avicole{% endblock %}
+{% block title %}Ajustements de stock — Élevage Avicole{% endblock %}
 {% block nav_stock_intrants %}active{% endblock %}
 
-{% block page_title %}Nouvel ajustement{% endblock %}
-{% block page_sub_text %}Correction manuelle de stock{% endblock %}
+{% block page_title %}Ajustements de stock{% endblock %}
+{% block page_sub_text %}Corrections manuelles · {{ page.paginator.count }} enregistrement{{ page.paginator.count|pluralize }}{% endblock %}
 
 {% block topbar_actions %}
-<a href="{% url 'stock:stock_ajustement_list' %}" class="btn-ghost">
-  <i class="bx bx-arrow-back"></i> Retour
+{% if request.user.userprofile %}
+  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'stock:stock_ajustement_create' %}" class="btn-primary">
+    <i class="bx bx-plus"></i> Nouvel ajustement
+  </a>
+  {% endif %}
+{% endif %}
+<a href="{% url 'stock:dashboard' %}" class="btn-ghost">
+  <i class="bx bx-arrow-back"></i> Tableau de bord
 </a>
 {% endblock %}
 
 {% block content %}
 
-{# ── Current stock preview card (when deep-linked) ─────────────────────── #}
-{% if current_stock %}
-<div class="section-card mb-4" style="background:var(--bg-raised);border-color:var(--border-strong);">
+{# ── Filters ─────────────────────────────────────────────────────────────── #}
+<div class="section-card mb-4">
   <div class="section-card__body">
-    <div class="row g-3 align-items-center">
-      <div class="col-md-4">
-        <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);">Article sélectionné</div>
-        <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:16px;color:var(--text-primary);margin-top:4px;">
-          {% if current_stock.intrant %}{{ current_stock.intrant.designation }}{% elif current_stock.produit_fini %}{{ current_stock.produit_fini.designation }}{% endif %}
+    <form method="get" class="filter-row" id="filter-form">
+
+      <div class="filter-field">
+        <div class="input-wrap">
+          <i class="bx bxs-filter-alt input-icon"></i>
+          <select name="segment" class="form-input" id="seg-select">
+            <option value="">Tous les segments</option>
+            {% for val, label in segment_choices %}
+            <option value="{{ val }}" {% if segment == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
         </div>
       </div>
-      <div class="col-md-3">
-        <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);">Stock actuel</div>
-        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;color:var(--text-primary);margin-top:4px;">
-          {{ current_stock.quantite|floatformat:2 }}
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);">{% if current_stock.intrant %}PMP{% else %}Coût moyen{% endif %}</div>
-        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;color:var(--text-primary);margin-top:4px;">
-          {% if current_stock.prix_moyen_pondere %}{{ current_stock.prix_moyen_pondere|floatformat:2 }}{% elif current_stock.cout_moyen_production %}{{ current_stock.cout_moyen_production|floatformat:2 }}{% else %}—{% endif %}
-        </div>
-      </div>
-      <div class="col-md-2" style="text-align:right;">
-        <span class="pill-base {% if current_stock.en_alerte %}pill-danger{% else %}pill-success{% endif %}">
-          {% if current_stock.en_alerte %}<i class="bx bxs-error"></i> Alerte{% else %}<i class="bx bxs-check-circle"></i> OK{% endif %}
-        </span>
-      </div>
-    </div>
-  </div>
-</div>
-{% endif %}
 
-{# ── Adjustment form ─────────────────────────────────────────────────── #}
-<div class="section-card" style="max-width:720px;">
-  <div class="section-card__head">
-    <span class="section-card__title">Informations de l'ajustement</span>
-  </div>
-  <div class="section-card__body">
-    <form method="post" action="{% url 'stock:stock_ajustement_create' %}">
-      {% csrf_token %}
-
-      {# ── Segment ── #}
-      <div class="field-group">
-        <label class="field-label" for="{{ form.segment.id_for_label }}">Segment <span class="req">*</span></label>
-        {{ form.segment }}
-        {% if form.segment.errors %}
-        <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.segment.errors.0 }}</div>
-        {% endif %}
-      </div>
-
-      {# ── Intrant ── #}
-      <div class="field-group" id="fg-intrant">
-        <label class="field-label" for="{{ form.intrant.id_for_label }}">Intrant</label>
-        <div class="input-wrapper">
-          <i class="bx bxs-cube-alt input-icon"></i>
-          {{ form.intrant }}
-        </div>
-        {% if form.intrant.errors %}
-        <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.intrant.errors.0 }}</div>
-        {% endif %}
-        <div id="intrant-balance-display" style="margin-top:6px;font-size:12px;color:var(--text-muted);"></div>
-      </div>
-
-      {# ── Produit fini ── #}
-      <div class="field-group" id="fg-produit_fini" style="display:none;">
-        <label class="field-label" for="{{ form.produit_fini.id_for_label }}">Produit fini</label>
-        <div class="input-wrapper">
-          <i class="bx bxs-badge-check input-icon"></i>
-          {{ form.produit_fini }}
-        </div>
-        {% if form.produit_fini.errors %}
-        <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.produit_fini.errors.0 }}</div>
-        {% endif %}
-        <div id="produit-balance-display" style="margin-top:6px;font-size:12px;color:var(--text-muted);"></div>
-      </div>
-
-      {# ── Date ── #}
-      <div class="field-group">
-        <label class="field-label" for="{{ form.date_ajustement.id_for_label }}">Date de l'ajustement <span class="req">*</span></label>
-        <div class="input-wrapper">
+      <div class="filter-field" style="min-width:130px;">
+        <div class="input-wrap">
           <i class="bx bxs-calendar input-icon"></i>
-          {{ form.date_ajustement }}
+          <input type="date" name="date_debut" value="{{ date_debut }}" class="form-input" title="Date début">
         </div>
-        {% if form.date_ajustement.errors %}
-        <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.date_ajustement.errors.0 }}</div>
-        {% endif %}
       </div>
 
-      {# ── Quantité avant (read-only) ── #}
-      <div class="field-group">
-        <label class="field-label" for="{{ form.quantite_avant.id_for_label }}">Quantité avant ajustement</label>
-        <div class="input-wrapper">
-          <i class="bx bxs-archive input-icon"></i>
-          {{ form.quantite_avant }}
+      <div class="filter-field" style="min-width:130px;">
+        <div class="input-wrap">
+          <i class="bx bxs-calendar input-icon"></i>
+          <input type="date" name="date_fin" value="{{ date_fin }}" class="form-input" title="Date fin">
         </div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Auto-rempli depuis le stock actuel.</div>
-        {% if form.quantite_avant.errors %}
-        <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.quantite_avant.errors.0 }}</div>
-        {% endif %}
       </div>
 
-      {# ── Quantité après ── #}
-      <div class="field-group">
-        <label class="field-label" for="{{ form.quantite_apres.id_for_label }}">Quantité après ajustement <span class="req">*</span></label>
-        <div class="input-wrapper">
-          <i class="bx bx-transfer input-icon"></i>
-          {{ form.quantite_apres }}
-        </div>
-        {% if form.quantite_apres.errors %}
-        <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.quantite_apres.errors.0 }}</div>
-        {% endif %}
-      </div>
-
-      {# ── Raison ── #}
-      <div class="field-group">
-        <label class="field-label" for="{{ form.raison.id_for_label }}">Raison / Justification <span class="req">*</span></label>
-        <div class="input-wrapper">
-          {{ form.raison }}
-        </div>
-        {% if form.raison.errors %}
-        <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.raison.errors.0 }}</div>
-        {% endif %}
-      </div>
-
-      {# ── Non-field errors ── #}
-      {% if form.non_field_errors %}
-      <div class="field-error" style="margin-bottom:16px;">
-        <i class="bx bxs-error-circle"></i> {{ form.non_field_errors.0 }}
-      </div>
+      <button type="submit" class="btn-primary" style="flex:0 0 auto;">
+        <i class="bx bxs-filter-alt"></i> Filtrer
+      </button>
+      {% if segment or date_debut or date_fin %}
+      <a href="{% url 'stock:stock_ajustement_list' %}" class="btn-ghost" style="flex:0 0 auto;">
+        <i class="bx bx-x"></i> Effacer
+      </a>
       {% endif %}
-
-      {# ── Actions ── #}
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid var(--border);">
-        <a href="{% url 'stock:stock_ajustement_list' %}" class="btn-ghost">Annuler</a>
-        <button type="submit" class="btn-primary">
-          <i class="bx bx-check"></i> {{ action_label|default:"Enregistrer" }}
-        </button>
-      </div>
     </form>
   </div>
+</div>
+
+{# ── Table ───────────────────────────────────────────────────────────────── #}
+<div class="section-card">
+  {% if page.object_list %}
+  <div class="table-responsive">
+    <table class="data-table w-100">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Segment</th>
+          <th>Article</th>
+          <th class="text-end">Avant</th>
+          <th class="text-end">Après</th>
+          <th class="text-end">Écart</th>
+          <th>Raison / Justification</th>
+          <th>Effectué par</th>
+          <th>Enregistré le</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for aj in page.object_list %}
+        <tr class="tbl-row" style="--row-i:{{ forloop.counter0 }};">
+          <td style="font-size:12px;white-space:nowrap;color:var(--text-muted);">
+            {{ aj.date_ajustement|date:"d/m/Y" }}
+          </td>
+          <td>
+            {% if aj.segment == 'intrant' %}
+              <span class="pill-info">Intrant</span>
+            {% else %}
+              <span class="pill-neutral">Produit fini</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if aj.intrant %}
+              <a href="{% url 'stock:stock_intrant_detail' aj.intrant.stock.pk %}"
+                 style="font-weight:600;color:var(--text-primary);text-decoration:none;">
+                {{ aj.intrant.designation }}
+              </a>
+              <span style="display:block;font-size:11px;color:var(--text-muted);">
+                {{ aj.intrant.categorie.libelle }}
+              </span>
+            {% elif aj.produit_fini %}
+              <a href="{% url 'stock:stock_produit_fini_detail' aj.produit_fini.stock.pk %}"
+                 style="font-weight:600;color:var(--text-primary);text-decoration:none;">
+                {{ aj.produit_fini.designation }}
+              </a>
+              <span style="display:block;font-size:11px;color:var(--text-muted);">
+                {{ aj.produit_fini.get_type_produit_display }}
+              </span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-end" style="color:var(--text-muted);">{{ aj.quantite_avant|floatformat:2 }}</td>
+          <td class="text-end" style="font-weight:700;">{{ aj.quantite_apres|floatformat:2 }}</td>
+          <td class="text-end">
+            {% if aj.quantite_apres > aj.quantite_avant %}
+              <span style="color:#15803d;font-weight:700;">
+                +{{ aj.quantite_apres|floatformat:2 }}
+              </span>
+            {% elif aj.quantite_apres < aj.quantite_avant %}
+              <span style="color:#dc2626;font-weight:700;">
+                -{{ aj.quantite_avant|floatformat:2 }}
+              </span>
+            {% else %}
+              <span style="color:var(--text-muted);">0</span>
+            {% endif %}
+          </td>
+          <td style="font-size:12px;color:var(--text-secondary);max-width:260px;">
+            <span class="raison-text" title="{{ aj.raison }}">{{ aj.raison|truncatechars:80 }}</span>
+          </td>
+          <td style="font-size:12px;color:var(--text-muted);">
+            {{ aj.effectue_par.username|default:"—" }}
+          </td>
+          <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">
+            {{ aj.created_at|date:"d/m/Y H:i" }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page.has_other_pages %}
+  <div class="pagination-bar">
+    {% if page.has_previous %}
+    <a href="?page={{ page.previous_page_number }}{% if segment %}&segment={{ segment }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}"
+       class="page-btn"><i class="bx bx-chevron-left"></i></a>
+    {% endif %}
+    <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}
+    <a href="?page={{ page.next_page_number }}{% if segment %}&segment={{ segment }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}"
+       class="page-btn"><i class="bx bx-chevron-right"></i></a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div style="text-align:center;padding:56px 20px;color:var(--text-muted);">
+    <i class="bx bxs-pencil" style="font-size:36px;display:block;margin-bottom:14px;color:var(--border-strong);"></i>
+    <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
+      Aucun ajustement enregistré
+    </div>
+    <div style="font-size:13px;">
+      {% if segment or date_debut or date_fin %}
+        Modifiez vos critères de filtre.
+      {% else %}
+        Les ajustements manuels de stock apparaîtront ici.
+      {% endif %}
+    </div>
+    {% if request.user.userprofile %}
+      {% if not request.user.userprofile.role == 'viewer' %}
+      <a href="{% url 'stock:stock_ajustement_create' %}" class="btn-primary"
+         style="margin-top:16px;display:inline-flex;">
+        <i class="bx bx-plus"></i> Créer un ajustement
+      </a>
+      {% endif %}
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{# ── Info note ───────────────────────────────────────────────────────────── #}
+<div style="margin-top:16px;padding:12px 16px;border-radius:var(--radius-md);
+            background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);
+            display:flex;align-items:flex-start;gap:10px;">
+  <i class="bx bxs-info-circle" style="color:#0284c7;font-size:15px;flex-shrink:0;margin-top:1px;"></i>
+  <span style="font-size:12px;color:var(--text-secondary);">
+    Les ajustements de stock sont <strong>immuables</strong> une fois enregistrés.
+    Chaque correction génère automatiquement un mouvement de stock de type <em>Ajustement</em>
+    dans le journal d'audit. Pour consulter l'historique complet,
+    <a href="{% url 'stock:stock_mouvement_list' %}?type_mouvement=ajustement"
+       style="color:var(--accent-text);">voir les mouvements filtrés</a>.
+  </span>
 </div>
 
 {% endblock %}
 
 {% block extra_css %}
 <style>
-/* ── Segment-dependent field visibility ──────────────────────────────── */
-#fg-intrant, #fg-produit_fini {
-  transition: opacity 0.18s ease;
+.filter-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.filter-field { flex:1; min-width:150px; }
+.input-wrap { position:relative; }
+.input-icon {
+  position:absolute; left:12px; top:50%; transform:translateY(-50%);
+  color:var(--text-muted); font-size:15px; pointer-events:none;
 }
-
-/* ── Form max-width wrapper inside section-card ──────────────────────── */
-.section-card form { width: 100%; }
-
-/* ── Make select inputs match design system ──────────────────────────── */
-.field-input select {
-  width: 100%;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-family: 'Inter', sans-serif;
-  font-size: 13.5px;
-  padding: 11px 13px;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  appearance: auto;
+.form-input {
+  width:100%; padding:10px 13px 10px 38px;
+  border:1px solid var(--border); border-radius:var(--radius-md);
+  background:var(--bg-surface); color:var(--text-primary);
+  font-family:'Inter',sans-serif; font-size:13.5px;
+  transition:border-color .18s, box-shadow .18s; appearance:none;
 }
-.field-input select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(34,197,94,.15);
-  outline: none;
+.form-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow); outline:none; }
+.tbl-row { animation:fadeIn 0.3s ease both; animation-delay:calc(var(--row-i) * 35ms); }
+.pagination-bar {
+  display:flex; align-items:center; justify-content:center;
+  gap:10px; padding:16px; border-top:1px solid var(--border);
 }
-
-/* ── Read-only balance field styling ─────────────────────────────────── */
-input[readonly] {
-  opacity: .6;
-  cursor: not-allowed;
-  background: var(--bg-raised) !important;
+.page-btn {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:34px; height:34px; border-radius:var(--radius-sm);
+  border:1px solid var(--border); color:var(--text-secondary);
+  text-decoration:none; font-size:16px;
 }
+.page-btn:hover { border-color:var(--border-strong); background:var(--bg-hover); }
+.page-info { font-size:12px; color:var(--text-muted); }
+.raison-text { cursor:help; }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-
-  var segmentSelect = document.getElementById('{{ form.segment.id_for_label }}');
-  var intrantField = document.getElementById('{{ form.intrant.id_for_label }}');
-  var produitField = document.getElementById('{{ form.produit_fini.id_for_label }}');
-  var fgIntrant = document.getElementById('fg-intrant');
-  var fgProduit = document.getElementById('fg-produit_fini');
-  var intrantBalanceDisplay = document.getElementById('intrant-balance-display');
-  var produitBalanceDisplay = document.getElementById('produit-balance-display');
-  var quantiteAvantInput = document.getElementById('{{ form.quantite_avant.id_for_label }}');
-
-  function toggleFields() {
-    var segment = segmentSelect.value;
-    if (segment === 'intrant') {
-      fgIntrant.style.display = '';
-      fgProduit.style.display = 'none';
-      intrantField.disabled = false;
-      produitField.disabled = true;
-    } else if (segment === 'produit_fini') {
-      fgIntrant.style.display = 'none';
-      fgProduit.style.display = '';
-      intrantField.disabled = true;
-      produitField.disabled = false;
-    } else {
-      fgIntrant.style.display = '';
-      fgProduit.style.display = 'none';
-    }
-  }
-
-  function fetchIntrantBalance(pk) {
-    if (!pk) return;
-    var url = "{% url 'stock:stock_intrant_balance_json' 0 %}".replace('/0/', '/' + pk + '/');
-    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        intrantBalanceDisplay.innerHTML =
-          '<span style="display:inline-flex;align-items:center;gap:4px;">' +
-          '<i class="bx bxs-archive" style="color:' + (d.en_alerte ? '#dc2626' : 'var(--accent-text)') + ';"></i>' +
-          'Stock actuel : <strong>' + d.quantite.toFixed(2) + '</strong> ' + (d.unite_mesure || '') +
-          (d.en_alerte ? ' <span style="color:#dc2626;">(Sous seuil)</span>' : '') +
-          '</span>';
-        if (quantiteAvantInput) quantiteAvantInput.value = d.quantite;
-      })
-      .catch(function () {
-        intrantBalanceDisplay.textContent = '';
-      });
-  }
-
-  function fetchProduitBalance(pk) {
-    if (!pk) return;
-    var url = "{% url 'stock:stock_produit_fini_balance_json' 0 %}".replace('/0/', '/' + pk + '/');
-    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        produitBalanceDisplay.innerHTML =
-          '<span style="display:inline-flex;align-items:center;gap:4px;">' +
-          '<i class="bx bxs-badge-check" style="color:' + (d.en_alerte ? '#dc2626' : 'var(--accent-text)') + ';"></i>' +
-          'Stock actuel : <strong>' + d.quantite.toFixed(2) + '</strong> ' + (d.unite_mesure || '') +
-          (d.en_alerte ? ' <span style="color:#dc2626;">(Sous seuil)</span>' : '') +
-          '</span>';
-        if (quantiteAvantInput) quantiteAvantInput.value = d.quantite;
-      })
-      .catch(function () {
-        produitBalanceDisplay.textContent = '';
-      });
-  }
-
-  // Segment change → toggle visible fields
-  if (segmentSelect) {
-    segmentSelect.addEventListener('change', toggleFields);
-    toggleFields();
-  }
-
-  // Intrant change → fetch balance
-  if (intrantField) {
-    intrantField.addEventListener('change', function () {
-      fetchIntrantBalance(intrantField.value);
+  var segSelect = document.getElementById('seg-select');
+  if (segSelect) {
+    segSelect.addEventListener('change', function () {
+      document.getElementById('filter-form').submit();
     });
-    if (intrantField.value) fetchIntrantBalance(intrantField.value);
   }
-
-  // Produit fini change → fetch balance
-  if (produitField) {
-    produitField.addEventListener('change', function () {
-      fetchProduitBalance(produitField.value);
-    });
-    if (produitField.value) fetchProduitBalance(produitField.value);
-  }
-
 });
 </script>
 {% endblock %}

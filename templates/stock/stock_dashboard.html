@@ -1,359 +1,343 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Tableau de bord — Stock — Élevage Avicole{% endblock %}
+{% block title %}Stock — Tableau de bord — Élevage Avicole{% endblock %}
 {% block nav_stock_intrants %}active{% endblock %}
 
-{% block page_title %}Stock{% endblock %}
-{% block page_sub_text %}Vue d'ensemble des stocks · {% now "d/m/Y" %}{% endblock %}
+{% block page_title %}Tableau de bord — Stock{% endblock %}
+{% block page_sub_text %}Synthèse des deux segments · {% now "d/m/Y" %}{% endblock %}
 
 {% block topbar_actions %}
 {% if request.user.userprofile %}
   {% if not request.user.userprofile.role == 'viewer' %}
   <a href="{% url 'stock:stock_ajustement_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Ajustement
+    <i class="bx bx-plus"></i> Nouvel ajustement
   </a>
   {% endif %}
 {% endif %}
-<a href="{% url 'reporting:etat_stocks' %}" class="btn-ghost">
-  <i class="bx bxs-bar-chart-alt-2"></i> Rapport
+<a href="{% url 'stock:stock_mouvement_list' %}" class="btn-ghost">
+  <i class="bx bxs-archive"></i> Mouvements
 </a>
 {% endblock %}
 
 {% block content %}
 
-{# ── KPI Metric Cards ──────────────────────────────────────────────────── #}
+{# ── KPI Row ────────────────────────────────────────────────────────────── #}
 <div class="row g-3 mb-4">
 
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-green"><i class="bx bxs-archive"></i></div>
-      <div class="metric-label">Intrants en stock</div>
-      <div class="metric-value">{{ nb_intrants|floatformat:0 }}</div>
-      <span class="metric-delta neutral"><i class="bx bx-minus"></i> Articles référencés</span>
-    </div>
-  </div>
-
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-amber"><i class="bx bxs-coin"></i></div>
-      <div class="metric-label">Valeur Intrants</div>
-      <div class="metric-value sm">{{ valeur_intrants|floatformat:0 }} DZD</div>
-      <span class="metric-delta neutral"><i class="bx bx-minus"></i> PMP × Quantité</span>
+      <div class="metric-label">Références Intrants</div>
+      <div class="metric-value">{{ nb_intrants }}</div>
     </div>
   </div>
 
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-blue"><i class="bx bxs-badge-check"></i></div>
-      <div class="metric-label">Produits Finis</div>
-      <div class="metric-value">{{ nb_pf|floatformat:0 }}</div>
-      <span class="metric-delta neutral"><i class="bx bx-minus"></i> Articles référencés</span>
+      <div class="metric-label">Références Produits Finis</div>
+      <div class="metric-value">{{ nb_pf }}</div>
     </div>
   </div>
 
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
-      <div class="metric-icon ic-red"><i class="bx bxs-error"></i></div>
-      <div class="metric-label">Alertes Stock</div>
-      <div class="metric-value">
-        {{ intrants_en_alerte|length|add:pf_en_alerte|length|default:0 }}
-      </div>
-      <span class="metric-delta {% if intrants_en_alerte or pf_en_alerte %}warn{% else %}neutral{% endif %}">
-        {% if intrants_en_alerte or pf_en_alerte %}
-        <i class="bx bx-trending-down"></i> Sous seuil
-        {% else %}
-        <i class="bx bx-check"></i> Tous OK
-        {% endif %}
-      </span>
+      <div class="metric-icon ic-amber"><i class="bx bxs-coin"></i></div>
+      <div class="metric-label">Valeur Stock Intrants</div>
+      <div class="metric-value sm">{{ valeur_intrants|floatformat:0 }} DZD</div>
+    </div>
+  </div>
+
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-teal"><i class="bx bxs-coin"></i></div>
+      <div class="metric-label">Valeur Stock Produits Finis</div>
+      <div class="metric-value sm">{{ valeur_pf|floatformat:0 }} DZD</div>
     </div>
   </div>
 
 </div>
 
-{# ── Two-column: Intrants alertes + Produits finis alertes ─────────────── #}
+{# ── Alert strips ───────────────────────────────────────────────────────── #}
+{% if intrants_en_alerte or pf_en_alerte %}
 <div class="row g-3 mb-4">
-
-  {# Intrants en alerte #}
+  {% if intrants_en_alerte %}
   <div class="col-xl-6">
-    <div class="section-card h-100">
+    <div class="section-card">
       <div class="section-card__head">
-        <span class="section-card__title">
-          <i class="bx bxs-archive" style="color:var(--accent);margin-right:8px;"></i>Intrants en alerte
+        <span class="section-card__title" style="color:#dc2626;">
+          <i class="bx bxs-error" style="margin-right:7px;"></i>Intrants en alerte
         </span>
-        {% if intrants_en_alerte|length > 0 %}
-        <span class="pill-base pill-warning">{{ intrants_en_alerte|length }}</span>
-        {% endif %}
+        <a href="{% url 'stock:stock_intrant_list' %}?alerte=1"
+           style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
+          Voir tout <i class="bx bx-right-arrow-alt"></i>
+        </a>
       </div>
-      <div class="section-card__body no-pad">
-        {% if intrants_en_alerte %}
-        <table class="table-base">
+      <div class="section-card__body" style="padding-top:0;">
+        <table class="data-table w-100">
           <thead>
             <tr>
               <th>Intrant</th>
               <th>Catégorie</th>
-              <th style="text-align:right;">Stock</th>
-              <th style="text-align:right;">Seuil</th>
+              <th class="text-end">Stock</th>
+              <th class="text-end">Seuil</th>
             </tr>
           </thead>
           <tbody>
             {% for s in intrants_en_alerte %}
-            <tr class="stagger-row">
+            <tr class="tbl-row" style="animation-delay:calc(var(--row-i, {{ forloop.counter0 }}) * 35ms);">
               <td>
-                <a href="{% url 'stock:stock_intrant_detail' s.pk %}" style="font-weight:600;color:var(--text-primary);">
+                <a href="{% url 'stock:stock_intrant_detail' s.pk %}"
+                   style="color:var(--text-primary);font-weight:600;text-decoration:none;">
                   {{ s.intrant.designation }}
                 </a>
               </td>
-              <td style="color:var(--text-muted);font-size:12px;">{{ s.intrant.categorie.libelle }}</td>
-              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;">
-                {{ s.quantite|floatformat:2 }}
+              <td>{{ s.intrant.categorie.libelle }}</td>
+              <td class="text-end">
+                <span style="color:#dc2626;font-weight:700;">{{ s.quantite|floatformat:2 }}</span>
+                <span style="font-size:11px;color:var(--text-muted);"> {{ s.intrant.unite_mesure }}</span>
               </td>
-              <td style="text-align:right;color:var(--text-muted);">
-                {{ s.intrant.seuil_alerte|floatformat:2 }}
+              <td class="text-end" style="color:var(--text-muted);">
+                {{ s.intrant.seuil_alerte|floatformat:2 }} {{ s.intrant.unite_mesure }}
               </td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
-        {% else %}
-        <div class="empty-state" style="padding:36px 20px;">
-          <i class="bx bxs-check-circle empty-state__icon" style="color:var(--accent);"></i>
-          <div class="empty-state__title">Tous les intrants sont OK</div>
-          <div class="empty-state__text">Aucun stock sous le seuil d'alerte.</div>
-        </div>
-        {% endif %}
       </div>
     </div>
   </div>
+  {% endif %}
 
-  {# Produits finis en alerte #}
+  {% if pf_en_alerte %}
   <div class="col-xl-6">
-    <div class="section-card h-100">
+    <div class="section-card">
       <div class="section-card__head">
-        <span class="section-card__title">
-          <i class="bx bxs-badge-check" style="color:var(--accent);margin-right:8px;"></i>Produits finis en alerte
+        <span class="section-card__title" style="color:#dc2626;">
+          <i class="bx bxs-error" style="margin-right:7px;"></i>Produits Finis en alerte
         </span>
-        {% if pf_en_alerte|length > 0 %}
-        <span class="pill-base pill-warning">{{ pf_en_alerte|length }}</span>
-        {% endif %}
+        <a href="{% url 'stock:stock_produit_fini_list' %}?alerte=1"
+           style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
+          Voir tout <i class="bx bx-right-arrow-alt"></i>
+        </a>
       </div>
-      <div class="section-card__body no-pad">
-        {% if pf_en_alerte %}
-        <table class="table-base">
+      <div class="section-card__body" style="padding-top:0;">
+        <table class="data-table w-100">
           <thead>
             <tr>
               <th>Produit</th>
               <th>Type</th>
-              <th style="text-align:right;">Stock</th>
-              <th style="text-align:right;">Seuil</th>
+              <th class="text-end">Stock</th>
+              <th class="text-end">Seuil</th>
             </tr>
           </thead>
           <tbody>
             {% for s in pf_en_alerte %}
-            <tr class="stagger-row">
+            <tr class="tbl-row" style="animation-delay:calc({{ forloop.counter0 }} * 35ms);">
               <td>
-                <a href="{% url 'stock:stock_produit_fini_detail' s.pk %}" style="font-weight:600;color:var(--text-primary);">
+                <a href="{% url 'stock:stock_produit_fini_detail' s.pk %}"
+                   style="color:var(--text-primary);font-weight:600;text-decoration:none;">
                   {{ s.produit_fini.designation }}
                 </a>
               </td>
-              <td style="color:var(--text-muted);font-size:12px;">{{ s.produit_fini.get_type_produit_display }}</td>
-              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;">
-                {{ s.quantite|floatformat:2 }}
+              <td>{{ s.produit_fini.get_type_produit_display }}</td>
+              <td class="text-end">
+                <span style="color:#dc2626;font-weight:700;">{{ s.quantite|floatformat:2 }}</span>
+                <span style="font-size:11px;color:var(--text-muted);"> {{ s.produit_fini.unite_mesure }}</span>
               </td>
-              <td style="text-align:right;color:var(--text-muted);">
-                {{ s.seuil_alerte|floatformat:2 }}
+              <td class="text-end" style="color:var(--text-muted);">
+                {{ s.seuil_alerte|floatformat:2 }} {{ s.produit_fini.unite_mesure }}
               </td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{# ── Quick links + Recent movements ────────────────────────────────────── #}
+<div class="row g-3">
+
+  {# Navigation rapide #}
+  <div class="col-xl-4">
+    <div class="section-card h-100">
+      <div class="section-card__head">
+        <span class="section-card__title">
+          <i class="bx bxs-grid-alt" style="color:var(--accent);margin-right:8px;"></i>Navigation rapide
+        </span>
+      </div>
+      <div class="section-card__body" style="display:flex;flex-direction:column;gap:10px;padding-top:4px;">
+
+        <a href="{% url 'stock:stock_intrant_list' %}" class="stock-nav-link">
+          <div class="stock-nav-icon ic-green"><i class="bx bxs-archive"></i></div>
+          <div>
+            <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;color:var(--text-primary);">
+              Stock Intrants
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);">{{ nb_intrants }} références</div>
+          </div>
+          <i class="bx bx-chevron-right" style="margin-left:auto;color:var(--text-muted);"></i>
+        </a>
+
+        <a href="{% url 'stock:stock_produit_fini_list' %}" class="stock-nav-link">
+          <div class="stock-nav-icon ic-blue"><i class="bx bxs-badge-check"></i></div>
+          <div>
+            <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;color:var(--text-primary);">
+              Stock Produits Finis
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);">{{ nb_pf }} références</div>
+          </div>
+          <i class="bx bx-chevron-right" style="margin-left:auto;color:var(--text-muted);"></i>
+        </a>
+
+        <a href="{% url 'stock:stock_mouvement_list' %}" class="stock-nav-link">
+          <div class="stock-nav-icon ic-purple"><i class="bx bx-transfer"></i></div>
+          <div>
+            <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;color:var(--text-primary);">
+              Mouvements de stock
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);">Journal d'audit complet</div>
+          </div>
+          <i class="bx bx-chevron-right" style="margin-left:auto;color:var(--text-muted);"></i>
+        </a>
+
+        <a href="{% url 'stock:stock_ajustement_list' %}" class="stock-nav-link">
+          <div class="stock-nav-icon ic-amber"><i class="bx bxs-pencil"></i></div>
+          <div>
+            <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;color:var(--text-primary);">
+              Ajustements manuels
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);">Historique des corrections</div>
+          </div>
+          <i class="bx bx-chevron-right" style="margin-left:auto;color:var(--text-muted);"></i>
+        </a>
+
+        {% if request.user.userprofile %}
+          {% if not request.user.userprofile.role == 'viewer' %}
+          <a href="{% url 'stock:stock_ajustement_create' %}" class="btn-primary"
+             style="justify-content:center;margin-top:4px;">
+            <i class="bx bx-plus"></i> Nouvel ajustement de stock
+          </a>
+          {% endif %}
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+
+  {# Mouvements récents #}
+  <div class="col-xl-8">
+    <div class="section-card">
+      <div class="section-card__head">
+        <span class="section-card__title">
+          <i class="bx bx-transfer" style="color:var(--accent);margin-right:8px;"></i>Derniers mouvements
+        </span>
+        <a href="{% url 'stock:stock_mouvement_list' %}"
+           style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
+          Voir tout <i class="bx bx-right-arrow-alt"></i>
+        </a>
+      </div>
+      <div class="section-card__body" style="padding-top:0;">
+        {% if mouvements_recents %}
+        <table class="data-table w-100">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Article</th>
+              <th>Type</th>
+              <th>Source</th>
+              <th class="text-end">Qté</th>
+              <th class="text-end">Après</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in mouvements_recents %}
+            <tr class="tbl-row" style="animation-delay:calc({{ forloop.counter0 }} * 35ms);">
+              <td style="font-size:12px;color:var(--text-muted);">{{ m.date_mouvement|date:"d/m/Y" }}</td>
+              <td>
+                <span style="font-weight:600;color:var(--text-primary);">
+                  {% if m.intrant %}{{ m.intrant.designation }}{% else %}{{ m.produit_fini.designation }}{% endif %}
+                </span>
+                <span style="font-size:11px;color:var(--text-muted);display:block;">
+                  {% if m.intrant %}Intrant{% else %}Produit fini{% endif %}
+                </span>
+              </td>
+              <td>
+                {% if m.type_mouvement == 'entree' %}
+                  <span class="pill-success"><i class="bx bx-up-arrow-alt"></i> Entrée</span>
+                {% elif m.type_mouvement == 'sortie' %}
+                  <span class="pill-danger"><i class="bx bx-down-arrow-alt"></i> Sortie</span>
+                {% else %}
+                  <span class="pill-warning"><i class="bx bxs-pencil"></i> Ajustement</span>
+                {% endif %}
+              </td>
+              <td style="font-size:12px;color:var(--text-muted);">{{ m.get_source_display }}</td>
+              <td class="text-end" style="font-weight:600;">{{ m.quantite|floatformat:2 }}</td>
+              <td class="text-end" style="color:var(--text-muted);font-size:12px;">{{ m.quantite_apres|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
         {% else %}
-        <div class="empty-state" style="padding:36px 20px;">
-          <i class="bx bxs-check-circle empty-state__icon" style="color:var(--accent);"></i>
-          <div class="empty-state__title">Tous les produits sont OK</div>
-          <div class="empty-state__text">Aucun stock sous le seuil d'alerte.</div>
+        <div style="text-align:center;padding:40px 20px;color:var(--text-muted);">
+          <i class="bx bx-transfer" style="font-size:28px;display:block;margin-bottom:10px;color:var(--border-strong);"></i>
+          <div style="font-size:13px;">Aucun mouvement enregistré pour le moment.</div>
         </div>
         {% endif %}
       </div>
     </div>
   </div>
 
-</div>
-
-{# ── Stock value summary ───────────────────────────────────────────────── #}
-<div class="row g-3 mb-4">
-  <div class="col-xl-12">
-    <div class="section-card">
-      <div class="section-card__head">
-        <span class="section-card__title">
-          <i class="bx bxs-bar-chart-alt-2" style="color:var(--accent);margin-right:8px;"></i>Répartition de la valeur stock
-        </span>
-      </div>
-      <div class="section-card__body" style="height:220px;display:flex;align-items:center;justify-content:center;">
-        <div style="position:relative;width:100%;max-width:480px;height:200px;">
-          <canvas id="chartStockValeur"></canvas>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-{# ── Mouvements récents ──────────────────────────────────────────────── #}
-<div class="section-card">
-  <div class="section-card__head">
-    <span class="section-card__title">
-      <i class="bx bxs-transfer" style="color:var(--text-muted);margin-right:8px;"></i>Mouvements récents
-    </span>
-    <a href="{% url 'stock:stock_mouvement_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
-      Voir tout <i class="bx bx-right-arrow-alt"></i>
-    </a>
-  </div>
-  <div class="section-card__body no-pad">
-    {% if mouvements_recents %}
-    <table class="table-base">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Type</th>
-          <th>Article</th>
-          <th>Source</th>
-          <th style="text-align:right;">Qté</th>
-          <th style="text-align:center;">Avant → Après</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for m in mouvements_recents %}
-        <tr class="stagger-row">
-          <td style="color:var(--text-muted);white-space:nowrap;">{{ m.date_mouvement|date:"d/m/Y" }}</td>
-          <td>
-            {% if m.type_mouvement == 'entree' %}
-            <span class="pill-base pill-success"><i class="bx bx-trending-up"></i> Entrée</span>
-            {% elif m.type_mouvement == 'sortie' %}
-            <span class="pill-base pill-danger"><i class="bx bx-trending-down"></i> Sortie</span>
-            {% else %}
-            <span class="pill-base pill-warning"><i class="bx bx-transfer"></i> Ajustement</span>
-            {% endif %}
-          </td>
-          <td>
-            <span class="val-money">
-              {% if m.intrant %}{{ m.intrant.designation }}{% elif m.produit_fini %}{{ m.produit_fini.designation }}{% else %}—{% endif %}
-            </span>
-          </td>
-          <td style="color:var(--text-muted);font-size:12px;">{{ m.get_source_display }}</td>
-          <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
-            {{ m.quantite|floatformat:2 }}
-          </td>
-          <td style="text-align:center;color:var(--text-muted);font-size:12px;">
-            {{ m.quantite_avant|floatformat:2 }} → {{ m.quantite_apres|floatformat:2 }}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <div class="empty-state">
-      <i class="bx bxs-transfer empty-state__icon"></i>
-      <div class="empty-state__title">Aucun mouvement récent</div>
-      <div class="empty-state__text">Les mouvements de stock apparaîtront ici.</div>
-    </div>
-    {% endif %}
-  </div>
 </div>
 
 {% endblock %}
 
 {% block extra_css %}
 <style>
-/* ── Metric card hover accent ──────────────────────────────────────────── */
-.metric-card { transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s; }
-.metric-card:hover {
-  border-color: var(--accent);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(34,197,94,.10);
+.stock-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  text-decoration: none;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.12s ease;
 }
-
-/* ── Alert table compact ─────────────────────────────────────────────── */
-.table-base tbody td { vertical-align: middle; }
+.stock-nav-link:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+  transform: translateY(-1px);
+}
+.stock-nav-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.tbl-row {
+  animation: fadeIn 0.3s ease both;
+}
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-
-  var DS = {
-    green:  '#22c55e',
-    blue:   '#38bdf8',
-    amber:  '#f59e0b',
-    violet: '#c4b5fd',
-    orange: '#fb923c',
-    teal:   '#5eead4',
-    red:    '#f87171',
-  };
-
-  var tipConfig = {
-    backgroundColor: '#ffffff',
-    borderColor:     'rgba(0,0,0,.12)',
-    borderWidth:     1,
-    titleColor:      '#1a2219',
-    bodyColor:       '#3d5242',
-    padding:         10,
-    cornerRadius:    8,
-  };
-
-  function fmtDZD(n) {
-    return new Intl.NumberFormat('fr-FR', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(Math.round(n)) + ' DZD';
-  }
-
-  /* ── Doughnut: Valeur stock ────────────────────────────────────────── */
-  var canvas = document.getElementById('chartStockValeur');
-  if (canvas && typeof Chart !== 'undefined') {
-    var vi = {{ valeur_intrants|default:0 }};
-    var vp = {{ valeur_pf|default:0 }};
-    var total = vi + vp;
-
-    if (total === 0) {
-      canvas.parentNode.innerHTML =
-        '<div style="text-align:center;padding:48px 20px;color:var(--text-muted);font-size:13px;">' +
-        '<i class="bx bxs-archive" style="font-size:28px;display:block;margin-bottom:8px;color:var(--accent);"></i>' +
-        'Aucune valeur en stock</div>';
-    } else {
-      new Chart(canvas, {
-        type: 'doughnut',
-        data: {
-          labels: ['Intrants', 'Produits finis'],
-          datasets: [{
-            data:            [vi, vp],
-            backgroundColor: [DS.green, DS.blue],
-            borderColor:     '#ffffff',
-            borderWidth:     3,
-          }]
-        },
-        options: {
-          cutout: '68%',
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'bottom',
-              labels: { padding: 16, font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' }
-            },
-            tooltip: Object.assign({}, tipConfig, {
-              callbacks: {
-                label: function (ctx) {
-                  return ctx.label + ' : ' + fmtDZD(ctx.raw);
-                }
-              }
-            })
-          }
-        }
-      });
-    }
-  }
-
+  /* Row animation delays using CSS custom property --row-i */
+  document.querySelectorAll('.tbl-row').forEach(function (row, i) {
+    row.style.setProperty('--row-i', i);
+  });
 });
 </script>
 {% endblock %}

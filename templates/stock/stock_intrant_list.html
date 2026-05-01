@@ -5,7 +5,9 @@
 {% block nav_stock_intrants %}active{% endblock %}
 
 {% block page_title %}Stock Intrants{% endblock %}
-{% block page_sub_text %}{% if valeur_totale %}Valeur totale : {{ valeur_totale|floatformat:0 }} DZD · {% endif %}{{ page.paginator.count }} article{{ page.paginator.count|pluralize }}{% endblock %}
+{% block page_sub_text %}
+  {{ page.paginator.count }} référence{{ page.paginator.count|pluralize }}{% if en_alerte %} · <span style="color:#dc2626;font-weight:600;">Filtre : En alerte</span>{% endif %}
+{% endblock %}
 
 {% block topbar_actions %}
 {% if request.user.userprofile %}
@@ -16,90 +18,128 @@
   {% endif %}
 {% endif %}
 <a href="{% url 'stock:dashboard' %}" class="btn-ghost">
-  <i class="bx bxs-dashboard"></i> Dashboard
+  <i class="bx bxs-archive"></i> Tableau de bord
 </a>
 {% endblock %}
 
 {% block content %}
 
-{# ── Filter bar ──────────────────────────────────────────────────────── #}
-<div class="filter-bar">
-  <form method="get" action="{% url 'stock:stock_intrant_list' %}" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;">
-    <div class="input-wrapper" style="flex:1;min-width:180px;">
-      <i class="bx bx-search input-icon"></i>
-      <input type="text" name="q" value="{{ q }}" class="field-input has-icon" placeholder="Rechercher un intrant…" />
-    </div>
-    <select name="categorie" class="field-input" style="min-width:160px;" onchange="this.form.submit()">
-      <option value="">Toutes catégories</option>
-      {% for cat in categories %}
-      <option value="{{ cat.pk }}" {% if categorie_pk == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.libelle }}</option>
-      {% endfor %}
-    </select>
-    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12.5px;color:var(--text-secondary);white-space:nowrap;">
-      <input type="checkbox" name="alerte" value="1" {% if en_alerte %}checked{% endif %} onchange="this.form.submit()" />
-      <i class="bx bxs-error" style="color:#b45309;"></i> Alerte uniquement
-    </label>
-  </form>
-  {% if q or categorie_pk or en_alerte %}
-  <a href="{% url 'stock:stock_intrant_list' %}" class="btn-ghost btn-sm">
-    <i class="bx bx-x"></i> Réinitialiser
-  </a>
-  {% endif %}
+{# ── Filters ─────────────────────────────────────────────────────────────── #}
+<div class="section-card mb-4">
+  <div class="section-card__body">
+    <form method="get" class="filter-row" id="filter-form">
+      <div class="filter-field" style="flex:2;">
+        <div class="input-wrap">
+          <i class="bx bx-search input-icon"></i>
+          <input type="text" name="q" value="{{ q }}" placeholder="Rechercher un intrant…" class="form-input">
+        </div>
+      </div>
+      <div class="filter-field">
+        <div class="input-wrap">
+          <i class="bx bxs-filter-alt input-icon"></i>
+          <select name="categorie" class="form-input" id="cat-select">
+            <option value="">Toutes les catégories</option>
+            {% for cat in categories %}
+            <option value="{{ cat.pk }}" {% if categorie_pk == cat.pk|stringformat:"s" %}selected{% endif %}>
+              {{ cat.libelle }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="filter-field" style="flex:0 0 auto;">
+        <label class="alert-toggle {% if en_alerte %}alert-toggle--active{% endif %}">
+          <input type="checkbox" name="alerte" value="1" {% if en_alerte %}checked{% endif %} id="alerte-chk">
+          <i class="bx bxs-error"></i> En alerte seulement
+        </label>
+      </div>
+      <button type="submit" class="btn-primary" style="flex:0 0 auto;">
+        <i class="bx bxs-filter-alt"></i> Filtrer
+      </button>
+      {% if q or categorie_pk or en_alerte %}
+      <a href="{% url 'stock:stock_intrant_list' %}" class="btn-ghost" style="flex:0 0 auto;">
+        <i class="bx bx-x"></i> Effacer
+      </a>
+      {% endif %}
+    </form>
+  </div>
 </div>
 
-{# ── Stock table ─────────────────────────────────────────────────────── #}
+{# ── Table ───────────────────────────────────────────────────────────────── #}
 <div class="section-card">
-  <div class="section-card__body no-pad">
-    {% if page.object_list %}
-    <table class="table-base">
+  {% if page.object_list %}
+
+  {# Valeur totale bar #}
+  {% if valeur_totale is not None %}
+  <div style="padding:14px 20px 0;display:flex;align-items:center;justify-content:flex-end;gap:8px;">
+    <span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;">
+      Valeur totale estimée
+    </span>
+    <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);">
+      {{ valeur_totale|floatformat:0 }} DZD
+    </span>
+  </div>
+  {% endif %}
+
+  <div class="table-responsive">
+    <table class="data-table w-100">
       <thead>
         <tr>
           <th>Intrant</th>
           <th>Catégorie</th>
-          <th style="text-align:right;">Quantité</th>
-          <th style="text-align:right;">Seuil</th>
-          <th style="text-align:right;">PMP</th>
-          <th style="text-align:right;">Valeur</th>
-          <th>Statut</th>
-          <th style="text-align:right;">Actions</th>
+          <th>Unité</th>
+          <th class="text-end">Quantité en stock</th>
+          <th class="text-end">PMP</th>
+          <th class="text-end">Valeur estimée</th>
+          <th class="text-center">Statut</th>
+          <th class="text-center">Seuil d'alerte</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
-        {% for s in page.object_list %}
-        <tr class="stagger-row">
+        {% for stock in page.object_list %}
+        <tr class="tbl-row" style="--row-i:{{ forloop.counter0 }};">
           <td>
-            <a href="{% url 'stock:stock_intrant_detail' s.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
-              {{ s.intrant.designation }}
+            <a href="{% url 'stock:stock_intrant_detail' stock.pk %}"
+               style="font-weight:600;color:var(--text-primary);text-decoration:none;">
+              {{ stock.intrant.designation }}
             </a>
-            <div style="font-size:11px;color:var(--text-muted);">{{ s.intrant.unite_mesure }}</div>
           </td>
-          <td style="color:var(--text-muted);font-size:12px;">{{ s.intrant.categorie.libelle }}</td>
-          <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
-            {% if s.en_alerte %}
-            <span style="color:#dc2626;">{{ s.quantite|floatformat:2 }}</span>
+          <td style="color:var(--text-muted);font-size:12px;">{{ stock.intrant.categorie.libelle }}</td>
+          <td style="color:var(--text-muted);font-size:12px;">{{ stock.intrant.unite_mesure }}</td>
+          <td class="text-end">
+            <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;
+              color:{% if stock.en_alerte %}#dc2626{% else %}var(--text-primary){% endif %};">
+              {{ stock.quantite|floatformat:2 }}
+            </span>
+          </td>
+          <td class="text-end" style="font-size:12px;color:var(--text-muted);">
+            {{ stock.prix_moyen_pondere|floatformat:2 }} DZD
+          </td>
+          <td class="text-end" style="font-weight:600;">
+            {{ stock.valeur_stock|floatformat:0 }} DZD
+          </td>
+          <td class="text-center">
+            {% if stock.en_alerte %}
+            <span class="pill-danger"><i class="bx bxs-error"></i> Alerte</span>
             {% else %}
-            {{ s.quantite|floatformat:2 }}
+            <span class="pill-success"><i class="bx bxs-check-circle"></i> Normal</span>
             {% endif %}
           </td>
-          <td style="text-align:right;color:var(--text-muted);">{{ s.intrant.seuil_alerte|floatformat:2 }}</td>
-          <td style="text-align:right;color:var(--text-muted);">{{ s.prix_moyen_pondere|floatformat:2 }} DZD</td>
-          <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ s.valeur_stock|floatformat:0 }} DZD</td>
-          <td>
-            {% if s.en_alerte %}
-            <span class="pill-base pill-danger"><i class="bx bxs-error"></i> Rupture</span>
-            {% else %}
-            <span class="pill-base pill-success"><i class="bx bxs-check-circle"></i> Normal</span>
-            {% endif %}
+          <td class="text-center" style="font-size:12px;color:var(--text-muted);">
+            {{ stock.intrant.seuil_alerte|floatformat:2 }}
           </td>
-          <td style="text-align:right;">
-            <div style="display:flex;gap:4px;justify-content:flex-end;">
-              <a href="{% url 'stock:stock_intrant_detail' s.pk %}" class="action-btn" title="Détail">
-                <i class="bx bxs-show"></i>
+          <td class="text-end">
+            <div style="display:flex;gap:6px;justify-content:flex-end;">
+              <a href="{% url 'stock:stock_intrant_detail' stock.pk %}"
+                 class="tbl-action" title="Fiche de stock">
+                <i class="bx bxs-file-txt"></i>
               </a>
               {% if request.user.userprofile %}
                 {% if not request.user.userprofile.role == 'viewer' %}
-                <a href="{% url 'stock:stock_ajustement_create' %}?segment=intrant&intrant={{ s.intrant.pk }}" class="action-btn success" title="Ajustement">
-                  <i class="bx bx-transfer"></i>
+                <a href="{% url 'stock:stock_ajustement_create' %}?segment=intrant&intrant={{ stock.intrant.pk }}"
+                   class="tbl-action" title="Ajuster">
+                  <i class="bx bxs-pencil"></i>
                 </a>
                 {% endif %}
               {% endif %}
@@ -109,58 +149,176 @@
         {% endfor %}
       </tbody>
     </table>
+  </div>
 
-    {# ── Pagination ─────────────────────────────────────────────────── #}
-    {% if page.paginator.num_pages > 1 %}
-    <div class="pagination-bar">
-      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
-      <div class="page-links">
-        {% if page.has_previous %}
-        <a href="?{% if q %}q={{ q }}&{% endif %}{% if categorie_pk %}categorie={{ categorie_pk }}&{% endif %}{% if en_alerte %}alerte=1&{% endif %}page={{ page.previous_page_number }}" class="page-link">
-          <i class="bx bx-chevron-left"></i>
-        </a>
-        {% else %}
-        <span class="page-link disabled"><i class="bx bx-chevron-left"></i></span>
-        {% endif %}
-        {% for p in page.paginator.page_range %}
-          {% if p == page.number %}
-          <span class="page-link active">{{ p }}</span>
-          {% elif p >= page.number|add:"-2" and p <= page.number|add:"2" %}
-          <a href="?{% if q %}q={{ q }}&{% endif %}{% if categorie_pk %}categorie={{ categorie_pk }}&{% endif %}{% if en_alerte %}alerte=1&{% endif %}page={{ p }}" class="page-link">{{ p }}</a>
-          {% endif %}
-        {% endfor %}
-        {% if page.has_next %}
-        <a href="?{% if q %}q={{ q }}&{% endif %}{% if categorie_pk %}categorie={{ categorie_pk }}&{% endif %}{% if en_alerte %}alerte=1&{% endif %}page={{ page.next_page_number }}" class="page-link">
-          <i class="bx bx-chevron-right"></i>
-        </a>
-        {% else %}
-        <span class="page-link disabled"><i class="bx bx-chevron-right"></i></span>
-        {% endif %}
-      </div>
-    </div>
+  {# Pagination #}
+  {% if page.has_other_pages %}
+  <div class="pagination-bar">
+    {% if page.has_previous %}
+    <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if categorie_pk %}&categorie={{ categorie_pk }}{% endif %}{% if en_alerte %}&alerte=1{% endif %}"
+       class="page-btn">
+      <i class="bx bx-chevron-left"></i>
+    </a>
     {% endif %}
-
-    {% else %}
-    <div class="empty-state">
-      <i class="bx bxs-archive empty-state__icon"></i>
-      <div class="empty-state__title">Aucun intrant en stock</div>
-      <div class="empty-state__text">Les stocks apparaîtront lors de la réception des BL fournisseurs.</div>
-    </div>
+    <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}
+    <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if categorie_pk %}&categorie={{ categorie_pk }}{% endif %}{% if en_alerte %}&alerte=1{% endif %}"
+       class="page-btn">
+      <i class="bx bx-chevron-right"></i>
+    </a>
     {% endif %}
   </div>
+  {% endif %}
+
+  {% else %}
+  <div style="text-align:center;padding:56px 20px;color:var(--text-muted);">
+    <i class="bx bxs-archive" style="font-size:36px;display:block;margin-bottom:14px;color:var(--border-strong);"></i>
+    <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
+      Aucun intrant trouvé
+    </div>
+    <div style="font-size:13px;">
+      {% if q or categorie_pk or en_alerte %}
+        Modifiez vos critères de filtre.
+      {% else %}
+        Les stocks intrants apparaîtront ici une fois les BL fournisseurs validés.
+      {% endif %}
+    </div>
+    {% if q or categorie_pk or en_alerte %}
+    <a href="{% url 'stock:stock_intrant_list' %}" class="btn-ghost" style="margin-top:16px;display:inline-flex;">
+      <i class="bx bx-x"></i> Effacer les filtres
+    </a>
+    {% endif %}
+  </div>
+  {% endif %}
 </div>
 
 {% endblock %}
 
 {% block extra_css %}
 <style>
-/* ── No page-unique styles needed; all components from base.css ───────── */
+.filter-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.filter-field { flex: 1; min-width: 160px; }
+.input-wrap { position: relative; }
+.input-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 15px;
+  pointer-events: none;
+  transition: color 0.18s;
+}
+.form-input {
+  width: 100%;
+  padding: 10px 13px 10px 38px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 13.5px;
+  transition: border-color 0.18s, box-shadow 0.18s;
+  appearance: none;
+}
+.form-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  outline: none;
+}
+.form-input:focus + .input-icon,
+.input-wrap:focus-within .input-icon { color: var(--accent-text); }
+.alert-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.18s, background 0.18s;
+}
+.alert-toggle input { display: none; }
+.alert-toggle--active {
+  border-color: rgba(239,68,68,.4);
+  background: rgba(239,68,68,.06);
+  color: #dc2626;
+  font-weight: 600;
+}
+.tbl-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  transition: border-color 0.18s, color 0.18s, background 0.18s;
+}
+.tbl-action:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+.tbl-row {
+  animation: fadeIn 0.3s ease both;
+  animation-delay: calc(var(--row-i) * 35ms);
+}
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+.page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 16px;
+  transition: border-color 0.18s, background 0.18s;
+}
+.page-btn:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+.page-info { font-size: 12px; color: var(--text-muted); }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-/* Filter form auto-submits on select change (via inline onchange) */
-/* Search field submits with Enter key naturally */
+document.addEventListener('DOMContentLoaded', function () {
+  /* Category select auto-submit */
+  var catSelect = document.getElementById('cat-select');
+  if (catSelect) {
+    catSelect.addEventListener('change', function () {
+      document.getElementById('filter-form').submit();
+    });
+  }
+  /* Alert toggle checkbox auto-submit */
+  var alertChk = document.getElementById('alerte-chk');
+  if (alertChk) {
+    alertChk.addEventListener('change', function () {
+      document.getElementById('filter-form').submit();
+    });
+  }
+});
 </script>
 {% endblock %}

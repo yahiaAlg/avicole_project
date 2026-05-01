@@ -1,334 +1,538 @@
-
 {% extends "base.html" %}
 {% load static %}
 
 {% block title %}{{ title }} — Élevage Avicole{% endblock %}
+
 {% block nav_production %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{% if record %}Réf. {{ record.pk }} — Lot {{ record.lot.designation }}{% else %}Nouvel enregistrement de production{% endif %}{% endblock %}
+{% block page_sub_text %}
+  {% if lot %}Lot : {{ lot.designation }} · Effectif vivant : <span id="effectif-display">{{ lot.effectif_vivant }}</span>{% else %}Sélectionnez le lot source{% endif %}
+{% endblock %}
 
 {% block topbar_actions %}
-<a href="{% url 'production:production_record_list' %}" class="btn-ghost">
-  <i class="bx bx-arrow-back"></i> Retour
-</a>
+  {% if record %}
+    <a href="{% url 'production:production_record_detail' record.pk %}" class="btn-ghost">
+      <i class="bx bx-arrow-back"></i> Annuler
+    </a>
+  {% else %}
+    <a href="{% url 'production:production_record_list' %}" class="btn-ghost">
+      <i class="bx bx-arrow-back"></i> Annuler
+    </a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="form-layout">
-  <div class="form-main">
-    <form method="post" id="production-form" novalidate>
-      {% csrf_token %}
+<div class="page-body">
+  <div class="row justify-content-center">
+    <div class="col-xl-9 col-lg-11">
 
-      <!-- General info -->
-      <div class="section-card" style="margin-bottom:20px;">
-        <div class="section-card__head">
-          <span class="section-card__title">Informations générales</span>
+      {% if lot %}
+        {% if lot.statut == "ferme" %}
+        <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+          <i class="bx bxs-lock" style="color:#b45309;font-size:15px;"></i>
+          <span style="font-size:13px;color:var(--text-secondary);">Ce lot est <strong style="color:#b45309;">clôturé</strong> — aucune saisie n'est possible.</span>
         </div>
-        <div class="section-card__body">
-          <div class="form-grid">
-            <div class="field-group">
-              <label class="field-label" for="{{ form.lot.id_for_label }}">Lot <span class="req">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bxs-home input-icon"></i>
-                {{ form.lot }}
-              </div>
-              {% for err in form.lot.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
+        {% endif %}
+      {% endif %}
 
-            <div class="field-group">
-              <label class="field-label" for="{{ form.date_production.id_for_label }}">Date de production <span class="req">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bx-calendar input-icon"></i>
-                {{ form.date_production }}
-              </div>
-              {% for err in form.date_production.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
+      <form method="post" id="production-form" novalidate>
+        {% csrf_token %}
+        {{ formset.management_form }}
 
-            <div class="field-group">
-              <label class="field-label" for="{{ form.nombre_oiseaux_abattus.id_for_label }}">Oiseaux abattus <span class="req">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bxs-face input-icon"></i>
-                {{ form.nombre_oiseaux_abattus }}
-              </div>
-              {% for err in form.nombre_oiseaux_abattus.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
+        <!-- Entête de production -->
+        <div class="card mb-3">
+          <div class="card-header-row">
+            <div class="section-eyebrow">Entête de production</div>
+          </div>
+          <div style="padding:22px 24px;">
+            <div class="row g-3">
 
-            <div class="field-group">
-              <label class="field-label" for="{{ form.poids_total_kg.id_for_label }}">Poids total (kg) <span class="req">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bx-scale input-icon"></i>
-                {{ form.poids_total_kg }}
+              {% if not lot %}
+              <!-- Lot selector (shown only when no lot pre-scoped) -->
+              <div class="col-12">
+                <div class="form-field">
+                  <label class="field-label" for="{{ form.lot.id_for_label }}">
+                    Lot d'élevage <span class="required-star">*</span>
+                  </label>
+                  <div class="field-wrap">
+                    <i class="bx bxs-grid-alt field-icon"></i>
+                    {{ form.lot }}
+                  </div>
+                  {% if form.lot.errors %}
+                    <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.lot.errors.0 }}</div>
+                  {% endif %}
+                  <!-- Live effectif display when lot is selected -->
+                  <div id="lot-info-banner" style="display:none;margin-top:8px;background:var(--accent-dim);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius-md);padding:10px 14px;font-size:13px;color:var(--text-secondary);">
+                    <strong style="color:var(--accent-text);" id="lot-info-name"></strong>
+                    — Effectif vivant : <strong id="lot-info-effectif"></strong> oiseaux
+                    · Mortalité : <span id="lot-info-mortalite"></span>%
+                  </div>
+                </div>
               </div>
-              {% for err in form.poids_total_kg.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
+              {% else %}
+              {{ form.lot }}
+              {% endif %}
 
-            <div class="field-group field-group--full">
-              <label class="field-label" for="{{ form.notes.id_for_label }}">Notes</label>
-              {{ form.notes }}
-              {% for err in form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              <!-- Date de production -->
+              <div class="col-md-6">
+                <div class="form-field">
+                  <label class="field-label" for="{{ form.date_production.id_for_label }}">
+                    Date de production <span class="required-star">*</span>
+                  </label>
+                  <div class="field-wrap">
+                    <i class="bx bxs-calendar field-icon"></i>
+                    {{ form.date_production }}
+                  </div>
+                  {% if form.date_production.errors %}
+                    <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.date_production.errors.0 }}</div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <!-- Nombre oiseaux abattus -->
+              <div class="col-md-6">
+                <div class="form-field">
+                  <label class="field-label" for="{{ form.nombre_oiseaux_abattus.id_for_label }}">
+                    Nombre d'oiseaux abattus <span class="required-star">*</span>
+                  </label>
+                  <div class="field-wrap">
+                    <i class="bx bxs-group field-icon"></i>
+                    {{ form.nombre_oiseaux_abattus }}
+                  </div>
+                  <div class="field-hint" id="effectif-hint">
+                    {% if lot %}Maximum : {{ lot.effectif_vivant }} (effectif vivant actuel){% else %}Sélectionnez un lot pour voir l'effectif maximum{% endif %}
+                  </div>
+                  {% if form.nombre_oiseaux_abattus.errors %}
+                    <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.nombre_oiseaux_abattus.errors.0 }}</div>
+                  {% endif %}
+                  <div id="oiseaux-overquota" class="field-error" style="display:none;">
+                    <i class="bx bxs-x-circle"></i> Dépasse l'effectif vivant du lot.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Poids total -->
+              <div class="col-md-6">
+                <div class="form-field">
+                  <label class="field-label" for="{{ form.poids_total_kg.id_for_label }}">
+                    Poids total (kg)
+                  </label>
+                  <div class="field-wrap">
+                    <i class="bx bxs-cube-alt field-icon"></i>
+                    {{ form.poids_total_kg }}
+                  </div>
+                  {% if form.poids_total_kg.errors %}
+                    <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.poids_total_kg.errors.0 }}</div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <!-- Poids moyen (auto-calculé) -->
+              <div class="col-md-6">
+                <div class="form-field">
+                  <label class="field-label">Poids moyen / oiseau (kg)</label>
+                  <div class="field-wrap">
+                    <i class="bx bx-refresh field-icon"></i>
+                    <input type="text" id="poids-moyen-display" class="field-input"
+                      value="{% if record %}{{ record.poids_moyen_kg|floatformat:3 }}{% else %}—{% endif %}"
+                      readonly style="cursor:not-allowed;opacity:.6;background:var(--bg-raised);">
+                  </div>
+                  <div class="field-hint">Auto-calculé depuis poids total ÷ oiseaux abattus.</div>
+                </div>
+              </div>
+
+              <!-- Notes -->
+              <div class="col-12">
+                <div class="form-field">
+                  <label class="field-label" for="{{ form.notes.id_for_label }}">Notes</label>
+                  {{ form.notes }}
+                  {% if form.notes.errors %}
+                    <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.notes.errors.0 }}</div>
+                  {% endif %}
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Production lines -->
-      <div class="section-card" style="margin-bottom:20px;">
-        <div class="section-card__head" style="display:flex;justify-content:space-between;align-items:center;">
-          <span class="section-card__title">Produits générés</span>
-          {% if not record or record.statut == 'brouillon' %}
-          <button type="button" id="add-ligne" class="btn-ghost btn-sm">
-            <i class="bx bx-plus"></i> Ajouter un produit
-          </button>
-          {% endif %}
-        </div>
-        <div class="section-card__body">
-          {{ formset.management_form }}
-          <div id="lignes-container">
-            {% for ligne_form in formset %}
-            <div class="inline-row{% if ligne_form.instance.pk %} existing{% endif %}" data-index="{{ forloop.counter0 }}">
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;">
-                <div class="field-group" style="margin-bottom:0;">
-                  <label class="field-label">Produit <span class="req">*</span></label>
-                  <div class="input-wrapper">
-                    <i class="bx bxs-cube-alt input-icon"></i>
+        <!-- Lignes de production (inline formset) -->
+        <div class="card mb-3">
+          <div class="card-header-row" style="display:flex;align-items:center;justify-content:space-between;">
+            <div class="section-eyebrow">Produits finis générés</div>
+            <button type="button" id="add-ligne-btn" class="btn-ghost" style="padding:6px 12px;font-size:12px;">
+              <i class="bx bx-plus"></i> Ajouter une ligne
+            </button>
+          </div>
+
+          <div id="formset-body" style="padding:0;">
+
+            <!-- Formset errors -->
+            {% if formset.non_form_errors %}
+              <div style="padding:12px 20px;">
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ formset.non_form_errors.0 }}</div>
+              </div>
+            {% endif %}
+
+            <!-- Header row -->
+            <div class="ligne-header">
+              <div class="lg-col lg-produit">Produit fini <span class="required-star">*</span></div>
+              <div class="lg-col lg-qty">Quantité <span class="required-star">*</span></div>
+              <div class="lg-col lg-poids">Poids unit. (kg)</div>
+              <div class="lg-col lg-cout">Coût unit. (DZD)</div>
+              <div class="lg-col lg-notes">Notes</div>
+              <div class="lg-col lg-del"></div>
+            </div>
+
+            <div id="ligne-rows">
+              {% for ligne_form in formset %}
+              <div class="ligne-row {% if ligne_form.instance.pk %}existing{% endif %}" id="ligne-{{ forloop.counter0 }}">
+                {{ ligne_form.id }}
+                {% if ligne_form.DELETE %}
+                  <input type="hidden" name="{{ ligne_form.DELETE.html_name }}" value="false" class="delete-flag">
+                {% endif %}
+                <div class="lg-col lg-produit">
+                  <div class="field-wrap">
+                    <i class="bx bxs-badge-check field-icon" style="top:12px;transform:none;"></i>
                     {{ ligne_form.produit_fini }}
                   </div>
-                  {% for err in ligne_form.produit_fini.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+                  {% if ligne_form.produit_fini.errors %}
+                    <div class="field-error" style="font-size:11px;"><i class="bx bxs-x-circle"></i> {{ ligne_form.produit_fini.errors.0 }}</div>
+                  {% endif %}
                 </div>
-                <div class="field-group" style="margin-bottom:0;">
-                  <label class="field-label">Quantité <span class="req">*</span></label>
-                  <div class="input-wrapper">
-                    <i class="bx bx-hash input-icon"></i>
+                <div class="lg-col lg-qty">
+                  <div class="field-wrap">
+                    <i class="bx bxs-cube-alt field-icon" style="top:12px;transform:none;"></i>
                     {{ ligne_form.quantite }}
                   </div>
-                  {% for err in ligne_form.quantite.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+                  {% if ligne_form.quantite.errors %}
+                    <div class="field-error" style="font-size:11px;"><i class="bx bxs-x-circle"></i> {{ ligne_form.quantite.errors.0 }}</div>
+                  {% endif %}
                 </div>
-                <div class="field-group" style="margin-bottom:0;">
-                  <label class="field-label">Coût unitaire (DZD)</label>
-                  <div class="input-wrapper">
-                    <i class="bx bxs-coin input-icon"></i>
-                    {{ ligne_form.cout_unitaire }}
+                <div class="lg-col lg-poids">
+                  <div class="field-wrap">
+                    <i class="bx bx-minus field-icon" style="top:12px;transform:none;"></i>
+                    {{ ligne_form.poids_unitaire_kg }}
                   </div>
-                  {% for err in ligne_form.cout_unitaire.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
                 </div>
-                <button type="button" class="btn-ghost btn-sm danger remove-ligne" title="Supprimer" style="height:44px;">
-                  <i class="bx bxs-trash"></i>
+                <div class="lg-col lg-cout">
+                  <div class="field-wrap">
+                    <i class="bx bxs-coin field-icon" style="top:12px;transform:none;"></i>
+                    {{ ligne_form.cout_unitaire_estime }}
+                  </div>
+                  <div class="field-hint" style="font-size:10.5px;">Alloué auto à la validation.</div>
+                </div>
+                <div class="lg-col lg-notes">
+                  {{ ligne_form.notes }}
+                </div>
+                <div class="lg-col lg-del">
+                  <button type="button" class="action-btn action-btn--danger delete-ligne-btn" title="Supprimer">
+                    <i class="bx bx-trash"></i>
+                  </button>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+
+          </div>
+
+          <!-- Empty row template (hidden, cloned by JS) -->
+          <div id="empty-ligne-template" style="display:none;">
+            <div class="ligne-row" id="ligne-__prefix__">
+              <input type="hidden" name="lignes-__prefix__-id" value="">
+              <input type="hidden" name="lignes-__prefix__-DELETE" value="false" class="delete-flag">
+              <div class="lg-col lg-produit">
+                <div class="field-wrap">
+                  <i class="bx bxs-badge-check field-icon" style="top:12px;transform:none;"></i>
+                  <select name="lignes-__prefix__-produit_fini" class="field-input field-select" style="padding-left:36px;">
+                    <option value="">— Produit fini —</option>
+                    {% for ligne_form in formset %}{% if forloop.first %}
+                      {% for opt in ligne_form.produit_fini %}{{ opt }}{% endfor %}
+                    {% endif %}{% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div class="lg-col lg-qty">
+                <div class="field-wrap">
+                  <i class="bx bxs-cube-alt field-icon" style="top:12px;transform:none;"></i>
+                  <input type="number" name="lignes-__prefix__-quantite" step="0.001" min="0.001" class="field-input" style="padding-left:36px;">
+                </div>
+              </div>
+              <div class="lg-col lg-poids">
+                <div class="field-wrap">
+                  <i class="bx bx-minus field-icon" style="top:12px;transform:none;"></i>
+                  <input type="number" name="lignes-__prefix__-poids_unitaire_kg" step="0.001" min="0" class="field-input" style="padding-left:36px;">
+                </div>
+              </div>
+              <div class="lg-col lg-cout">
+                <div class="field-wrap">
+                  <i class="bx bxs-coin field-icon" style="top:12px;transform:none;"></i>
+                  <input type="number" name="lignes-__prefix__-cout_unitaire_estime" step="0.0001" min="0" class="field-input" style="padding-left:36px;">
+                </div>
+                <div class="field-hint" style="font-size:10.5px;">Alloué auto à la validation.</div>
+              </div>
+              <div class="lg-col lg-notes">
+                <textarea name="lignes-__prefix__-notes" rows="1" class="notes-input" placeholder="Notes…"></textarea>
+              </div>
+              <div class="lg-col lg-del">
+                <button type="button" class="action-btn action-btn--danger delete-ligne-btn" title="Supprimer">
+                  <i class="bx bx-trash"></i>
                 </button>
               </div>
-              {{ ligne_form.id }}
-              {% if ligne_form.DELETE %}{{ ligne_form.DELETE }}{% endif %}
             </div>
-            {% endfor %}
           </div>
-          {% if formset.non_form_errors %}
-          <div class="error-banner" style="margin-top:12px;">
-            <i class="bx bxs-error-circle"></i>
-            <div>{% for err in formset.non_form_errors %}<div>{{ err }}</div>{% endfor %}</div>
-          </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="form-footer">
+          <button type="submit" class="btn-primary" id="submit-btn">
+            <i class="bx bxs-check-circle"></i> {{ action_label }}
+          </button>
+          {% if record %}
+            <a href="{% url 'production:production_record_detail' record.pk %}" class="btn-ghost">Annuler</a>
+          {% else %}
+            <a href="{% url 'production:production_record_list' %}" class="btn-ghost">Annuler</a>
           {% endif %}
+          <span style="font-size:12px;color:var(--text-muted);margin-left:8px;">
+            L'enregistrement sera créé en <strong>Brouillon</strong> — validez-le ensuite pour mettre à jour le stock.
+          </span>
         </div>
-      </div>
 
-      <!-- Validation -->
-      {% if record and record.statut == 'brouillon' %}
-      <div class="section-card" style="margin-bottom:20px;">
-        <div class="section-card__head">
-          <span class="section-card__title">Validation</span>
-        </div>
-        <div class="section-card__body">
-          <div class="checkbox-row">
-            <input type="checkbox" id="valider" name="valider" value="1" />
-            <label for="valider" style="font-size:13px;color:var(--text-secondary);cursor:pointer;">
-              <strong>Valider cette production</strong> — Les quantités seront ajoutées au stock et les coûts de production seront répartis selon le CMP pondéré.
-            </label>
-          </div>
-        </div>
-      </div>
-      {% endif %}
-
-      <div class="form-actions">
-        <button type="submit" class="btn-primary">
-          <i class="bx bxs-save"></i> {{ action_label }}
-        </button>
-        <a href="{% url 'production:production_record_list' %}" class="btn-ghost">Annuler</a>
-      </div>
-
-      {% if form.non_field_errors %}
-      <div class="error-banner" style="margin-top:16px;">
-        <i class="bx bxs-error-circle"></i>
-        <div>{% for err in form.non_field_errors %}<div>{{ err }}</div>{% endfor %}</div>
-      </div>
-      {% endif %}
-    </form>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.form-layout {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 20px;
-  max-width: 900px;
-}
-.form-main { display: flex; flex-direction: column; gap: 18px; }
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-@media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
-.field-group--full { grid-column: 1 / -1; }
+  .page-body { padding:28px 32px; }
+  @media (max-width:768px) { .page-body { padding:20px 16px; } }
+  .mb-3 { margin-bottom:14px!important; }
 
-.form-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
+  .card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden; }
+  .card-header-row { padding:14px 20px 12px;border-bottom:1px solid var(--border); }
+  .section-eyebrow { font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted); }
 
-.inline-row {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 16px;
-  margin-bottom: 12px;
-  transition: all 0.2s ease;
-}
-.inline-row:hover {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--ring-accent);
-}
-.inline-row:last-child { margin-bottom: 0; }
-.inline-row.deleting {
-  opacity: 0.4;
-  pointer-events: none;
-}
+  .form-field { display:flex;flex-direction:column;gap:6px; }
+  .field-label { font-size:12px;font-weight:500;color:var(--text-secondary);letter-spacing:.03em; }
+  .required-star { color:#dc2626; }
+  .field-wrap { position:relative; }
+  .field-icon { position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--text-muted);pointer-events:none;transition:color .15s; }
+  .field-wrap:focus-within .field-icon { color:var(--accent-text); }
+  .field-hint { font-size:11.5px;color:var(--text-muted); }
+  .field-error { display:flex;align-items:center;gap:4px;font-size:12px;color:#dc2626;margin-top:2px; }
 
-.error-banner {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  background: rgba(239,68,68,.08);
-  border: 1px solid rgba(239,68,68,.2);
-  border-radius: var(--radius-md);
-  padding: 12px 16px;
-  font-size: 13px;
-  color: #dc2626;
-}
-.error-banner i { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .field-wrap input,
+  .field-wrap select {
+    width:100%;background:var(--bg-surface);border:1px solid var(--border);
+    border-radius:var(--radius-md);color:var(--text-primary);
+    font-family:'Inter',sans-serif;font-size:13.5px;
+    padding:10px 12px 10px 38px;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  .field-wrap input:focus,
+  .field-wrap select:focus { border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);outline:none; }
 
-.checkbox-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 11px 13px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  min-height: 44px;
-}
-.checkbox-row input[type="checkbox"] {
-  width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer;
-}
+  /* Notes textarea in form body */
+  .form-field > textarea,
+  .form-field textarea {
+    width:100%;background:var(--bg-surface);border:1px solid var(--border);
+    border-radius:var(--radius-md);color:var(--text-primary);
+    font-family:'Inter',sans-serif;font-size:13.5px;
+    padding:10px 13px;resize:vertical;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  .form-field > textarea:focus,
+  .form-field textarea:focus { border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);outline:none; }
 
-.field-group { margin-bottom: 0; }
+  /* Inline formset grid */
+  .ligne-header {
+    display:grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1.5fr 38px;
+    gap:10px;
+    padding:8px 16px;
+    background:var(--bg-raised);
+    border-bottom:1px solid var(--border);
+    font-size:10.5px;font-weight:600;letter-spacing:.07em;
+    text-transform:uppercase;color:var(--text-muted);
+    align-items:center;
+  }
+  .ligne-row {
+    display:grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1.5fr 38px;
+    gap:10px;
+    padding:10px 16px;
+    border-bottom:1px solid var(--border);
+    align-items:start;
+    animation:fadeIn .2s ease both;
+    transition:background .12s;
+  }
+  .ligne-row:last-child { border-bottom:none; }
+  .ligne-row:hover { background:var(--bg-raised); }
+  .ligne-row.deleted { opacity:.35;pointer-events:none; }
+
+  .notes-input {
+    width:100%;background:var(--bg-surface);border:1px solid var(--border);
+    border-radius:var(--radius-md);color:var(--text-primary);
+    font-family:'Inter',sans-serif;font-size:12.5px;
+    padding:9px 10px;resize:none;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  .notes-input:focus { border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);outline:none; }
+
+  .form-footer { display:flex;align-items:center;gap:12px;padding:20px 0 4px;flex-wrap:wrap; }
+
+  .actions-cell { display:flex;align-items:center;justify-content:flex-end;gap:4px; }
+  .action-btn { display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:14px;cursor:pointer;transition:background .12s,color .12s,border-color .12s;text-decoration:none; }
+  .action-btn:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+  .action-btn--danger { color:#dc2626;border-color:rgba(239,68,68,.2); }
+  .action-btn--danger:hover { background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3); }
+
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s,transform .12s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-primary:active { transform:scale(.99); }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s,border-color .12s,color .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+
+  @media (max-width:768px) {
+    .ligne-header, .ligne-row { grid-template-columns:1fr;gap:6px; }
+    .ligne-header { display:none; }
+  }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  const container = document.getElementById('lignes-container');
-  const totalForms = document.getElementById('id_lignes-TOTAL_FORMS');
-  const maxForms = document.getElementById('id_lignes-MAX_NUM_FORMS');
-  const addBtn = document.getElementById('add-ligne');
 
-  // Extract prefix and empty form HTML
-  function getFormIndex(row) {
-    return parseInt(row.dataset.index);
+  // ── Lot selector: AJAX effectif fetch ─────────────────────────────────
+  const lotSelect      = document.querySelector('[name="lot"]');
+  const effectifHint   = document.getElementById('effectif-hint');
+  const oiseauxInput   = document.querySelector('[name="nombre_oiseaux_abattus"]');
+  const overquotaMsg   = document.getElementById('oiseaux-overquota');
+  const lotInfoBanner  = document.getElementById('lot-info-banner');
+  const lotInfoName    = document.getElementById('lot-info-name');
+  const lotInfoEffectif= document.getElementById('lot-info-effectif');
+  const lotInfoMort    = document.getElementById('lot-info-mortalite');
+  const poidsTotal     = document.querySelector('[name="poids_total_kg"]');
+  const poidsMoyenDisp = document.getElementById('poids-moyen-display');
+
+  let currentEffectif = {% if lot %}{{ lot.effectif_vivant }}{% else %}null{% endif %};
+
+  function fetchEffectif(lotPk) {
+    if (!lotPk) { currentEffectif = null; return; }
+    fetch('/production/lots/' + lotPk + '/effectif.json')
+      .then(r => r.json())
+      .then(data => {
+        currentEffectif = data.effectif_vivant;
+        if (effectifHint) effectifHint.textContent = 'Maximum : ' + data.effectif_vivant.toLocaleString('fr-FR') + ' (effectif vivant actuel)';
+        if (lotInfoBanner) {
+          lotInfoBanner.style.display = '';
+          lotInfoName.textContent = data.designation;
+          lotInfoEffectif.textContent = data.effectif_vivant.toLocaleString('fr-FR');
+          lotInfoMort.textContent = data.taux_mortalite.toFixed(2);
+        }
+        validateOiseaux();
+      })
+      .catch(() => { currentEffectif = null; });
   }
 
-  function updateIndices() {
-    const rows = container.querySelectorAll('.inline-row');
-    rows.forEach((row, i) => {
-      row.dataset.index = i;
-      row.querySelectorAll('input, select, textarea, label').forEach(el => {
-        if (el.name) el.name = el.name.replace(/lignes-\d+/, `lignes-${i}`);
-        if (el.id) el.id = el.id.replace(/id_lignes-\d+/, `id_lignes-${i}`);
-        if (el.htmlFor) el.htmlFor = el.htmlFor.replace(/id_lignes-\d+/, `id_lignes-${i}`);
-      });
-    });
-    totalForms.value = rows.length;
-  }
-
-  function createEmptyRow(index) {
-    const div = document.createElement('div');
-    div.className = 'inline-row';
-    div.dataset.index = index;
-    div.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;">
-        <div class="field-group" style="margin-bottom:0;">
-          <label class="field-label">Produit <span class="req">*</span></label>
-          <div class="input-wrapper">
-            <i class="bx bxs-cube-alt input-icon"></i>
-            <select name="lignes-${index}-produit_fini" id="id_lignes-${index}-produit_fini" class="field-input has-icon">
-              <option value="">Choisir...</option>
-              {% for p in produits_actifs|default:form.fields.produit_fini.queryset %}
-              <option value="{{ p.pk }}">{{ p.designation }}</option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-        <div class="field-group" style="margin-bottom:0;">
-          <label class="field-label">Quantité <span class="req">*</span></label>
-          <div class="input-wrapper">
-            <i class="bx bx-hash input-icon"></i>
-            <input type="number" name="lignes-${index}-quantite" id="id_lignes-${index}-quantite" step="0.01" class="field-input has-icon" />
-          </div>
-        </div>
-        <div class="field-group" style="margin-bottom:0;">
-          <label class="field-label">Coût unitaire (DZD)</label>
-          <div class="input-wrapper">
-            <i class="bx bxs-coin input-icon"></i>
-            <input type="number" name="lignes-${index}-cout_unitaire" id="id_lignes-${index}-cout_unitaire" step="0.01" class="field-input has-icon" />
-          </div>
-        </div>
-        <button type="button" class="btn-ghost btn-sm danger remove-ligne" title="Supprimer" style="height:44px;">
-          <i class="bx bxs-trash"></i>
-        </button>
-      </div>
-      <input type="hidden" name="lignes-${index}-id" id="id_lignes-${index}-id" />
-    `;
-    return div;
-  }
-
-  if (addBtn) {
-    addBtn.addEventListener('click', function () {
-      const currentCount = parseInt(totalForms.value);
-      const maxCount = parseInt(maxForms ? maxForms.value : 1000);
-      if (currentCount >= maxCount) return;
-      const row = createEmptyRow(currentCount);
-      container.appendChild(row);
-      totalForms.value = currentCount + 1;
-      updateIndices();
+  if (lotSelect) {
+    lotSelect.addEventListener('change', function () {
+      fetchEffectif(this.value);
     });
   }
 
-  container.addEventListener('click', function (e) {
-    const btn = e.target.closest('.remove-ligne');
-    if (!btn) return;
-    const row = btn.closest('.inline-row');
-    const deleteField = row.querySelector('input[name$="-DELETE"]');
-    if (deleteField) {
-      deleteField.checked = true;
-      row.classList.add('deleting');
+  // ── Validate nombre_oiseaux_abattus ───────────────────────────────────
+  function validateOiseaux() {
+    if (!oiseauxInput || currentEffectif === null) return;
+    const val = parseInt(oiseauxInput.value, 10);
+    if (!isNaN(val) && val > currentEffectif) {
+      oiseauxInput.style.borderColor = '#dc2626';
+      if (overquotaMsg) overquotaMsg.style.display = 'flex';
     } else {
-      row.remove();
-      updateIndices();
+      oiseauxInput.style.borderColor = '';
+      if (overquotaMsg) overquotaMsg.style.display = 'none';
     }
-  });
+    updatePoidsMoyen();
+  }
+
+  if (oiseauxInput) {
+    oiseauxInput.addEventListener('input', validateOiseaux);
+  }
+
+  // ── Auto-compute poids moyen display ──────────────────────────────────
+  function updatePoidsMoyen() {
+    if (!poidsTotal || !oiseauxInput || !poidsMoyenDisp) return;
+    const poids  = parseFloat(poidsTotal.value);
+    const oiseaux = parseInt(oiseauxInput.value, 10);
+    if (!isNaN(poids) && !isNaN(oiseaux) && oiseaux > 0 && poids > 0) {
+      poidsMoyenDisp.value = (poids / oiseaux).toFixed(3);
+    } else {
+      poidsMoyenDisp.value = '—';
+    }
+  }
+
+  if (poidsTotal) poidsTotal.addEventListener('input', updatePoidsMoyen);
+
+  // ── Dynamic formset: add / delete rows ───────────────────────────────
+  const totalFormsInput = document.querySelector('[name="lignes-TOTAL_FORMS"]');
+  const addBtn          = document.getElementById('add-ligne-btn');
+  const ligneRows       = document.getElementById('ligne-rows');
+  const emptyTpl        = document.getElementById('empty-ligne-template');
+
+  function getTotalForms() {
+    return parseInt(totalFormsInput.value, 10);
+  }
+
+  if (addBtn && emptyTpl && ligneRows && totalFormsInput) {
+    addBtn.addEventListener('click', function () {
+      const idx   = getTotalForms();
+      const clone = emptyTpl.querySelector('.ligne-row').cloneNode(true);
+      // Replace __prefix__ with current index
+      clone.innerHTML = clone.innerHTML.replaceAll('__prefix__', idx);
+      clone.id = 'ligne-' + idx;
+      ligneRows.appendChild(clone);
+      totalFormsInput.value = idx + 1;
+      // Attach delete handler
+      attachDeleteHandler(clone);
+    });
+  }
+
+  function attachDeleteHandler(row) {
+    const btn = row.querySelector('.delete-ligne-btn');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      const flagInput = row.querySelector('.delete-flag');
+      if (row.querySelector('[name$="-id"]') && row.querySelector('[name$="-id"]').value) {
+        // Existing row: mark DELETE
+        if (flagInput) flagInput.value = 'on';
+        row.classList.add('deleted');
+      } else {
+        // New row: remove from DOM
+        row.remove();
+      }
+    });
+  }
+
+  // Attach delete handlers to existing rows
+  document.querySelectorAll('.ligne-row').forEach(attachDeleteHandler);
+
+  // ── Guard submit: block if oiseaux > effectif ─────────────────────────
+  const form = document.getElementById('production-form');
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      if (overquotaMsg && overquotaMsg.style.display !== 'none') {
+        e.preventDefault();
+        oiseauxInput.focus();
+        oiseauxInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+  }
+
 });
 </script>
 {% endblock %}

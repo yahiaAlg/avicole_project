@@ -2,10 +2,11 @@
 {% load static %}
 
 {% block title %}Règlements Fournisseurs — Élevage Avicole{% endblock %}
-{% block nav_reglements_fournisseurs %}active{% endblock %}
+
+{% block nav_reglements %}active{% endblock %}
 
 {% block page_title %}Règlements Fournisseurs{% endblock %}
-{% block page_sub_text %}{{ page.paginator.count }} règlement{{ page.paginator.count|pluralize }} enregistré{{ page.paginator.count|pluralize }}{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} règlement{{ page.paginator.count|pluralize }}{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'achats:reglement_fournisseur_create' %}" class="btn-primary">
@@ -14,158 +15,233 @@
 {% endblock %}
 
 {% block content %}
-
 <!-- Filter bar -->
 <div class="filter-bar">
-  <div class="input-wrapper" style="flex:1;max-width:280px;">
-    <i class="bx bx-search input-icon"></i>
-    <input type="text" name="q" form="filter-form" value="{{ q }}" placeholder="Référence, fournisseur, banque..." class="field-input has-icon">
+  <form method="get" class="filter-form" id="filter-form">
+    <div class="filter-group">
+      <div class="input-icon-wrap">
+        <i class="bx bx-search"></i>
+        <input type="text" name="q" value="{{ q }}" placeholder="Fournisseur, référence…" class="filter-input" />
+      </div>
+    </div>
+    <div class="filter-group">
+      <div class="input-icon-wrap">
+        <i class="bx bxs-building"></i>
+        <select name="fournisseur" class="filter-select filter-select--icon" id="filter-fournisseur">
+          <option value="">Tous les fournisseurs</option>
+          {% for f in fournisseurs %}
+          <option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.nom }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="filter-group">
+      <div class="input-icon-wrap">
+        <i class="bx bxs-calendar"></i>
+        <input type="date" name="date_debut" value="{{ date_debut }}" class="filter-input filter-input--date" title="Date début" />
+      </div>
+    </div>
+    <div class="filter-group">
+      <div class="input-icon-wrap">
+        <i class="bx bxs-calendar"></i>
+        <input type="date" name="date_fin" value="{{ date_fin }}" class="filter-input filter-input--date" title="Date fin" />
+      </div>
+    </div>
+    <button type="submit" class="btn-ghost"><i class="bx bx-search"></i> Filtrer</button>
+    {% if q or fournisseur_pk or date_debut or date_fin %}
+    <a href="{% url 'achats:reglement_fournisseur_list' %}" class="btn-ghost"><i class="bx bx-x"></i> Réinitialiser</a>
+    {% endif %}
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-header-row">
+    <div class="section-eyebrow">Règlements fournisseurs</div>
   </div>
 
-  <select name="fournisseur" form="filter-form" class="field-input" onchange="document.getElementById('filter-form').submit();">
-    <option value="">Tous les fournisseurs</option>
-    {% for f in fournisseurs %}
-    <option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.nom }}</option>
-    {% endfor %}
-  </select>
-
-  <select name="mode" form="filter-form" class="field-input" onchange="document.getElementById('filter-form').submit();">
-    <option value="">Tous les modes</option>
-    {% for val, label in mode_choices %}
-    <option value="{{ val }}" {% if mode == val %}selected{% endif %}>{{ label }}</option>
-    {% endfor %}
-  </select>
-
-  <div class="input-wrapper" style="max-width:150px;">
-    <input type="date" name="date_debut" form="filter-form" value="{{ date_debut }}" class="field-input" title="Date début" onchange="document.getElementById('filter-form').submit();">
+  {% if page.object_list %}
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Fournisseur</th>
+          <th>Mode</th>
+          <th>Référence paiement</th>
+          <th style="text-align:right;">Montant</th>
+          <th>Allocations</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for reg in page.object_list %}
+        <tr style="--row-i:{{ forloop.counter0 }};">
+          <td style="color:var(--text-muted);">{{ reg.date_reglement|date:"d/m/Y" }}</td>
+          <td>
+            <a href="{% url 'achats:fournisseur_tableau_de_bord' reg.fournisseur.pk %}" class="supplier-link">
+              {{ reg.fournisseur.nom }}
+            </a>
+          </td>
+          <td>
+            <span class="mode-badge mode-{{ reg.mode_paiement }}">
+              {% if reg.mode_paiement == "especes" %}<i class="bx bxs-coin"></i>
+              {% elif reg.mode_paiement == "cheque" %}<i class="bx bxs-check-square"></i>
+              {% elif reg.mode_paiement == "virement" %}<i class="bx bxs-bank"></i>
+              {% else %}<i class="bx bxs-wallet"></i>{% endif %}
+              {{ reg.get_mode_paiement_display }}
+            </span>
+          </td>
+          <td style="color:var(--text-muted);font-size:12px;">{{ reg.reference_paiement|default:"—" }}</td>
+          <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--accent-text);">
+            {{ reg.montant|floatformat:0 }} DZD
+          </td>
+          <td>
+            <span style="font-size:12px;color:var(--text-muted);">
+              {{ reg.allocations.count }} facture{{ reg.allocations.count|pluralize }}
+              {% if reg.acompte %}<span class="pill-warning" style="margin-left:4px;">Acompte</span>{% endif %}
+            </span>
+          </td>
+          <td>
+            <div class="actions-cell">
+              <a href="{% url 'achats:reglement_fournisseur_detail' reg.pk %}" class="action-btn" title="Voir"><i class="bx bxs-show"></i></a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
-  <div class="input-wrapper" style="max-width:150px;">
-    <input type="date" name="date_fin" form="filter-form" value="{{ date_fin }}" class="field-input" title="Date fin" onchange="document.getElementById('filter-form').submit();">
-  </div>
 
-  {% if q or fournisseur_pk or mode or date_debut or date_fin %}
-  <a href="{% url 'achats:reglement_fournisseur_list' %}" class="btn-ghost btn-sm">
-    <i class="bx bx-x"></i> Réinitialiser
-  </a>
+  {% if page.has_other_pages %}
+  <div class="pagination-bar">
+    {% if page.has_previous %}
+    <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
+    {% endif %}
+    <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}
+    <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
+    {% endif %}
+  </div>
   {% endif %}
 
-  <form id="filter-form" method="get" style="display:none;"></form>
-</div>
-
-<!-- Reglement table -->
-<div class="section-card">
-  <div class="section-card__body no-pad">
-    {% if page.object_list %}
-    <div class="table-wrap">
-      <table class="table-base">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Fournisseur</th>
-            <th>Mode de paiement</th>
-            <th style="text-align:right;">Montant</th>
-            <th style="text-align:right;">Réconcilié</th>
-            <th>Statut</th>
-            <th style="text-align:right;">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for reg in page.object_list %}
-          <tr class="stagger-row">
-            <td style="color:var(--text-muted);white-space:nowrap;">{{ reg.date_reglement|date:"d/m/Y" }}</td>
-            <td>
-              <a href="{% url 'achats:fournisseur_tableau_de_bord' reg.fournisseur.pk %}" style="color:var(--text-secondary);">
-                {{ reg.fournisseur.nom }}
-              </a>
-            </td>
-            <td>
-              <span class="pill-base pill-neutral">{{ reg.get_mode_paiement_display }}</span>
-            </td>
-            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;white-space:nowrap;">
-              {{ reg.montant|floatformat:0 }} DZD
-            </td>
-            <td style="text-align:right;color:var(--text-muted);white-space:nowrap;">
-              {{ reg.montant_reconcilie|floatformat:0 }} DZD
-            </td>
-            <td>
-              {% if reg.is_reconcilie %}
-              <span class="pill-base pill-success">Réconcilié</span>
-              {% else %}
-              <span class="pill-base pill-warning">Partiel</span>
-              {% endif %}
-            </td>
-            <td>
-              <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;">
-                <a href="{% url 'achats:reglement_fournisseur_detail' reg.pk %}" class="action-btn" title="Détail">
-                  <i class="bx bx-show"></i>
-                </a>
-                <form method="post" action="{% url 'achats:reglement_fournisseur_delete' reg.pk %}" style="display:inline;" onsubmit="return confirm('Supprimer ce règlement ?');">
-                  {% csrf_token %}
-                  <button type="submit" class="action-btn" title="Supprimer" {% if reg.is_reconcilie %}disabled style="opacity:0.3;cursor:not-allowed;"{% endif %}>
-                    <i class="bx bxs-trash"></i>
-                  </button>
-                </form>
-              </div>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+  {% else %}
+  <div style="text-align:center;padding:56px 20px;color:var(--text-muted);">
+    <i class="bx bxs-coin" style="font-size:36px;display:block;margin-bottom:14px;color:var(--border-strong);"></i>
+    <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">Aucun règlement trouvé</div>
+    <div style="font-size:13px;">
+      {% if q or fournisseur_pk or date_debut or date_fin %}
+        <a href="{% url 'achats:reglement_fournisseur_list' %}" style="color:var(--accent-text);">Réinitialiser les filtres</a>
+      {% else %}Enregistrez le premier règlement fournisseur.{% endif %}
     </div>
-
-    <!-- Pagination -->
-    {% if page.has_other_pages %}
-    <div class="pagination-bar">
-      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
-      <div class="page-links">
-        {% if page.has_previous %}
-        <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}{% if mode %}&mode={{ mode }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>
-        {% else %}
-        <span class="page-link disabled"><i class="bx bx-chevron-left"></i></span>
-        {% endif %}
-
-        {% for num in page.paginator.page_range %}
-          {% if num == page.number %}
-          <span class="page-link active">{{ num }}</span>
-          {% elif num > page.number|add:-3 and num < page.number|add:3 %}
-          <a href="?page={{ num }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}{% if mode %}&mode={{ mode }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="page-link">{{ num }}</a>
-          {% endif %}
-        {% endfor %}
-
-        {% if page.has_next %}
-        <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}{% if mode %}&mode={{ mode }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="page-link"><i class="bx bx-chevron-right"></i></a>
-        {% else %}
-        <span class="page-link disabled"><i class="bx bx-chevron-right"></i></span>
-        {% endif %}
-      </div>
-    </div>
-    {% endif %}
-
-    {% else %}
-    <div class="empty-state">
-      <i class="bx bxs-coin empty-state__icon"></i>
-      <div class="empty-state__title">Aucun règlement trouvé</div>
-      <div class="empty-state__text">
-        {% if q or fournisseur_pk or mode or date_debut or date_fin %}
-        Aucun résultat pour les filtres sélectionnés.
-        {% else %}
-        Enregistrez votre premier règlement fournisseur.
-        {% endif %}
-      </div>
-      <a href="{% url 'achats:reglement_fournisseur_create' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
-        <i class="bx bx-plus"></i> Nouveau règlement
-      </a>
-    </div>
+    {% if not q and not fournisseur_pk and not date_debut and not date_fin %}
+    <a href="{% url 'achats:reglement_fournisseur_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
+      <i class="bx bx-plus"></i> Nouveau règlement
+    </a>
     {% endif %}
   </div>
+  {% endif %}
 </div>
-
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.table-wrap { overflow-x: auto; }
+  .filter-bar { margin-bottom: 16px; }
+  .filter-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .filter-group { display: flex; align-items: center; }
+  .input-icon-wrap { position: relative; display: flex; align-items: center; }
+  .input-icon-wrap > i { position: absolute; left: 12px; font-size: 15px; color: var(--text-muted); pointer-events: none; z-index: 1; }
+  .filter-input, .filter-select {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); color: var(--text-primary);
+    font-family: 'Inter', sans-serif; font-size: 13px;
+    padding: 9px 13px; outline: none; transition: border-color .15s;
+  }
+  .filter-input { padding-left: 38px; width: 200px; }
+  .filter-input--date { width: 150px; }
+  .filter-select--icon { padding-left: 36px; padding-right: 28px; appearance: none; min-width: 170px; }
+  .filter-input:focus, .filter-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+  .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .card-header-row { padding: 16px 20px 12px; border-bottom: 1px solid var(--border); }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--text-muted); padding: 11px 14px; border-bottom: 1px solid var(--border);
+    white-space: nowrap; background: var(--bg-surface);
+  }
+  .data-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn .3s ease both;
+    animation-delay: calc(var(--row-i,0)*35ms);
+    transition: background .12s;
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: var(--bg-hover); }
+  .data-table td { padding: 13px 14px; font-size: 13px; color: var(--text-secondary); vertical-align: middle; }
+
+  .supplier-link { font-family: 'Nunito', sans-serif; font-weight: 700; color: var(--accent-text); text-decoration: none; }
+  .supplier-link:hover { color: var(--accent); }
+
+  .mode-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: var(--radius-sm);
+    font-size: 11.5px; font-weight: 500; background: var(--bg-raised);
+    color: var(--text-secondary); white-space: nowrap;
+  }
+  .mode-especes  { background: rgba(34,197,94,.1);  color: #15803d; }
+  .mode-cheque   { background: rgba(56,189,248,.1); color: #0284c7; }
+  .mode-virement { background: rgba(99,102,241,.1); color: #4338ca; }
+  .mode-autre    { background: rgba(0,0,0,.06);     color: var(--text-secondary); }
+
+  .pill-warning { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 500; background: rgba(245,158,11,.14); color: #b45309; }
+
+  .actions-cell { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+  .action-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: transparent; color: var(--text-muted);
+    font-size: 14px; cursor: pointer; transition: background .12s; text-decoration: none;
+  }
+  .action-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-strong); }
+
+  .pagination-bar {
+    display: flex; align-items: center; justify-content: center;
+    gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border);
+  }
+  .page-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: var(--bg-surface);
+    color: var(--text-secondary); font-size: 16px; text-decoration: none;
+  }
+  .page-btn:hover { background: var(--bg-hover); }
+  .page-info { font-size: 12px; color: var(--text-muted); }
+
+  .btn-primary {
+    background: var(--accent); color: #fff; font-family: 'Nunito', sans-serif;
+    font-weight: 700; font-size: 13.5px; border: none; border-radius: var(--radius-md);
+    padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: opacity .18s; text-decoration: none;
+  }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+    font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px;
+    border-radius: var(--radius-md); padding: 9px 16px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s; text-decoration: none;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
 </style>
 {% endblock %}
 
-{% block extra_js %}{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var el = document.getElementById('filter-fournisseur');
+  if (el) el.addEventListener('change', function () { document.getElementById('filter-form').submit(); });
+});
+</script>
+{% endblock %}

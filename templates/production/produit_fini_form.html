@@ -1,168 +1,187 @@
-
 {% extends "base.html" %}
 {% load static %}
 
 {% block title %}{{ title }} — Élevage Avicole{% endblock %}
+
 {% block nav_production %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{% if produit %}Réf. {{ produit.pk }} — {% endif %}Catalogue des produits finis{% endblock %}
+{% block page_sub_text %}
+  {% if produit %}Modifier les informations du produit fini{% else %}Ajouter un nouveau type de produit au catalogue{% endif %}
+{% endblock %}
 
 {% block topbar_actions %}
-<a href="{% url 'production:produit_fini_list' %}" class="btn-ghost">
-  <i class="bx bx-arrow-back"></i> Retour au catalogue
-</a>
-{% if produit and not request.user.profile.role == 'viewer' %}
-<form method="post" action="{% url 'production:produit_fini_toggle_active' produit.pk %}" style="margin:0;display:inline;">
-  {% csrf_token %}
-  <button type="submit" class="{% if produit.actif %}btn-warning{% else %}btn-primary{% endif %}">
-    <i class="bx {% if produit.actif %}bx-block{% else %}bxs-check-circle{% endif %}"></i>
-    {% if produit.actif %}Désactiver{% else %}Activer{% endif %}
-  </button>
-</form>
-{% endif %}
+  <a href="{% if produit %}{% url 'production:produit_fini_detail' produit.pk %}{% else %}{% url 'production:produit_fini_list' %}{% endif %}"
+     class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Annuler
+  </a>
 {% endblock %}
 
 {% block content %}
-<div class="form-layout">
-  <div class="form-main">
-    <form method="post" action="{% if produit %}{% url 'production:produit_fini_edit' produit.pk %}{% else %}{% url 'production:produit_fini_create' %}{% endif %}" novalidate>
-      {% csrf_token %}
+<div class="page-body">
+  <div class="row justify-content-center">
+    <div class="col-xl-6 col-lg-8">
 
-      <div class="section-card" style="margin-bottom:20px;">
-        <div class="section-card__head">
-          <span class="section-card__title">Informations du produit</span>
-        </div>
-        <div class="section-card__body">
-          <div class="form-grid">
-            <div class="field-group field-group--full">
-              <label class="field-label" for="{{ form.designation.id_for_label }}">Désignation <span class="req">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bxs-cube-alt input-icon"></i>
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="card">
+          <div class="card-header-row">
+            <div class="section-eyebrow">Informations du produit fini</div>
+          </div>
+          <div style="padding:22px 24px;display:flex;flex-direction:column;gap:18px;">
+
+            <!-- Désignation -->
+            <div class="form-field">
+              <label class="field-label" for="{{ form.designation.id_for_label }}">
+                Désignation <span class="required-star">*</span>
+              </label>
+              <div class="field-wrap">
+                <i class="bx bxs-badge-check field-icon"></i>
                 {{ form.designation }}
               </div>
-              {% for err in form.designation.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              {% if form.designation.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.designation.errors.0 }}</div>
+              {% endif %}
             </div>
 
-            <div class="field-group">
-              <label class="field-label" for="{{ form.type_produit.id_for_label }}">Type de produit <span class="req">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bxs-category input-icon"></i>
+            <!-- Type produit -->
+            <div class="form-field">
+              <label class="field-label" for="{{ form.type_produit.id_for_label }}">
+                Type de produit <span class="required-star">*</span>
+              </label>
+              <div class="field-wrap">
+                <i class="bx bx-refresh field-icon"></i>
                 {{ form.type_produit }}
               </div>
-              {% for err in form.type_produit.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              {% if form.type_produit.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.type_produit.errors.0 }}</div>
+              {% endif %}
             </div>
 
-            <div class="field-group">
-              <label class="field-label" for="{{ form.unite_mesure.id_for_label }}">Unité de mesure <span class="req">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bx-ruler input-icon"></i>
+            <!-- Unité de mesure -->
+            <div class="form-field">
+              <label class="field-label" for="{{ form.unite_mesure.id_for_label }}">
+                Unité de mesure <span class="required-star">*</span>
+              </label>
+              <div class="field-wrap">
+                <i class="bx bxs-cube-alt field-icon"></i>
                 {{ form.unite_mesure }}
               </div>
-              {% for err in form.unite_mesure.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              {% if form.unite_mesure.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.unite_mesure.errors.0 }}</div>
+              {% endif %}
             </div>
 
-            <div class="field-group">
-              <label class="field-label" for="{{ form.prix_vente_defaut.id_for_label }}">Prix de vente par défaut (DZD)</label>
-              <div class="input-wrapper">
-                <i class="bx bxs-coin input-icon"></i>
+            <!-- Prix vente par défaut -->
+            <div class="form-field">
+              <label class="field-label" for="{{ form.prix_vente_defaut.id_for_label }}">
+                Prix de vente par défaut (DZD)
+              </label>
+              <div class="field-wrap">
+                <i class="bx bxs-coin field-icon"></i>
                 {{ form.prix_vente_defaut }}
               </div>
-              {% for err in form.prix_vente_defaut.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              <div class="field-hint">Pré-rempli sur les lignes BL client — modifiable à la saisie.</div>
+              {% if form.prix_vente_defaut.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.prix_vente_defaut.errors.0 }}</div>
+              {% endif %}
             </div>
 
-            <div class="field-group">
-              <label class="field-label" for="{{ form.actif.id_for_label }}">Statut</label>
-              <div class="checkbox-row">
-                {{ form.actif }}
-                <label for="{{ form.actif.id_for_label }}" style="font-size:13px;color:var(--text-secondary);cursor:pointer;">Produit actif</label>
-              </div>
+            <!-- Actif -->
+            <div class="form-field-check">
+              {{ form.actif }}
+              <label class="check-label" for="{{ form.actif.id_for_label }}">Produit actif</label>
             </div>
 
-            <div class="field-group field-group--full">
+            <!-- Notes -->
+            <div class="form-field">
               <label class="field-label" for="{{ form.notes.id_for_label }}">Notes</label>
               {{ form.notes }}
-              {% for err in form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              {% if form.notes.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.notes.errors.0 }}</div>
+              {% endif %}
             </div>
+
+          </div>
+
+          <div class="card-footer">
+            <button type="submit" class="btn-primary">
+              <i class="bx bxs-check-circle"></i> {{ action_label }}
+            </button>
+            {% if produit %}
+            <a href="{% url 'production:produit_fini_detail' produit.pk %}" class="btn-ghost">Annuler</a>
+            {% else %}
+            <a href="{% url 'production:produit_fini_list' %}" class="btn-ghost">Annuler</a>
+            {% endif %}
           </div>
         </div>
-      </div>
 
-      <div class="form-actions">
-        <button type="submit" class="btn-primary">
-          <i class="bx bxs-save"></i> {{ action_label }}
-        </button>
-        <a href="{% url 'production:produit_fini_list' %}" class="btn-ghost">Annuler</a>
-      </div>
-
-      {% if form.non_field_errors %}
-      <div class="error-banner" style="margin-top:16px;">
-        <i class="bx bxs-error-circle"></i>
-        <div>{% for err in form.non_field_errors %}<div>{{ err }}</div>{% endfor %}</div>
-      </div>
-      {% endif %}
-    </form>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.form-layout {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 20px;
-  max-width: 800px;
-}
-.form-main { display: flex; flex-direction: column; gap: 18px; }
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-@media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
-.field-group--full { grid-column: 1 / -1; }
+  .page-body { padding:28px 32px; }
+  @media (max-width:768px) { .page-body { padding:20px 16px; } }
 
-.form-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
+  .card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden; }
+  .card-header-row { padding:16px 20px 12px;border-bottom:1px solid var(--border); }
+  .card-footer { padding:16px 24px;border-top:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--bg-raised); }
+  .section-eyebrow { font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted); }
 
-.error-banner {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  background: rgba(239,68,68,.08);
-  border: 1px solid rgba(239,68,68,.2);
-  border-radius: var(--radius-md);
-  padding: 12px 16px;
-  font-size: 13px;
-  color: #dc2626;
-}
-.error-banner i { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .form-field { display:flex;flex-direction:column;gap:6px; }
+  .field-label { font-size:12px;font-weight:500;color:var(--text-secondary);letter-spacing:.03em; }
+  .required-star { color:#dc2626; }
+  .field-wrap { position:relative; }
+  .field-icon { position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--text-muted);pointer-events:none;transition:color .15s; }
+  .field-wrap:focus-within .field-icon { color:var(--accent-text); }
 
-.checkbox-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 11px 13px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  min-height: 44px;
-}
-.checkbox-row input[type="checkbox"] {
-  width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer;
-}
+  .field-wrap input,
+  .field-wrap select {
+    width:100%;background:var(--bg-surface);border:1px solid var(--border);
+    border-radius:var(--radius-md);color:var(--text-primary);
+    font-family:'Inter',sans-serif;font-size:13.5px;
+    padding:11px 13px 11px 40px;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  .field-wrap input:focus,
+  .field-wrap select:focus {
+    border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);outline:none;
+  }
+  .field-wrap textarea {
+    width:100%;background:var(--bg-surface);border:1px solid var(--border);
+    border-radius:var(--radius-md);color:var(--text-primary);
+    font-family:'Inter',sans-serif;font-size:13.5px;
+    padding:11px 13px;resize:vertical;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  .field-wrap textarea:focus { border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);outline:none; }
 
-.field-group { margin-bottom: 0; }
+  /* Textarea without icon */
+  .form-field > textarea {
+    width:100%;background:var(--bg-surface);border:1px solid var(--border);
+    border-radius:var(--radius-md);color:var(--text-primary);
+    font-family:'Inter',sans-serif;font-size:13.5px;
+    padding:11px 13px;resize:vertical;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  .form-field > textarea:focus { border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);outline:none; }
+
+  .field-hint { font-size:11.5px;color:var(--text-muted); }
+  .field-error { display:flex;align-items:center;gap:4px;font-size:12px;color:#dc2626; }
+
+  .form-field-check { display:flex;align-items:center;gap:8px; }
+  .form-field-check input[type="checkbox"] { width:16px;height:16px;accent-color:var(--accent);cursor:pointer; }
+  .check-label { font-size:13px;color:var(--text-secondary);cursor:pointer; }
+
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s,transform .12s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-primary:active { transform:scale(.99); }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s,border-color .12s,color .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
 </style>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-});
-</script>
 {% endblock %}

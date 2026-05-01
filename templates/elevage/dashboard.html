@@ -1,290 +1,365 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Tableau de bord — Élevage{% endblock %}
+{% block title %}Tableau de bord Élevage — Élevage Avicole{% endblock %}
+
 {% block nav_lots %}active{% endblock %}
 
-{% block page_title %}Tableau de bord Élevage{% endblock %}
-{% block page_sub_text %}{{ nb_lots_ouverts }} lot{{ nb_lots_ouverts|pluralize }} ouvert{{ nb_lots_ouverts|pluralize }} · {{ total_effectif_vivant|floatformat:0 }} oiseaux au total{% endblock %}
+{% block page_title %}Tableau de bord — Élevage{% endblock %}
+{% block page_sub_text %}{{ nb_lots_ouverts }} lot{{ nb_lots_ouverts|pluralize }} ouvert{{ nb_lots_ouverts|pluralize }} · {{ total_effectif_vivant|floatformat:0 }} oiseaux vivants{% endblock %}
 
 {% block topbar_actions %}
-{% if request.user.userprofile %}
-  {% if not request.user.userprofile.role == 'viewer' %}
+  {% if request.user.userprofile.role != 'viewer' %}
   <a href="{% url 'elevage:lot_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouveau Lot
+    <i class="bx bx-plus"></i> Nouveau lot
   </a>
   {% endif %}
-{% endif %}
-<a href="{% url 'elevage:consommation_list' %}" class="btn-ghost">
-  <i class="bx bxs-droplet"></i> Consommations
-</a>
 {% endblock %}
 
 {% block content %}
+<div class="page-body">
 
-<!-- KPI Cards -->
-<div class="row g-3 mb-4">
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-green"><i class="bx bxs-grid-alt"></i></div>
-      <div class="metric-label">Lots Ouverts</div>
-      <div class="metric-value">{{ nb_lots_ouverts }}</div>
-      <span class="metric-delta neutral"><i class="bx bx-minus"></i> {{ nb_lots_fermes }} fermés au total</span>
-    </div>
-  </div>
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-blue"><i class="bx bxs-heart"></i></div>
-      <div class="metric-label">Effectif Vivant Total</div>
-      <div class="metric-value">{{ total_effectif_vivant|floatformat:0 }}</div>
-      <span class="metric-delta neutral"><i class="bx bx-minus"></i> Oiseaux en élevage</span>
-    </div>
-  </div>
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-amber"><i class="bx bxs-droplet"></i></div>
-      <div class="metric-label">Consommations (7j)</div>
-      <div class="metric-value sm">{{ consommations_recentes|length }}</div>
-      <span class="metric-delta neutral"><i class="bx bx-minus"></i> Enregistrements récents</span>
-    </div>
-  </div>
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-red"><i class="bx bxs-error"></i></div>
-      <div class="metric-label">Alertes Mortalité</div>
-      <div class="metric-value"{% if lots_alerte_mortalite|length > 0 %} style="color:#dc2626;"{% endif %}>{{ lots_alerte_mortalite|length }}</div>
-      {% if lots_alerte_mortalite|length > 0 %}
-      <span class="metric-delta down"><i class="bx bxs-error"></i> Seuil dépassé</span>
-      {% else %}
-      <span class="metric-delta up"><i class="bx bxs-check-circle"></i> Normal</span>
-      {% endif %}
-    </div>
-  </div>
-</div>
-
-<!-- Main row: Lots ouverts + Activité récente -->
-<div class="row g-3 mb-4">
-
-  <!-- Lots ouverts -->
-  <div class="col-xl-8">
-    <div class="section-card h-100">
-      <div class="section-card__head">
-        <span class="section-card__title">
-          <i class="bx bxs-grid-alt" style="color:var(--accent);margin-right:8px;"></i>Lots en cours
-        </span>
-        <a href="{% url 'elevage:lot_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
-          Voir tout <i class="bx bx-right-arrow-alt"></i>
-        </a>
+  <!-- KPI row -->
+  <div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-green"><i class="bx bxs-grid-alt"></i></div>
+        <div class="metric-label">LOTS OUVERTS</div>
+        <div class="metric-value">{{ nb_lots_ouverts }}</div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> En cours</span>
       </div>
-      <div class="section-card__body">
-        {% if lots_ouverts %}
-        <div class="row g-3">
-          {% for lot in lots_ouverts %}
-          <div class="col-md-6">
-            <a href="{% url 'elevage:lot_detail' lot.pk %}" style="text-decoration:none;display:block;">
-              <div class="lot-card">
-                <div class="lot-card__header">
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-blue"><i class="bx bxs-user-voice"></i></div>
+        <div class="metric-label">EFFECTIF VIVANT TOTAL</div>
+        <div class="metric-value">{{ total_effectif_vivant|floatformat:0 }}</div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> Tous lots confondus</span>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-amber"><i class="bxs-error" style="font-family:'boxicons';"></i></div>
+        <div class="metric-icon ic-amber"><i class="bx bxs-error"></i></div>
+        <div class="metric-label">ALERTES MORTALITÉ</div>
+        <div class="metric-value {% if lots_alerte_mortalite %}danger{% endif %}">{{ lots_alerte_mortalite|length }}</div>
+        <span class="metric-delta {% if lots_alerte_mortalite %}down{% else %}neutral{% endif %}">
+          <i class="bx {% if lots_alerte_mortalite %}bxs-error{% else %}bx-minus{% endif %}"></i>
+          {% if lots_alerte_mortalite %}Lots à surveiller{% else %}RAS{% endif %}
+        </span>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-purple"><i class="bx bxs-lock"></i></div>
+        <div class="metric-label">LOTS FERMÉS</div>
+        <div class="metric-value">{{ nb_lots_fermes }}</div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> Clôturés</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alert banners for abnormal mortality -->
+  {% for lot in lots_alerte_mortalite %}
+  <div class="alert-banner alert-banner--danger mb-3" style="animation-delay:{{ forloop.counter0 | add:0 }}ms;">
+    <i class="bx bxs-error"></i>
+    <div>
+      <strong>Mortalité anormale — {{ lot.designation }}</strong>
+      <span> · La mortalité journalière dépasse 5 % de l'effectif initial. Vérifiez l'état du lot.</span>
+    </div>
+    <a href="{% url 'elevage:lot_detail' lot.pk %}" class="btn-ghost" style="margin-left:auto;flex-shrink:0;">
+      Voir le lot
+    </a>
+  </div>
+  {% endfor %}
+
+  <div class="row g-3">
+    <!-- Open lots list -->
+    <div class="col-xl-8">
+      <div class="card">
+        <div class="card-header-row" style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px 14px;border-bottom:1px solid var(--border);">
+          <span class="section-eyebrow">Lots en cours</span>
+          <a href="{% url 'elevage:lot_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
+            Voir tous <i class="bx bx-right-arrow-alt"></i>
+          </a>
+        </div>
+        <div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
+          {% if lots_ouverts %}
+            {% for lot in lots_ouverts %}
+            <a href="{% url 'elevage:lot_detail' lot.pk %}" class="lot-card lot-card--link" style="text-decoration:none;display:block;animation:fadeIn .3s ease both;animation-delay:{{ forloop.counter0 | add:0 }}ms;">
+              <div class="lot-card__header">
+                <div>
                   <span class="lot-card__name">{{ lot.designation }}</span>
-                  <span class="pill-base pill-success">Ouvert</span>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+                    <i class="bx bxs-buildings" style="font-size:11px;"></i> {{ lot.batiment.nom }}
+                    {% if lot.souche %}· {{ lot.souche }}{% endif %}
+                    · Ouvert le {{ lot.date_ouverture|date:"d/m/Y" }}
+                  </div>
                 </div>
-                <div class="lot-card__grid">
-                  <div>
-                    <div class="lot-stat-label">Effectif</div>
-                    <div class="lot-stat-val">{{ lot.effectif_vivant|floatformat:0 }}</div>
-                  </div>
-                  <div>
-                    <div class="lot-stat-label">Mortalité</div>
-                    <div class="lot-stat-val {% if lot.taux_mortalite > 5 %}danger{% elif lot.taux_mortalite > 3 %}warn{% endif %}">
-                      {{ lot.taux_mortalite|floatformat:2 }}%
-                    </div>
-                  </div>
-                  <div>
-                    <div class="lot-stat-label">Jours</div>
-                    <div class="lot-stat-val">{{ lot.duree_elevage }}j</div>
-                  </div>
-                  <div>
-                    <div class="lot-stat-label">Bâtiment</div>
-                    <div class="lot-stat-val" style="font-size:13px;font-weight:600;">{{ lot.batiment.nom }}</div>
-                  </div>
+                <span class="pill-success">Ouvert</span>
+              </div>
+              <div class="lot-card__grid">
+                <div>
+                  <div class="lot-stat-label">Effectif vivant</div>
+                  <div class="lot-stat-val">{{ lot.effectif_vivant|floatformat:0 }}</div>
+                </div>
+                <div>
+                  <div class="lot-stat-label">Mortalité</div>
+                  <div class="lot-stat-val {% if lot.taux_mortalite > 5 %}danger{% endif %}">{{ lot.taux_mortalite|floatformat:2 }}%</div>
+                </div>
+                <div>
+                  <div class="lot-stat-label">Aliment (kg)</div>
+                  <div class="lot-stat-val">{{ lot.consommation_totale_aliment|floatformat:0 }}</div>
+                </div>
+                <div>
+                  <div class="lot-stat-label">Jours</div>
+                  <div class="lot-stat-val">{{ lot.duree_elevage }}</div>
                 </div>
               </div>
             </a>
-          </div>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="empty-state">
-          <i class="bx bxs-grid-alt empty-state__icon"></i>
-          <div class="empty-state__title">Aucun lot ouvert</div>
-          <div class="empty-state__text">Ouvrez un nouveau lot pour commencer le suivi d'élevage.</div>
-          {% if request.user.userprofile %}
-            {% if not request.user.userprofile.role == 'viewer' %}
-            <a href="{% url 'elevage:lot_create' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
-              <i class="bx bx-plus"></i> Nouveau Lot
+            {% endfor %}
+          {% else %}
+          <div style="text-align:center;padding:40px 20px;color:var(--text-muted);">
+            <i class="bx bxs-grid-alt" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
+            <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">Aucun lot ouvert</div>
+            <div style="font-size:13px;">Ouvrez un nouveau lot pour commencer le suivi.</div>
+            {% if request.user.userprofile.role != 'viewer' %}
+            <a href="{% url 'elevage:lot_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
+              <i class="bx bx-plus"></i> Nouveau lot
             </a>
             {% endif %}
+          </div>
           {% endif %}
         </div>
-        {% endif %}
       </div>
     </div>
-  </div>
 
-  <!-- Activité récente -->
-  <div class="col-xl-4">
-    <div class="section-card h-100">
-      <div class="section-card__head">
-        <span class="section-card__title">
-          <i class="bx bxs-activity" style="color:var(--accent-text);margin-right:8px;"></i>Activité récente
-        </span>
-      </div>
-      <div class="section-card__body no-pad">
-
-        <!-- Mortalités récentes -->
-        <div class="activity-section">
-          <div class="activity-section__header">
-            <i class="bx bxs-heart" style="color:#dc2626;"></i>
-            <span>Mortalités (7j)</span>
-          </div>
+    <!-- Right column: recent events -->
+    <div class="col-xl-4">
+      <!-- Recent mortality -->
+      <div class="card mb-3">
+        <div class="card-header-row" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 12px;border-bottom:1px solid var(--border);">
+          <span class="section-eyebrow">Mortalités récentes <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(7 j)</span></span>
+          <a href="{% url 'elevage:mortalite_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
+            Voir <i class="bx bx-right-arrow-alt"></i>
+          </a>
+        </div>
+        <div style="padding:0;">
           {% if mortalites_recentes %}
-          {% for m in mortalites_recentes %}
-          <a href="{% url 'elevage:lot_detail' m.lot.pk %}" class="activity-row">
-            <div class="activity-row__meta">
-              <span class="activity-row__lot">{{ m.lot.designation }}</span>
-              <span class="activity-row__date">{{ m.date|date:"d/m/Y" }}</span>
+          {% for mort in mortalites_recentes %}
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border);animation:fadeIn .3s ease both;animation-delay:{{ forloop.counter0 | add:0 }}ms;">
+            <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:rgba(239,68,68,.10);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <i class="bx bxs-heart" style="color:#dc2626;font-size:14px;"></i>
             </div>
-            <span class="pill-base pill-danger">{{ m.nombre }} morts</span>
-          </a>
-          {% endfor %}
-          {% else %}
-          <div class="activity-empty">Aucune mortalité enregistrée cette semaine.</div>
-          {% endif %}
-        </div>
-
-        <!-- Consommations récentes -->
-        <div class="activity-section">
-          <div class="activity-section__header">
-            <i class="bx bxs-droplet" style="color:#0284c7;"></i>
-            <span>Consommations (7j)</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;color:var(--text-primary);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ mort.lot.designation }}</div>
+              <div style="font-size:11px;color:var(--text-muted);">{{ mort.date|date:"d/m/Y" }} · {{ mort.cause|default:"Cause inconnue" }}</div>
+            </div>
+            <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:#dc2626;flex-shrink:0;">–{{ mort.nombre }}</div>
           </div>
-          {% if consommations_recentes %}
-          {% for c in consommations_recentes %}
-          <a href="{% url 'elevage:lot_detail' c.lot.pk %}" class="activity-row">
-            <div class="activity-row__meta">
-              <span class="activity-row__lot">{{ c.lot.designation }}</span>
-              <span class="activity-row__date">{{ c.date|date:"d/m/Y" }}</span>
-            </div>
-            <span class="pill-base pill-info">{{ c.quantite|floatformat:2 }} {{ c.intrant.unite_mesure }}</span>
-          </a>
           {% endfor %}
           {% else %}
-          <div class="activity-empty">Aucune consommation enregistrée cette semaine.</div>
+          <div style="text-align:center;padding:24px 16px;color:var(--text-muted);font-size:13px;">
+            <i class="bx bxs-heart" style="font-size:24px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
+            Aucune mortalité cette semaine
+          </div>
           {% endif %}
         </div>
+      </div>
 
+      <!-- Recent consumptions -->
+      <div class="card">
+        <div class="card-header-row" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 12px;border-bottom:1px solid var(--border);">
+          <span class="section-eyebrow">Consommations récentes <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(7 j)</span></span>
+          <a href="{% url 'elevage:consommation_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
+            Voir <i class="bx bx-right-arrow-alt"></i>
+          </a>
+        </div>
+        <div style="padding:0;">
+          {% if consommations_recentes %}
+          {% for conso in consommations_recentes %}
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border);animation:fadeIn .3s ease both;animation-delay:{{ forloop.counter0 | add:0 }}ms;">
+            <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:var(--accent-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <i class="bx bxs-droplet" style="color:var(--accent-text);font-size:14px;"></i>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;color:var(--text-primary);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ conso.intrant.designation }}</div>
+              <div style="font-size:11px;color:var(--text-muted);">{{ conso.lot.designation }} · {{ conso.date|date:"d/m/Y" }}</div>
+            </div>
+            <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:var(--text-primary);flex-shrink:0;">
+              {{ conso.quantite|floatformat:2 }} <span style="font-size:11px;color:var(--text-muted);">{{ conso.intrant.unite_mesure }}</span>
+            </div>
+          </div>
+          {% endfor %}
+          {% else %}
+          <div style="text-align:center;padding:24px 16px;color:var(--text-muted);font-size:13px;">
+            <i class="bx bxs-droplet" style="font-size:24px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
+            Aucune consommation cette semaine
+          </div>
+          {% endif %}
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- Alertes mortalité -->
-{% if lots_alerte_mortalite %}
-<div class="section-card mb-4" style="border-color:rgba(239,68,68,.25);">
-  <div class="section-card__head">
-    <span class="section-card__title" style="color:#dc2626;">
-      <i class="bx bxs-error" style="color:#dc2626;margin-right:8px;"></i>Alertes — Mortalité anormale
-    </span>
-    <span class="pill-base pill-danger">{{ lots_alerte_mortalite|length }} lot{{ lots_alerte_mortalite|length|pluralize }}</span>
-  </div>
-  <div class="section-card__body no-pad">
-    {% for lot in lots_alerte_mortalite %}
-    <a href="{% url 'elevage:lot_detail' lot.pk %}" class="alert-item-row">
-      <div class="alert-item-icon ic-red"><i class="bx bxs-heart"></i></div>
-      <div class="alert-item-text">
-        <div class="alert-item-label">{{ lot.designation }}</div>
-        <div class="alert-item-sub">Mortalité journalière ≥ 5 % du troupeau initial — vérification recommandée</div>
-      </div>
-      <span class="pill-base pill-danger">{{ lot.taux_mortalite|floatformat:2 }}%</span>
-    </a>
-    {% endfor %}
-  </div>
 </div>
-{% endif %}
-
 {% endblock %}
 
 {% block extra_css %}
 <style>
-/* Lot cards hover enhancement */
-.lot-card { transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s; }
-.lot-card:hover {
-  border-color: var(--accent);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(34,197,94,.10);
-}
+  .card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .section-eyebrow {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .metric-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: border-color .18s, transform .18s;
+  }
+  .metric-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+  .metric-icon {
+    width: 40px; height: 40px;
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
+  .ic-green { background: rgba(34,197,94,.14); color: var(--accent-text); }
+  .ic-blue  { background: rgba(56,189,248,.14); color: #0284c7; }
+  .ic-amber { background: rgba(245,158,11,.14); color: #b45309; }
+  .ic-purple{ background: rgba(167,139,250,.14); color: #7c3aed; }
+  .ic-red   { background: rgba(239,68,68,.12); color: #dc2626; }
+  .metric-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .metric-value {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 26px;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+  .metric-value.danger { color: #dc2626; }
+  .metric-delta {
+    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    width: fit-content;
+  }
+  .metric-delta.up      { background: rgba(34,197,94,.12); color: var(--accent-text); }
+  .metric-delta.down    { background: rgba(239,68,68,.10); color: #dc2626; }
+  .metric-delta.neutral { background: rgba(0,0,0,.06); color: var(--text-secondary); }
 
-/* Activity sections */
-.activity-section { border-bottom: 1px solid var(--border); }
-.activity-section:last-child { border-bottom: none; }
-.activity-section__header {
-  display: flex; align-items: center; gap: 8px;
-  padding: 12px 18px;
-  font-size: 11px; font-weight: 600;
-  letter-spacing: .07em; text-transform: uppercase;
-  color: var(--text-muted);
-  background: var(--bg-raised);
-}
-.activity-row {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; padding: 11px 18px;
-  border-bottom: 1px solid var(--border);
-  text-decoration: none; color: inherit;
-  transition: background 0.12s;
-}
-.activity-row:last-child { border-bottom: none; }
-.activity-row:hover { background: var(--bg-raised); }
-.activity-row__meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.activity-row__lot {
-  font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 12.5px;
-  color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.activity-row__date { font-size: 11px; color: var(--text-muted); }
-.activity-empty {
-  padding: 16px 18px; font-size: 12.5px; color: var(--text-muted); text-align: center;
-}
+  .lot-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px 18px;
+    transition: border-color .18s, transform .18s, box-shadow .18s;
+  }
+  .lot-card--link:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,.06);
+  }
+  .lot-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 14px;
+  }
+  .lot-card__name {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: 13.5px;
+    color: var(--text-primary);
+  }
+  .lot-card__grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .lot-stat-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+  .lot-stat-val {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    color: var(--text-primary);
+  }
+  .lot-stat-val.danger { color: #dc2626; }
 
-/* Section card full height utility */
-.h-100 { height: 100%; }
+  /* Alert banner */
+  .alert-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    animation: fadeIn .3s ease both;
+  }
+  .alert-banner--danger {
+    background: rgba(239,68,68,.07);
+    border: 1px solid rgba(239,68,68,.2);
+    color: var(--text-secondary);
+  }
+  .alert-banner--danger > i { color: #dc2626; font-size: 16px; flex-shrink: 0; }
 
-/* Alert item rows */
-.alert-item-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 18px; border-bottom: 1px solid var(--border);
-  text-decoration: none; color: inherit;
-  transition: background 0.12s;
-}
-.alert-item-row:last-child { border-bottom: none; }
-.alert-item-row:hover { background: var(--bg-raised); }
-.alert-item-icon {
-  width: 32px; height: 32px; border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 15px; flex-shrink: 0;
-}
-.alert-item-text { flex: 1; min-width: 0; }
-.alert-item-label {
-  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px;
-  color: var(--text-primary); margin-bottom: 2px;
-}
-.alert-item-sub {
-  font-size: 11.5px; color: var(--text-muted); line-height: 1.4;
-}
+  .pill-success { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;font-family:'Inter',sans-serif;background:rgba(34,197,94,.14);color:#15803d; }
+  .btn-primary {
+    background: var(--accent); color: #fff;
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px;
+    border: none; border-radius: var(--radius-md); padding: 10px 18px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: opacity .18s, transform .12s; text-decoration: none;
+  }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+    font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px;
+    border-radius: var(--radius-md); padding: 7px 14px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s, border-color .12s, color .12s; text-decoration: none;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+
+  @media (max-width: 576px) {
+    .lot-card__grid { grid-template-columns: repeat(2, 1fr); }
+  }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  /* No dashboard-specific JS needed — all data is server-rendered */
+  /* Nothing to init — server-side computed KPIs, no client recomputation */
 });
 </script>
 {% endblock %}

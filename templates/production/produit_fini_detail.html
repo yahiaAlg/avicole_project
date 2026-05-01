@@ -1,160 +1,218 @@
-
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}{{ produit.designation }} — Élevage Avicole{% endblock %}
+
 {% block nav_production %}active{% endblock %}
 
 {% block page_title %}{{ produit.designation }}{% endblock %}
-{% block page_sub_text %}{{ produit.get_type_produit_display }} — {{ produit.get_unite_mesure_display }}{% endblock %}
+{% block page_sub_text %}{{ produit.get_type_produit_display }} · {{ produit.get_unite_mesure_display }}{% endblock %}
 
 {% block topbar_actions %}
-<a href="{% url 'production:produit_fini_list' %}" class="btn-ghost">
-  <i class="bx bx-arrow-back"></i> Retour
-</a>
-{% if not request.user.profile.role == 'viewer' %}
-<a href="{% url 'production:produit_fini_edit' produit.pk %}" class="btn-primary">
-  <i class="bx bxs-pencil"></i> Modifier
-</a>
-{% endif %}
+  <a href="{% url 'production:produit_fini_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Retour catalogue
+  </a>
+  {% if request.user.userprofile.is_admin %}
+  <a href="{% url 'production:produit_fini_edit' produit.pk %}" class="btn-primary">
+    <i class="bx bxs-pencil"></i> Modifier
+  </a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
-<!-- KPI Card -->
-<div class="row g-3 mb-4">
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-green"><i class="bx bxs-badge-check"></i></div>
-      <div class="metric-label">Stock actuel</div>
-      <div class="metric-value sm">{{ produit.quantite_en_stock|floatformat:2 }}</div>
-      <span class="metric-delta neutral">{{ produit.get_unite_mesure_display }}</span>
-    </div>
-  </div>
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-blue"><i class="bx bxs-coin"></i></div>
-      <div class="metric-label">Prix vente défaut</div>
-      <div class="metric-value sm">{{ produit.prix_vente_defaut|floatformat:2 }} DZD</div>
-      <span class="metric-delta neutral">Par {{ produit.get_unite_mesure_display }}</span>
-    </div>
-  </div>
-  {% if stock %}
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-amber"><i class="bx bxs-bar-chart-alt-2"></i></div>
-      <div class="metric-label">Coût moyen production</div>
-      <div class="metric-value sm">{{ stock.cout_moyen_production|floatformat:2 }} DZD</div>
-      <span class="metric-delta neutral">CMP pondéré</span>
-    </div>
-  </div>
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-purple"><i class="bx bxs-wallet"></i></div>
-      <div class="metric-label">Valeur stock</div>
-      <div class="metric-value sm">{{ stock.valeur_stock|floatformat:0 }} DZD</div>
-      <span class="metric-delta neutral">Valorisation</span>
-    </div>
-  </div>
-  {% endif %}
-</div>
+<div class="page-body">
+  <div class="row g-3">
 
-<div class="row g-3">
-  <!-- Stock movements -->
-  <div class="col-xl-7">
-    <div class="section-card h-100">
-      <div class="section-card__head">
-        <span class="section-card__title"><i class="bx bxs-archive" style="color:var(--accent);margin-right:8px;"></i>Mouvements de stock récents</span>
-        <a href="{% url 'stock:stock_produit_fini_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
-          Voir tout <i class="bx bx-right-arrow-alt"></i>
-        </a>
-      </div>
-      <div class="section-card__body no-pad">
-        {% if mouvements %}
-        <table class="table-base">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Type</th>
-              <th>Source</th>
-              <th style="text-align:right;">Quantité</th>
-              <th style="text-align:right;">Stock après</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for m in mouvements %}
-            <tr class="stagger-row">
-              <td style="color:var(--text-muted);white-space:nowrap;">{{ m.date_mouvement|date:"d/m/Y" }}</td>
-              <td>
-                {% if m.type_mouvement == 'entree' %}
-                <span class="pill-base pill-success"><i class="bx bx-trending-up"></i> Entrée</span>
-                {% elif m.type_mouvement == 'sortie' %}
-                <span class="pill-base pill-danger"><i class="bx bx-trending-down"></i> Sortie</span>
-                {% else %}
-                <span class="pill-base pill-warning"><i class="bx bx-transfer"></i> Ajustement</span>
-                {% endif %}
-              </td>
-              <td style="color:var(--text-muted);font-size:12px;">{{ m.get_source_display }}</td>
-              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
-                {{ m.quantite|floatformat:2 }}
-              </td>
-              <td style="text-align:right;color:var(--text-muted);font-size:12px;">
-                {{ m.quantite_apres|floatformat:2 }}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        {% else %}
-        <div class="empty-state">
-          <i class="bx bxs-archive empty-state__icon"></i>
-          <div class="empty-state__title">Aucun mouvement</div>
-          <div class="empty-state__text">Les mouvements apparaîtront après la première production validée.</div>
+    <!-- Left: Info + Stock -->
+    <div class="col-xl-4">
+
+      <!-- Fiche produit -->
+      <div class="card mb-3">
+        <div class="card-header-row">
+          <div class="section-eyebrow">Fiche produit</div>
         </div>
-        {% endif %}
+        <div style="padding:18px 20px;">
+          <div class="info-row">
+            <span class="info-label">Désignation</span>
+            <span class="info-val" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ produit.designation }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Type</span>
+            <span class="info-val">
+              {% if produit.type_produit == "volaille_vivante" %}<span class="pill-success">{{ produit.get_type_produit_display }}</span>
+              {% elif produit.type_produit == "carcasse" %}<span class="pill-info">{{ produit.get_type_produit_display }}</span>
+              {% elif produit.type_produit == "oeufs" %}<span class="pill-warning">{{ produit.get_type_produit_display }}</span>
+              {% else %}<span class="pill-neutral">{{ produit.get_type_produit_display }}</span>
+              {% endif %}
+            </span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Unité de mesure</span>
+            <span class="info-val">{{ produit.get_unite_mesure_display }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Prix vente par défaut</span>
+            <span class="info-val" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ produit.prix_vente_defaut|floatformat:0 }} DZD</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Statut</span>
+            <span class="info-val">
+              {% if produit.actif %}<span class="pill-success"><i class="bx bxs-check-circle"></i> Actif</span>
+              {% else %}<span class="pill-neutral"><i class="bx bx-block"></i> Inactif</span>{% endif %}
+            </span>
+          </div>
+          {% if produit.notes %}
+          <div class="info-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+            <span class="info-label">Notes</span>
+            <span style="font-size:13px;color:var(--text-secondary);line-height:1.5;">{{ produit.notes }}</span>
+          </div>
+          {% endif %}
+        </div>
       </div>
-    </div>
-  </div>
 
-  <!-- Recent production lines -->
-  <div class="col-xl-5">
-    <div class="section-card h-100">
-      <div class="section-card__head">
-        <span class="section-card__title"><i class="bx bx-refresh" style="color:var(--accent);margin-right:8px;"></i>Productions récentes</span>
+      <!-- Stock actuel -->
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow">Stock actuel</div>
+        </div>
+        <div style="padding:18px 20px;">
+          {% if stock %}
+            <div style="text-align:center;padding:10px 0 16px;">
+              <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:36px;
+                {% if stock.en_alerte %}color:#dc2626;{% else %}color:var(--accent-text);{% endif %}">
+                {{ stock.quantite|floatformat:2 }}
+              </div>
+              <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">{{ produit.unite_mesure }}</div>
+              {% if stock.en_alerte %}
+                <div style="margin-top:10px;">
+                  <span class="pill-danger"><i class="bx bxs-error"></i> Seuil d'alerte atteint</span>
+                </div>
+              {% endif %}
+            </div>
+            <div class="info-row">
+              <span class="info-label">Coût moyen de production</span>
+              <span class="info-val" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ stock.cout_moyen_production|floatformat:2 }} DZD</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Valeur stock estimée</span>
+              <span class="info-val" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ stock.valeur_stock|floatformat:0 }} DZD</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Seuil d'alerte</span>
+              <span class="info-val">{{ stock.seuil_alerte|floatformat:2 }} {{ produit.unite_mesure }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Dernière mise à jour</span>
+              <span class="info-val" style="color:var(--text-muted);">{{ stock.derniere_mise_a_jour|date:"d/m/Y" }}</span>
+            </div>
+          {% else %}
+            <div style="text-align:center;padding:24px 0;color:var(--text-muted);font-size:13px;">
+              <i class="bx bxs-archive" style="font-size:24px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
+              Fiche de stock non initialisée.
+            </div>
+          {% endif %}
+        </div>
       </div>
-      <div class="section-card__body no-pad">
+
+    </div>
+
+    <!-- Right: movements + recent lines -->
+    <div class="col-xl-8">
+
+      <!-- Lignes de production récentes -->
+      <div class="card mb-3">
+        <div class="card-header-row">
+          <div class="section-eyebrow">Dernières lignes de production</div>
+        </div>
         {% if lignes_recentes %}
-        <table class="table-base">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Lot</th>
-              <th style="text-align:right;">Qté</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for ligne in lignes_recentes %}
-            <tr class="stagger-row">
-              <td style="color:var(--text-muted);white-space:nowrap;">{{ ligne.production.date_production|date:"d/m/Y" }}</td>
-              <td>
-                <a href="{% url 'elevage:lot_detail' ligne.production.lot.pk %}" style="font-weight:500;color:var(--text-primary);text-decoration:none;">
-                  {{ ligne.production.lot.designation }}
-                </a>
-              </td>
-              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
-                {{ ligne.quantite|floatformat:2 }}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Lot</th>
+                <th style="text-align:right;">Quantité</th>
+                <th style="text-align:right;">Poids unit. (kg)</th>
+                <th style="text-align:right;">Coût unit. (DZD)</th>
+                <th style="text-align:right;">Valeur totale (DZD)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ligne in lignes_recentes %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td style="color:var(--text-muted);">{{ ligne.production.date_production|date:"d/m/Y" }}</td>
+                <td>
+                  <a href="{% url 'production:production_record_detail' ligne.production.pk %}"
+                     style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;">
+                    {{ ligne.production.lot.designation }}
+                  </a>
+                </td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">
+                  {{ ligne.quantite|floatformat:2 }} <span style="font-size:11px;color:var(--text-muted);">{{ produit.unite_mesure }}</span>
+                </td>
+                <td style="text-align:right;">{{ ligne.poids_unitaire_kg|floatformat:3 }}</td>
+                <td style="text-align:right;">{{ ligne.cout_unitaire_estime|floatformat:2 }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ ligne.valeur_totale|floatformat:0 }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
         {% else %}
-        <div class="empty-state">
-          <i class="bx bx-refresh empty-state__icon"></i>
-          <div class="empty-state__title">Aucune production</div>
-          <div class="empty-state__text">Ce produit n'a pas encore été généré en production.</div>
+        <div style="text-align:center;padding:32px 20px;color:var(--text-muted);font-size:13px;">
+          Aucune ligne de production enregistrée pour ce produit.
         </div>
         {% endif %}
       </div>
+
+      <!-- Mouvements de stock -->
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow">Historique des mouvements de stock (30 derniers)</div>
+        </div>
+        {% if mouvements %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Source</th>
+                <th>Référence</th>
+                <th style="text-align:right;">Quantité</th>
+                <th style="text-align:right;">Stock avant</th>
+                <th style="text-align:right;">Stock après</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for m in mouvements %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td style="color:var(--text-muted);">{{ m.date_mouvement|date:"d/m/Y" }}</td>
+                <td>
+                  {% if m.type_mouvement == "entree" %}<span class="pill-success"><i class="bx bx-plus"></i> Entrée</span>
+                  {% elif m.type_mouvement == "sortie" %}<span class="pill-danger"><i class="bx bx-minus"></i> Sortie</span>
+                  {% else %}<span class="pill-info">Ajustement</span>{% endif %}
+                </td>
+                <td style="color:var(--text-muted);">{{ m.get_source_display }}</td>
+                <td style="font-size:12px;color:var(--text-muted);">{{ m.reference_label|default:"—" }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;
+                  {% if m.type_mouvement == 'entree' %}color:var(--accent-text);{% elif m.type_mouvement == 'sortie' %}color:#dc2626;{% else %}color:var(--text-primary);{% endif %}">
+                  {% if m.type_mouvement == 'entree' %}+{% elif m.type_mouvement == 'sortie' %}-{% endif %}{{ m.quantite|floatformat:2 }}
+                </td>
+                <td style="text-align:right;color:var(--text-muted);">{{ m.quantite_avant|floatformat:2 }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ m.quantite_apres|floatformat:2 }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:32px 20px;color:var(--text-muted);font-size:13px;">
+          Aucun mouvement de stock enregistré.
+        </div>
+        {% endif %}
+      </div>
+
     </div>
   </div>
 </div>
@@ -162,12 +220,44 @@
 
 {% block extra_css %}
 <style>
-</style>
-{% endblock %}
+  .page-body { padding:28px 32px; }
+  @media (max-width:768px) { .page-body { padding:20px 16px; } }
 
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-});
-</script>
+  .card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden; }
+  .card-header-row { padding:16px 20px 12px;border-bottom:1px solid var(--border); }
+  .section-eyebrow { font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted); }
+  .mb-3 { margin-bottom:14px!important; }
+
+  .info-row { display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border); }
+  .info-row:last-child { border-bottom:none; }
+  .info-label { font-size:12px;font-weight:500;color:var(--text-muted);letter-spacing:.02em; }
+  .info-val { font-size:13px;color:var(--text-secondary); }
+
+  .table-wrapper { overflow-x:auto; }
+  .data-table { width:100%;border-collapse:collapse; }
+  .data-table thead th {
+    font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+    color:var(--text-muted);padding:11px 14px;border-bottom:1px solid var(--border);
+    white-space:nowrap;background:var(--bg-surface);
+  }
+  .data-table tbody tr {
+    border-bottom:1px solid var(--border);
+    animation:fadeIn .3s ease both;animation-delay:calc(var(--row-i,0)*35ms);
+    transition:background .12s;
+  }
+  .data-table tbody tr:last-child { border-bottom:none; }
+  .data-table tbody tr:hover { background:var(--bg-hover); }
+  .data-table td { padding:11px 14px;font-size:13px;color:var(--text-secondary);vertical-align:middle; }
+
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s,transform .12s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s,border-color .12s,color .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+
+  .pill-success { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(34,197,94,.14);color:#15803d; }
+  .pill-warning { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(245,158,11,.14);color:#b45309; }
+  .pill-info    { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(56,189,248,.12);color:#0284c7; }
+  .pill-danger  { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(239,68,68,.10);color:#dc2626; }
+  .pill-neutral { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(0,0,0,.06);color:var(--text-secondary); }
+</style>
 {% endblock %}

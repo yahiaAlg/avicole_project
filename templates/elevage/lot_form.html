@@ -2,290 +2,300 @@
 {% load static %}
 
 {% block title %}{{ title }} — Élevage Avicole{% endblock %}
+
 {% block nav_lots %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{% if lot %}{{ lot.designation }} · Modification des informations de base{% else %}Ouverture d'un nouveau lot d'élevage{% endif %}{% endblock %}
+{% block page_sub_text %}{% if lot %}Lot créé le {{ lot.date_ouverture|date:"d/m/Y" }} · {{ lot.batiment.nom }}{% else %}Renseigner les informations du nouveau lot{% endif %}{% endblock %}
 
 {% block topbar_actions %}
-<a href="{% if lot %}{% url 'elevage:lot_detail' lot.pk %}{% else %}{% url 'elevage:lot_list' %}{% endif %}" class="btn-ghost">
-  <i class="bx bx-arrow-back"></i> Retour
-</a>
-<button type="submit" form="lot-form" class="btn-primary">
-  <i class="bx bxs-save"></i> {{ action_label }}
-</button>
+  <a href="{% if lot %}{% url 'elevage:lot_detail' lot.pk %}{% else %}{% url 'elevage:lot_list' %}{% endif %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Retour
+  </a>
 {% endblock %}
 
 {% block content %}
 <div class="page-body">
+  <div class="row justify-content-center">
+    <div class="col-xl-7 col-lg-9">
 
-  {% if lot and lot.statut == lot.STATUT_FERME %}
-  <div class="locked-lot-banner">
-    <i class="bx bxs-lock"></i>
-    <span style="font-size:13px;color:var(--text-secondary);">
-      Ce lot est <strong style="color:#b45309;">fermé</strong> — aucune modification n'est possible.
-    </span>
-  </div>
-  {% endif %}
-
-  <form id="lot-form" method="post" action="" novalidate>
-    {% csrf_token %}
-
-    <div class="row g-3">
-      <div class="col-xl-8">
-        <div class="form-card">
-          <div class="form-card__header">
-            <div class="form-card__icon ic-green"><i class="bx bxs-grid-alt"></i></div>
-            <div>
-              <div class="form-card__title">Informations du lot</div>
-              <div class="form-card__sub">Désignation, date, effectif initial et localisation</div>
-            </div>
-          </div>
-
-          <div class="form-grid">
-            <!-- Désignation -->
-            <div class="field-group field-group--full">
-              <label class="field-label" for="{{ form.designation.id_for_label }}">Désignation du lot <span class="req">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bxs-grid-alt input-icon"></i>
-                {{ form.designation }}
-              </div>
-              {% for err in form.designation.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
-
-            <!-- Date d'ouverture -->
-            <div class="field-group">
-              <label class="field-label" for="{{ form.date_ouverture.id_for_label }}">Date d'ouverture <span class="req">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bxs-calendar input-icon"></i>
-                {{ form.date_ouverture }}
-              </div>
-              {% for err in form.date_ouverture.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
-
-            <!-- Nombre de poussins -->
-            <div class="field-group">
-              <label class="field-label" for="{{ form.nombre_poussins_initial.id_for_label }}">Nombre de poussins initial <span class="req">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bxs-heart input-icon"></i>
-                {{ form.nombre_poussins_initial }}
-              </div>
-              {% for err in form.nombre_poussins_initial.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
-
-            <!-- Fournisseur poussins -->
-            <div class="field-group">
-              <label class="field-label" for="{{ form.fournisseur_poussins.id_for_label }}">Fournisseur des poussins <span class="req">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bxs-building input-icon"></i>
-                {{ form.fournisseur_poussins }}
-              </div>
-              {% for err in form.fournisseur_poussins.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
-
-            <!-- BL Fournisseur (poussins) -->
-            <div class="field-group">
-              <label class="field-label" for="{{ form.bl_fournisseur_poussins.id_for_label }}">BL Fournisseur (poussins)</label>
-              <div class="input-wrapper">
-                <i class="bx bxs-truck input-icon"></i>
-                {{ form.bl_fournisseur_poussins }}
-              </div>
-              <div class="field-hint">Optionnel — lie le lot à un BL de réception.</div>
-              {% for err in form.bl_fournisseur_poussins.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
-
-            <!-- Bâtiment -->
-            <div class="field-group">
-              <label class="field-label" for="{{ form.batiment.id_for_label }}">Bâtiment <span class="req">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bxs-home input-icon"></i>
-                {{ form.batiment }}
-              </div>
-              {% for err in form.batiment.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
-
-            <!-- Souche -->
-            <div class="field-group">
-              <label class="field-label" for="{{ form.souche.id_for_label }}">Souche (race)</label>
-              <div class="input-wrapper">
-                <i class="bx bxs-dna input-icon"></i>
-                {{ form.souche }}
-              </div>
-              <div class="field-hint">Ex : Ross 308, Cobb 500</div>
-              {% for err in form.souche.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
-
-            <!-- Notes -->
-            <div class="field-group field-group--full">
-              <label class="field-label" for="{{ form.notes.id_for_label }}">Notes</label>
-              {{ form.notes }}
-              {% for err in form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
+      <div class="form-card">
+        <div class="form-card__header">
+          <div class="form-card__icon ic-green"><i class="bx bxs-grid-alt"></i></div>
+          <div>
+            <div class="form-card__title">{{ title }}</div>
+            <div class="form-card__sub">Informations du lot d'élevage</div>
           </div>
         </div>
-      </div>
 
-      <!-- Side column -->
-      <div class="col-xl-4">
-        <div class="form-card" style="animation-delay:.05s;">
-          <div class="form-card__header">
-            <div class="form-card__icon ic-amber"><i class="bx bxs-info-circle"></i></div>
+        <form method="post" novalidate>
+          {% csrf_token %}
+
+          {% if form.non_field_errors %}
+          <div class="form-errors-global">
+            <i class="bx bxs-error-circle"></i>
             <div>
-              <div class="form-card__title">Récapitulatif</div>
-              <div class="form-card__sub">Vérification avant enregistrement</div>
+              {% for err in form.non_field_errors %}
+              <div>{{ err }}</div>
+              {% endfor %}
             </div>
           </div>
-          <div class="form-fields">
-            <div class="summary-row">
-              <span class="summary-label">Statut</span>
-              <span class="summary-value">{% if lot %}{{ lot.get_statut_display }}{% else %}Ouvert (par défaut){% endif %}</span>
+          {% endif %}
+
+          <!-- Désignation -->
+          <div class="form-group">
+            <label class="form-label" for="{{ form.designation.id_for_label }}">
+              Désignation du lot <span class="required-star">*</span>
+            </label>
+            <div class="input-wrap">
+              <i class="bx bxs-grid-alt input-icon"></i>
+              {{ form.designation }}
             </div>
-            {% if lot %}
-            <div class="summary-row">
-              <span class="summary-label">Effectif vivant</span>
-              <span class="summary-value val-money">{{ lot.effectif_vivant|floatformat:0 }}</span>
-            </div>
-            <div class="summary-row">
-              <span class="summary-label">Mortalité cumulée</span>
-              <span class="summary-value">{{ lot.total_mortalite|floatformat:0 }}</span>
-            </div>
-            <div class="summary-row">
-              <span class="summary-label">Durée d'élevage</span>
-              <span class="summary-value">{{ lot.duree_elevage }} jours</span>
-            </div>
+            {% if form.designation.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.designation.errors|join:", " }}</div>
             {% endif %}
           </div>
-        </div>
 
-        <!-- Non-field errors -->
-        {% if form.non_field_errors %}
-        <div class="error-banner" style="margin-top:14px;">
-          <i class="bx bxs-error-circle"></i>
-          <div>{% for err in form.non_field_errors %}<div>{{ err }}</div>{% endfor %}</div>
-        </div>
-        {% endif %}
+          <div class="row g-3">
+            <!-- Date ouverture -->
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.date_ouverture.id_for_label }}">
+                  Date d'ouverture <span class="required-star">*</span>
+                </label>
+                <div class="input-wrap">
+                  <i class="bx bxs-calendar input-icon"></i>
+                  {{ form.date_ouverture }}
+                </div>
+                {% if form.date_ouverture.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.date_ouverture.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+            </div>
+            <!-- Bâtiment -->
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.batiment.id_for_label }}">
+                  Bâtiment <span class="required-star">*</span>
+                </label>
+                <div class="input-wrap">
+                  <i class="bx bxs-buildings input-icon"></i>
+                  {{ form.batiment }}
+                </div>
+                {% if form.batiment.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.batiment.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
 
-        <!-- Mobile submit -->
-        <div class="form-actions-mobile" style="margin-top:14px;">
-          <button type="submit" class="btn-primary" style="width:100%;justify-content:center;">
-            <i class="bx bxs-save"></i> {{ action_label }}
-          </button>
-        </div>
+          <div class="row g-3">
+            <!-- Nombre poussins -->
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.nombre_poussins_initial.id_for_label }}">
+                  Nombre de poussins initial <span class="required-star">*</span>
+                </label>
+                <div class="input-wrap">
+                  <i class="bx bxs-user-voice input-icon"></i>
+                  {{ form.nombre_poussins_initial }}
+                </div>
+                {% if form.nombre_poussins_initial.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.nombre_poussins_initial.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+            </div>
+            <!-- Souche -->
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.souche.id_for_label }}">Souche (race)</label>
+                <div class="input-wrap">
+                  <i class="bx bx-dna input-icon"></i>
+                  {{ form.souche }}
+                </div>
+                {% if form.souche.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.souche.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <!-- Fournisseur poussins -->
+          <div class="form-group">
+            <label class="form-label" for="{{ form.fournisseur_poussins.id_for_label }}">
+              Fournisseur des poussins <span class="required-star">*</span>
+            </label>
+            <div class="input-wrap">
+              <i class="bx bxs-building input-icon"></i>
+              {{ form.fournisseur_poussins }}
+            </div>
+            {% if form.fournisseur_poussins.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.fournisseur_poussins.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <!-- BL fournisseur poussins -->
+          <div class="form-group">
+            <label class="form-label" for="{{ form.bl_fournisseur_poussins.id_for_label }}">
+              BL Fournisseur (poussins) <span style="font-size:11px;color:var(--text-muted);font-weight:400;">— optionnel</span>
+            </label>
+            <div class="input-wrap">
+              <i class="bx bxs-truck input-icon"></i>
+              {{ form.bl_fournisseur_poussins }}
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Sélectionnez le BL de réception des poussins si disponible (statut Reçu ou Facturé).</div>
+            {% if form.bl_fournisseur_poussins.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.bl_fournisseur_poussins.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Notes -->
+          <div class="form-group">
+            <label class="form-label" for="{{ form.notes.id_for_label }}">Notes</label>
+            <div class="input-wrap input-wrap--textarea">
+              <i class="bx bx-note input-icon" style="top:14px;transform:none;"></i>
+              {{ form.notes }}
+            </div>
+            {% if form.notes.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.notes.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <div class="form-actions">
+            <a href="{% if lot %}{% url 'elevage:lot_detail' lot.pk %}{% else %}{% url 'elevage:lot_list' %}{% endif %}" class="btn-ghost">
+              Annuler
+            </a>
+            <button type="submit" class="btn-primary">
+              <i class="bx bxs-save"></i> {{ action_label }}
+            </button>
+          </div>
+        </form>
       </div>
-    </div>
-  </form>
 
+    </div>
+  </div>
 </div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.form-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 22px 24px;
-  animation: fadeIn .3s ease both;
-}
-.form-card__header {
-  display: flex; align-items: center; gap: 14px;
-  margin-bottom: 20px; padding-bottom: 16px;
-  border-bottom: 1px solid var(--border);
-}
-.form-card__icon {
-  width: 40px; height: 40px; border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px; flex-shrink: 0;
-}
-.form-card__title {
-  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
-  color: var(--text-primary); margin-bottom: 2px;
-}
-.form-card__sub { font-size: 12px; color: var(--text-muted); }
+  .form-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 28px 30px;
+    animation: fadeIn .3s ease;
+  }
+  .form-card__header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .form-card__icon {
+    width: 44px; height: 44px;
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .ic-green { background: rgba(34,197,94,.14); color: var(--accent-text); }
+  .form-card__title {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800; font-size: 17px;
+    color: var(--text-primary);
+  }
+  .form-card__sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-@media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
-.field-group--full { grid-column: 1 / -1; }
-.form-fields { display: flex; flex-direction: column; gap: 12px; }
+  .form-group { margin-bottom: 18px; }
+  .form-label {
+    display: block;
+    font-size: 12px; font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: .03em;
+    margin-bottom: 6px;
+  }
+  .required-star { color: #dc2626; }
 
-.field-group { display: flex; flex-direction: column; gap: 6px; }
-.field-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .03em; }
-.req { color: #dc2626; }
+  .input-wrap { position: relative; }
+  .input-icon {
+    position: absolute;
+    left: 13px; top: 50%; transform: translateY(-50%);
+    color: var(--text-muted); font-size: 15px;
+    pointer-events: none;
+    transition: color .15s;
+  }
+  .input-wrap input,
+  .input-wrap select,
+  .input-wrap textarea {
+    width: 100%;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    padding: 11px 13px 11px 40px;
+    transition: border-color .15s, box-shadow .15s;
+    appearance: none; -webkit-appearance: none;
+  }
+  .input-wrap textarea { padding-top: 12px; resize: vertical; min-height: 72px; }
+  .input-wrap input:focus,
+  .input-wrap select:focus,
+  .input-wrap textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(34,197,94,.15);
+    outline: none;
+  }
+  .input-wrap input:focus ~ .input-icon,
+  .input-wrap select:focus ~ .input-icon { color: var(--accent-text); }
+  .input-wrap--textarea .input-icon { top: 14px; transform: none; }
 
-.input-wrapper { position: relative; }
-.input-wrapper input,
-.input-wrapper select {
-  width: 100%; background: var(--bg-surface);
-  border: 1px solid var(--border); border-radius: var(--radius-md);
-  color: var(--text-primary); font-family: 'Inter', sans-serif;
-  font-size: 13.5px; padding: 11px 13px 11px 40px;
-  transition: border-color .15s, box-shadow .15s; -webkit-appearance: none;
-}
-.input-wrapper input:focus,
-.input-wrapper select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none;
-}
-.input-wrapper input::placeholder { color: var(--text-muted); }
-.input-icon {
-  position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
-  font-size: 15px; color: var(--text-muted); pointer-events: none;
-  transition: color .15s; z-index: 1;
-}
-.input-wrapper:focus-within .input-icon { color: var(--accent-text); }
+  .field-error {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 12px; color: #dc2626; margin-top: 5px;
+  }
+  .form-errors-global {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: rgba(239,68,68,.07);
+    border: 1px solid rgba(239,68,68,.2);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    font-size: 13px; color: #dc2626;
+  }
 
-textarea {
-  width: 100%; background: var(--bg-surface);
-  border: 1px solid var(--border); border-radius: var(--radius-md);
-  color: var(--text-primary); font-family: 'Inter', sans-serif;
-  font-size: 13.5px; padding: 11px 13px;
-  resize: vertical; min-height: 70px;
-  transition: border-color .15s, box-shadow .15s;
-}
-textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none;
-}
-
-.field-hint { font-size: 11.5px; color: var(--text-muted); line-height: 1.5; }
-.field-error {
-  display: flex; align-items: center; gap: 5px;
-  font-size: 12px; color: #dc2626;
-}
-.field-error i { font-size: 13px; flex-shrink: 0; }
-
-.summary-row {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 8px 0; border-bottom: 1px solid var(--border);
-}
-.summary-row:last-child { border-bottom: none; }
-.summary-label { font-size: 12.5px; color: var(--text-muted); }
-.summary-value {
-  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px;
-  color: var(--text-primary);
-}
-
-.error-banner {
-  display: flex; align-items: flex-start; gap: 10px;
-  background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2);
-  border-radius: var(--radius-md); padding: 12px 16px;
-  font-size: 13px; color: #dc2626;
-}
-.error-banner i { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
-
-.form-actions-mobile { display: none; }
-@media (max-width: 1024px) { .form-actions-mobile { display: block; } }
+  .form-actions {
+    display: flex; gap: 10px; justify-content: flex-end;
+    margin-top: 28px; padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+  .btn-primary {
+    background: var(--accent); color: #fff;
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px;
+    border: none; border-radius: var(--radius-md); padding: 10px 20px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: opacity .18s, transform .12s; text-decoration: none;
+  }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+    font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px;
+    border-radius: var(--radius-md); padding: 9px 16px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s, border-color .12s, color .12s; text-decoration: none;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  /* No inline handlers — form submits normally via POST */
+  /* Focus the first focusable input */
+  const first = document.querySelector('.input-wrap input, .input-wrap select');
+  if (first) first.focus();
 });
 </script>
 {% endblock %}
