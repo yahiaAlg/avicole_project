@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block nav_clients %}active{% endblock %}
+
+{% block page_title %}
+  <div style="display:flex;align-items:center;gap:14px;">
+    <div class="doc-icon ic-purple"><i class="bx bxs-credit-card"></i></div>
+    <div>
+      Paiement #{{ paiement.pk }}
+      <div style="font-size:13px;font-weight:400;color:var(--text-muted);">
+        {{ paiement.client.nom }} · {{ paiement.date_paiement|date:"d/m/Y" }}
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block page_sub_text %}
+  {{ paiement.get_mode_paiement_display }} · {{ paiement.montant|floatformat:0 }} DZD
+  {% if paiement.montant_non_alloue > 0 %}· Non alloué : <span style="color:#b45309;">{{ paiement.montant_non_alloue|floatformat:0 }} DZD</span>{% endif %}
+{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'clients:paiement_client_print' paiement.pk %}" class="btn-primary" target="_blank">
+    <i class="bx bxs-printer"></i> Imprimer
+  </a>
+{% endblock %}
+
+{% block content %}
+
+<div class="detail-layout">
+
+  {# ── Left column: Allocations ───────────────────────────────────────── #}
+  <div class="detail-main">
+
+    {# Allocations table #}
+    <div class="section-card">
+      <div class="section-card__head">
+        <span class="section-card__title">
+          <i class="bx bxs-receipt" style="color:var(--accent);margin-right:8px;"></i>Imputations sur factures
+        </span>
+        {% if allocations %}
+        <span class="pill-base pill-success">{{ allocations|length }}</span>
+        {% endif %}
+      </div>
+      <div class="section-card__body no-pad">
+        {% if allocations %}
+        <div style="overflow-x:auto;">
+          <table class="table-base">
+            <thead>
+              <tr>
+                <th>Facture</th>
+                <th>Date facture</th>
+                <th style="text-align:right;">Reste dû avant</th>
+                <th style="text-align:right;">Montant imputé</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for alloc in allocations %}
+              <tr class="stagger-row">
+                <td>
+                  <a href="{% url 'clients:facture_client_detail' alloc.facture.pk %}" class="text-mono" style="font-weight:600;">
+                    {{ alloc.facture.reference }}
+                  </a>
+                </td>
+                <td style="color:var(--text-muted);white-space:nowrap;">{{ alloc.facture.date_facture|date:"d/m/Y" }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;">
+                  {{ alloc.facture.reste_a_payer|add:alloc.montant|floatformat:0 }} DZD
+                </td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">
+                  {{ alloc.montant|floatformat:0 }} DZD
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <i class="bx bxs-receipt empty-state__icon"></i>
+          <div class="empty-state__title">Aucune imputation</div>
+          <div class="empty-state__text">
+            Ce paiement n'a pas été imputé sur des factures.
+            <br>Montant non alloué : <strong>{{ paiement.montant_non_alloue|floatformat:0 }} DZD</strong>.
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Notes #}
+    {% if paiement.notes %}
+    <div class="section-card" style="animation-delay:.05s;">
+      <div class="section-card__head">
+        <span class="section-card__title">
+          <i class="bx bxs-note" style="color:var(--text-muted);margin-right:8px;"></i>Notes
+        </span>
+      </div>
+      <div class="section-card__body">
+        <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">{{ paiement.notes|linebreaks }}</div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  {# ── Right column: Summary ──────────────────────────────────────────── #}
+  <div class="detail-side">
+
+    {# Summary card #}
+    <div class="summary-card">
+      <div class="summary-card__title">Récapitulatif</div>
+      <div class="totals-block">
+        <div class="totals-row">
+          <span class="totals-row__label">Montant du paiement</span>
+          <span class="totals-row__value" style="color:#15803d;">{{ paiement.montant|floatformat:0 }} DZD</span>
+        </div>
+        {% if allocations %}
+        <div class="totals-row">
+          <span class="totals-row__label">Total alloué</span>
+          <span class="totals-row__value">{{ total_alloue|floatformat:0 }} DZD</span>
+        </div>
+        {% endif %}
+        {% if paiement.montant_non_alloue > 0 %}
+        <div class="totals-row">
+          <span class="totals-row__label">Non alloué</span>
+          <span class="totals-row__value" style="color:#b45309;">{{ paiement.montant_non_alloue|floatformat:0 }} DZD</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+        <div class="info-row">
+          <span class="info-row__label">Client</span>
+          <a href="{% url 'clients:client_detail' paiement.client.pk %}" class="info-row__value">{{ paiement.client.nom }}</a>
+        </div>
+        <div class="info-row">
+          <span class="info-row__label">Date</span>
+          <span class="info-row__value">{{ paiement.date_paiement|date:"d/m/Y" }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-row__label">Mode</span>
+          <span class="info-row__value">{{ paiement.get_mode_paiement_display }}</span>
+        </div>
+        {% if paiement.reference_paiement %}
+        <div class="info-row">
+          <span class="info-row__label">Référence</span>
+          <span class="info-row__value text-mono">{{ paiement.reference_paiement }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Quick actions #}
+    <div class="form-card" style="animation-delay:.05s;">
+      <div class="form-card__title" style="margin-bottom:12px;">Actions rapides</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <a href="{% url 'clients:paiement_client_print' paiement.pk %}" class="btn-primary btn-sm" target="_blank" style="justify-content:flex-start;">
+          <i class="bx bxs-printer"></i> Imprimer le reçu
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Layout ───────────────────────────────────────────────────────────── */
+.detail-layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 1024px) {
+  .detail-layout { grid-template-columns: 1fr; }
+}
+.detail-main { display: flex; flex-direction: column; gap: 18px; }
+.detail-side { display: flex; flex-direction: column; gap: 16px; }
+
+/* ── Doc icon ─────────────────────────────────────────────────────────── */
+.doc-icon {
+  width: 44px; height: 44px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.doc-icon.ic-purple { background: rgba(167,139,250,.14); color: #7c3aed; }
+
+/* ── Summary card ─────────────────────────────────────────────────────── */
+.summary-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  animation: fadeIn .3s ease both;
+}
+.summary-card__title {
+  font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px;
+  color: var(--text-primary); margin-bottom: 16px; padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Totals ───────────────────────────────────────────────────────────── */
+.totals-block { display: flex; flex-direction: column; gap: 10px; }
+.totals-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.totals-row:last-child { border-bottom: none; }
+.totals-row__label { font-size: 13px; color: var(--text-secondary); }
+.totals-row__value {
+  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
+  color: var(--text-primary);
+}
+
+/* ── Info rows ────────────────────────────────────────────────────────── */
+.info-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0;
+}
+.info-row__label { font-size: 12px; color: var(--text-muted); }
+.info-row__value { font-size: 12.5px; font-weight: 500; color: var(--text-primary); text-decoration: none; }
+
+/* ── Form card ────────────────────────────────────────────────────────── */
+.form-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  animation: fadeIn .3s ease both;
+}
+.form-card__title {
+  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
+  color: var(--text-primary);
+}
+</style>
+{% endblock %}

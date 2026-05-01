@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block nav_clients %}active{% endblock %}
+
+{% block page_title %}
+  <div style="display:flex;align-items:center;gap:14px;">
+    <div class="doc-icon ic-green"><i class="bx bxs-receipt"></i></div>
+    <div>
+      {{ facture.reference }}
+      <div style="font-size:13px;font-weight:400;color:var(--text-muted);">
+        {{ facture.client.nom }} · {{ facture.date_facture|date:"d/m/Y" }}
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block page_sub_text %}
+  {% if facture.statut == 'payee' %}
+  <span class="pill-base pill-success">Payée</span>
+  {% elif facture.est_en_retard %}
+  <span class="pill-base pill-danger">{{ facture.jours_retard }}j de retard</span>
+  {% elif facture.reste_a_payer == 0 %}
+  <span class="pill-base pill-info">Équilibrée</span>
+  {% else %}
+  <span class="pill-base pill-warning">Non payée</span>
+  {% endif %}
+  · Échéance : {% if facture.date_echeance %}{{ facture.date_echeance|date:"d/m/Y" }}{% else %}—{% endif %}
+  · Reste dû : <strong style="{% if facture.reste_a_payer > 0 %}color:#dc2626;{% else %}color:#15803d;{% endif %}">{{ facture.reste_a_payer|floatformat:0 }} DZD</strong>
+{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'clients:facture_client_print' facture.pk %}" class="btn-primary" target="_blank">
+    <i class="bx bxs-printer"></i> Imprimer
+  </a>
+  {% if not request.user.profile.role == 'viewer' and facture.reste_a_payer > 0 %}
+  <a href="{% url 'clients:paiement_client_create_for_invoice' facture.pk %}" class="btn-ghost">
+    <i class="bx bxs-credit-card"></i> Paiement
+  </a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+
+<div class="detail-layout">
+
+  {# ── Left column: BL Lines + Paiements ──────────────────────────────── #}
+  <div class="detail-main">
+
+    {# BLs facturés #}
+    <div class="section-card">
+      <div class="section-card__head">
+        <span class="section-card__title">
+          <i class="bx bx-link-external" style="color:var(--text-muted);margin-right:8px;"></i>BLs facturés
+        </span>
+        <span class="pill-base pill-neutral">{{ bls_factures|length }}</span>
+      </div>
+      <div class="section-card__body no-pad">
+        {% if bls_factures %}
+        <div style="overflow-x:auto;">
+          <table class="table-base">
+            <thead>
+              <tr>
+                <th>Référence</th>
+                <th>Date</th>
+                <th style="text-align:right;">Total TTC</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for bl in bls_factures %}
+              <tr class="stagger-row">
+                <td>
+                  <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="text-mono" style="font-weight:600;">{{ bl.reference }}</a>
+                </td>
+                <td style="color:var(--text-muted);white-space:nowrap;">{{ bl.date_bl|date:"d/m/Y" }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ bl.montant_total|floatformat:0 }} DZD</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <i class="bx bx-link-external empty-state__icon"></i>
+          <div class="empty-state__title">Aucun BL lié</div>
+          <div class="empty-state__text">Cette facture n'est liée à aucun BL.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Paiements liés #}
+    <div class="section-card" style="animation-delay:.05s;">
+      <div class="section-card__head">
+        <span class="section-card__title">
+          <i class="bx bxs-credit-card" style="color:var(--accent);margin-right:8px;"></i>Paiements
+        </span>
+        {% if allocations %}
+        <span class="pill-base pill-success">{{ allocations|length }}</span>
+        {% endif %}
+      </div>
+      <div class="section-card__body no-pad">
+        {% if allocations %}
+        <div style="overflow-x:auto;">
+          <table class="table-base">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Mode</th>
+                <th style="text-align:right;">Montant imputé</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for alloc in allocations %}
+              <tr class="stagger-row">
+                <td style="color:var(--text-muted);white-space:nowrap;">{{ alloc.paiement.date_paiement|date:"d/m/Y" }}</td>
+                <td>{{ alloc.paiement.get_mode_paiement_display }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">{{ alloc.montant|floatformat:0 }} DZD</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <i class="bx bxs-credit-card empty-state__icon"></i>
+          <div class="empty-state__title">Aucun paiement</div>
+          <div class="empty-state__text">Cette facture n'a pas encore été payée.</div>
+          {% if not request.user.profile.role == 'viewer' %}
+          <a href="{% url 'clients:paiement_client_create_for_invoice' facture.pk %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
+            <i class="bx bxs-credit-card"></i> Saisir un paiement
+          </a>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Notes #}
+    {% if facture.notes %}
+    <div class="section-card" style="animation-delay:.1s;">
+      <div class="section-card__head">
+        <span class="section-card__title">
+          <i class="bx bxs-note" style="color:var(--text-muted);margin-right:8px;"></i>Notes
+        </span>
+      </div>
+      <div class="section-card__body">
+        <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">{{ facture.notes|linebreaks }}</div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  {# ── Right column: Summary ──────────────────────────────────────────── #}
+  <div class="detail-side">
+
+    {# Summary card #}
+    <div class="summary-card">
+      <div class="summary-card__title">Récapitulatif</div>
+      <div class="totals-block">
+        <div class="totals-row">
+          <span class="totals-row__label">Total HT</span>
+          <span class="totals-row__value">{{ facture.total_ht|floatformat:0 }} DZD</span>
+        </div>
+        <div class="totals-row">
+          <span class="totals-row__label">TVA</span>
+          <span class="totals-row__value">{{ facture.total_tva|floatformat:0 }} DZD</span>
+        </div>
+        <div class="totals-row totals-row--grand">
+          <span class="totals-row__label">Total TTC</span>
+          <span class="totals-row__value">{{ facture.montant_ttc|floatformat:0 }} DZD</span>
+        </div>
+        <div class="totals-row" style="padding-top:8px;margin-top:4px;border-top:1px solid var(--border);">
+          <span class="totals-row__label">Total payé</span>
+          <span class="totals-row__value" style="color:#15803d;">{{ facture.total_paye|floatformat:0 }} DZD</span>
+        </div>
+        <div class="totals-row">
+          <span class="totals-row__label">Reste dû</span>
+          <span class="totals-row__value" style="{% if facture.reste_a_payer > 0 %}color:#dc2626;{% else %}color:#15803d;{% endif %}">
+            {{ facture.reste_a_payer|floatformat:0 }} DZD
+          </span>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+        <div class="info-row">
+          <span class="info-row__label">Client</span>
+          <a href="{% url 'clients:client_detail' facture.client.pk %}" class="info-row__value">{{ facture.client.nom }}</a>
+        </div>
+        <div class="info-row">
+          <span class="info-row__label">Date facture</span>
+          <span class="info-row__value">{{ facture.date_facture|date:"d/m/Y" }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-row__label">Échéance</span>
+          <span class="info-row__value">{% if facture.date_echeance %}{{ facture.date_echeance|date:"d/m/Y" }}{% else %}—{% endif %}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-row__label">Statut</span>
+          <span class="info-row__value">
+            {% if facture.statut == 'payee' %}
+            <span class="pill-base pill-success">Payée</span>
+            {% elif facture.est_en_retard %}
+            <span class="pill-base pill-danger">Retard</span>
+            {% elif facture.reste_a_payer == 0 %}
+            <span class="pill-base pill-info">Équilibrée</span>
+            {% else %}
+            <span class="pill-base pill-warning">Non payée</span>
+            {% endif %}
+          </span>
+        </div>
+        {% if facture.est_en_retard %}
+        <div class="info-row">
+          <span class="info-row__label">Jours de retard</span>
+          <span class="info-row__value" style="color:#dc2626;font-weight:700;">{{ facture.jours_retard }} jours</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Quick actions #}
+    <div class="form-card" style="animation-delay:.05s;">
+      <div class="form-card__title" style="margin-bottom:12px;">Actions rapides</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <a href="{% url 'clients:facture_client_print' facture.pk %}" class="btn-primary btn-sm" target="_blank" style="justify-content:flex-start;">
+          <i class="bx bxs-printer"></i> Imprimer la facture
+        </a>
+        {% if facture.reste_a_payer > 0 %}
+        <a href="{% url 'clients:paiement_client_create_for_invoice' facture.pk %}" class="btn-ghost btn-sm" style="justify-content:flex-start;">
+          <i class="bx bxs-credit-card"></i> Saisir un paiement
+        </a>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Layout ───────────────────────────────────────────────────────────── */
+.detail-layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 1024px) {
+  .detail-layout { grid-template-columns: 1fr; }
+}
+.detail-main { display: flex; flex-direction: column; gap: 18px; }
+.detail-side { display: flex; flex-direction: column; gap: 16px; }
+
+/* ── Doc icon ─────────────────────────────────────────────────────────── */
+.doc-icon {
+  width: 44px; height: 44px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.doc-icon.ic-green { background: rgba(34,197,94,.14); color: #15803d; }
+
+/* ── Summary card ─────────────────────────────────────────────────────── */
+.summary-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  animation: fadeIn .3s ease both;
+}
+.summary-card__title {
+  font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px;
+  color: var(--text-primary); margin-bottom: 16px; padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Totals ───────────────────────────────────────────────────────────── */
+.totals-block { display: flex; flex-direction: column; gap: 10px; }
+.totals-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.totals-row:last-child { border-bottom: none; }
+.totals-row--grand {
+  border-top: 2px solid var(--border);
+  margin-top: 4px; padding-top: 12px;
+}
+.totals-row__label { font-size: 13px; color: var(--text-secondary); }
+.totals-row__value {
+  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
+  color: var(--text-primary);
+}
+.totals-row--grand .totals-row__value { font-size: 16px; color: var(--accent-text); }
+
+/* ── Info rows ────────────────────────────────────────────────────────── */
+.info-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0;
+}
+.info-row__label { font-size: 12px; color: var(--text-muted); }
+.info-row__value { font-size: 12.5px; font-weight: 500; color: var(--text-primary); text-decoration: none; }
+
+/* ── Form card ────────────────────────────────────────────────────────── */
+.form-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  animation: fadeIn .3s ease both;
+}
+.form-card__title {
+  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
+  color: var(--text-primary);
+}
+</style>
+{% endblock %}

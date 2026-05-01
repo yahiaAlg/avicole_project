@@ -1,0 +1,523 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block nav_clients %}active{% endblock %}
+
+{% block page_title %}
+  <div style="display:flex;align-items:center;gap:14px;">
+    <div class="client-avatar-lg">{{ client.nom|first|upper }}</div>
+    <div>
+      {{ client.nom }}
+      <div style="font-size:13px;font-weight:400;color:var(--text-muted);">
+        {{ client.get_type_client_display }}
+        {% if not client.actif %}<span class="pill-base pill-neutral" style="margin-left:8px;">Inactif</span>{% endif %}
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block page_sub_text %}
+  Créance : <strong style="{% if client.depasse_plafond %}color:#dc2626;{% endif %}">{{ client.creance_globale|floatformat:0 }} DZD</strong>
+  {% if client.depasse_plafond %}<i class="bx bxs-error" style="color:#dc2626;"></i>{% endif %}
+  &nbsp;|&nbsp; Plafond : {{ client.plafond_credit|floatformat:0 }} DZD
+{% endblock %}
+
+{% block topbar_actions %}
+{% if not request.user.profile.role == 'viewer' %}
+<a href="{% url 'clients:client_edit' client.pk %}" class="btn-ghost">
+  <i class="bx bxs-pencil"></i> Modifier
+</a>
+<a href="{% url 'clients:bl_client_create_for_client' client.pk %}" class="btn-ghost">
+  <i class="bx bx-link-external"></i> BL
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+{# ── Tab bar ───────────────────────────────────────────────────────────── #}
+<div class="tab-bar" role="tablist">
+  <button class="tab-bar__tab active" data-tab="bls" role="tab" aria-selected="true">BL Clients</button>
+  <button class="tab-bar__tab" data-tab="factures" role="tab" aria-selected="false">Factures</button>
+  <button class="tab-bar__tab" data-tab="paiements" role="tab" aria-selected="false">Paiements</button>
+  <button class="tab-bar__tab" data-tab="aging" role="tab" aria-selected="false">Aging</button>
+  <button class="tab-bar__tab" data-tab="info" role="tab" aria-selected="false">Informations</button>
+</div>
+
+{# ── Tab content containers ────────────────────────────────────────────── #}
+<div class="tab-content" id="tab-bls">
+
+  {# BL Clients tab #}
+  <div class="section-card">
+    <div class="section-card__head">
+      <span class="section-card__title">
+        <i class="bx bx-link-external" style="color:var(--text-muted);margin-right:8px;"></i>BL Clients
+      </span>
+      {% if bls_client %}
+      <span class="pill-base pill-neutral">{{ bls_client|length }}</span>
+      {% endif %}
+    </div>
+    <div class="section-card__body no-pad">
+      {% if bls_client %}
+      <div style="overflow-x:auto;">
+        <table class="table-base">
+          <thead>
+            <tr>
+              <th>Référence</th>
+              <th>Date</th>
+              <th>Statut</th>
+              <th style="text-align:right;">Montant</th>
+              <th style="text-align:right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for bl in bls_client %}
+            <tr class="stagger-row">
+              <td>
+                <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="text-mono" style="font-weight:600;">{{ bl.reference }}</a>
+              </td>
+              <td style="color:var(--text-muted);white-space:nowrap;">{{ bl.date_bl|date:"d/m/Y" }}</td>
+              <td>
+                {% if bl.statut == 'brouillon' %}
+                <span class="pill-base pill-warning">Brouillon</span>
+                {% elif bl.statut == 'livre' %}
+                <span class="pill-base pill-info">Livré</span>
+                {% elif bl.statut == 'facture' %}
+                <span class="pill-base pill-success">Facturé</span>
+                {% else %}
+                <span class="pill-base pill-danger">En Litige</span>
+                {% endif %}
+              </td>
+              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ bl.montant_total|floatformat:0 }} DZD</td>
+              <td style="text-align:right;">
+                <div style="display:flex;justify-content:flex-end;gap:4px;">
+                  <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="action-btn" title="Détail"><i class="bx bx-show"></i></a>
+                  {% if bl.statut == 'livre' or bl.statut == 'facture' %}
+                  <a href="{% url 'clients:bl_client_print' bl.pk %}" class="action-btn" title="Imprimer" target="_blank"><i class="bx bxs-printer"></i></a>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="bx bx-link-external empty-state__icon"></i>
+        <div class="empty-state__title">Aucun BL</div>
+        <div class="empty-state__text">Ce client n'a pas encore de BL enregistré.</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<div class="tab-content hidden" id="tab-factures">
+
+  {# Factures tab #}
+  <div class="section-card">
+    <div class="section-card__head">
+      <span class="section-card__title">
+        <i class="bx bxs-receipt" style="color:var(--text-muted);margin-right:8px;"></i>Factures clients
+      </span>
+      {% if factures_client %}
+      <span class="pill-base pill-neutral">{{ factures_client|length }}</span>
+      {% endif %}
+    </div>
+    <div class="section-card__body no-pad">
+      {% if factures_client %}
+      <div style="overflow-x:auto;">
+        <table class="table-base">
+          <thead>
+            <tr>
+              <th>Référence</th>
+              <th>Date</th>
+              <th>Statut</th>
+              <th style="text-align:right;">Total TTC</th>
+              <th style="text-align:right;">Reste dû</th>
+              <th style="text-align:right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for fac in factures_client %}
+            <tr class="stagger-row">
+              <td>
+                <a href="{% url 'clients:facture_client_detail' fac.pk %}" class="text-mono" style="font-weight:600;">{{ fac.reference }}</a>
+              </td>
+              <td style="color:var(--text-muted);white-space:nowrap;">{{ fac.date_facture|date:"d/m/Y" }}</td>
+              <td>
+                {% if fac.statut == 'payee' %}
+                <span class="pill-base pill-success">Payée</span>
+                {% elif fac.est_en_retard %}
+                <span class="pill-base pill-danger">{{ fac.jours_retard }}j retard</span>
+                {% elif fac.reste_a_payer == 0 %}
+                <span class="pill-base pill-info">Équilibrée</span>
+                {% else %}
+                <span class="pill-base pill-warning">Non payée</span>
+                {% endif %}
+              </td>
+              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ fac.montant_ttc|floatformat:0 }} DZD</td>
+              <td style="text-align:right;">
+                {% if fac.reste_a_payer > 0 %}
+                <span style="color:#dc2626;font-family:'Nunito',sans-serif;font-weight:700;">{{ fac.reste_a_payer|floatformat:0 }} DZD</span>
+                {% else %}
+                <span style="color:#15803d;font-family:'Nunito',sans-serif;font-weight:700;">—</span>
+                {% endif %}
+              </td>
+              <td style="text-align:right;">
+                <div style="display:flex;justify-content:flex-end;gap:4px;">
+                  <a href="{% url 'clients:facture_client_detail' fac.pk %}" class="action-btn" title="Détail"><i class="bx bx-show"></i></a>
+                  <a href="{% url 'clients:facture_client_print' fac.pk %}" class="action-btn" title="Imprimer" target="_blank"><i class="bx bxs-printer"></i></a>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="bx bxs-receipt empty-state__icon"></i>
+        <div class="empty-state__title">Aucune facture</div>
+        <div class="empty-state__text">Ce client n'a pas encore de facture émise.</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<div class="tab-content hidden" id="tab-paiements">
+
+  {# Paiements tab #}
+  <div class="section-card">
+    <div class="section-card__head">
+      <span class="section-card__title">
+        <i class="bx bxs-credit-card" style="color:var(--text-muted);margin-right:8px;"></i>Paiements
+      </span>
+      {% if paiements_client %}
+      <span class="pill-base pill-neutral">{{ paiements_client|length }}</span>
+      {% endif %}
+    </div>
+    <div class="section-card__body no-pad">
+      {% if paiements_client %}
+      <div style="overflow-x:auto;">
+        <table class="table-base">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Mode</th>
+              <th style="text-align:right;">Montant</th>
+              <th style="text-align:right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in paiements_client %}
+            <tr class="stagger-row">
+              <td style="color:var(--text-muted);white-space:nowrap;">{{ p.date_paiement|date:"d/m/Y" }}</td>
+              <td>{{ p.get_mode_paiement_display }}</td>
+              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">{{ p.montant|floatformat:0 }} DZD</td>
+              <td style="text-align:right;">
+                <div style="display:flex;justify-content:flex-end;gap:4px;">
+                  <a href="{% url 'clients:paiement_client_detail' p.pk %}" class="action-btn" title="Détail"><i class="bx bx-show"></i></a>
+                  <a href="{% url 'clients:paiement_client_print' p.pk %}" class="action-btn" title="Imprimer" target="_blank"><i class="bx bxs-printer"></i></a>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="bx bxs-credit-card empty-state__icon"></i>
+        <div class="empty-state__title">Aucun paiement</div>
+        <div class="empty-state__text">Ce client n'a pas encore de paiement enregistré.</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<div class="tab-content hidden" id="tab-aging">
+
+  {# Aging tab #}
+  <div class="section-card">
+    <div class="section-card__head">
+      <span class="section-card__title">
+        <i class="bx bxs-bar-chart-alt-2" style="color:var(--accent);margin-right:8px;"></i>Grille d'ancienneté
+      </span>
+      <span style="font-size:11px;color:var(--text-muted);">En DZD · Basé sur les échéances</span>
+    </div>
+    <div class="section-card__body">
+      {% if aging_data %}
+      <div class="aging-grid">
+        <div class="aging-bucket aging-current">
+          <div class="aging-bucket__value">{{ aging_data.current|floatformat:0 }}</div>
+          <div class="aging-bucket__label">À jour</div>
+        </div>
+        <div class="aging-bucket aging-1-30">
+          <div class="aging-bucket__value">{{ aging_data.1_30|floatformat:0 }}</div>
+          <div class="aging-bucket__label">1-30 jours</div>
+        </div>
+        <div class="aging-bucket aging-31-60">
+          <div class="aging-bucket__value">{{ aging_data.31_60|floatformat:0 }}</div>
+          <div class="aging-bucket__label">31-60 jours</div>
+        </div>
+        <div class="aging-bucket aging-61-90">
+          <div class="aging-bucket__value">{{ aging_data.61_90|floatformat:0 }}</div>
+          <div class="aging-bucket__label">61-90 jours</div>
+        </div>
+        <div class="aging-bucket aging-90plus">
+          <div class="aging-bucket__value">{{ aging_data.over_90|floatformat:0 }}</div>
+          <div class="aging-bucket__label">+90 jours</div>
+        </div>
+      </div>
+      <div class="aging-total">
+        <span>Total créances</span>
+        <span style="font-family:'Nunito',sans-serif;font-weight:800;">{{ aging_data.total|floatformat:0 }} DZD</span>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="bx bxs-check-circle empty-state__icon" style="color:var(--accent);"></i>
+        <div class="empty-state__title">Aucune créance en cours</div>
+        <div class="empty-state__text">Toutes les factures sont payées.</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<div class="tab-content hidden" id="tab-info">
+
+  {# Informations tab #}
+  <div class="section-card">
+    <div class="section-card__head">
+      <span class="section-card__title">
+        <i class="bx bxs-building" style="color:var(--text-muted);margin-right:8px;"></i>Informations client
+      </span>
+    </div>
+    <div class="section-card__body">
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-item__label">Nom</div>
+          <div class="info-item__value">{{ client.nom }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-item__label">Type</div>
+          <div class="info-item__value">{{ client.get_type_client_display }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-item__label">Contact</div>
+          <div class="info-item__value">{{ client.contact_nom|default:"—" }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-item__label">Téléphone</div>
+          <div class="info-item__value">
+            {% if client.telephone %}{{ client.telephone }}{% else %}—{% endif %}
+          </div>
+        </div>
+        <div class="info-item">
+          <div class="info-item__label">Téléphone 2</div>
+          <div class="info-item__value">{{ client.telephone_2|default:"—" }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-item__label">Email</div>
+          <div class="info-item__value">{{ client.email|default:"—" }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-item__label">Adresse</div>
+          <div class="info-item__value">{{ client.adresse|default:"—" }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-item__label">Wilaya</div>
+          <div class="info-item__value">{{ client.wilaya|default:"—" }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-item__label">NIF</div>
+          <div class="info-item__value">{{ client.nif|default:"—" }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-item__label">RC</div>
+          <div class="info-item__value">{{ client.rc|default:"—" }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-item__label">Plafond de crédit</div>
+          <div class="info-item__value">
+            {% if client.plafond_credit > 0 %}
+            {{ client.plafond_credit|floatformat:0 }} DZD
+            {% if client.depasse_plafond %}<span class="pill-base pill-danger" style="margin-left:8px;">Dépassé</span>{% endif %}
+            {% else %}Sans limite{% endif %}
+          </div>
+        </div>
+        <div class="info-item">
+          <div class="info-item__label">Statut</div>
+          <div class="info-item__value">
+            {% if client.actif %}
+            <span class="pill-base pill-success">Actif</span>
+            {% else %}
+            <span class="pill-base pill-neutral">Inactif</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      {% if client.notes %}
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+        <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:8px;">Notes</div>
+        <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;background:var(--bg-raised);padding:12px 16px;border-radius:var(--radius-md);">{{ client.notes|linebreaks }}</div>
+      </div>
+      {% endif %}
+
+      {% if not request.user.profile.role == 'viewer' %}
+      <div style="margin-top:20px;display:flex;gap:10px;">
+        <form method="post" action="{% url 'clients:client_toggle_active' client.pk %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="btn-ghost">
+            {% if client.actif %}<i class="bx bx-block"></i> Désactiver{% else %}<i class="bx bx-check"></i> Activer{% endif %}
+          </button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+{# ── Tab switching ─────────────────────────────────────────────────────── #}
+document.querySelectorAll('.tab-bar__tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab-bar__tab').forEach(t => {
+      t.classList.remove('active');
+      t.setAttribute('aria-selected', 'false');
+    });
+    tab.classList.add('active');
+    tab.setAttribute('aria-selected', 'true');
+
+    const target = tab.dataset.tab;
+    document.querySelectorAll('.tab-content').forEach(p => {
+      p.classList.toggle('hidden', p.id !== 'tab-' + target);
+    });
+  });
+});
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Client avatar large ──────────────────────────────────────────────── */
+.client-avatar-lg {
+  width: 48px; height: 48px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-dim);
+  color: var(--accent-text);
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800; font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── Tab bar ──────────────────────────────────────────────────────────── */
+.tab-bar {
+  display: flex; gap: 2px;
+  background: var(--bg-raised);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+.tab-bar__tab {
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 18px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px; font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .15s;
+}
+.tab-bar__tab:hover { color: var(--text-primary); background: rgba(34,197,94,.06); }
+.tab-bar__tab.active {
+  background: var(--bg-surface);
+  color: var(--accent-text);
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+.tab-content.hidden { display: none; }
+
+/* ── Aging grid ───────────────────────────────────────────────────────── */
+.aging-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+@media (max-width: 768px) {
+  .aging-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 480px) {
+  .aging-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.aging-bucket {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 12px;
+  text-align: center;
+}
+.aging-bucket__value {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800; font-size: 18px;
+  margin-bottom: 4px;
+}
+.aging-bucket__label { font-size: 11px; color: var(--text-muted); }
+
+.aging-current  { border-color: rgba(34,197,94,.3);  background: var(--success-bg); }
+.aging-current  .aging-bucket__value { color: #15803d; }
+.aging-1-30,
+.aging-31-60    { border-color: rgba(245,158,11,.3); background: rgba(245,158,11,.06); }
+.aging-1-30 .aging-bucket__value,
+.aging-31-60 .aging-bucket__value   { color: #b45309; }
+.aging-61-90,
+.aging-90plus   { border-color: rgba(239,68,68,.3);  background: rgba(239,68,68,.04); }
+.aging-61-90 .aging-bucket__value,
+.aging-90plus .aging-bucket__value  { color: #dc2626; }
+
+.aging-total {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 18px;
+  background: var(--bg-raised);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  font-size: 13.5px; font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* ── Info grid ────────────────────────────────────────────────────────── */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+@media (max-width: 600px) { .info-grid { grid-template-columns: 1fr; } }
+.info-item__label {
+  font-size: 11px; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: .04em;
+  margin-bottom: 4px;
+}
+.info-item__value {
+  font-family: 'Nunito', sans-serif;
+  font-size: 13.5px; font-weight: 700;
+  color: var(--text-primary);
+}
+</style>
+{% endblock %}

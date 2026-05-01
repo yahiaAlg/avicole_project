@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block nav_clients %}active{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} client{{ page.paginator.count|pluralize }} · Filtres actifs : {% if q %}Recherche « {{ q }} »{% else %}Tous{% endif %}{% endblock %}
+
+{% block topbar_actions %}
+{% if not request.user.profile.role == 'viewer' %}
+<a href="{% url 'clients:client_create' %}" class="btn-primary">
+  <i class="bx bx-plus"></i> Nouveau client
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+{# ── Filter bar ────────────────────────────────────────────────────────── #}
+<div class="section-card mb-4">
+  <div class="section-card__body">
+    <form method="get" class="filter-bar" id="filter-form">
+      <div class="input-wrapper" style="flex:1;min-width:200px;">
+        <i class="bx bx-search input-icon"></i>
+        <input type="text" name="q" class="field-input has-icon" placeholder="Rechercher par nom, téléphone, wilaya, contact…" value="{{ q }}">
+      </div>
+
+      <select name="type_client" class="field-input" style="width:160px;" onchange="this.form.submit()">
+        <option value="">Tous les types</option>
+        {% for code, label in type_choices %}
+        <option value="{{ code }}" {% if type_client_filter == code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+
+      <select name="actif" class="field-input" style="width:140px;" onchange="this.form.submit()">
+        <option value="1" {% if actif_param != "0" %}selected{% endif %}>Actifs</option>
+        <option value="0" {% if actif_param == "0" %}selected{% endif %}>Tous (inclus inactifs)</option>
+      </select>
+
+      <button type="submit" class="btn-ghost btn-sm">
+        <i class="bx bx-search"></i> Filtrer
+      </button>
+
+      {% if q or type_client_filter %}
+      <a href="{% url 'clients:client_list' %}" class="btn-danger btn-sm">
+        <i class="bx bx-x"></i> Réinitialiser
+      </a>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+{# ── Client table ──────────────────────────────────────────────────────── #}
+<div class="section-card">
+  <div class="section-card__body no-pad">
+    {% if page.object_list %}
+    <div style="overflow-x:auto;">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>Client</th>
+            <th>Type</th>
+            <th>Contact</th>
+            <th>Wilaya</th>
+            <th style="text-align:right;">Créance</th>
+            <th>Statut</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for client in page.object_list %}
+          <tr class="stagger-row {% if not client.actif %}row-inactive{% endif %}">
+            <td>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div class="client-avatar-sm">
+                  {{ client.nom|first|upper }}
+                </div>
+                <div>
+                  <div style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
+                    <a href="{% url 'clients:client_detail' client.pk %}" style="color:inherit;">{{ client.nom }}</a>
+                  </div>
+                  {% if client.nif %}
+                  <div style="font-size:11px;color:var(--text-muted);" class="text-mono">NIF: {{ client.nif }}</div>
+                  {% endif %}
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="pill-base pill-neutral">{{ client.get_type_client_display }}</span>
+            </td>
+            <td>
+              {% if client.telephone %}
+              <div style="font-size:12.5px;"><i class='bx bxs-phone' style="color:var(--text-muted);margin-right:4px;"></i>{{ client.telephone }}</div>
+              {% endif %}
+              {% if client.contact_nom %}
+              <div style="font-size:11px;color:var(--text-muted);">{{ client.contact_nom }}</div>
+              {% endif %}
+            </td>
+            <td style="color:var(--text-muted);font-size:12.5px;">{{ client.wilaya|default:"—" }}</td>
+            <td style="text-align:right;">
+              <span style="font-family:'Nunito',sans-serif;font-weight:700;{% if client.depasse_plafond %}color:#dc2626;{% endif %}">
+                {{ client.creance_globale|floatformat:0 }} DZD
+              </span>
+              {% if client.depasse_plafond %}
+              <i class="bx bxs-error" style="color:#dc2626;font-size:12px;margin-left:4px;" title="Plafond dépassé"></i>
+              {% endif %}
+            </td>
+            <td>
+              {% if client.actif %}
+              <span class="pill-base pill-success"><i class="bx bxs-check-circle"></i> Actif</span>
+              {% else %}
+              <span class="pill-base pill-neutral"><i class="bx bx-block"></i> Inactif</span>
+              {% endif %}
+            </td>
+            <td style="text-align:right;">
+              <div style="display:flex;justify-content:flex-end;gap:4px;">
+                <a href="{% url 'clients:client_detail' client.pk %}" class="action-btn" title="Détail">
+                  <i class="bx bx-show"></i>
+                </a>
+                {% if not request.user.profile.role == 'viewer' %}
+                <a href="{% url 'clients:client_edit' client.pk %}" class="action-btn" title="Modifier">
+                  <i class="bx bxs-pencil"></i>
+                </a>
+                <a href="{% url 'clients:bl_client_create_for_client' client.pk %}" class="action-btn success" title="Nouveau BL">
+                  <i class="bx bx-link-external"></i>
+                </a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# ── Pagination ─────────────────────────────────────────────────────── #}
+    {% if page.has_other_pages %}
+    <div class="pagination-bar">
+      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
+      <div class="page-links">
+        {% if page.has_previous %}
+        <a href="?{% if q %}q={{ q }}&{% endif %}{% if type_client_filter %}type_client={{ type_client_filter }}&{% endif %}{% if actif_param == "0" %}actif=0&{% endif %}page={{ page.previous_page_number }}" class="page-link"><i class='bx bx-chevron-left'></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class='bx bx-chevron-left'></i></span>
+        {% endif %}
+
+        {% for num in page.paginator.page_range %}
+          {% if num == page.number %}
+          <span class="page-link active">{{ num }}</span>
+          {% elif num > page.number|add:"-3" and num < page.number|add:"3" %}
+          <a href="?{% if q %}q={{ q }}&{% endif %}{% if type_client_filter %}type_client={{ type_client_filter }}&{% endif %}{% if actif_param == "0" %}actif=0&{% endif %}page={{ num }}" class="page-link">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
+
+        {% if page.has_next %}
+        <a href="?{% if q %}q={{ q }}&{% endif %}{% if type_client_filter %}type_client={{ type_client_filter }}&{% endif %}{% if actif_param == "0" %}actif=0&{% endif %}page={{ page.next_page_number }}" class="page-link"><i class='bx bx-chevron-right'></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class='bx bx-chevron-right'></i></span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    {# ── Empty state ────────────────────────────────────────────────────── #}
+    <div class="empty-state">
+      <i class="bx bxs-group empty-state__icon"></i>
+      <div class="empty-state__title">Aucun client trouvé</div>
+      <div class="empty-state__text">
+        {% if q %}Aucun résultat pour « {{ q }} ».{% else %}Créez votre premier client pour commencer.{% endif %}
+      </div>
+      {% if not request.user.profile.role == 'viewer' %}
+      <a href="{% url 'clients:client_create' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
+        <i class="bx bx-plus"></i> Nouveau client
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Client avatar ────────────────────────────────────────────────────── */
+.client-avatar-sm {
+  width: 34px; height: 34px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-dim);
+  color: var(--accent-text);
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800; font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── Inactive row ─────────────────────────────────────────────────────── */
+.row-inactive { opacity: .55; }
+
+/* ── Action button variant ────────────────────────────────────────────── */
+.action-btn.success:hover { background: var(--success-bg); border-color: rgba(34,197,94,.3); color: #15803d; }
+</style>
+{% endblock %}

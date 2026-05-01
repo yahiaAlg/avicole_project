@@ -2,322 +2,608 @@
 {% load static %}
 
 {% block title %}{{ title }} — Élevage Avicole{% endblock %}
+
 {% block nav_bl_fournisseur %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{% if object %}{{ object.fournisseur.nom }} — {{ object.date_bl|date:"d/m/Y" }}{% else %}Nouveau bon de livraison fournisseur{% endif %}{% endblock %}
+{% block page_sub_text %}{% if object %}Modification du BL {{ object.reference }}{% else %}Nouveau bon de livraison fournisseur{% endif %}{% endblock %}
 
 {% block topbar_actions %}
-  <a href="{% if object %}{% url 'achats:bl_fournisseur_detail' object.pk %}{% else %}{% url 'achats:bl_fournisseur_list' %}{% endif %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour
+  <a href="{% url 'achats:bl_fournisseur_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Retour à la liste
   </a>
 {% endblock %}
 
 {% block content %}
-
 {% if object and object.est_verrouille %}
-<!-- Locked BL banner -->
-<div class="locked-lot-banner">
+<div class="locked-banner">
   <i class="bx bxs-lock"></i>
-  <span style="font-size:13px;color:var(--text-secondary);">
-    Ce BL est <strong style="color:#b45309;">verrouillé</strong> (statut Facturé) — aucune modification n'est possible.
-  </span>
+  <span>Ce BL est <strong>verrouillé (Facturé)</strong> — aucune modification n'est possible.</span>
 </div>
 {% endif %}
 
-<form method="post" enctype="multipart/form-data" novalidate>
+<form method="post" enctype="multipart/form-data" id="bl-form" novalidate>
   {% csrf_token %}
 
-  <!-- Header card -->
-  <div class="section-card" style="margin-bottom:18px;">
-    <div class="section-card__head">
-      <span class="section-card__title"><i class="bx bxs-truck" style="color:var(--accent);margin-right:8px;"></i>Informations du BL</span>
-    </div>
-    <div class="section-card__body">
-      <div class="form-grid">
+  <div class="form-layout">
 
-        <!-- Référence -->
-        <div class="field-group">
-          <label class="field-label" for="{{ form.reference.id_for_label }}">Référence BL <span class="req">*</span></label>
-          <div class="input-wrapper">
-            <i class="bx bxs-file-txt input-icon"></i>
-            {{ form.reference }}
-          </div>
-          {% for err in form.reference.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+    <!-- Left column: main fields -->
+    <div class="form-main">
+
+      <!-- Header card -->
+      <div class="form-card">
+        <div class="form-card__header">
+          <i class="bx bxs-truck ic-icon"></i>
+          <span class="form-card__title">Informations du BL</span>
         </div>
 
-        <!-- Fournisseur -->
-        <div class="field-group">
-          <label class="field-label" for="{{ form.fournisseur.id_for_label }}">Fournisseur <span class="req">*</span></label>
-          <div class="input-wrapper">
-            <i class="bx bxs-building input-icon"></i>
-            {{ form.fournisseur }}
+        <div class="form-grid-2">
+          <!-- Référence -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.reference.id_for_label }}">Référence BL *</label>
+            <div class="input-icon-wrap">
+              <i class="bx bxs-barcode"></i>
+              {{ form.reference }}
+            </div>
+            {% if form.reference.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.reference.errors|join:", " }}</div>
+            {% endif %}
           </div>
-          {% for err in form.fournisseur.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+
+          <!-- Fournisseur -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.fournisseur.id_for_label }}">Fournisseur *</label>
+            <div class="input-icon-wrap">
+              <i class="bx bxs-building"></i>
+              {{ form.fournisseur }}
+            </div>
+            {% if form.fournisseur.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.fournisseur.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Date BL -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.date_bl.id_for_label }}">Date du BL *</label>
+            <div class="input-icon-wrap">
+              <i class="bx bxs-calendar"></i>
+              {{ form.date_bl }}
+            </div>
+            {% if form.date_bl.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.date_bl.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Réf. Fournisseur -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.reference_fournisseur.id_for_label }}">Réf. fournisseur</label>
+            <div class="input-icon-wrap">
+              <i class="bx bxs-tag"></i>
+              {{ form.reference_fournisseur }}
+            </div>
+            {% if form.reference_fournisseur.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.reference_fournisseur.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Statut -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.statut.id_for_label }}">Statut *</label>
+            <div class="input-icon-wrap">
+              <i class="bx bxs-filter-alt"></i>
+              {{ form.statut }}
+            </div>
+            {% if form.statut.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.statut.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Pièce jointe -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.piece_jointe.id_for_label }}">Pièce jointe (PDF/JPG/PNG, max 5 Mo)</label>
+            <div class="input-icon-wrap">
+              <i class="bx bx-paperclip"></i>
+              {{ form.piece_jointe }}
+            </div>
+            {% if form.piece_jointe.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.piece_jointe.errors|join:", " }}</div>
+            {% endif %}
+          </div>
         </div>
 
-        <!-- Date BL -->
-        <div class="field-group">
-          <label class="field-label" for="{{ form.date_bl.id_for_label }}">Date du BL <span class="req">*</span></label>
-          <div class="input-wrapper">
-            <i class="bx bxs-calendar input-icon"></i>
-            {{ form.date_bl }}
-          </div>
-          {% for err in form.date_bl.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-        </div>
-
-        <!-- Statut -->
-        <div class="field-group">
-          <label class="field-label" for="{{ form.statut.id_for_label }}">Statut</label>
-          <div class="input-wrapper">
-            <i class="bx bxs-flag-alt input-icon"></i>
-            {{ form.statut }}
-          </div>
-          {% for err in form.statut.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-        </div>
-
-        <!-- Référence fournisseur -->
-        <div class="field-group">
-          <label class="field-label" for="{{ form.reference_fournisseur.id_for_label }}">Référence fournisseur</label>
-          <div class="input-wrapper">
-            <i class="bx bxs-file input-icon"></i>
-            {{ form.reference_fournisseur }}
-          </div>
-          {% for err in form.reference_fournisseur.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-        </div>
-
-        <!-- Pièce jointe -->
-        <div class="field-group">
-          <label class="field-label" for="{{ form.piece_jointe.id_for_label }}">Pièce jointe (PDF/JPG/PNG)</label>
-          {% if object and object.piece_jointe %}
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-            <a href="{{ object.piece_jointe.url }}" target="_blank" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
-              <i class="bx bx-paperclip"></i> Voir le fichier actuel
-            </a>
-          </div>
-          {% endif %}
-          {{ form.piece_jointe }}
-          {% for err in form.piece_jointe.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-        </div>
-
-        <!-- Notes -->
-        <div class="field-group" style="grid-column:1 / -1;">
-          <label class="field-label" for="{{ form.notes_reception.id_for_label }}">Notes de réception</label>
+        <!-- Notes réception (full width) -->
+        <div class="form-field" style="margin-top:12px;">
+          <label class="form-label" for="{{ form.notes_reception.id_for_label }}">Notes de réception</label>
           {{ form.notes_reception }}
-          {% for err in form.notes_reception.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+          {% if form.notes_reception.errors %}
+          <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.notes_reception.errors|join:", " }}</div>
+          {% endif %}
         </div>
 
+        {% if form.non_field_errors %}
+        <div class="form-error-banner">
+          <i class="bx bxs-error-circle"></i>
+          {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+        </div>
+        {% endif %}
       </div>
 
-      {% if form.non_field_errors %}
-      <div class="field-error" style="margin-top:12px;">
-        <i class="bx bxs-error-circle"></i> {% for err in form.non_field_errors %}{{ err }}{% endfor %}
-      </div>
-      {% endif %}
-    </div>
-  </div>
+      <!-- Lines formset card -->
+      <div class="form-card" style="margin-top: 16px;">
+        <div class="form-card__header" style="justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <i class="bx bxs-cube-alt ic-icon"></i>
+            <span class="form-card__title">Lignes d'intrants</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span class="section-eyebrow" id="lines-total-label">Total : <strong id="lines-grand-total">0</strong> DZD</span>
+            <button type="button" class="btn-ghost btn-sm" id="add-line-btn">
+              <i class="bx bx-plus"></i> Ajouter une ligne
+            </button>
+          </div>
+        </div>
 
-  <!-- Lines card (formset) -->
-  <div class="section-card" style="margin-bottom:18px;">
-    <div class="section-card__head">
-      <span class="section-card__title"><i class="bx bxs-cube-alt" style="color:var(--accent);margin-right:8px;"></i>Lignes du BL</span>
-    </div>
-    <div class="section-card__body">
+        {{ formset.management_form }}
 
-      {{ formset.management_form }}
-
-      <div class="lines-table-wrap">
-        <table class="table-base" id="lines-table">
-          <thead>
-            <tr>
-              <th>Intrant</th>
-              <th style="text-align:right;">Quantité</th>
-              <th style="text-align:right;">Prix unitaire (DZD)</th>
-              <th style="text-align:right;">Montant</th>
-              <th>Notes</th>
-              <th style="text-align:center;">Suppr.</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for ligne_form in formset %}
-            <tr class="ligne-row">
-              <td>
-                {{ ligne_form.id }}
-                <div class="input-wrapper">
-                  {{ ligne_form.intrant }}
-                </div>
-                {% for err in ligne_form.intrant.errors %}<div class="field-error" style="margin-top:4px;"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-              </td>
-              <td style="text-align:right;">
-                <div class="input-wrapper">
+        <div class="table-wrapper" style="margin-top:8px;">
+          <table class="data-table" id="formset-table">
+            <thead>
+              <tr>
+                <th style="width:35%;">Intrant</th>
+                <th style="width:15%;">Quantité</th>
+                <th style="width:18%;">Prix unitaire (DZD)</th>
+                <th style="width:20%;">Montant</th>
+                <th style="width:8%;">Notes</th>
+                <th style="width:4%;text-align:center;"></th>
+              </tr>
+            </thead>
+            <tbody id="formset-body">
+              {% for ligne_form in formset %}
+              <tr class="ligne-row{% if ligne_form.instance.pk %} existing{% endif %}" data-row-idx="{{ forloop.counter0 }}">
+                <td>
+                  {{ ligne_form.id }}
+                  {{ ligne_form.DELETE }}
+                  <div class="input-icon-wrap">
+                    <i class="bx bxs-cube-alt" style="font-size:13px;"></i>
+                    {{ ligne_form.intrant }}
+                  </div>
+                  {% if ligne_form.intrant.errors %}
+                  <div class="field-error"><i class="bx bxs-x-circle"></i> {{ ligne_form.intrant.errors|join:", " }}</div>
+                  {% endif %}
+                </td>
+                <td>
                   {{ ligne_form.quantite }}
-                </div>
-                {% for err in ligne_form.quantite.errors %}<div class="field-error" style="margin-top:4px;"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-              </td>
-              <td style="text-align:right;">
-                <div class="input-wrapper">
+                  {% if ligne_form.quantite.errors %}
+                  <div class="field-error"><i class="bx bxs-x-circle"></i> {{ ligne_form.quantite.errors|join:", " }}</div>
+                  {% endif %}
+                </td>
+                <td>
                   {{ ligne_form.prix_unitaire }}
-                </div>
-                {% for err in ligne_form.prix_unitaire.errors %}<div class="field-error" style="margin-top:4px;"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-              </td>
-              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;white-space:nowrap;" class="ligne-montant">
-                —
-              </td>
-              <td>
-                {{ ligne_form.notes }}
-              </td>
-              <td style="text-align:center;">
-                {% if ligne_form.instance.pk %}
-                {{ ligne_form.DELETE }}
-                {% endif %}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+                  {% if ligne_form.prix_unitaire.errors %}
+                  <div class="field-error"><i class="bx bxs-x-circle"></i> {{ ligne_form.prix_unitaire.errors|join:", " }}</div>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="ligne-montant" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
+                    0 DZD
+                  </span>
+                </td>
+                <td>
+                  {{ ligne_form.notes }}
+                </td>
+                <td style="text-align:center;">
+                  <button type="button" class="action-btn action-btn--danger remove-line-btn" title="Supprimer la ligne">
+                    <i class="bx bx-trash"></i>
+                  </button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {% if formset.non_form_errors %}
+        <div class="form-error-banner" style="margin-top:12px;">
+          <i class="bx bxs-error-circle"></i> {{ formset.non_form_errors|join:", " }}
+        </div>
+        {% endif %}
       </div>
+    </div>
 
-      {% if formset.non_form_errors %}
-      <div class="field-error" style="margin-top:10px;">
-        <i class="bx bxs-error-circle"></i> {% for err in formset.non_form_errors %}{{ err }}{% endfor %}
+    <!-- Right column: summary + submit -->
+    <div class="form-sidebar">
+      <div class="form-card sticky-card">
+        <div class="form-card__header">
+          <i class="bx bxs-calculator ic-icon"></i>
+          <span class="form-card__title">Récapitulatif</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Lignes</span>
+          <span class="summary-val" id="summary-lines">0</span>
+        </div>
+        <div class="summary-row summary-row--total">
+          <span class="summary-label">Total BL</span>
+          <span class="summary-val" id="summary-total">0 DZD</span>
+        </div>
+        <div style="margin-top:20px;display:flex;flex-direction:column;gap:10px;">
+          <button type="submit" class="btn-primary" style="width:100%;justify-content:center;">
+            <i class="bx bxs-save"></i> {{ action_label }}
+          </button>
+          <a href="{% url 'achats:bl_fournisseur_list' %}" class="btn-ghost" style="width:100%;justify-content:center;">
+            Annuler
+          </a>
+        </div>
+        {% if object and object.statut == "brouillon" %}
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+          <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:14px 16px;">
+            <div style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;margin-bottom:4px;font-size:13px;">
+              <i class="bx bxs-trash me-1"></i> Zone sensible
+            </div>
+            <p style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;">Supprimer définitivement ce BL Brouillon.</p>
+            <button type="button" class="btn-danger" style="width:100%;justify-content:center;font-size:12px;" id="sidebar-delete-btn"
+              data-delete-bl="{{ object.pk }}" data-bl-ref="{{ object.reference }}">
+              <i class="bx bxs-trash"></i> Supprimer
+            </button>
+          </div>
+        </div>
+        {% endif %}
       </div>
-      {% endif %}
-
     </div>
-  </div>
 
-  <!-- Actions -->
-  <div style="display:flex;align-items:center;justify-content:space-between;">
-    <div>
-      {% if object and object.statut == 'brouillon' %}
-      <button type="button" id="btn-delete-bl" class="btn-danger btn-sm" data-bl-ref="{{ object.reference }}">
-        <i class="bx bxs-trash"></i> Supprimer
-      </button>
-      {% endif %}
-    </div>
-    <div style="display:flex;gap:10px;">
-      <a href="{% if object %}{% url 'achats:bl_fournisseur_detail' object.pk %}{% else %}{% url 'achats:bl_fournisseur_list' %}{% endif %}" class="btn-ghost">Annuler</a>
-      <button type="submit" class="btn-primary">
-        <i class="bx bxs-save"></i> {{ action_label|default:"Enregistrer" }}
-      </button>
-    </div>
-  </div>
-
+  </div><!-- /form-layout -->
 </form>
 
-<!-- Delete confirmation panel -->
-{% if object and object.statut == 'brouillon' %}
-<div id="confirm-delete-panel" class="confirm-panel">
-  <div class="confirm-panel__text">
-    <i class="bx bxs-error" style="color:#dc2626;margin-right:6px;"></i>
-    Supprimer le BL <strong id="confirm-delete-ref"></strong> ? Cette action est irréversible.
-  </div>
-  <div class="confirm-panel__actions">
-    <button type="button" id="cancel-delete-btn" class="btn-ghost btn-sm">Annuler</button>
-    <form method="post" action="{% url 'achats:bl_fournisseur_delete' object.pk %}">
-      {% csrf_token %}
-      <button type="submit" class="btn-danger btn-sm">Confirmer la suppression</button>
-    </form>
+<!-- Hidden delete panel (reuse from list page pattern) -->
+{% if object and object.statut == "brouillon" %}
+<div id="confirm-delete-panel" class="confirm-panel" style="display:none;">
+  <div class="confirm-panel__inner">
+    <div class="confirm-panel__icon"><i class="bx bxs-trash"></i></div>
+    <div>
+      <div class="confirm-panel__title">Supprimer le BL ?</div>
+      <div class="confirm-panel__body">Le BL <strong>{{ object.reference }}</strong> sera définitivement supprimé.</div>
+    </div>
+    <div class="confirm-panel__actions">
+      <button type="button" id="confirm-delete-cancel" class="btn-ghost">Annuler</button>
+      <form method="post" action="{% url 'achats:bl_fournisseur_delete' object.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn-danger"><i class="bx bxs-trash"></i> Supprimer</button>
+      </form>
+    </div>
   </div>
 </div>
 {% endif %}
-
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-@media (max-width: 900px) { .form-grid { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+  .locked-banner {
+    background: rgba(245,158,11,.08);
+    border: 1px solid rgba(245,158,11,.2);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 20px;
+    font-size: 13px; color: var(--text-secondary);
+  }
+  .locked-banner i { color: #b45309; font-size: 15px; }
 
-.lines-table-wrap { overflow-x: auto; }
-.lines-table-wrap .table-base { min-width: 700px; }
-.lines-table-wrap .field-input,
-.lines-table-wrap input,
-.lines-table-wrap select,
-.lines-table-wrap textarea {
-  padding: 8px 10px;
-  font-size: 13px;
-}
-.ligne-row td { vertical-align: top; padding: 10px 8px; }
-.ligne-row:first-child td { padding-top: 4px; }
+  .form-layout {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 16px;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .form-layout { grid-template-columns: 1fr; }
+    .sticky-card { position: static; }
+  }
+  .form-main { display: flex; flex-direction: column; gap: 0; }
+  .form-sidebar {}
 
-/* Style formset inputs to match design system */
-.ligne-row input[type="number"],
-.ligne-row select,
-.ligne-row textarea {
-  width: 100%;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-family: 'Inter', sans-serif;
-  font-size: 13px;
-  padding: 8px 10px;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-.ligne-row input[type="number"]:focus,
-.ligne-row select:focus,
-.ligne-row textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(34,197,94,.12);
-  outline: none;
-}
-.ligne-row textarea { resize: vertical; min-height: 36px; }
-.ligne-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
+  .form-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 22px;
+  }
+  .form-card__header {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ic-icon {
+    font-size: 17px;
+    color: var(--accent-text);
+  }
+  .form-card__title {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700; font-size: 14px;
+    color: var(--text-primary);
+  }
 
-/* File input styling */
-input[type="file"] {
-  font-size: 12.5px;
-  color: var(--text-secondary);
-}
+  .form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 680px) { .form-grid-2 { grid-template-columns: 1fr; } }
+
+  .form-field { display: flex; flex-direction: column; gap: 5px; }
+  .form-label {
+    font-size: 12px; font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: .03em;
+  }
+  .input-icon-wrap { position: relative; display: flex; align-items: center; }
+  .input-icon-wrap > i {
+    position: absolute; left: 12px; font-size: 14px;
+    color: var(--text-muted); pointer-events: none; z-index: 1;
+  }
+  .input-icon-wrap input,
+  .input-icon-wrap select,
+  .input-icon-wrap textarea {
+    padding-left: 36px;
+    width: 100%;
+  }
+  input[type="text"], input[type="number"], input[type="date"], input[type="email"], input[type="file"],
+  select, textarea {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    padding: 10px 13px;
+    width: 100%;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+    appearance: auto;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  textarea { resize: vertical; min-height: 64px; }
+  input[type="file"] { padding: 8px 12px; }
+
+  .field-error {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 12px; color: #dc2626; margin-top: 2px;
+  }
+  .form-error-banner {
+    background: rgba(239,68,68,.06);
+    border: 1px solid rgba(239,68,68,.18);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    font-size: 13px; color: #dc2626;
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 14px;
+  }
+
+  /* Formset table */
+  .data-table {
+    width: 100%; border-collapse: collapse;
+  }
+  .data-table thead th {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--text-muted);
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+    background: var(--bg-raised);
+  }
+  .data-table td {
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .ligne-row td input, .ligne-row td select {
+    padding: 8px 10px;
+    font-size: 13px;
+    border-radius: var(--radius-sm);
+  }
+  .ligne-row td .input-icon-wrap > i { font-size: 13px; }
+
+  .ligne-row--deleted { opacity: .35; }
+  .ligne-row--deleted td input,
+  .ligne-row--deleted td select { pointer-events: none; }
+
+  .table-wrapper { overflow-x: auto; }
+  .section-eyebrow {
+    font-size: 10.5px; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  /* Sidebar summary */
+  .sticky-card { position: sticky; top: calc(var(--topbar-h) + 16px); }
+  .summary-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .summary-row:last-of-type { border-bottom: none; }
+  .summary-label { color: var(--text-muted); }
+  .summary-val { font-family: 'Nunito', sans-serif; font-weight: 700; color: var(--text-primary); }
+  .summary-row--total .summary-val { font-size: 16px; color: var(--accent-text); }
+
+  .btn-sm { padding: 7px 12px; font-size: 12px; }
+
+  /* Actions */
+  .action-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px;
+    border-radius: var(--radius-sm); border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted);
+    font-size: 14px; cursor: pointer;
+    transition: background .12s, color .12s; text-decoration: none;
+  }
+  .action-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .action-btn--danger { color: #dc2626; border-color: rgba(239,68,68,.2); }
+  .action-btn--danger:hover { background: rgba(239,68,68,.08); }
+
+  .btn-primary {
+    background: var(--accent); color: #fff;
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px;
+    border: none; border-radius: var(--radius-md); padding: 10px 18px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: opacity .18s, transform .12s; text-decoration: none;
+  }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px;
+    border-radius: var(--radius-md); padding: 9px 16px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s; text-decoration: none;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .btn-danger {
+    background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.22);
+    color: #dc2626; font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px;
+    border-radius: var(--radius-md); padding: 9px 16px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-danger:hover { background: rgba(239,68,68,.18); }
+
+  /* Confirm panel */
+  .confirm-panel {
+    position: fixed; inset: 0; background: rgba(0,0,0,.35);
+    z-index: 500; display: flex !important;
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  .confirm-panel[style*="display:none"] { display: none !important; }
+  .confirm-panel__inner {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 24px 28px;
+    max-width: 420px; width: 100%;
+    display: flex; flex-direction: column; gap: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.14);
+  }
+  .confirm-panel__icon {
+    width: 44px; height: 44px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; background: rgba(239,68,68,.1); color: #dc2626;
+  }
+  .confirm-panel__title {
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 15px;
+    color: var(--text-primary); margin-bottom: 4px;
+  }
+  .confirm-panel__body { font-size: 13px; color: var(--text-secondary); }
+  .confirm-panel__actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .confirm-panel__actions form { margin: 0; }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+  const tbody       = document.getElementById('formset-body');
+  const addBtn      = document.getElementById('add-line-btn');
+  const totalFormInput = document.querySelector('[name="lignes-TOTAL_FORMS"]');
+  const grandTotalEl   = document.getElementById('lines-grand-total');
+  const summaryLinesEl = document.getElementById('summary-lines');
+  const summaryTotalEl = document.getElementById('summary-total');
 
-  /* ── Auto-calculate line totals ───────────────────────────────────── */
-  function recalcLines() {
-    document.querySelectorAll('.ligne-row').forEach(function (row) {
-      var qtyEl = row.querySelector('input[name*="quantite"]');
-      var prixEl = row.querySelector('input[name*="prix_unitaire"]');
-      var montantEl = row.querySelector('.ligne-montant');
-      if (!qtyEl || !prixEl || !montantEl) return;
-      var qty = parseFloat(qtyEl.value) || 0;
-      var prix = parseFloat(prixEl.value) || 0;
-      var total = qty * prix;
-      if (total > 0) {
-        montantEl.textContent = total.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' DZD';
-      } else {
-        montantEl.textContent = '—';
+  /* ── Running total calculation ── */
+  function recalcTotals() {
+    let grand = 0;
+    let activeCount = 0;
+    tbody.querySelectorAll('.ligne-row').forEach(function (row) {
+      const deleteChk = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+      const isDeleted = deleteChk && deleteChk.checked;
+      const qtInput  = row.querySelector('input[name$="-quantite"]');
+      const puInput  = row.querySelector('input[name$="-prix_unitaire"]');
+      const montantEl = row.querySelector('.ligne-montant');
+      if (isDeleted) {
+        row.classList.add('ligne-row--deleted');
+        if (montantEl) montantEl.textContent = '—';
+        return;
       }
+      row.classList.remove('ligne-row--deleted');
+      const qt = parseFloat(qtInput ? qtInput.value : 0) || 0;
+      const pu = parseFloat(puInput ? puInput.value : 0) || 0;
+      const mt = qt * pu;
+      grand += mt;
+      activeCount++;
+      if (montantEl) montantEl.textContent = Math.round(mt).toLocaleString('fr-DZ') + ' DZD';
     });
+    if (grandTotalEl) grandTotalEl.textContent = Math.round(grand).toLocaleString('fr-DZ');
+    if (summaryLinesEl) summaryLinesEl.textContent = activeCount;
+    if (summaryTotalEl) summaryTotalEl.textContent = Math.round(grand).toLocaleString('fr-DZ') + ' DZD';
   }
 
-  document.querySelectorAll('.ligne-row input').forEach(function (input) {
-    input.addEventListener('input', recalcLines);
+  tbody.addEventListener('input', recalcTotals);
+  tbody.addEventListener('change', recalcTotals);
+  recalcTotals();
+
+  /* ── Add new line ── */
+  addBtn.addEventListener('click', function () {
+    const totalForms = parseInt(totalFormInput.value);
+    const newIdx = totalForms;
+    const templateRow = tbody.querySelector('.ligne-row');
+    if (!templateRow) return;
+    const newRow = templateRow.cloneNode(true);
+    newRow.style.setProperty('--row-i', newIdx);
+    newRow.classList.remove('existing');
+
+    /* Replace index in all name/id attributes */
+    newRow.querySelectorAll('[name], [id], [for]').forEach(function (el) {
+      ['name', 'id', 'for'].forEach(function (attr) {
+        if (el.getAttribute(attr)) {
+          el.setAttribute(attr, el.getAttribute(attr).replace(/lignes-\d+-/, 'lignes-' + newIdx + '-'));
+        }
+      });
+    });
+
+    /* Clear values */
+    newRow.querySelectorAll('input:not([type="hidden"]), select').forEach(function (el) {
+      if (el.type === 'checkbox') { el.checked = false; }
+      else { el.value = ''; }
+    });
+    const montantEl = newRow.querySelector('.ligne-montant');
+    if (montantEl) montantEl.textContent = '0 DZD';
+
+    tbody.appendChild(newRow);
+    totalFormInput.value = totalForms + 1;
+    recalcTotals();
   });
-  recalcLines();
 
-  /* ── Delete confirmation ──────────────────────────────────────────── */
-  var deleteBtn = document.getElementById('btn-delete-bl');
-  var confirmPanel = document.getElementById('confirm-delete-panel');
-  if (deleteBtn && confirmPanel) {
-    deleteBtn.addEventListener('click', function () {
-      document.getElementById('confirm-delete-ref').textContent = deleteBtn.dataset.blRef;
-      confirmPanel.classList.add('visible');
+  /* ── Remove line ── */
+  tbody.addEventListener('click', function (e) {
+    const btn = e.target.closest('.remove-line-btn');
+    if (!btn) return;
+    const row = btn.closest('.ligne-row');
+    if (!row) return;
+    const deleteChk = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+    if (deleteChk) {
+      deleteChk.checked = !deleteChk.checked;
+      row.classList.toggle('ligne-row--deleted', deleteChk.checked);
+    } else {
+      /* New unsaved row — just remove from DOM */
+      row.remove();
+      totalFormInput.value = parseInt(totalFormInput.value) - 1;
+    }
+    recalcTotals();
+  });
+
+  /* ── Sidebar delete btn (edit mode only) ── */
+  const sidebarDeleteBtn = document.getElementById('sidebar-delete-btn');
+  if (sidebarDeleteBtn) {
+    const panel     = document.getElementById('confirm-delete-panel');
+    const cancelBtn = document.getElementById('confirm-delete-cancel');
+    sidebarDeleteBtn.addEventListener('click', function () {
+      if (panel) panel.style.display = '';
     });
-    document.getElementById('cancel-delete-btn').addEventListener('click', function () {
-      confirmPanel.classList.remove('visible');
-    });
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', function () { panel.style.display = 'none'; });
+    }
+    if (panel) {
+      panel.addEventListener('click', function (e) {
+        if (e.target === panel) panel.style.display = 'none';
+      });
+    }
   }
-
 });
 </script>
 {% endblock %}

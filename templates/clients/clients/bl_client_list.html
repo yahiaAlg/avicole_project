@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block nav_clients %}active{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} BL{{ page.paginator.count|pluralize }} · Filtres : {% if q %}« {{ q }} »{% else %}Tous{% endif %}{% endblock %}
+
+{% block topbar_actions %}
+{% if not request.user.profile.role == 'viewer' %}
+<a href="{% url 'clients:bl_client_create' %}" class="btn-primary">
+  <i class="bx bx-plus"></i> Nouveau BL
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+{# ── Filter bar ────────────────────────────────────────────────────────── #}
+<div class="section-card mb-4">
+  <div class="section-card__body">
+    <form method="get" class="filter-bar" id="filter-form">
+      <div class="input-wrapper" style="flex:1;min-width:200px;">
+        <i class="bx bx-search input-icon"></i>
+        <input type="text" name="q" class="field-input has-icon" placeholder="Référence, note, client…" value="{{ q }}">
+      </div>
+
+      <select name="statut" class="field-input" style="width:140px;" onchange="this.form.submit()">
+        <option value="">Tous statuts</option>
+        {% for code, label in statut_choices %}
+        <option value="{{ code }}" {% if statut_filter == code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+
+      <select name="client" class="field-input" style="width:180px;" onchange="this.form.submit()">
+        <option value="">Tous clients</option>
+        {% for c in clients_actifs %}
+        <option value="{{ c.pk }}" {% if client_filter == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nom }}</option>
+        {% endfor %}
+      </select>
+
+      <input type="date" name="date_debut" class="field-input" style="width:150px;" placeholder="Date début"
+             value="{{ date_debut }}" onchange="this.form.submit()">
+      <input type="date" name="date_fin" class="field-input" style="width:150px;" placeholder="Date fin"
+             value="{{ date_fin }}" onchange="this.form.submit()">
+
+      <button type="submit" class="btn-ghost btn-sm">
+        <i class="bx bx-search"></i> Filtrer
+      </button>
+
+      {% if q or statut_filter or client_filter or date_debut or date_fin %}
+      <a href="{% url 'clients:bl_client_list' %}" class="btn-danger btn-sm">
+        <i class="bx bx-x"></i> Réinitialiser
+      </a>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+{# ── BL table ──────────────────────────────────────────────────────────── #}
+<div class="section-card">
+  <div class="section-card__body no-pad">
+    {% if page.object_list %}
+    <div style="overflow-x:auto;">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>Référence</th>
+            <th>Client</th>
+            <th>Date</th>
+            <th>Statut</th>
+            <th style="text-align:right;">Montant</th>
+            <th>Facturé</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for bl in page.object_list %}
+          <tr class="stagger-row">
+            <td>
+              <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="text-mono" style="font-weight:600;color:var(--text-primary);">
+                {{ bl.reference }}
+              </a>
+            </td>
+            <td>
+              <a href="{% url 'clients:client_detail' bl.client.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
+                {{ bl.client.nom }}
+              </a>
+            </td>
+            <td style="color:var(--text-muted);white-space:nowrap;">{{ bl.date_bl|date:"d/m/Y" }}</td>
+            <td>
+              {% if bl.statut == 'brouillon' %}
+              <span class="pill-base pill-warning">Brouillon</span>
+              {% elif bl.statut == 'livre' %}
+              <span class="pill-base pill-info">Livré</span>
+              {% elif bl.statut == 'facture' %}
+              <span class="pill-base pill-success">Facturé</span>
+              {% else %}
+              <span class="pill-base pill-danger">En Litige</span>
+              {% endif %}
+            </td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ bl.montant_total|floatformat:0 }} DZD</td>
+            <td>
+              {% if bl.factures.exists %}
+              <span class="pill-base pill-success"><i class="bx bxs-check-circle" style="margin-right:3px;"></i>Oui</span>
+              {% else %}
+              <span class="pill-base pill-neutral">Non</span>
+              {% endif %}
+            </td>
+            <td style="text-align:right;">
+              <div style="display:flex;justify-content:flex-end;gap:4px;">
+                <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="action-btn" title="Détail"><i class="bx bx-show"></i></a>
+                {% if not request.user.profile.role == 'viewer' and bl.statut == 'brouillon' %}
+                <a href="{% url 'clients:bl_client_edit' bl.pk %}" class="action-btn" title="Modifier"><i class="bx bxs-pencil"></i></a>
+                {% endif %}
+                {% if bl.statut == 'livre' or bl.statut == 'facture' %}
+                <a href="{% url 'clients:bl_client_print' bl.pk %}" class="action-btn" title="Imprimer" target="_blank"><i class="bx bxs-printer"></i></a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# ── Pagination ─────────────────────────────────────────────────────── #}
+    {% if page.has_other_pages %}
+    <div class="pagination-bar">
+      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
+      <div class="page-links">
+        {% if page.has_previous %}
+        <a href="?{% if q %}q={{ q }}&{% endif %}{% if statut_filter %}statut={{ statut_filter }}&{% endif %}{% if client_filter %}client={{ client_filter }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ page.previous_page_number }}" class="page-link"><i class='bx bx-chevron-left'></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class='bx bx-chevron-left'></i></span>
+        {% endif %}
+
+        {% for num in page.paginator.page_range %}
+          {% if num == page.number %}
+          <span class="page-link active">{{ num }}</span>
+          {% elif num > page.number|add:"-3" and num < page.number|add:"3" %}
+          <a href="?{% if q %}q={{ q }}&{% endif %}{% if statut_filter %}statut={{ statut_filter }}&{% endif %}{% if client_filter %}client={{ client_filter }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ num }}" class="page-link">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
+
+        {% if page.has_next %}
+        <a href="?{% if q %}q={{ q }}&{% endif %}{% if statut_filter %}statut={{ statut_filter }}&{% endif %}{% if client_filter %}client={{ client_filter }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ page.next_page_number }}" class="page-link"><i class='bx bx-chevron-right'></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class='bx bx-chevron-right'></i></span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bx-link-external empty-state__icon"></i>
+      <div class="empty-state__title">Aucun BL trouvé</div>
+      <div class="empty-state__text">
+        {% if q %}Aucun résultat pour « {{ q }} ».{% else %}Créez votre premier BL client.{% endif %}
+      </div>
+      {% if not request.user.profile.role == 'viewer' %}
+      <a href="{% url 'clients:bl_client_create' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
+        <i class="bx bx-plus"></i> Nouveau BL
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

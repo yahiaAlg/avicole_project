@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block nav_clients %}active{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} facture{{ page.paginator.count|pluralize }} · {% if q %}« {{ q }} »{% else %}Toutes{% endif %}{% endblock %}
+
+{% block topbar_actions %}
+{% if not request.user.profile.role == 'viewer' %}
+<a href="{% url 'clients:facture_client_create' %}" class="btn-primary">
+  <i class="bx bx-plus"></i> Nouvelle facture
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+{# ── Filter bar ────────────────────────────────────────────────────────── #}
+<div class="section-card mb-4">
+  <div class="section-card__body">
+    <form method="get" class="filter-bar" id="filter-form">
+      <div class="input-wrapper" style="flex:1;min-width:200px;">
+        <i class="bx bx-search input-icon"></i>
+        <input type="text" name="q" class="field-input has-icon" placeholder="Référence…" value="{{ q }}">
+      </div>
+
+      <select name="statut" class="field-input" style="width:160px;" onchange="this.form.submit()">
+        <option value="">Tous statuts</option>
+        <option value="payee" {% if statut_filter == 'payee' %}selected{% endif %}>Payée</option>
+        <option value="non_payee" {% if statut_filter == 'non_payee' %}selected{% endif %}>Non payée</option>
+        <option value="retard" {% if statut_filter == 'retard' %}selected{% endif %}>En retard</option>
+      </select>
+
+      <select name="client" class="field-input" style="width:180px;" onchange="this.form.submit()">
+        <option value="">Tous clients</option>
+        {% for c in clients_actifs %}
+        <option value="{{ c.pk }}" {% if client_filter == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nom }}</option>
+        {% endfor %}
+      </select>
+
+      <input type="date" name="date_debut" class="field-input" style="width:150px;" value="{{ date_debut }}" onchange="this.form.submit()">
+      <input type="date" name="date_fin" class="field-input" style="width:150px;" value="{{ date_fin }}" onchange="this.form.submit()">
+
+      <button type="submit" class="btn-ghost btn-sm">
+        <i class="bx bx-search"></i> Filtrer
+      </button>
+
+      {% if q or statut_filter or client_filter or date_debut or date_fin %}
+      <a href="{% url 'clients:facture_client_list' %}" class="btn-danger btn-sm">
+        <i class="bx bx-x"></i> Réinitialiser
+      </a>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+{# ── Facture table ─────────────────────────────────────────────────────── #}
+<div class="section-card">
+  <div class="section-card__body no-pad">
+    {% if page.object_list %}
+    <div style="overflow-x:auto;">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>Référence</th>
+            <th>Client</th>
+            <th>Date</th>
+            <th>Échéance</th>
+            <th>Statut</th>
+            <th style="text-align:right;">Total TTC</th>
+            <th style="text-align:right;">Reste dû</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for fac in page.object_list %}
+          <tr class="stagger-row {% if fac.est_en_retard %}row-danger{% endif %}">
+            <td>
+              <a href="{% url 'clients:facture_client_detail' fac.pk %}" class="text-mono" style="font-weight:600;color:var(--text-primary);">
+                {{ fac.reference }}
+              </a>
+            </td>
+            <td>
+              <a href="{% url 'clients:client_detail' fac.client.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
+                {{ fac.client.nom }}
+              </a>
+            </td>
+            <td style="color:var(--text-muted);white-space:nowrap;">{{ fac.date_facture|date:"d/m/Y" }}</td>
+            <td style="color:var(--text-muted);white-space:nowrap;">
+              {% if fac.date_echeance %}{{ fac.date_echeance|date:"d/m/Y" }}{% else %}—{% endif %}
+            </td>
+            <td>
+              {% if fac.statut == 'payee' %}
+              <span class="pill-base pill-success">Payée</span>
+              {% elif fac.est_en_retard %}
+              <span class="pill-base pill-danger">{{ fac.jours_retard }}j retard</span>
+              {% elif fac.reste_a_payer == 0 %}
+              <span class="pill-base pill-info">Équilibrée</span>
+              {% else %}
+              <span class="pill-base pill-warning">Non payée</span>
+              {% endif %}
+            </td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ fac.montant_ttc|floatformat:0 }} DZD</td>
+            <td style="text-align:right;">
+              {% if fac.reste_a_payer > 0 %}
+              <span style="color:#dc2626;font-family:'Nunito',sans-serif;font-weight:700;">{{ fac.reste_a_payer|floatformat:0 }} DZD</span>
+              {% else %}
+              <span style="color:#15803d;font-family:'Nunito',sans-serif;font-weight:700;">—</span>
+              {% endif %}
+            </td>
+            <td style="text-align:right;">
+              <div style="display:flex;justify-content:flex-end;gap:4px;">
+                <a href="{% url 'clients:facture_client_detail' fac.pk %}" class="action-btn" title="Détail"><i class="bx bx-show"></i></a>
+                <a href="{% url 'clients:facture_client_print' fac.pk %}" class="action-btn" title="Imprimer" target="_blank"><i class="bx bxs-printer"></i></a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# ── Pagination ─────────────────────────────────────────────────────── #}
+    {% if page.has_other_pages %}
+    <div class="pagination-bar">
+      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
+      <div class="page-links">
+        {% if page.has_previous %}
+        <a href="?{% if q %}q={{ q }}&{% endif %}{% if statut_filter %}statut={{ statut_filter }}&{% endif %}{% if client_filter %}client={{ client_filter }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ page.previous_page_number }}" class="page-link"><i class='bx bx-chevron-left'></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class='bx bx-chevron-left'></i></span>
+        {% endif %}
+
+        {% for num in page.paginator.page_range %}
+          {% if num == page.number %}
+          <span class="page-link active">{{ num }}</span>
+          {% elif num > page.number|add:"-3" and num < page.number|add:"3" %}
+          <a href="?{% if q %}q={{ q }}&{% endif %}{% if statut_filter %}statut={{ statut_filter }}&{% endif %}{% if client_filter %}client={{ client_filter }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ num }}" class="page-link">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
+
+        {% if page.has_next %}
+        <a href="?{% if q %}q={{ q }}&{% endif %}{% if statut_filter %}statut={{ statut_filter }}&{% endif %}{% if client_filter %}client={{ client_filter }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ page.next_page_number }}" class="page-link"><i class='bx bx-chevron-right'></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class='bx bx-chevron-right'></i></span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bxs-receipt empty-state__icon"></i>
+      <div class="empty-state__title">Aucune facture trouvée</div>
+      <div class="empty-state__text">
+        {% if q %}Aucun résultat pour « {{ q }} ».{% else %}Créez votre première facture client.{% endif %}
+      </div>
+      {% if not request.user.profile.role == 'viewer' %}
+      <a href="{% url 'clients:facture_client_create' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
+        <i class="bx bx-plus"></i> Nouvelle facture
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Row danger highlight ─────────────────────────────────────────────── */
+.row-danger { background: rgba(239,68,68,.04) !important; }
+.row-danger:hover { background: rgba(239,68,68,.08) !important; }
+</style>
+{% endblock %}
