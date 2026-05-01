@@ -1,8 +1,13 @@
 """
 stock/urls.py
 
-URL patterns for stock management:
-  StockIntrant, StockProduitFini, StockMouvement, StockAjustement.
+URL patterns for the stock domain:
+  StockIntrant      : list, detail
+  StockProduitFini  : list, detail
+  StockMouvement    : list (unified audit trail)
+  StockAjustement   : list, create
+  Dashboard         : stock overview
+  AJAX              : balance endpoints for intrant and produit fini
 """
 
 from django.urls import path
@@ -11,7 +16,13 @@ from stock import views
 app_name = "stock"
 
 urlpatterns = [
-    # ── StockIntrant ─────────────────────────────────────────────────────
+    # ── Dashboard ───────────────────────────────────────────────────────
+    path(
+        "",
+        views.stock_dashboard,
+        name="dashboard",
+    ),
+    # ── StockIntrant ────────────────────────────────────────────────────
     path(
         "intrants/",
         views.stock_intrant_list,
@@ -21,11 +32,6 @@ urlpatterns = [
         "intrants/<int:pk>/",
         views.stock_intrant_detail,
         name="stock_intrant_detail",
-    ),
-    path(
-        "intrants/<int:pk>/json/",
-        views.stock_intrant_json,
-        name="stock_intrant_json",
     ),
     # ── StockProduitFini ────────────────────────────────────────────────
     path(
@@ -38,18 +44,13 @@ urlpatterns = [
         views.stock_produit_fini_detail,
         name="stock_produit_fini_detail",
     ),
-    path(
-        "produits-finis/<int:pk>/json/",
-        views.stock_produit_fini_balance_json,
-        name="stock_produit_fini_balance_json",
-    ),
-    # ── StockMouvement ───────────────────────────────────────────────────
+    # ── StockMouvement (unified read-only audit trail) ──────────────────
     path(
         "mouvements/",
         views.stock_mouvement_list,
         name="stock_mouvement_list",
     ),
-    # ── StockAjustement ──────────────────────────────────────────────────
+    # ── StockAjustement ─────────────────────────────────────────────────
     path(
         "ajustements/",
         views.stock_ajustement_list,
@@ -59,5 +60,18 @@ urlpatterns = [
         "ajustements/creer/",
         views.stock_ajustement_create,
         name="stock_ajustement_create",
+    ),
+    # ── AJAX ────────────────────────────────────────────────────────────
+    # Returns current StockIntrant balance + PMP for a single intrant
+    path(
+        "intrants/<int:pk>/balance.json",
+        views.stock_intrant_balance_json,
+        name="stock_intrant_balance_json",
+    ),
+    # Returns current StockProduitFini balance for a single produit fini
+    path(
+        "produits-finis/<int:pk>/balance.json",
+        views.stock_produit_fini_balance_json,
+        name="stock_produit_fini_balance_json",
     ),
 ]

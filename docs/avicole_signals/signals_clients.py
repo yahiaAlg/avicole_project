@@ -43,7 +43,6 @@ logger = logging.getLogger(__name__)
 # Signal 1 — BLClient: cache old statut before save
 # ---------------------------------------------------------------------------
 
-
 @receiver(pre_save, sender=BLClient)
 def bl_client_pre_save(sender, instance, **kwargs):
     """
@@ -67,7 +66,6 @@ def bl_client_pre_save(sender, instance, **kwargs):
 # Signal 2 — BLClient: stock sortie on BROUILLON → LIVRE transition
 # ---------------------------------------------------------------------------
 
-
 @receiver(post_save, sender=BLClient)
 def bl_client_post_save(sender, instance, created, **kwargs):
     """
@@ -82,7 +80,8 @@ def bl_client_post_save(sender, instance, created, **kwargs):
     """
     old_statut = getattr(instance, "_old_statut", None)
     is_transitioning_to_livre = (
-        instance.statut == BLClient.STATUT_LIVRE and old_statut != BLClient.STATUT_LIVRE
+        instance.statut == BLClient.STATUT_LIVRE
+        and old_statut != BLClient.STATUT_LIVRE
     )
 
     if not is_transitioning_to_livre:
@@ -177,7 +176,6 @@ def _appliquer_sortie_stock_produit_fini(
 # Signal 3 — FactureClient: cache old statut / is_new
 # ---------------------------------------------------------------------------
 
-
 @receiver(pre_save, sender=FactureClient)
 def facture_client_pre_save(sender, instance, **kwargs):
     """
@@ -199,7 +197,6 @@ def facture_client_pre_save(sender, instance, **kwargs):
 # ---------------------------------------------------------------------------
 # Signal 4 — FactureClient: compute totals, lock BLs on creation
 # ---------------------------------------------------------------------------
-
 
 @receiver(post_save, sender=FactureClient)
 def facture_client_post_save(sender, instance, created, **kwargs):
@@ -245,7 +242,8 @@ def facture_client_post_save(sender, instance, created, **kwargs):
     )
 
     logger.info(
-        "FactureClient pk=%s created. " "montant_ht=%s DZD, TVA=%s%% → TTC=%s DZD.",
+        "FactureClient pk=%s created. "
+        "montant_ht=%s DZD, TVA=%s%% → TTC=%s DZD.",
         instance.pk,
         montant_ht,
         taux_tva,
@@ -253,9 +251,9 @@ def facture_client_post_save(sender, instance, created, **kwargs):
     )
 
     # ── BR-FAC-02 / BR-BLC-03: lock all included BLs ─────────────────────
-    locked_count = instance.bls.exclude(statut=BLClient.STATUT_FACTURE).update(
+    locked_count = instance.bls.exclude(
         statut=BLClient.STATUT_FACTURE
-    )
+    ).update(statut=BLClient.STATUT_FACTURE)
 
     if locked_count:
         logger.info(

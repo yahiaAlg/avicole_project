@@ -14,12 +14,14 @@ from production import views
 app_name = "production"
 
 urlpatterns = [
+
     # ── Dashboard ───────────────────────────────────────────────────────
     path(
         "",
         views.production_dashboard,
         name="dashboard",
     ),
+
     # ── ProduitFini ─────────────────────────────────────────────────────
     path(
         "produits/",
@@ -46,6 +48,7 @@ urlpatterns = [
         views.produit_fini_toggle_active,
         name="produit_fini_toggle_active",
     ),
+
     # ── ProductionRecord ────────────────────────────────────────────────
     path(
         "enregistrements/",
@@ -86,6 +89,7 @@ urlpatterns = [
         views.production_record_delete,
         name="production_record_delete",
     ),
+
     # ── AJAX ────────────────────────────────────────────────────────────
     # Returns lot.effectif_vivant for the bird-count guard in the form
     path(

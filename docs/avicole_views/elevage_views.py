@@ -49,7 +49,6 @@ PER_PAGE = 25
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-
 def _paginate(qs, page_number, per_page=PER_PAGE):
     paginator = Paginator(qs, per_page)
     try:
@@ -80,7 +79,6 @@ def _assert_lot_ouvert(lot, request):
 # LotElevage — List
 # ===========================================================================
 
-
 @login_required(login_url=LOGIN_URL)
 def lot_list(request):
     """
@@ -93,9 +91,11 @@ def lot_list(request):
     """
     from intrants.models import Batiment
 
-    qs = LotElevage.objects.select_related(
-        "batiment", "fournisseur_poussins", "created_by"
-    ).order_by("-date_ouverture")
+    qs = (
+        LotElevage.objects
+        .select_related("batiment", "fournisseur_poussins", "created_by")
+        .order_by("-date_ouverture")
+    )
 
     statut = request.GET.get("statut", "")
     if statut in (LotElevage.STATUT_OUVERT, LotElevage.STATUT_FERME):
@@ -107,7 +107,9 @@ def lot_list(request):
 
     q = request.GET.get("q", "").strip()
     if q:
-        qs = qs.filter(Q(designation__icontains=q) | Q(souche__icontains=q))
+        qs = qs.filter(
+            Q(designation__icontains=q) | Q(souche__icontains=q)
+        )
 
     page = _paginate(qs, request.GET.get("page"))
     batiments = Batiment.objects.filter(actif=True).order_by("nom")
@@ -116,27 +118,22 @@ def lot_list(request):
     nb_ouverts = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT).count()
     nb_fermes = LotElevage.objects.filter(statut=LotElevage.STATUT_FERME).count()
 
-    return render(
-        request,
-        "elevage/lot_list.html",
-        {
-            "page": page,
-            "q": q,
-            "statut": statut,
-            "batiment_pk": batiment_pk,
-            "batiments": batiments,
-            "nb_ouverts": nb_ouverts,
-            "nb_fermes": nb_fermes,
-            "statut_choices": LotElevage.STATUT_CHOICES,
-            "title": "Lots d'élevage",
-        },
-    )
+    return render(request, "elevage/lot_list.html", {
+        "page": page,
+        "q": q,
+        "statut": statut,
+        "batiment_pk": batiment_pk,
+        "batiments": batiments,
+        "nb_ouverts": nb_ouverts,
+        "nb_fermes": nb_fermes,
+        "statut_choices": LotElevage.STATUT_CHOICES,
+        "title": "Lots d'élevage",
+    })
 
 
 # ===========================================================================
 # LotElevage — Create
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def lot_create(request):
@@ -180,21 +177,16 @@ def lot_create(request):
     else:
         form = LotElevageForm()
 
-    return render(
-        request,
-        "elevage/lot_form.html",
-        {
-            "form": form,
-            "title": "Ouvrir un nouveau lot",
-            "action_label": "Ouvrir le lot",
-        },
-    )
+    return render(request, "elevage/lot_form.html", {
+        "form": form,
+        "title": "Ouvrir un nouveau lot",
+        "action_label": "Ouvrir le lot",
+    })
 
 
 # ===========================================================================
 # LotElevage — Detail
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def lot_detail(request, pk):
@@ -226,26 +218,21 @@ def lot_detail(request, pk):
         summary["consommations"], request.GET.get("page_conso"), per_page=10
     )
 
-    return render(
-        request,
-        "elevage/lot_detail.html",
-        {
-            "lot": lot,
-            "summary": summary,
-            "mortalite_anormale": mortalite_anormale,
-            "mortalites_page": mortalites_page,
-            "consommations_page": consommations_page,
-            "productions": summary["productions"],
-            "depenses": summary["depenses"],
-            "title": f"Lot — {lot.designation}",
-        },
-    )
+    return render(request, "elevage/lot_detail.html", {
+        "lot": lot,
+        "summary": summary,
+        "mortalite_anormale": mortalite_anormale,
+        "mortalites_page": mortalites_page,
+        "consommations_page": consommations_page,
+        "productions": summary["productions"],
+        "depenses": summary["depenses"],
+        "title": f"Lot — {lot.designation}",
+    })
 
 
 # ===========================================================================
 # LotElevage — Edit
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def lot_edit(request, pk):
@@ -271,7 +258,9 @@ def lot_edit(request, pk):
             try:
                 form.save()
                 messages.success(request, f"Lot « {lot.designation} » mis à jour.")
-                logger.info("LotElevage pk=%s updated by '%s'.", lot.pk, request.user)
+                logger.info(
+                    "LotElevage pk=%s updated by '%s'.", lot.pk, request.user
+                )
                 return redirect("elevage:lot_detail", pk=lot.pk)
             except Exception as exc:
                 logger.exception("Error updating LotElevage pk=%s: %s", pk, exc)
@@ -281,22 +270,17 @@ def lot_edit(request, pk):
     else:
         form = LotElevageForm(instance=lot)
 
-    return render(
-        request,
-        "elevage/lot_form.html",
-        {
-            "form": form,
-            "lot": lot,
-            "title": f"Modifier — {lot.designation}",
-            "action_label": "Enregistrer les modifications",
-        },
-    )
+    return render(request, "elevage/lot_form.html", {
+        "form": form,
+        "lot": lot,
+        "title": f"Modifier — {lot.designation}",
+        "action_label": "Enregistrer les modifications",
+    })
 
 
 # ===========================================================================
 # LotElevage — Close (Fermer)
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def lot_fermer(request, pk):
@@ -371,32 +355,25 @@ def lot_fermer(request, pk):
     productions = ProductionRecord.objects.filter(
         lot=lot, statut=ProductionRecord.STATUT_VALIDE
     )
-    poids_total = productions.aggregate(total=Sum("poids_total_kg"))[
-        "total"
-    ] or Decimal("0")
+    poids_total = productions.aggregate(total=Sum("poids_total_kg"))["total"] or Decimal("0")
     ic = calculer_ic(conso_aliment, poids_total)
 
-    return render(
-        request,
-        "elevage/lot_fermer.html",
-        {
-            "form": form,
-            "lot": lot,
-            "total_mortalite": total_mortalite,
-            "effectif_final": effectif_final,
-            "taux_mortalite": taux_mortalite,
-            "conso_aliment": conso_aliment,
-            "poids_total": poids_total,
-            "ic": ic,
-            "title": f"Fermer le lot — {lot.designation}",
-        },
-    )
+    return render(request, "elevage/lot_fermer.html", {
+        "form": form,
+        "lot": lot,
+        "total_mortalite": total_mortalite,
+        "effectif_final": effectif_final,
+        "taux_mortalite": taux_mortalite,
+        "conso_aliment": conso_aliment,
+        "poids_total": poids_total,
+        "ic": ic,
+        "title": f"Fermer le lot — {lot.designation}",
+    })
 
 
 # ===========================================================================
 # Mortalite — Create
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def mortalite_create(request, lot_pk):
@@ -453,25 +430,19 @@ def mortalite_create(request, lot_pk):
             messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
     else:
         import datetime
-
         form = MortaliteForm(lot=lot, initial={"date": datetime.date.today()})
 
-    return render(
-        request,
-        "elevage/mortalite_form.html",
-        {
-            "form": form,
-            "lot": lot,
-            "title": f"Enregistrer une mortalité — {lot.designation}",
-            "action_label": "Enregistrer",
-        },
-    )
+    return render(request, "elevage/mortalite_form.html", {
+        "form": form,
+        "lot": lot,
+        "title": f"Enregistrer une mortalité — {lot.designation}",
+        "action_label": "Enregistrer",
+    })
 
 
 # ===========================================================================
 # Mortalite — Edit
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def mortalite_edit(request, pk):
@@ -481,7 +452,9 @@ def mortalite_edit(request, pk):
     BR-LOT-05: editing is blocked on closed lots.
     Cumulative-mortality guard is re-applied in MortaliteForm.clean().
     """
-    mortalite = get_object_or_404(Mortalite.objects.select_related("lot"), pk=pk)
+    mortalite = get_object_or_404(
+        Mortalite.objects.select_related("lot"), pk=pk
+    )
     lot = mortalite.lot
 
     if not _assert_lot_ouvert(lot, request):
@@ -509,23 +482,18 @@ def mortalite_edit(request, pk):
     else:
         form = MortaliteForm(instance=mortalite, lot=lot)
 
-    return render(
-        request,
-        "elevage/mortalite_form.html",
-        {
-            "form": form,
-            "lot": lot,
-            "mortalite": mortalite,
-            "title": f"Modifier la mortalité du {mortalite.date}",
-            "action_label": "Enregistrer les modifications",
-        },
-    )
+    return render(request, "elevage/mortalite_form.html", {
+        "form": form,
+        "lot": lot,
+        "mortalite": mortalite,
+        "title": f"Modifier la mortalité du {mortalite.date}",
+        "action_label": "Enregistrer les modifications",
+    })
 
 
 # ===========================================================================
 # Mortalite — Delete
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 @require_POST
@@ -536,7 +504,9 @@ def mortalite_delete(request, pk):
     BR-LOT-05: deletion blocked on closed lots.
     No stock reversal needed — mortality does not affect intrant stock.
     """
-    mortalite = get_object_or_404(Mortalite.objects.select_related("lot"), pk=pk)
+    mortalite = get_object_or_404(
+        Mortalite.objects.select_related("lot"), pk=pk
+    )
     lot = mortalite.lot
 
     if not _assert_lot_ouvert(lot, request):
@@ -567,7 +537,6 @@ def mortalite_delete(request, pk):
 # Consommation — Create
 # ===========================================================================
 
-
 @login_required(login_url=LOGIN_URL)
 def consommation_create(request, lot_pk):
     """
@@ -597,7 +566,6 @@ def consommation_create(request, lot_pk):
                     quantite = form.cleaned_data["quantite"]
 
                     from stock.models import StockIntrant
-
                     try:
                         stock = StockIntrant.objects.select_for_update().get(
                             intrant=intrant
@@ -610,32 +578,24 @@ def consommation_create(request, lot_pk):
                                 f"Disponible : {stock.quantite} {intrant.unite_mesure} — "
                                 f"Demandé : {quantite} {intrant.unite_mesure}.",
                             )
-                            return render(
-                                request,
-                                "elevage/consommation_form.html",
-                                {
-                                    "form": form,
-                                    "lot": lot,
-                                    "title": f"Enregistrer une consommation — {lot.designation}",
-                                    "action_label": "Enregistrer",
-                                },
-                            )
+                            return render(request, "elevage/consommation_form.html", {
+                                "form": form,
+                                "lot": lot,
+                                "title": f"Enregistrer une consommation — {lot.designation}",
+                                "action_label": "Enregistrer",
+                            })
                     except StockIntrant.DoesNotExist:
                         messages.error(
                             request,
                             f"Aucun stock disponible pour « {intrant.designation} ». "
                             "Vérifiez les réceptions (BL fournisseur).",
                         )
-                        return render(
-                            request,
-                            "elevage/consommation_form.html",
-                            {
-                                "form": form,
-                                "lot": lot,
-                                "title": f"Enregistrer une consommation — {lot.designation}",
-                                "action_label": "Enregistrer",
-                            },
-                        )
+                        return render(request, "elevage/consommation_form.html", {
+                            "form": form,
+                            "lot": lot,
+                            "title": f"Enregistrer une consommation — {lot.designation}",
+                            "action_label": "Enregistrer",
+                        })
 
                     conso = form.save(commit=False)
                     conso.lot = lot
@@ -668,25 +628,19 @@ def consommation_create(request, lot_pk):
             messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
     else:
         import datetime
-
         form = ConsommationForm(lot=lot, initial={"date": datetime.date.today()})
 
-    return render(
-        request,
-        "elevage/consommation_form.html",
-        {
-            "form": form,
-            "lot": lot,
-            "title": f"Enregistrer une consommation — {lot.designation}",
-            "action_label": "Enregistrer",
-        },
-    )
+    return render(request, "elevage/consommation_form.html", {
+        "form": form,
+        "lot": lot,
+        "title": f"Enregistrer une consommation — {lot.designation}",
+        "action_label": "Enregistrer",
+    })
 
 
 # ===========================================================================
 # Consommation — Edit
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def consommation_edit(request, pk):
@@ -716,7 +670,6 @@ def consommation_edit(request, pk):
 
                     # Net delta check for same-intrant updates
                     from stock.models import StockIntrant
-
                     intrant_changed = intrant.pk != conso.intrant_id
                     if intrant_changed:
                         # Full new quantity required from new intrant stock.
@@ -741,33 +694,25 @@ def consommation_edit(request, pk):
                                     f"Variation demandée : +{stock_check_qty} "
                                     f"{intrant.unite_mesure}.",
                                 )
-                                return render(
-                                    request,
-                                    "elevage/consommation_form.html",
-                                    {
-                                        "form": form,
-                                        "lot": lot,
-                                        "conso": conso,
-                                        "title": f"Modifier la consommation",
-                                        "action_label": "Enregistrer les modifications",
-                                    },
-                                )
+                                return render(request, "elevage/consommation_form.html", {
+                                    "form": form,
+                                    "lot": lot,
+                                    "conso": conso,
+                                    "title": f"Modifier la consommation",
+                                    "action_label": "Enregistrer les modifications",
+                                })
                         except StockIntrant.DoesNotExist:
                             messages.error(
                                 request,
                                 f"Aucun stock disponible pour « {intrant.designation} ».",
                             )
-                            return render(
-                                request,
-                                "elevage/consommation_form.html",
-                                {
-                                    "form": form,
-                                    "lot": lot,
-                                    "conso": conso,
-                                    "title": "Modifier la consommation",
-                                    "action_label": "Enregistrer les modifications",
-                                },
-                            )
+                            return render(request, "elevage/consommation_form.html", {
+                                "form": form,
+                                "lot": lot,
+                                "conso": conso,
+                                "title": "Modifier la consommation",
+                                "action_label": "Enregistrer les modifications",
+                            })
 
                     form.save()  # triggers pre_save + post_save signals
 
@@ -788,23 +733,18 @@ def consommation_edit(request, pk):
     else:
         form = ConsommationForm(instance=conso, lot=lot)
 
-    return render(
-        request,
-        "elevage/consommation_form.html",
-        {
-            "form": form,
-            "lot": lot,
-            "conso": conso,
-            "title": f"Modifier la consommation du {conso.date}",
-            "action_label": "Enregistrer les modifications",
-        },
-    )
+    return render(request, "elevage/consommation_form.html", {
+        "form": form,
+        "lot": lot,
+        "conso": conso,
+        "title": f"Modifier la consommation du {conso.date}",
+        "action_label": "Enregistrer les modifications",
+    })
 
 
 # ===========================================================================
 # Consommation — Delete
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 @require_POST
@@ -859,7 +799,6 @@ def consommation_delete(request, pk):
 # Consommation — List (standalone, cross-lot)
 # ===========================================================================
 
-
 @login_required(login_url=LOGIN_URL)
 def consommation_list(request):
     """
@@ -873,9 +812,11 @@ def consommation_list(request):
     """
     from intrants.models import Intrant
 
-    qs = Consommation.objects.select_related(
-        "lot", "intrant__categorie", "created_by"
-    ).order_by("-date", "-created_at")
+    qs = (
+        Consommation.objects
+        .select_related("lot", "intrant__categorie", "created_by")
+        .order_by("-date", "-created_at")
+    )
 
     lot_pk = request.GET.get("lot", "")
     if lot_pk:
@@ -895,7 +836,8 @@ def consommation_list(request):
     q = request.GET.get("q", "").strip()
     if q:
         qs = qs.filter(
-            Q(intrant__designation__icontains=q) | Q(lot__designation__icontains=q)
+            Q(intrant__designation__icontains=q)
+            | Q(lot__designation__icontains=q)
         )
 
     # Aggregate total consumed per intrant over the filtered period
@@ -907,34 +849,27 @@ def consommation_list(request):
 
     page = _paginate(qs, request.GET.get("page"))
     lots = LotElevage.objects.order_by("-date_ouverture")
-    intrants = (
-        Intrant.objects.filter(categorie__consommable_en_lot=True, actif=True)
-        .select_related("categorie")
-        .order_by("designation")
-    )
+    intrants = Intrant.objects.filter(
+        categorie__consommable_en_lot=True, actif=True
+    ).select_related("categorie").order_by("designation")
 
-    return render(
-        request,
-        "elevage/consommation_list.html",
-        {
-            "page": page,
-            "q": q,
-            "lot_pk": lot_pk,
-            "intrant_pk": intrant_pk,
-            "date_debut": date_debut,
-            "date_fin": date_fin,
-            "lots": lots,
-            "intrants": intrants,
-            "total_par_intrant": total_par_intrant,
-            "title": "Consommations",
-        },
-    )
+    return render(request, "elevage/consommation_list.html", {
+        "page": page,
+        "q": q,
+        "lot_pk": lot_pk,
+        "intrant_pk": intrant_pk,
+        "date_debut": date_debut,
+        "date_fin": date_fin,
+        "lots": lots,
+        "intrants": intrants,
+        "total_par_intrant": total_par_intrant,
+        "title": "Consommations",
+    })
 
 
 # ===========================================================================
 # Mortalite — List (standalone, cross-lot)
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def mortalite_list(request):
@@ -946,7 +881,11 @@ def mortalite_list(request):
       ?date_debut, ?date_fin
       ?q=<search>         — lot designation or cause
     """
-    qs = Mortalite.objects.select_related("lot").order_by("-date", "-created_at")
+    qs = (
+        Mortalite.objects
+        .select_related("lot")
+        .order_by("-date", "-created_at")
+    )
 
     lot_pk = request.GET.get("lot", "")
     if lot_pk:
@@ -961,7 +900,9 @@ def mortalite_list(request):
 
     q = request.GET.get("q", "").strip()
     if q:
-        qs = qs.filter(Q(lot__designation__icontains=q) | Q(cause__icontains=q))
+        qs = qs.filter(
+            Q(lot__designation__icontains=q) | Q(cause__icontains=q)
+        )
 
     # Cross-lot total for the filtered period
     total_mortalite = qs.aggregate(total=Sum("nombre"))["total"] or 0
@@ -969,26 +910,21 @@ def mortalite_list(request):
     page = _paginate(qs, request.GET.get("page"))
     lots = LotElevage.objects.order_by("-date_ouverture")
 
-    return render(
-        request,
-        "elevage/mortalite_list.html",
-        {
-            "page": page,
-            "q": q,
-            "lot_pk": lot_pk,
-            "date_debut": date_debut,
-            "date_fin": date_fin,
-            "lots": lots,
-            "total_mortalite": total_mortalite,
-            "title": "Mortalités",
-        },
-    )
+    return render(request, "elevage/mortalite_list.html", {
+        "page": page,
+        "q": q,
+        "lot_pk": lot_pk,
+        "date_debut": date_debut,
+        "date_fin": date_fin,
+        "lots": lots,
+        "total_mortalite": total_mortalite,
+        "title": "Mortalités",
+    })
 
 
 # ===========================================================================
 # Dashboard — Elevage overview
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def elevage_dashboard(request):
@@ -1002,7 +938,8 @@ def elevage_dashboard(request):
     import datetime
 
     lots_ouverts = (
-        LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT)
+        LotElevage.objects
+        .filter(statut=LotElevage.STATUT_OUVERT)
         .select_related("batiment", "fournisseur_poussins")
         .order_by("-date_ouverture")
     )
@@ -1011,13 +948,15 @@ def elevage_dashboard(request):
     sept_jours = today - datetime.timedelta(days=7)
 
     mortalites_recentes = (
-        Mortalite.objects.filter(date__gte=sept_jours)
+        Mortalite.objects
+        .filter(date__gte=sept_jours)
         .select_related("lot")
         .order_by("-date")[:20]
     )
 
     consommations_recentes = (
-        Consommation.objects.filter(date__gte=sept_jours)
+        Consommation.objects
+        .filter(date__gte=sept_jours)
         .select_related("lot", "intrant")
         .order_by("-date")[:20]
     )
@@ -1032,26 +971,21 @@ def elevage_dashboard(request):
     nb_lots_ouverts = lots_ouverts.count()
     nb_lots_fermes = LotElevage.objects.filter(statut=LotElevage.STATUT_FERME).count()
 
-    return render(
-        request,
-        "elevage/dashboard.html",
-        {
-            "lots_ouverts": lots_ouverts,
-            "mortalites_recentes": mortalites_recentes,
-            "consommations_recentes": consommations_recentes,
-            "lots_alerte_mortalite": lots_alerte_mortalite,
-            "total_effectif_vivant": total_effectif_vivant,
-            "nb_lots_ouverts": nb_lots_ouverts,
-            "nb_lots_fermes": nb_lots_fermes,
-            "title": "Tableau de bord — Élevage",
-        },
-    )
+    return render(request, "elevage/dashboard.html", {
+        "lots_ouverts": lots_ouverts,
+        "mortalites_recentes": mortalites_recentes,
+        "consommations_recentes": consommations_recentes,
+        "lots_alerte_mortalite": lots_alerte_mortalite,
+        "total_effectif_vivant": total_effectif_vivant,
+        "nb_lots_ouverts": nb_lots_ouverts,
+        "nb_lots_fermes": nb_lots_fermes,
+        "title": "Tableau de bord — Élevage",
+    })
 
 
 # ===========================================================================
 # AJAX helpers
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def lot_kpi_json(request, pk):

@@ -52,7 +52,6 @@ PER_PAGE = 25
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-
 def _paginate(qs, page_number, per_page=PER_PAGE):
     paginator = Paginator(qs, per_page)
     try:
@@ -81,7 +80,6 @@ def _assert_brouillon(record, request):
 # ProduitFini — List
 # ===========================================================================
 
-
 @login_required(login_url=LOGIN_URL)
 def produit_fini_list(request):
     """
@@ -108,24 +106,19 @@ def produit_fini_list(request):
 
     page = _paginate(qs, request.GET.get("page"))
 
-    return render(
-        request,
-        "production/produit_fini_list.html",
-        {
-            "page": page,
-            "q": q,
-            "type_produit": type_produit,
-            "actif_param": actif_param,
-            "type_choices": ProduitFini.TYPE_CHOICES,
-            "title": "Catalogue — Produits finis",
-        },
-    )
+    return render(request, "production/produit_fini_list.html", {
+        "page": page,
+        "q": q,
+        "type_produit": type_produit,
+        "actif_param": actif_param,
+        "type_choices": ProduitFini.TYPE_CHOICES,
+        "title": "Catalogue — Produits finis",
+    })
 
 
 # ===========================================================================
 # ProduitFini — Create
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def produit_fini_create(request):
@@ -145,9 +138,7 @@ def produit_fini_create(request):
                 )
                 logger.info(
                     "ProduitFini pk=%s ('%s') created by '%s'.",
-                    produit.pk,
-                    produit.designation,
-                    request.user,
+                    produit.pk, produit.designation, request.user,
                 )
                 return redirect("production:produit_fini_detail", pk=produit.pk)
             except Exception as exc:
@@ -158,21 +149,16 @@ def produit_fini_create(request):
     else:
         form = ProduitFiniForm()
 
-    return render(
-        request,
-        "production/produit_fini_form.html",
-        {
-            "form": form,
-            "title": "Nouveau produit fini",
-            "action_label": "Créer",
-        },
-    )
+    return render(request, "production/produit_fini_form.html", {
+        "form": form,
+        "title": "Nouveau produit fini",
+        "action_label": "Créer",
+    })
 
 
 # ===========================================================================
 # ProduitFini — Detail
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def produit_fini_detail(request, pk):
@@ -188,36 +174,32 @@ def produit_fini_detail(request, pk):
         stock = None
 
     from stock.models import StockMouvement
-
     mouvements = (
-        StockMouvement.objects.filter(produit_fini=produit)
+        StockMouvement.objects
+        .filter(produit_fini=produit)
         .select_related("created_by")
         .order_by("-date_mouvement", "-created_at")[:30]
     )
 
     lignes_recentes = (
-        ProductionLigne.objects.filter(produit_fini=produit)
+        ProductionLigne.objects
+        .filter(produit_fini=produit)
         .select_related("production__lot")
         .order_by("-production__date_production")[:20]
     )
 
-    return render(
-        request,
-        "production/produit_fini_detail.html",
-        {
-            "produit": produit,
-            "stock": stock,
-            "mouvements": mouvements,
-            "lignes_recentes": lignes_recentes,
-            "title": f"Produit fini — {produit.designation}",
-        },
-    )
+    return render(request, "production/produit_fini_detail.html", {
+        "produit": produit,
+        "stock": stock,
+        "mouvements": mouvements,
+        "lignes_recentes": lignes_recentes,
+        "title": f"Produit fini — {produit.designation}",
+    })
 
 
 # ===========================================================================
 # ProduitFini — Edit
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def produit_fini_edit(request, pk):
@@ -243,22 +225,17 @@ def produit_fini_edit(request, pk):
     else:
         form = ProduitFiniForm(instance=produit)
 
-    return render(
-        request,
-        "production/produit_fini_form.html",
-        {
-            "form": form,
-            "produit": produit,
-            "title": f"Modifier — {produit.designation}",
-            "action_label": "Enregistrer les modifications",
-        },
-    )
+    return render(request, "production/produit_fini_form.html", {
+        "form": form,
+        "produit": produit,
+        "title": f"Modifier — {produit.designation}",
+        "action_label": "Enregistrer les modifications",
+    })
 
 
 # ===========================================================================
 # ProduitFini — Toggle active
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 @require_POST
@@ -268,12 +245,12 @@ def produit_fini_toggle_active(request, pk):
     produit.actif = not produit.actif
     produit.save(update_fields=["actif"])
     state = "activé" if produit.actif else "désactivé"
-    messages.success(request, f"Produit fini « {produit.designation} » {state}.")
+    messages.success(
+        request, f"Produit fini « {produit.designation} » {state}."
+    )
     logger.info(
         "ProduitFini pk=%s set actif=%s by '%s'.",
-        produit.pk,
-        produit.actif,
-        request.user,
+        produit.pk, produit.actif, request.user,
     )
     return redirect("production:produit_fini_list")
 
@@ -281,7 +258,6 @@ def produit_fini_toggle_active(request, pk):
 # ===========================================================================
 # ProductionRecord — List
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def production_record_list(request):
@@ -297,7 +273,8 @@ def production_record_list(request):
     from elevage.models import LotElevage
 
     qs = (
-        ProductionRecord.objects.select_related("lot__batiment", "created_by")
+        ProductionRecord.objects
+        .select_related("lot__batiment", "created_by")
         .prefetch_related("lignes__produit_fini")
         .order_by("-date_production", "-created_at")
     )
@@ -332,29 +309,24 @@ def production_record_list(request):
         statut=ProductionRecord.STATUT_VALIDE
     ).count()
 
-    return render(
-        request,
-        "production/production_record_list.html",
-        {
-            "page": page,
-            "q": q,
-            "statut": statut,
-            "lot_pk": lot_pk,
-            "date_debut": date_debut,
-            "date_fin": date_fin,
-            "lots": lots,
-            "nb_brouillons": nb_brouillons,
-            "nb_valides": nb_valides,
-            "statut_choices": ProductionRecord.STATUT_CHOICES,
-            "title": "Enregistrements de production",
-        },
-    )
+    return render(request, "production/production_record_list.html", {
+        "page": page,
+        "q": q,
+        "statut": statut,
+        "lot_pk": lot_pk,
+        "date_debut": date_debut,
+        "date_fin": date_fin,
+        "lots": lots,
+        "nb_brouillons": nb_brouillons,
+        "nb_valides": nb_valides,
+        "statut_choices": ProductionRecord.STATUT_CHOICES,
+        "title": "Enregistrements de production",
+    })
 
 
 # ===========================================================================
 # ProductionRecord — Create
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def production_record_create(request, lot_pk=None):
@@ -399,11 +371,8 @@ def production_record_create(request, lot_pk=None):
                 logger.info(
                     "ProductionRecord pk=%s created (BROUILLON) by '%s' "
                     "(lot pk=%s, date=%s, oiseaux=%s).",
-                    record.pk,
-                    request.user,
-                    record.lot_id,
-                    record.date_production,
-                    record.nombre_oiseaux_abattus,
+                    record.pk, request.user, record.lot_id,
+                    record.date_production, record.nombre_oiseaux_abattus,
                 )
                 return redirect("production:production_record_detail", pk=record.pk)
 
@@ -423,23 +392,18 @@ def production_record_create(request, lot_pk=None):
             tmp_record.lot = lot
         formset = ProductionLigneFormSet(instance=tmp_record)
 
-    return render(
-        request,
-        "production/production_record_form.html",
-        {
-            "form": form,
-            "formset": formset,
-            "lot": lot,
-            "title": "Nouveau enregistrement de production",
-            "action_label": "Enregistrer (brouillon)",
-        },
-    )
+    return render(request, "production/production_record_form.html", {
+        "form": form,
+        "formset": formset,
+        "lot": lot,
+        "title": "Nouveau enregistrement de production",
+        "action_label": "Enregistrer (brouillon)",
+    })
 
 
 # ===========================================================================
 # ProductionRecord — Detail
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def production_record_detail(request, pk):
@@ -456,8 +420,10 @@ def production_record_detail(request, pk):
         ProductionRecord.objects.select_related("lot__batiment", "created_by"),
         pk=pk,
     )
-    lignes = record.lignes.select_related("produit_fini").order_by(
-        "produit_fini__type_produit"
+    lignes = (
+        record.lignes
+        .select_related("produit_fini")
+        .order_by("produit_fini__type_produit")
     )
 
     rendement = None
@@ -466,9 +432,9 @@ def production_record_detail(request, pk):
 
     # Stock impact: mouvements created by this record's signal
     from stock.models import StockMouvement
-
     mouvements = (
-        StockMouvement.objects.filter(
+        StockMouvement.objects
+        .filter(
             source=StockMouvement.SOURCE_PRODUCTION,
             reference_id=record.pk,
         )
@@ -476,26 +442,23 @@ def production_record_detail(request, pk):
         .order_by("date_mouvement")
     )
 
-    valeur_totale_production = sum(ligne.valeur_totale for ligne in lignes)
-
-    return render(
-        request,
-        "production/production_record_detail.html",
-        {
-            "record": record,
-            "lignes": lignes,
-            "rendement": rendement,
-            "mouvements": mouvements,
-            "valeur_totale_production": valeur_totale_production,
-            "title": f"Production — {record.lot.designation} — {record.date_production}",
-        },
+    valeur_totale_production = sum(
+        ligne.valeur_totale for ligne in lignes
     )
+
+    return render(request, "production/production_record_detail.html", {
+        "record": record,
+        "lignes": lignes,
+        "rendement": rendement,
+        "mouvements": mouvements,
+        "valeur_totale_production": valeur_totale_production,
+        "title": f"Production — {record.lot.designation} — {record.date_production}",
+    })
 
 
 # ===========================================================================
 # ProductionRecord — Edit  (BROUILLON only)
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def production_record_edit(request, pk):
@@ -505,7 +468,9 @@ def production_record_edit(request, pk):
     Validated records are immutable — this view redirects with an error if
     the record has already been validated.
     """
-    record = get_object_or_404(ProductionRecord.objects.select_related("lot"), pk=pk)
+    record = get_object_or_404(
+        ProductionRecord.objects.select_related("lot"), pk=pk
+    )
 
     if not _assert_brouillon(record, request):
         return redirect("production:production_record_detail", pk=record.pk)
@@ -530,7 +495,9 @@ def production_record_edit(request, pk):
                 return redirect("production:production_record_detail", pk=record.pk)
 
             except Exception as exc:
-                logger.exception("Error updating ProductionRecord pk=%s: %s", pk, exc)
+                logger.exception(
+                    "Error updating ProductionRecord pk=%s: %s", pk, exc
+                )
                 messages.error(request, f"Erreur lors de la mise à jour : {exc}")
         else:
             messages.error(
@@ -541,24 +508,19 @@ def production_record_edit(request, pk):
         form = ProductionRecordForm(instance=record, lot=record.lot)
         formset = ProductionLigneFormSet(instance=record)
 
-    return render(
-        request,
-        "production/production_record_form.html",
-        {
-            "form": form,
-            "formset": formset,
-            "record": record,
-            "lot": record.lot,
-            "title": f"Modifier — Production {record.date_production}",
-            "action_label": "Enregistrer les modifications",
-        },
-    )
+    return render(request, "production/production_record_form.html", {
+        "form": form,
+        "formset": formset,
+        "record": record,
+        "lot": record.lot,
+        "title": f"Modifier — Production {record.date_production}",
+        "action_label": "Enregistrer les modifications",
+    })
 
 
 # ===========================================================================
 # ProductionRecord — Validate  (BROUILLON → VALIDE, POST-only)
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 @require_POST
@@ -577,7 +539,9 @@ def production_record_valider(request, pk):
            - Recalculates cout_moyen_production (weighted average).
            - Creates StockMouvement (ENTREE / PRODUCTION) per ligne.
     """
-    record = get_object_or_404(ProductionRecord.objects.select_related("lot"), pk=pk)
+    record = get_object_or_404(
+        ProductionRecord.objects.select_related("lot"), pk=pk
+    )
 
     if not _assert_brouillon(record, request):
         return redirect("production:production_record_detail", pk=record.pk)
@@ -595,7 +559,6 @@ def production_record_valider(request, pk):
         with transaction.atomic():
             # Re-check effectif vivant atomically (select_for_update on lot).
             from elevage.models import LotElevage
-
             lot = LotElevage.objects.select_for_update().get(pk=record.lot_id)
             effectif = lot.effectif_vivant
 
@@ -606,7 +569,9 @@ def production_record_valider(request, pk):
                     f"({record.nombre_oiseaux_abattus}) dépasse l'effectif vivant "
                     f"actuel du lot ({effectif}). Modifiez l'enregistrement.",
                 )
-                return redirect("production:production_record_detail", pk=record.pk)
+                return redirect(
+                    "production:production_record_detail", pk=record.pk
+                )
 
             # Step 3: allocate lot costs to production lines.
             try:
@@ -616,8 +581,7 @@ def production_record_valider(request, pk):
                 logger.warning(
                     "allouer_cout_production failed for ProductionRecord pk=%s: %s. "
                     "Proceeding with existing cout_unitaire_estime values.",
-                    record.pk,
-                    alloc_exc,
+                    record.pk, alloc_exc,
                 )
 
             # Step 4: transition to VALIDE — signal fires here.
@@ -632,15 +596,14 @@ def production_record_valider(request, pk):
         logger.info(
             "ProductionRecord pk=%s validated by '%s' "
             "(lot pk=%s, oiseaux=%s, lignes=%s).",
-            record.pk,
-            request.user,
-            record.lot_id,
-            record.nombre_oiseaux_abattus,
-            record.lignes.count(),
+            record.pk, request.user, record.lot_id,
+            record.nombre_oiseaux_abattus, record.lignes.count(),
         )
 
     except Exception as exc:
-        logger.exception("Error validating ProductionRecord pk=%s: %s", pk, exc)
+        logger.exception(
+            "Error validating ProductionRecord pk=%s: %s", pk, exc
+        )
         messages.error(
             request,
             f"Erreur lors de la validation : {exc}",
@@ -653,7 +616,6 @@ def production_record_valider(request, pk):
 # ProductionRecord — Delete  (BROUILLON only, POST-only)
 # ===========================================================================
 
-
 @login_required(login_url=LOGIN_URL)
 @require_POST
 def production_record_delete(request, pk):
@@ -663,7 +625,9 @@ def production_record_delete(request, pk):
     Validated records cannot be deleted — they are immutable audit records.
     No stock reversal is needed because BROUILLON records have no stock impact.
     """
-    record = get_object_or_404(ProductionRecord.objects.select_related("lot"), pk=pk)
+    record = get_object_or_404(
+        ProductionRecord.objects.select_related("lot"), pk=pk
+    )
 
     if not _assert_brouillon(record, request):
         return redirect("production:production_record_detail", pk=record.pk)
@@ -676,7 +640,9 @@ def production_record_delete(request, pk):
             request,
             f"Enregistrement de production du {date_ref} (lot « {lot_ref} ») supprimé.",
         )
-        logger.info("ProductionRecord pk=%s deleted by '%s'.", pk, request.user)
+        logger.info(
+            "ProductionRecord pk=%s deleted by '%s'.", pk, request.user
+        )
     except Exception as exc:
         logger.exception("Error deleting ProductionRecord pk=%s: %s", pk, exc)
         messages.error(request, f"Erreur lors de la suppression : {exc}")
@@ -688,7 +654,6 @@ def production_record_delete(request, pk):
 # ===========================================================================
 # Production Dashboard
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def production_dashboard(request):
@@ -716,22 +681,28 @@ def production_dashboard(request):
     except ValueError:
         pass
 
-    dashboard_rows = get_production_dashboard(date_debut=date_debut, date_fin=date_fin)
+    dashboard_rows = get_production_dashboard(
+        date_debut=date_debut, date_fin=date_fin
+    )
 
     brouillons = (
-        ProductionRecord.objects.filter(statut=ProductionRecord.STATUT_BROUILLON)
+        ProductionRecord.objects
+        .filter(statut=ProductionRecord.STATUT_BROUILLON)
         .select_related("lot")
         .order_by("-date_production")
     )
 
     valides_recents = (
-        ProductionRecord.objects.filter(statut=ProductionRecord.STATUT_VALIDE)
+        ProductionRecord.objects
+        .filter(statut=ProductionRecord.STATUT_VALIDE)
         .select_related("lot")
         .order_by("-date_production")[:10]
     )
 
     # Aggregate totals for the filtered period
-    valides_qs = ProductionRecord.objects.filter(statut=ProductionRecord.STATUT_VALIDE)
+    valides_qs = ProductionRecord.objects.filter(
+        statut=ProductionRecord.STATUT_VALIDE
+    )
     if date_debut:
         valides_qs = valides_qs.filter(date_production__gte=date_debut)
     if date_fin:
@@ -742,25 +713,20 @@ def production_dashboard(request):
         total_poids=Sum("poids_total_kg"),
     )
 
-    return render(
-        request,
-        "production/production_dashboard.html",
-        {
-            "dashboard_rows": dashboard_rows,
-            "brouillons": brouillons,
-            "valides_recents": valides_recents,
-            "totaux": totaux,
-            "date_debut": date_debut_str,
-            "date_fin": date_fin_str,
-            "title": "Tableau de bord — Production",
-        },
-    )
+    return render(request, "production/production_dashboard.html", {
+        "dashboard_rows": dashboard_rows,
+        "brouillons": brouillons,
+        "valides_recents": valides_recents,
+        "totaux": totaux,
+        "date_debut": date_debut_str,
+        "date_fin": date_fin_str,
+        "title": "Tableau de bord — Production",
+    })
 
 
 # ===========================================================================
 # AJAX helpers
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def lot_effectif_json(request, lot_pk):
@@ -780,19 +746,16 @@ def lot_effectif_json(request, lot_pk):
         }
     """
     from elevage.models import LotElevage
-
     lot = get_object_or_404(LotElevage, pk=lot_pk)
 
-    return JsonResponse(
-        {
-            "effectif_vivant": lot.effectif_vivant,
-            "nombre_poussins_initial": lot.nombre_poussins_initial,
-            "total_mortalite": lot.total_mortalite,
-            "taux_mortalite": float(lot.taux_mortalite),
-            "designation": lot.designation,
-            "statut": lot.statut,
-        }
-    )
+    return JsonResponse({
+        "effectif_vivant": lot.effectif_vivant,
+        "nombre_poussins_initial": lot.nombre_poussins_initial,
+        "total_mortalite": lot.total_mortalite,
+        "taux_mortalite": float(lot.taux_mortalite),
+        "designation": lot.designation,
+        "statut": lot.statut,
+    })
 
 
 @login_required(login_url=LOGIN_URL)

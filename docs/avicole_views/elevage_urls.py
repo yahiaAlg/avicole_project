@@ -15,12 +15,14 @@ from elevage import views
 app_name = "elevage"
 
 urlpatterns = [
+
     # ── Dashboard ───────────────────────────────────────────────────────
     path(
         "",
         views.elevage_dashboard,
         name="dashboard",
     ),
+
     # ── LotElevage ──────────────────────────────────────────────────────
     path(
         "lots/",
@@ -47,6 +49,7 @@ urlpatterns = [
         views.lot_fermer,
         name="lot_fermer",
     ),
+
     # ── Mortalite ────────────────────────────────────────────────────────
     path(
         "mortalites/",
@@ -68,6 +71,7 @@ urlpatterns = [
         views.mortalite_delete,
         name="mortalite_delete",
     ),
+
     # ── Consommation ─────────────────────────────────────────────────────
     path(
         "consommations/",
@@ -89,6 +93,7 @@ urlpatterns = [
         views.consommation_delete,
         name="consommation_delete",
     ),
+
     # ── AJAX ────────────────────────────────────────────────────────────
     path(
         "lots/<int:pk>/kpi.json",
