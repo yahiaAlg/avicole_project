@@ -36,7 +36,6 @@ PER_PAGE = 25
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-
 def _paginate(qs, page_number, per_page=PER_PAGE):
     paginator = Paginator(qs, per_page)
     try:
@@ -51,7 +50,6 @@ def _paginate(qs, page_number, per_page=PER_PAGE):
 # StockIntrant — List
 # ===========================================================================
 
-
 @login_required(login_url=LOGIN_URL)
 def stock_intrant_list(request):
     """
@@ -64,8 +62,10 @@ def stock_intrant_list(request):
     """
     from intrants.models import CategorieIntrant
 
-    qs = StockIntrant.objects.select_related("intrant__categorie").order_by(
-        "intrant__categorie__libelle", "intrant__designation"
+    qs = (
+        StockIntrant.objects
+        .select_related("intrant__categorie")
+        .order_by("intrant__categorie__libelle", "intrant__designation")
     )
 
     # Category filter
@@ -87,40 +87,32 @@ def stock_intrant_list(request):
         qs = [s for s in qs if s.en_alerte]
 
     page = _paginate(qs, request.GET.get("page"))
-    categories = CategorieIntrant.objects.filter(actif=True).order_by(
-        "ordre", "libelle"
-    )
+    categories = CategorieIntrant.objects.filter(actif=True).order_by("ordre", "libelle")
 
     # Summary totals (only meaningful without alert filter)
     valeur_totale = None
     if not en_alerte:
         try:
             valeur_totale = sum(
-                float(s.valeur_stock)
-                for s in (qs if hasattr(qs, "__iter__") else qs.all())
+                float(s.valeur_stock) for s in (qs if hasattr(qs, "__iter__") else qs.all())
             )
         except Exception:
             valeur_totale = None
 
-    return render(
-        request,
-        "stock/stock_intrant_list.html",
-        {
-            "page": page,
-            "q": q,
-            "categorie_pk": categorie_pk,
-            "categories": categories,
-            "en_alerte": en_alerte,
-            "valeur_totale": valeur_totale,
-            "title": "Stock Intrants",
-        },
-    )
+    return render(request, "stock/stock_intrant_list.html", {
+        "page": page,
+        "q": q,
+        "categorie_pk": categorie_pk,
+        "categories": categories,
+        "en_alerte": en_alerte,
+        "valeur_totale": valeur_totale,
+        "title": "Stock Intrants",
+    })
 
 
 # ===========================================================================
 # StockIntrant — Detail
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def stock_intrant_detail(request, pk):
@@ -143,23 +135,18 @@ def stock_intrant_detail(request, pk):
         .order_by("-date_ajustement")[:10]
     )
 
-    return render(
-        request,
-        "stock/stock_intrant_detail.html",
-        {
-            "stock": stock,
-            "intrant": stock.intrant,
-            "mouvements": mouvements,
-            "ajustements": ajustements,
-            "title": f"Stock — {stock.intrant.designation}",
-        },
-    )
+    return render(request, "stock/stock_intrant_detail.html", {
+        "stock": stock,
+        "intrant": stock.intrant,
+        "mouvements": mouvements,
+        "ajustements": ajustements,
+        "title": f"Stock — {stock.intrant.designation}",
+    })
 
 
 # ===========================================================================
 # StockProduitFini — List
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def stock_produit_fini_list(request):
@@ -173,8 +160,10 @@ def stock_produit_fini_list(request):
     """
     from production.models import ProduitFini
 
-    qs = StockProduitFini.objects.select_related("produit_fini").order_by(
-        "produit_fini__type_produit", "produit_fini__designation"
+    qs = (
+        StockProduitFini.objects
+        .select_related("produit_fini")
+        .order_by("produit_fini__type_produit", "produit_fini__designation")
     )
 
     type_produit = request.GET.get("type_produit", "")
@@ -195,31 +184,25 @@ def stock_produit_fini_list(request):
     if not en_alerte:
         try:
             valeur_totale = sum(
-                float(s.valeur_stock)
-                for s in (qs if isinstance(qs, list) else qs.all())
+                float(s.valeur_stock) for s in (qs if isinstance(qs, list) else qs.all())
             )
         except Exception:
             valeur_totale = None
 
-    return render(
-        request,
-        "stock/stock_produit_fini_list.html",
-        {
-            "page": page,
-            "q": q,
-            "type_produit": type_produit,
-            "type_choices": ProduitFini.TYPE_CHOICES,
-            "en_alerte": en_alerte,
-            "valeur_totale": valeur_totale,
-            "title": "Stock Produits Finis",
-        },
-    )
+    return render(request, "stock/stock_produit_fini_list.html", {
+        "page": page,
+        "q": q,
+        "type_produit": type_produit,
+        "type_choices": ProduitFini.TYPE_CHOICES,
+        "en_alerte": en_alerte,
+        "valeur_totale": valeur_totale,
+        "title": "Stock Produits Finis",
+    })
 
 
 # ===========================================================================
 # StockProduitFini — Detail
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def stock_produit_fini_detail(request, pk):
@@ -242,23 +225,18 @@ def stock_produit_fini_detail(request, pk):
         .order_by("-date_ajustement")[:10]
     )
 
-    return render(
-        request,
-        "stock/stock_produit_fini_detail.html",
-        {
-            "stock": stock,
-            "produit_fini": stock.produit_fini,
-            "mouvements": mouvements,
-            "ajustements": ajustements,
-            "title": f"Stock — {stock.produit_fini.designation}",
-        },
-    )
+    return render(request, "stock/stock_produit_fini_detail.html", {
+        "stock": stock,
+        "produit_fini": stock.produit_fini,
+        "mouvements": mouvements,
+        "ajustements": ajustements,
+        "title": f"Stock — {stock.produit_fini.designation}",
+    })
 
 
 # ===========================================================================
 # StockMouvement — List  (unified audit trail)
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def stock_mouvement_list(request):
@@ -273,9 +251,11 @@ def stock_mouvement_list(request):
       ?date_fin=YYYY-MM-DD
       ?q=<search>   — searches intrant/produit designation and reference label
     """
-    qs = StockMouvement.objects.select_related(
-        "intrant", "produit_fini", "created_by"
-    ).order_by("-date_mouvement", "-created_at")
+    qs = (
+        StockMouvement.objects
+        .select_related("intrant", "produit_fini", "created_by")
+        .order_by("-date_mouvement", "-created_at")
+    )
 
     # Segment filter
     segment = request.GET.get("segment", "")
@@ -313,28 +293,23 @@ def stock_mouvement_list(request):
 
     page = _paginate(qs, request.GET.get("page"))
 
-    return render(
-        request,
-        "stock/stock_mouvement_list.html",
-        {
-            "page": page,
-            "q": q,
-            "segment": segment,
-            "type_mouvement": type_mouvement,
-            "source": source,
-            "date_debut": date_debut,
-            "date_fin": date_fin,
-            "type_choices": StockMouvement.TYPE_CHOICES,
-            "source_choices": StockMouvement.SOURCE_CHOICES,
-            "title": "Mouvements de stock",
-        },
-    )
+    return render(request, "stock/stock_mouvement_list.html", {
+        "page": page,
+        "q": q,
+        "segment": segment,
+        "type_mouvement": type_mouvement,
+        "source": source,
+        "date_debut": date_debut,
+        "date_fin": date_fin,
+        "type_choices": StockMouvement.TYPE_CHOICES,
+        "source_choices": StockMouvement.SOURCE_CHOICES,
+        "title": "Mouvements de stock",
+    })
 
 
 # ===========================================================================
 # StockAjustement — List
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def stock_ajustement_list(request):
@@ -345,9 +320,11 @@ def stock_ajustement_list(request):
       ?segment=intrant|produit_fini
       ?date_debut, ?date_fin
     """
-    qs = StockAjustement.objects.select_related(
-        "intrant", "produit_fini", "effectue_par"
-    ).order_by("-date_ajustement", "-created_at")
+    qs = (
+        StockAjustement.objects
+        .select_related("intrant", "produit_fini", "effectue_par")
+        .order_by("-date_ajustement", "-created_at")
+    )
 
     segment = request.GET.get("segment", "")
     if segment == StockAjustement.SEGMENT_INTRANT:
@@ -364,24 +341,19 @@ def stock_ajustement_list(request):
 
     page = _paginate(qs, request.GET.get("page"))
 
-    return render(
-        request,
-        "stock/stock_ajustement_list.html",
-        {
-            "page": page,
-            "segment": segment,
-            "date_debut": date_debut,
-            "date_fin": date_fin,
-            "segment_choices": StockAjustement.SEGMENT_CHOICES,
-            "title": "Ajustements de stock",
-        },
-    )
+    return render(request, "stock/stock_ajustement_list.html", {
+        "page": page,
+        "segment": segment,
+        "date_debut": date_debut,
+        "date_fin": date_fin,
+        "segment_choices": StockAjustement.SEGMENT_CHOICES,
+        "title": "Ajustements de stock",
+    })
 
 
 # ===========================================================================
 # StockAjustement — Create
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def stock_ajustement_create(request):
@@ -441,22 +413,14 @@ def stock_ajustement_create(request):
 
                 # Snapshot the current quantite_avant from live stock just before
                 # saving, in case the user's pre-loaded value is stale.
-                if (
-                    ajustement.segment == StockAjustement.SEGMENT_INTRANT
-                    and ajustement.intrant_id
-                ):
+                if ajustement.segment == StockAjustement.SEGMENT_INTRANT and ajustement.intrant_id:
                     try:
-                        live = StockIntrant.objects.get(
-                            intrant_id=ajustement.intrant_id
-                        )
+                        live = StockIntrant.objects.get(intrant_id=ajustement.intrant_id)
                         ajustement.quantite_avant = live.quantite
                     except StockIntrant.DoesNotExist:
                         pass
 
-                elif (
-                    ajustement.segment == StockAjustement.SEGMENT_PRODUIT_FINI
-                    and ajustement.produit_fini_id
-                ):
+                elif ajustement.segment == StockAjustement.SEGMENT_PRODUIT_FINI and ajustement.produit_fini_id:
                     try:
                         live = StockProduitFini.objects.get(
                             produit_fini_id=ajustement.produit_fini_id
@@ -482,10 +446,7 @@ def stock_ajustement_create(request):
                 )
                 logger.info(
                     "StockAjustement pk=%s created by '%s' (segment=%s, delta=%s).",
-                    ajustement.pk,
-                    request.user,
-                    ajustement.segment,
-                    delta,
+                    ajustement.pk, request.user, ajustement.segment, delta,
                 )
                 return redirect("stock:stock_ajustement_list")
 
@@ -499,22 +460,17 @@ def stock_ajustement_create(request):
     else:
         form = StockAjustementForm(initial=initial)
 
-    return render(
-        request,
-        "stock/stock_ajustement_form.html",
-        {
-            "form": form,
-            "current_stock": current_stock,
-            "title": "Nouvel ajustement de stock",
-            "action_label": "Enregistrer l'ajustement",
-        },
-    )
+    return render(request, "stock/stock_ajustement_form.html", {
+        "form": form,
+        "current_stock": current_stock,
+        "title": "Nouvel ajustement de stock",
+        "action_label": "Enregistrer l'ajustement",
+    })
 
 
 # ===========================================================================
 # Dashboard — stock overview
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def stock_dashboard(request):
@@ -538,30 +494,27 @@ def stock_dashboard(request):
     pf_en_alerte = [s for s in pf_stocks if s.en_alerte]
 
     # Recent movements
-    mouvements_recents = StockMouvement.objects.select_related(
-        "intrant", "produit_fini"
-    ).order_by("-date_mouvement", "-created_at")[:15]
-
-    return render(
-        request,
-        "stock/stock_dashboard.html",
-        {
-            "nb_intrants": nb_intrants,
-            "valeur_intrants": round(valeur_intrants, 2),
-            "intrants_en_alerte": intrants_en_alerte,
-            "nb_pf": nb_pf,
-            "valeur_pf": round(valeur_pf, 2),
-            "pf_en_alerte": pf_en_alerte,
-            "mouvements_recents": mouvements_recents,
-            "title": "Tableau de bord — Stock",
-        },
+    mouvements_recents = (
+        StockMouvement.objects
+        .select_related("intrant", "produit_fini")
+        .order_by("-date_mouvement", "-created_at")[:15]
     )
+
+    return render(request, "stock/stock_dashboard.html", {
+        "nb_intrants": nb_intrants,
+        "valeur_intrants": round(valeur_intrants, 2),
+        "intrants_en_alerte": intrants_en_alerte,
+        "nb_pf": nb_pf,
+        "valeur_pf": round(valeur_pf, 2),
+        "pf_en_alerte": pf_en_alerte,
+        "mouvements_recents": mouvements_recents,
+        "title": "Tableau de bord — Stock",
+    })
 
 
 # ===========================================================================
 # AJAX helpers
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def stock_intrant_balance_json(request, pk):
@@ -574,7 +527,6 @@ def stock_intrant_balance_json(request, pk):
          "en_alerte": ..., "seuil_alerte": ...}
     """
     from intrants.models import Intrant
-
     intrant = get_object_or_404(Intrant, pk=pk)
     try:
         stock = intrant.stock
@@ -608,7 +560,6 @@ def stock_produit_fini_balance_json(request, pk):
          "en_alerte": ...}
     """
     from production.models import ProduitFini
-
     produit = get_object_or_404(ProduitFini, pk=pk)
     try:
         stock = produit.stock

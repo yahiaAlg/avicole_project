@@ -55,7 +55,6 @@ PER_PAGE = 25
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-
 def _paginate(qs, page_number, per_page=PER_PAGE):
     paginator = Paginator(qs, per_page)
     try:
@@ -69,14 +68,12 @@ def _paginate(qs, page_number, per_page=PER_PAGE):
 def _auto_reference_bl():
     """Return the next BLF reference without committing."""
     from achats.utils import generer_reference_bl_fournisseur
-
     return generer_reference_bl_fournisseur()
 
 
 def _auto_reference_facture():
     """Return the next FRN reference without committing."""
     from achats.utils import generer_reference_facture_fournisseur
-
     return generer_reference_facture_fournisseur()
 
 
@@ -84,15 +81,16 @@ def _auto_reference_facture():
 # BL Fournisseur — List
 # ===========================================================================
 
-
 @login_required(login_url=LOGIN_URL)
 def bl_fournisseur_list(request):
     """
     BL list with search (reference, supplier name), statut filter, and
     optional supplier filter passed as ?fournisseur=<pk>.
     """
-    qs = BLFournisseur.objects.select_related("fournisseur", "created_by").order_by(
-        "-date_bl", "-created_at"
+    qs = (
+        BLFournisseur.objects
+        .select_related("fournisseur", "created_by")
+        .order_by("-date_bl", "-created_at")
     )
 
     # Statut filter
@@ -117,25 +115,20 @@ def bl_fournisseur_list(request):
     page = _paginate(qs, request.GET.get("page"))
     fournisseurs = Fournisseur.objects.filter(actif=True).order_by("nom")
 
-    return render(
-        request,
-        "achats/bl_fournisseur_list.html",
-        {
-            "page": page,
-            "q": q,
-            "statut": statut,
-            "fournisseur_pk": fournisseur_pk,
-            "fournisseurs": fournisseurs,
-            "statut_choices": BLFournisseur.STATUT_CHOICES,
-            "title": "BL Fournisseurs",
-        },
-    )
+    return render(request, "achats/bl_fournisseur_list.html", {
+        "page": page,
+        "q": q,
+        "statut": statut,
+        "fournisseur_pk": fournisseur_pk,
+        "fournisseurs": fournisseurs,
+        "statut_choices": BLFournisseur.STATUT_CHOICES,
+        "title": "BL Fournisseurs",
+    })
 
 
 # ===========================================================================
 # BL Fournisseur — Create
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def bl_fournisseur_create(request):
@@ -165,9 +158,7 @@ def bl_fournisseur_create(request):
                 )
                 logger.info(
                     "BLFournisseur pk=%s (%s) created by '%s'.",
-                    bl.pk,
-                    bl.reference,
-                    request.user,
+                    bl.pk, bl.reference, request.user,
                 )
                 return redirect("achats:bl_fournisseur_detail", pk=bl.pk)
 
@@ -183,22 +174,17 @@ def bl_fournisseur_create(request):
         form = BLFournisseurForm(initial={"reference": initial_ref})
         formset = BLFournisseurLigneFormSet(prefix="lignes")
 
-    return render(
-        request,
-        "achats/bl_fournisseur_form.html",
-        {
-            "form": form,
-            "formset": formset,
-            "title": "Nouveau BL Fournisseur",
-            "action_label": "Créer",
-        },
-    )
+    return render(request, "achats/bl_fournisseur_form.html", {
+        "form": form,
+        "formset": formset,
+        "title": "Nouveau BL Fournisseur",
+        "action_label": "Créer",
+    })
 
 
 # ===========================================================================
 # BL Fournisseur — Edit
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def bl_fournisseur_edit(request, pk):
@@ -232,7 +218,9 @@ def bl_fournisseur_edit(request, pk):
                     formset.save()
 
                 messages.success(request, f"BL {bl.reference} mis à jour.")
-                logger.info("BLFournisseur pk=%s updated by '%s'.", pk, request.user)
+                logger.info(
+                    "BLFournisseur pk=%s updated by '%s'.", pk, request.user
+                )
                 return redirect("achats:bl_fournisseur_detail", pk=pk)
 
             except Exception as exc:
@@ -246,23 +234,18 @@ def bl_fournisseur_edit(request, pk):
         form = BLFournisseurForm(instance=bl)
         formset = BLFournisseurLigneFormSet(instance=bl, prefix="lignes")
 
-    return render(
-        request,
-        "achats/bl_fournisseur_form.html",
-        {
-            "form": form,
-            "formset": formset,
-            "object": bl,
-            "title": f"Modifier BL — {bl.reference}",
-            "action_label": "Enregistrer",
-        },
-    )
+    return render(request, "achats/bl_fournisseur_form.html", {
+        "form": form,
+        "formset": formset,
+        "object": bl,
+        "title": f"Modifier BL — {bl.reference}",
+        "action_label": "Enregistrer",
+    })
 
 
 # ===========================================================================
 # BL Fournisseur — Detail
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def bl_fournisseur_detail(request, pk):
@@ -276,23 +259,18 @@ def bl_fournisseur_detail(request, pk):
     lignes = bl.lignes.select_related("intrant__stock").all()
     factures = bl.factures.order_by("-date_facture")
 
-    return render(
-        request,
-        "achats/bl_fournisseur_detail.html",
-        {
-            "bl": bl,
-            "lignes": lignes,
-            "factures": factures,
-            "montant_total": bl.montant_total,
-            "title": f"BL {bl.reference}",
-        },
-    )
+    return render(request, "achats/bl_fournisseur_detail.html", {
+        "bl": bl,
+        "lignes": lignes,
+        "factures": factures,
+        "montant_total": bl.montant_total,
+        "title": f"BL {bl.reference}",
+    })
 
 
 # ===========================================================================
 # BL Fournisseur — Print
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def bl_fournisseur_print(request, pk):
@@ -300,7 +278,6 @@ def bl_fournisseur_print(request, pk):
     Printable BL view.  Renders a minimal template with @media print CSS.
     """
     from core.models import CompanyInfo
-
     bl = get_object_or_404(
         BLFournisseur.objects.select_related("fournisseur"),
         pk=pk,
@@ -308,22 +285,17 @@ def bl_fournisseur_print(request, pk):
     lignes = bl.lignes.select_related("intrant").all()
     company = CompanyInfo.get_instance()
 
-    return render(
-        request,
-        "achats/bl_fournisseur_print.html",
-        {
-            "bl": bl,
-            "lignes": lignes,
-            "montant_total": bl.montant_total,
-            "company": company,
-        },
-    )
+    return render(request, "achats/bl_fournisseur_print.html", {
+        "bl": bl,
+        "lignes": lignes,
+        "montant_total": bl.montant_total,
+        "company": company,
+    })
 
 
 # ===========================================================================
 # BL Fournisseur — Delete (brouillon only)
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 @require_POST
@@ -353,15 +325,16 @@ def bl_fournisseur_delete(request, pk):
 # Facture Fournisseur — List
 # ===========================================================================
 
-
 @login_required(login_url=LOGIN_URL)
 def facture_fournisseur_list(request):
     """
     Invoice list with search (reference, supplier), statut filter,
     overdue filter, and optional supplier deep-link via ?fournisseur=<pk>.
     """
-    qs = FactureFournisseur.objects.select_related("fournisseur").order_by(
-        "-date_facture", "-created_at"
+    qs = (
+        FactureFournisseur.objects
+        .select_related("fournisseur")
+        .order_by("-date_facture", "-created_at")
     )
 
     statut = request.GET.get("statut", "")
@@ -375,38 +348,34 @@ def facture_fournisseur_list(request):
     # Overdue filter (past due_date, not paid)
     if request.GET.get("retard") == "1":
         import datetime
-
         qs = qs.exclude(statut=FactureFournisseur.STATUT_PAYE).filter(
             date_echeance__lt=datetime.date.today()
         )
 
     q = request.GET.get("q", "").strip()
     if q:
-        qs = qs.filter(Q(reference__icontains=q) | Q(fournisseur__nom__icontains=q))
+        qs = qs.filter(
+            Q(reference__icontains=q) | Q(fournisseur__nom__icontains=q)
+        )
 
     page = _paginate(qs, request.GET.get("page"))
     fournisseurs = Fournisseur.objects.filter(actif=True).order_by("nom")
 
-    return render(
-        request,
-        "achats/facture_fournisseur_list.html",
-        {
-            "page": page,
-            "q": q,
-            "statut": statut,
-            "fournisseur_pk": fournisseur_pk,
-            "retard": request.GET.get("retard", ""),
-            "fournisseurs": fournisseurs,
-            "statut_choices": FactureFournisseur.STATUT_CHOICES,
-            "title": "Factures Fournisseurs",
-        },
-    )
+    return render(request, "achats/facture_fournisseur_list.html", {
+        "page": page,
+        "q": q,
+        "statut": statut,
+        "fournisseur_pk": fournisseur_pk,
+        "retard": request.GET.get("retard", ""),
+        "fournisseurs": fournisseurs,
+        "statut_choices": FactureFournisseur.STATUT_CHOICES,
+        "title": "Factures Fournisseurs",
+    })
 
 
 # ===========================================================================
 # Facture Fournisseur — Create
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def facture_fournisseur_create(request):
@@ -424,8 +393,8 @@ def facture_fournisseur_create(request):
     """
     # Resolve fournisseur from POST body or GET param
     fournisseur = None
-    fournisseur_pk = request.POST.get("fournisseur") or request.GET.get(
-        "fournisseur", ""
+    fournisseur_pk = (
+        request.POST.get("fournisseur") or request.GET.get("fournisseur", "")
     )
     if fournisseur_pk:
         fournisseur = get_object_or_404(Fournisseur, pk=fournisseur_pk, actif=True)
@@ -433,14 +402,10 @@ def facture_fournisseur_create(request):
     # Step 1: no supplier selected yet — show selector
     if not fournisseur and request.method == "GET":
         fournisseurs = Fournisseur.objects.filter(actif=True).order_by("nom")
-        return render(
-            request,
-            "achats/facture_fournisseur_select_fournisseur.html",
-            {
-                "fournisseurs": fournisseurs,
-                "title": "Nouvelle facture — Choisir un fournisseur",
-            },
-        )
+        return render(request, "achats/facture_fournisseur_select_fournisseur.html", {
+            "fournisseurs": fournisseurs,
+            "title": "Nouvelle facture — Choisir un fournisseur",
+        })
 
     if request.method == "POST":
         form = FactureFournisseurForm(
@@ -465,8 +430,7 @@ def facture_fournisseur_create(request):
                 )
                 logger.info(
                     "FactureFournisseur pk=%s created by '%s'.",
-                    facture.pk,
-                    request.user,
+                    facture.pk, request.user,
                 )
                 return redirect("achats:facture_fournisseur_detail", pk=facture.pk)
 
@@ -497,23 +461,18 @@ def facture_fournisseur_create(request):
             .order_by("date_bl")
         )
 
-    return render(
-        request,
-        "achats/facture_fournisseur_form.html",
-        {
-            "form": form,
-            "fournisseur": fournisseur,
-            "bls_recu": bls_recu,
-            "title": "Nouvelle facture fournisseur",
-            "action_label": "Créer la facture",
-        },
-    )
+    return render(request, "achats/facture_fournisseur_form.html", {
+        "form": form,
+        "fournisseur": fournisseur,
+        "bls_recu": bls_recu,
+        "title": "Nouvelle facture fournisseur",
+        "action_label": "Créer la facture",
+    })
 
 
 # ===========================================================================
 # Facture Fournisseur — Detail
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def facture_fournisseur_detail(request, pk):
@@ -525,32 +484,28 @@ def facture_fournisseur_detail(request, pk):
         pk=pk,
     )
     bls = facture.bls.prefetch_related("lignes__intrant").order_by("date_bl")
-    allocations = facture.allocations.select_related("reglement").order_by(
-        "reglement__date_reglement"
+    allocations = (
+        facture.allocations
+        .select_related("reglement")
+        .order_by("reglement__date_reglement")
     )
 
-    return render(
-        request,
-        "achats/facture_fournisseur_detail.html",
-        {
-            "facture": facture,
-            "bls": bls,
-            "allocations": allocations,
-            "title": f"Facture {facture.reference}",
-        },
-    )
+    return render(request, "achats/facture_fournisseur_detail.html", {
+        "facture": facture,
+        "bls": bls,
+        "allocations": allocations,
+        "title": f"Facture {facture.reference}",
+    })
 
 
 # ===========================================================================
 # Facture Fournisseur — Print
 # ===========================================================================
 
-
 @login_required(login_url=LOGIN_URL)
 def facture_fournisseur_print(request, pk):
     """Printable invoice — @media print CSS handled in template."""
     from core.models import CompanyInfo
-
     facture = get_object_or_404(
         FactureFournisseur.objects.select_related("fournisseur"),
         pk=pk,
@@ -561,22 +516,17 @@ def facture_fournisseur_print(request, pk):
     )
     company = CompanyInfo.get_instance()
 
-    return render(
-        request,
-        "achats/facture_fournisseur_print.html",
-        {
-            "facture": facture,
-            "bls": bls,
-            "allocations": allocations,
-            "company": company,
-        },
-    )
+    return render(request, "achats/facture_fournisseur_print.html", {
+        "facture": facture,
+        "bls": bls,
+        "allocations": allocations,
+        "company": company,
+    })
 
 
 # ===========================================================================
 # Facture Fournisseur — Toggle litige
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 @require_POST
@@ -588,16 +538,12 @@ def facture_fournisseur_toggle_litige(request, pk):
     facture = get_object_or_404(FactureFournisseur, pk=pk)
 
     if facture.statut == FactureFournisseur.STATUT_PAYE:
-        messages.error(
-            request, "Une facture entièrement payée ne peut pas être mise en litige."
-        )
+        messages.error(request, "Une facture entièrement payée ne peut pas être mise en litige.")
         return redirect("achats:facture_fournisseur_detail", pk=pk)
 
     if facture.statut == FactureFournisseur.STATUT_EN_LITIGE:
         # Recompute the correct status from current balance
-        facture.statut = (
-            FactureFournisseur.STATUT_NON_PAYE
-        )  # recalculer_solde will fix it
+        facture.statut = FactureFournisseur.STATUT_NON_PAYE  # recalculer_solde will fix it
         facture.recalculer_solde()
         messages.success(request, f"Facture {facture.reference} retirée du litige.")
     else:
@@ -607,9 +553,7 @@ def facture_fournisseur_toggle_litige(request, pk):
 
     logger.info(
         "FactureFournisseur pk=%s statut changed to '%s' by '%s'.",
-        pk,
-        facture.statut,
-        request.user,
+        pk, facture.statut, request.user,
     )
     return redirect("achats:facture_fournisseur_detail", pk=pk)
 
@@ -618,15 +562,16 @@ def facture_fournisseur_toggle_litige(request, pk):
 # Règlement Fournisseur — List
 # ===========================================================================
 
-
 @login_required(login_url=LOGIN_URL)
 def reglement_fournisseur_list(request):
     """
     Payment list with search (supplier name, reference) and date filter.
     """
-    qs = ReglementFournisseur.objects.select_related(
-        "fournisseur", "created_by"
-    ).order_by("-date_reglement", "-created_at")
+    qs = (
+        ReglementFournisseur.objects
+        .select_related("fournisseur", "created_by")
+        .order_by("-date_reglement", "-created_at")
+    )
 
     fournisseur_pk = request.GET.get("fournisseur", "")
     if fournisseur_pk:
@@ -648,25 +593,20 @@ def reglement_fournisseur_list(request):
     page = _paginate(qs, request.GET.get("page"))
     fournisseurs = Fournisseur.objects.filter(actif=True).order_by("nom")
 
-    return render(
-        request,
-        "achats/reglement_fournisseur_list.html",
-        {
-            "page": page,
-            "q": q,
-            "fournisseur_pk": fournisseur_pk,
-            "date_debut": date_debut,
-            "date_fin": date_fin,
-            "fournisseurs": fournisseurs,
-            "title": "Règlements Fournisseurs",
-        },
-    )
+    return render(request, "achats/reglement_fournisseur_list.html", {
+        "page": page,
+        "q": q,
+        "fournisseur_pk": fournisseur_pk,
+        "date_debut": date_debut,
+        "date_fin": date_fin,
+        "fournisseurs": fournisseurs,
+        "title": "Règlements Fournisseurs",
+    })
 
 
 # ===========================================================================
 # Règlement Fournisseur — Create
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def reglement_fournisseur_create(request):
@@ -702,12 +642,12 @@ def reglement_fournisseur_create(request):
                 )
                 logger.info(
                     "ReglementFournisseur pk=%s (%s DZD, %s) created by '%s'.",
-                    reglement.pk,
-                    reglement.montant,
-                    reglement.fournisseur.nom,
-                    request.user,
+                    reglement.pk, reglement.montant,
+                    reglement.fournisseur.nom, request.user,
                 )
-                return redirect("achats:reglement_fournisseur_detail", pk=reglement.pk)
+                return redirect(
+                    "achats:reglement_fournisseur_detail", pk=reglement.pk
+                )
 
             except Exception as exc:
                 logger.exception("Error creating ReglementFournisseur: %s", exc)
@@ -725,28 +665,22 @@ def reglement_fournisseur_create(request):
     if fournisseur:
         try:
             from achats.utils import get_fournisseur_solde
-
             solde = get_fournisseur_solde(fournisseur)
         except Exception:
             pass
 
-    return render(
-        request,
-        "achats/reglement_fournisseur_form.html",
-        {
-            "form": form,
-            "fournisseur": fournisseur,
-            "solde": solde,
-            "title": "Nouveau règlement fournisseur",
-            "action_label": "Enregistrer le règlement",
-        },
-    )
+    return render(request, "achats/reglement_fournisseur_form.html", {
+        "form": form,
+        "fournisseur": fournisseur,
+        "solde": solde,
+        "title": "Nouveau règlement fournisseur",
+        "action_label": "Enregistrer le règlement",
+    })
 
 
 # ===========================================================================
 # Règlement Fournisseur — Detail
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def reglement_fournisseur_detail(request, pk):
@@ -758,31 +692,28 @@ def reglement_fournisseur_detail(request, pk):
         ReglementFournisseur.objects.select_related("fournisseur", "created_by"),
         pk=pk,
     )
-    allocations = reglement.allocations.select_related("facture").order_by(
-        "facture__date_facture"
+    allocations = (
+        reglement.allocations
+        .select_related("facture")
+        .order_by("facture__date_facture")
     )
     try:
         acompte = reglement.acompte
     except AcompteFournisseur.DoesNotExist:
         acompte = None
 
-    return render(
-        request,
-        "achats/reglement_fournisseur_detail.html",
-        {
-            "reglement": reglement,
-            "allocations": allocations,
-            "acompte": acompte,
-            "title": f"Règlement — {reglement.fournisseur.nom} "
-            f"({reglement.date_reglement})",
-        },
-    )
+    return render(request, "achats/reglement_fournisseur_detail.html", {
+        "reglement": reglement,
+        "allocations": allocations,
+        "acompte": acompte,
+        "title": f"Règlement — {reglement.fournisseur.nom} "
+                 f"({reglement.date_reglement})",
+    })
 
 
 # ===========================================================================
 # Acompte Fournisseur — List
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def acompte_fournisseur_list(request):
@@ -790,8 +721,10 @@ def acompte_fournisseur_list(request):
     List of overpayment credits created by the FIFO engine.
     Filterable by supplier and utilise status.
     """
-    qs = AcompteFournisseur.objects.select_related("fournisseur", "reglement").order_by(
-        "-date"
+    qs = (
+        AcompteFournisseur.objects
+        .select_related("fournisseur", "reglement")
+        .order_by("-date")
     )
 
     fournisseur_pk = request.GET.get("fournisseur", "")
@@ -807,23 +740,18 @@ def acompte_fournisseur_list(request):
     page = _paginate(qs, request.GET.get("page"))
     fournisseurs = Fournisseur.objects.filter(actif=True).order_by("nom")
 
-    return render(
-        request,
-        "achats/acompte_fournisseur_list.html",
-        {
-            "page": page,
-            "fournisseur_pk": fournisseur_pk,
-            "utilise": utilise,
-            "fournisseurs": fournisseurs,
-            "title": "Acomptes Fournisseurs",
-        },
-    )
+    return render(request, "achats/acompte_fournisseur_list.html", {
+        "page": page,
+        "fournisseur_pk": fournisseur_pk,
+        "utilise": utilise,
+        "fournisseurs": fournisseurs,
+        "title": "Acomptes Fournisseurs",
+    })
 
 
 # ===========================================================================
 # Acompte Fournisseur — Detail
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def acompte_fournisseur_detail(request, pk):
@@ -831,20 +759,15 @@ def acompte_fournisseur_detail(request, pk):
         AcompteFournisseur.objects.select_related("fournisseur", "reglement"),
         pk=pk,
     )
-    return render(
-        request,
-        "achats/acompte_fournisseur_detail.html",
-        {
-            "acompte": acompte,
-            "title": f"Acompte — {acompte.fournisseur.nom}",
-        },
-    )
+    return render(request, "achats/acompte_fournisseur_detail.html", {
+        "acompte": acompte,
+        "title": f"Acompte — {acompte.fournisseur.nom}",
+    })
 
 
 # ===========================================================================
 # Tableau de bord fournisseur (financial snapshot)
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def fournisseur_tableau_de_bord(request, pk):
@@ -860,32 +783,31 @@ def fournisseur_tableau_de_bord(request, pk):
     solde = get_fournisseur_solde(fournisseur)
     aging = get_supplier_aging_buckets(fournisseur=fournisseur)
 
-    reglements_recents = ReglementFournisseur.objects.filter(
-        fournisseur=fournisseur
-    ).order_by("-date_reglement")[:10]
-    bls_ouverts = BLFournisseur.objects.filter(
-        fournisseur=fournisseur,
-        statut=BLFournisseur.STATUT_RECU,
-    ).order_by("-date_bl")
-
-    return render(
-        request,
-        "achats/fournisseur_tableau_de_bord.html",
-        {
-            "fournisseur": fournisseur,
-            "solde": solde,
-            "aging": aging[0] if aging else None,
-            "reglements_recents": reglements_recents,
-            "bls_ouverts": bls_ouverts,
-            "title": f"Tableau de bord — {fournisseur.nom}",
-        },
+    reglements_recents = (
+        ReglementFournisseur.objects.filter(fournisseur=fournisseur)
+        .order_by("-date_reglement")[:10]
     )
+    bls_ouverts = (
+        BLFournisseur.objects.filter(
+            fournisseur=fournisseur,
+            statut=BLFournisseur.STATUT_RECU,
+        )
+        .order_by("-date_bl")
+    )
+
+    return render(request, "achats/fournisseur_tableau_de_bord.html", {
+        "fournisseur": fournisseur,
+        "solde": solde,
+        "aging": aging[0] if aging else None,
+        "reglements_recents": reglements_recents,
+        "bls_ouverts": bls_ouverts,
+        "title": f"Tableau de bord — {fournisseur.nom}",
+    })
 
 
 # ===========================================================================
 # AJAX helpers
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def bl_lignes_total_json(request):
@@ -916,22 +838,18 @@ def bl_lignes_total_json(request):
         for ligne in bl.lignes.all():
             lt = ligne.montant_total
             total += lt
-            lignes_data.append(
-                {
-                    "bl_reference": bl.reference,
-                    "intrant": ligne.intrant.designation,
-                    "quantite": str(ligne.quantite),
-                    "prix_unitaire": str(ligne.prix_unitaire),
-                    "montant_total": str(lt),
-                }
-            )
+            lignes_data.append({
+                "bl_reference": bl.reference,
+                "intrant": ligne.intrant.designation,
+                "quantite": str(ligne.quantite),
+                "prix_unitaire": str(ligne.prix_unitaire),
+                "montant_total": str(lt),
+            })
 
-    return JsonResponse(
-        {
-            "montant_total": str(total),
-            "lignes": lignes_data,
-        }
-    )
+    return JsonResponse({
+        "montant_total": str(total),
+        "lignes": lignes_data,
+    })
 
 
 @login_required(login_url=LOGIN_URL)
@@ -947,7 +865,6 @@ def fournisseur_dette_json(request, pk):
     fournisseur = get_object_or_404(Fournisseur, pk=pk)
     try:
         from achats.utils import get_fournisseur_solde
-
         solde = get_fournisseur_solde(fournisseur)
         data = {
             "dette_globale": str(solde["dette_globale"]),

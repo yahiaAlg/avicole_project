@@ -11,6 +11,7 @@ from achats import views
 app_name = "achats"
 
 urlpatterns = [
+
     # ── BL Fournisseur ──────────────────────────────────────────────────
     path(
         "bls/",
@@ -42,6 +43,7 @@ urlpatterns = [
         views.bl_fournisseur_print,
         name="bl_fournisseur_print",
     ),
+
     # ── Facture Fournisseur ─────────────────────────────────────────────
     path(
         "factures/",
@@ -68,6 +70,7 @@ urlpatterns = [
         views.facture_fournisseur_toggle_litige,
         name="facture_fournisseur_toggle_litige",
     ),
+
     # ── Règlement Fournisseur ───────────────────────────────────────────
     path(
         "reglements/",
@@ -84,6 +87,7 @@ urlpatterns = [
         views.reglement_fournisseur_detail,
         name="reglement_fournisseur_detail",
     ),
+
     # ── Acompte Fournisseur ─────────────────────────────────────────────
     path(
         "acomptes/",
@@ -95,12 +99,14 @@ urlpatterns = [
         views.acompte_fournisseur_detail,
         name="acompte_fournisseur_detail",
     ),
+
     # ── Tableau de bord fournisseur ─────────────────────────────────────
     path(
         "fournisseurs/<int:pk>/tableau-de-bord/",
         views.fournisseur_tableau_de_bord,
         name="fournisseur_tableau_de_bord",
     ),
+
     # ── AJAX ────────────────────────────────────────────────────────────
     path(
         "bls/totaux.json",
