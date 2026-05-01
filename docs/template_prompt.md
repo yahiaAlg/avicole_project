@@ -145,9 +145,9 @@ Only CSS that is unique to this page and not already in `base.html`:
 **base.html must contain:**
 
 - Full CSS custom properties block (all design system tokens).
-- Google Fonts import: Syne + DM Sans.
+- Google Fonts import: Nunito + Inter.
 - Bootstrap 5.3 CSS CDN.
-- Bootstrap Icons 1.11.3 CDN.
+- Boxicons 2.1.4 CDN: `https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css`.
 - Sidebar: brand area (`app_name`), nav group sections with icons, labels, and
   group headers; user area (initials avatar, name, role badge, sign-out link).
 - Sidebar nav structure (from design system):
@@ -178,7 +178,7 @@ Only CSS that is unique to this page and not already in `base.html`:
 
 **login.html — standalone (no extends):**
 
-- Full dark page (`--bg-base`), centered card, farm name + `bi-egg-fill` brand mark.
+- Full dark page (`--bg-base`), centered card, farm name + `bxs-leaf` brand mark (Boxicons solid).
 - Username + password fields per design system.
 - Primary submit button full-width.
 - Error messages as `.field-error` rows. No sidebar, no topbar.
