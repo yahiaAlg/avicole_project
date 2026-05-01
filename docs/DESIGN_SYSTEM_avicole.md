@@ -1,17 +1,19 @@
 # Élevage Avicole — Design System Specification
+
 > Version 1.0 — Internal Farm Management Platform (Django / Bootstrap 5)
 
 ---
 
 ## 1. Design Philosophy
 
-**Aesthetic direction:** Operational Ground Truth — dark, dense, ledger-like. The interface is built for a farm owner who needs to read a debt figure, a live bird count, or a stock level at a glance — under any lighting condition, with zero visual noise. Every element earns its space. Green is the only warm accent: it signals life, production, and financial health against a cold slate background.
+**Aesthetic direction:** Clean Agricultural Clarity — light, airy, and legible. The interface is built for a farm owner who needs to read a debt figure, a live bird count, or a stock level at a glance — under any lighting condition, with zero visual noise. Every element earns its space. Green is the primary accent: it signals life, production, and financial health, rooted in the agricultural context of the platform.
 
 **Core principles:**
-- Dark-first. No light mode.
+
+- Light-first. Warm off-white surfaces with strong typographic hierarchy.
 - Data is the hero — DZD figures, lot counts, and stock quantities must be immediately readable.
 - One accent color only (`--accent: #22c55e`). Used for primary actions, active navigation, and positive financial states.
-- Borders over shadows for structural separation. No decorative gradients.
+- Subtle borders and soft shadows for structural separation. No decorative gradients.
 - French domain labels rendered exactly as specified (BL, Lot, Facture, Règlement — never translated).
 - Animations are subtle, fast (150–300ms), and purposeful — never decorative.
 
@@ -19,61 +21,69 @@
 
 ## 2. Color Palette
 
-### Base Surfaces (darkest → lightest)
-| Token | Hex | Usage |
-|---|---|---|
-| `--bg-base` | `#0c0e10` | Page background |
-| `--bg-surface` | `#12151a` | Cards, sidebar, topbar |
-| `--bg-raised` | `#191d24` | Nested cards, dropdowns, inputs |
-| `--bg-hover` | `#1f242d` | Row / item hover state |
+### Base Surfaces (lightest → slightly deeper)
+
+| Token          | Hex       | Usage                                            |
+| -------------- | --------- | ------------------------------------------------ |
+| `--bg-base`    | `#f4f6f4` | Page background (warm off-white with green tint) |
+| `--bg-surface` | `#ffffff` | Cards, sidebar, topbar                           |
+| `--bg-raised`  | `#eef2ee` | Nested cards, dropdowns, inputs                  |
+| `--bg-hover`   | `#e6ede6` | Row / item hover state                           |
 
 ### Borders
-| Token | Value | Usage |
-|---|---|---|
-| `--border` | `rgba(255,255,255,.07)` | Default dividers, card edges |
-| `--border-strong` | `rgba(255,255,255,.12)` | Focused inputs, hovered cards |
+
+| Token             | Value             | Usage                         |
+| ----------------- | ----------------- | ----------------------------- |
+| `--border`        | `rgba(0,0,0,.08)` | Default dividers, card edges  |
+| `--border-strong` | `rgba(0,0,0,.14)` | Focused inputs, hovered cards |
 
 ### Accent (Green)
-| Token | Value | Usage |
-|---|---|---|
-| `--accent` | `#22c55e` | Primary CTA, active nav, positive indicators |
-| `--accent-dim` | `rgba(34,197,94,.13)` | Accent backgrounds, highlight rows |
-| `--accent-glow` | `rgba(34,197,94,.30)` | Focus rings |
+
+| Token           | Value                 | Usage                                        |
+| --------------- | --------------------- | -------------------------------------------- |
+| `--accent`      | `#22c55e`             | Primary CTA, active nav, positive indicators |
+| `--accent-text` | `#15803d`             | Accent-colored text on light backgrounds     |
+| `--accent-dim`  | `rgba(34,197,94,.12)` | Accent backgrounds, highlight rows           |
+| `--accent-glow` | `rgba(34,197,94,.28)` | Focus rings                                  |
 
 ### Text
-| Token | Hex | Usage |
-|---|---|---|
-| `--text-primary` | `#edf0f3` | Headings, values, primary content |
-| `--text-secondary` | `#8892a0` | Body text, table cells, descriptions |
-| `--text-muted` | `#50586a` | Labels, timestamps, placeholders |
+
+| Token              | Hex       | Usage                                |
+| ------------------ | --------- | ------------------------------------ |
+| `--text-primary`   | `#1a2219` | Headings, values, primary content    |
+| `--text-secondary` | `#3d5242` | Body text, table cells, descriptions |
+| `--text-muted`     | `#7a8c78` | Labels, timestamps, placeholders     |
 
 ### Semantic Colors
-| Role | Hex | Alpha bg | Usage |
-|---|---|---|---|
-| Success | `#22c55e` / display `#4ade80` | `rgba(34,197,94,.12)` | Payé, stock normal, closed lot |
-| Danger | `#ef4444` / display `#f87171` | `rgba(239,68,68,.12)` | Overdue, rupture stock, litige |
-| Warning | `#f59e0b` / display `#fbbf24` | `rgba(245,158,11,.15)` | Partiellement payé, seuil, brouillon |
-| Info | `#38bdf8` / display `#7dd3fc` | `rgba(56,189,248,.12)` | Neutral status, reçu, livré |
+
+| Role    | Hex                           | Alpha bg               | Usage                                |
+| ------- | ----------------------------- | ---------------------- | ------------------------------------ |
+| Success | `#22c55e` / display `#16a34a` | `rgba(34,197,94,.12)`  | Payé, stock normal, closed lot       |
+| Danger  | `#ef4444` / display `#dc2626` | `rgba(239,68,68,.10)`  | Overdue, rupture stock, litige       |
+| Warning | `#f59e0b` / display `#b45309` | `rgba(245,158,11,.13)` | Partiellement payé, seuil, brouillon |
+| Info    | `#38bdf8` / display `#0284c7` | `rgba(56,189,248,.12)` | Neutral status, reçu, livré          |
 
 ### Status Pill Mapping
 
-| Status | Pill Class | Label |
-|--------|-----------|-------|
-| Lot open | `pill-success` | Ouvert |
-| Lot closed | `pill-neutral` | Clôturé |
-| BL Brouillon | `pill-warning` | Brouillon |
-| BL Reçu | `pill-info` | Reçu |
-| BL Facturé | `pill-success` | Facturé |
-| BL En Litige | `pill-danger` | En Litige |
-| Non Payé | `pill-danger` | Non Payé |
+| Status             | Pill Class     | Label      |
+| ------------------ | -------------- | ---------- |
+| Lot open           | `pill-success` | Ouvert     |
+| Lot closed         | `pill-neutral` | Clôturé    |
+| BL Brouillon       | `pill-warning` | Brouillon  |
+| BL Reçu            | `pill-info`    | Reçu       |
+| BL Facturé         | `pill-success` | Facturé    |
+| BL En Litige       | `pill-danger`  | En Litige  |
+| Non Payé           | `pill-danger`  | Non Payé   |
 | Partiellement Payé | `pill-warning` | Part. Payé |
-| Payé | `pill-success` | Payé |
-| Stock Rupture | `pill-danger` | Rupture |
-| Stock Seuil | `pill-warning` | Seuil |
-| Stock Normal | `pill-success` | Normal |
+| Payé               | `pill-success` | Payé       |
+| Stock Rupture      | `pill-danger`  | Rupture    |
+| Stock Seuil        | `pill-warning` | Seuil      |
+| Stock Normal       | `pill-success` | Normal     |
 
 ### Chart / Data Visualization Color Sequence
+
 Used in order for multi-series charts, doughnuts, bar charts:
+
 ```
 #22c55e  (green — primary)
 #38bdf8  (sky blue)
@@ -87,15 +97,16 @@ Used in order for multi-series charts, doughnuts, bar charts:
 ```
 
 ### Icon Background Variants (utility classes)
+
 ```css
-.ic-green  → rgba(34,197,94,.12)  / #4ade80
-.ic-blue   → rgba(56,189,248,.12) / #7dd3fc
-.ic-amber  → rgba(245,158,11,.15) / #fbbf24
-.ic-purple → rgba(167,139,250,.12)/ #c4b5fd
-.ic-red    → rgba(239,68,68,.12)  / #f87171
-.ic-teal   → rgba(45,212,191,.12) / #5eead4
-.ic-orange → rgba(251,146,60,.12) / #fb923c
-.ic-indigo → rgba(99,102,241,.12) / #a5b4fc
+.ic-green  → rgba(34,197,94,.14)  / #15803d
+.ic-blue   → rgba(56,189,248,.14) / #0284c7
+.ic-amber  → rgba(245,158,11,.14) / #b45309
+.ic-purple → rgba(167,139,250,.14)/ #7c3aed
+.ic-red    → rgba(239,68,68,.12)  / #dc2626
+.ic-teal   → rgba(45,212,191,.14) / #0d9488
+.ic-orange → rgba(251,146,60,.14) / #ea580c
+.ic-indigo → rgba(99,102,241,.14) / #4338ca
 ```
 
 ---
@@ -103,55 +114,64 @@ Used in order for multi-series charts, doughnuts, bar charts:
 ## 3. Typography
 
 ### Font Stack
-| Role | Family | Weights | Usage |
-|---|---|---|---|
-| Display / UI | **Syne** (Google Fonts) | 400, 600, 700, 800 | Headings, metric values, card titles, nav labels, buttons |
-| Body / Data | **DM Sans** (Google Fonts) | 300, 400, 500 | Body text, table cells, form inputs, descriptions |
+
+| Role         | Family                    | Weights            | Usage                                                     |
+| ------------ | ------------------------- | ------------------ | --------------------------------------------------------- |
+| Display / UI | **Nunito** (Google Fonts) | 400, 600, 700, 800 | Headings, metric values, card titles, nav labels, buttons |
+| Body / Data  | **Inter** (Google Fonts)  | 300, 400, 500      | Body text, table cells, form inputs, descriptions         |
 
 ```html
 <!-- Required in <head> -->
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<link
+  href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap"
+  rel="stylesheet"
+/>
 ```
 
 ### Type Scale
-| Element | Font | Size | Weight | Letter-spacing | Color |
-|---|---|---|---|---|---|
-| Page heading (H1) | Syne | 22px | 800 | `-0.025em` | `--text-primary` |
-| Card / section title | Syne | 14px | 700 | `-0.01em` | `--text-primary` |
-| Metric value (large) | Syne | 26px | 800 | none | `--text-primary` |
-| Metric value (small) | Syne | 20px | 800 | none | `--text-primary` |
-| Nav link label | DM Sans | 13px | 400 | none | `--text-secondary` |
-| Body / table cell | DM Sans | 13px | 400 | none | `--text-secondary` |
-| Section eyebrow | DM Sans | 10.5px | 600 | `0.1em` | `--text-muted` |
-| Table header | DM Sans | 10.5px | 600 | `0.07em` | `--text-muted` |
-| Badge / pill | DM Sans | 11px | 500 | `0.02em` | varies |
-| Caption / timestamp | DM Sans | 11–12px | 400 | none | `--text-muted` |
+
+| Element              | Font   | Size    | Weight | Letter-spacing | Color              |
+| -------------------- | ------ | ------- | ------ | -------------- | ------------------ |
+| Page heading (H1)    | Nunito | 22px    | 800    | `-0.025em`     | `--text-primary`   |
+| Card / section title | Nunito | 14px    | 700    | `-0.01em`      | `--text-primary`   |
+| Metric value (large) | Nunito | 26px    | 800    | none           | `--text-primary`   |
+| Metric value (small) | Nunito | 20px    | 800    | none           | `--text-primary`   |
+| Nav link label       | Inter  | 13px    | 400    | none           | `--text-secondary` |
+| Body / table cell    | Inter  | 13px    | 400    | none           | `--text-secondary` |
+| Section eyebrow      | Inter  | 10.5px  | 600    | `0.1em`        | `--text-muted`     |
+| Table header         | Inter  | 10.5px  | 600    | `0.07em`       | `--text-muted`     |
+| Badge / pill         | Inter  | 11px    | 500    | `0.02em`       | varies             |
+| Caption / timestamp  | Inter  | 11–12px | 400    | none           | `--text-muted`     |
 
 ---
 
 ## 4. Spacing & Layout
 
 ### CSS Variables
+
 ```css
---sidebar-w:    240px;   /* expanded */
---sidebar-w-sm: 68px;    /* collapsed */
---topbar-h:     60px;
+--sidebar-w: 240px; /* expanded */
+--sidebar-w-sm: 68px; /* collapsed */
+--topbar-h: 60px;
 ```
 
 ### Border Radius
-| Token | Value | Usage |
-|---|---|---|
-| `--radius-sm` | `6px` | Buttons, inputs, icon boxes, nav links |
-| `--radius-md` | `10px` | Dropdowns, toasts, form fields |
-| `--radius-lg` | `16px` | Cards, chart panels, main containers |
+
+| Token         | Value  | Usage                                  |
+| ------------- | ------ | -------------------------------------- |
+| `--radius-sm` | `6px`  | Buttons, inputs, icon boxes, nav links |
+| `--radius-md` | `10px` | Dropdowns, toasts, form fields         |
+| `--radius-lg` | `16px` | Cards, chart panels, main containers   |
 
 ### Page Padding
+
 - Desktop page body: `28px 32px`
 - Mobile page body: `20px 16px`
 - Card internal padding: `18–22px 20px`
 - Table cell padding: `13px 14px`
 
 ### Grid System
+
 - Bootstrap 5 `row / col-*` for responsive column grids.
 - Dashboard KPI row: 4-column `col-xl-3 col-md-6`.
 - Two-column splits: `col-xl-8 / col-xl-4` or `col-xl-7 / col-xl-5`.
@@ -162,6 +182,7 @@ Used in order for multi-series charts, doughnuts, bar charts:
 ## 5. Component Library
 
 ### Cards
+
 ```css
 /* Standard card */
 background: var(--bg-surface);
@@ -172,39 +193,51 @@ border-radius: var(--radius-lg);
 border-color: var(--border-strong);
 transform: translateY(-1px);
 /* Optional accent top line on hover */
-::after { height: 2px; background: var(--accent); top: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+::after {
+  height: 2px;
+  background: var(--accent);
+  top: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
 ```
 
 ### Metric Cards
+
 - Icon box: 40–44px square, `var(--radius-sm)`, uses `.ic-*` color variant.
 - Eyebrow label: 10.5px, uppercase, `--text-muted`, `letter-spacing: .1em`.
 - Value: Syne 800, 20–26px, `--text-primary`.
 - Delta badge: pill with arrow icon, semantic color bg at 12% opacity.
 
 ### Pills / Badges
+
 ```css
 /* Base */
 display: inline-flex; align-items: center; gap: 4px;
 padding: 3px 9px; border-radius: 20px;
-font-size: 11px; font-weight: 500; font-family: 'DM Sans', sans-serif;
+font-size: 11px; font-weight: 500; font-family: 'Inter', sans-serif;
 
 /* Variants */
-.pill-success → bg rgba(34,197,94,.12),  color #4ade80
-.pill-danger  → bg rgba(239,68,68,.12),  color #f87171
-.pill-warning → bg rgba(245,158,11,.15), color #fbbf24
-.pill-info    → bg rgba(56,189,248,.12), color #7dd3fc
-.pill-neutral → bg var(--bg-hover),      color var(--text-secondary)
+.pill-success → bg rgba(34,197,94,.14),  color #15803d
+.pill-danger  → bg rgba(239,68,68,.10),  color #dc2626
+.pill-warning → bg rgba(245,158,11,.14), color #b45309
+.pill-info    → bg rgba(56,189,248,.14), color #0284c7
+.pill-neutral → bg rgba(0,0,0,.06),      color var(--text-secondary)
 ```
 
 ### Tables
+
 ```css
 /* Header row */
-font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em;
-text-transform: uppercase; color: var(--text-muted);
+font-size: 10.5px;
+font-weight: 600;
+letter-spacing: 0.07em;
+text-transform: uppercase;
+color: var(--text-muted);
 border-bottom: 1px solid var(--border);
 
 /* Data cells */
-font-size: 13px; color: var(--text-secondary);
+font-size: 13px;
+color: var(--text-secondary);
 padding: 13px 14px;
 border-bottom: 1px solid var(--border);
 
@@ -213,78 +246,101 @@ background: var(--bg-hover);
 ```
 
 ### Buttons
+
 ```css
 /* Primary (accent) */
-background: var(--accent); color: #0c0e10;
-font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13.5px;
-border-radius: var(--radius-md); padding: 10px 18px;
-transition: opacity .18s, transform .12s;
-:hover { opacity: .88 }
-:active { transform: scale(.99) }
+background: var(--accent);
+color: #fff;
+font-family: "Nunito", sans-serif;
+font-weight: 700;
+font-size: 13.5px;
+border-radius: var(--radius-md);
+padding: 10px 18px;
+transition:
+  opacity 0.18s,
+  transform 0.12s;
+:hover {
+  opacity: 0.88;
+}
+:active {
+  transform: scale(0.99);
+}
 
 /* Ghost / outline */
 background: transparent;
 border: 1px solid var(--border);
 color: var(--text-secondary);
-:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
 
 /* Danger */
-background: rgba(239,68,68,.12);
-border: 1px solid rgba(239,68,68,.25);
-color: #f87171;
+background: rgba(239, 68, 68, 0.1);
+border: 1px solid rgba(239, 68, 68, 0.22);
+color: #dc2626;
 
 /* Warning (e.g. litige actions) */
-background: rgba(245,158,11,.12);
-border: 1px solid rgba(245,158,11,.25);
-color: #fbbf24;
+background: rgba(245, 158, 11, 0.12);
+border: 1px solid rgba(245, 158, 11, 0.22);
+color: #b45309;
 ```
 
 ### Form Inputs
+
 ```css
 background: var(--bg-surface);
 border: 1px solid var(--border);
 border-radius: var(--radius-md);
 color: var(--text-primary);
-font-family: 'DM Sans', sans-serif; font-size: 13.5px;
+font-family: "Inter", sans-serif;
+font-size: 13.5px;
 padding: 11px 13px 11px 40px; /* 40px left = icon space */
 
 :focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(34,197,94,.15);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
   outline: none;
 }
-::placeholder { color: var(--text-muted); }
+::placeholder {
+  color: var(--text-muted);
+}
 ```
-- Left icon: `position: absolute; left: 13px;` — Bootstrap Icon, `--text-muted`, transitions to `--accent` on focus.
+
+- Left icon: `position: absolute; left: 13px;` — Boxicons icon, `--text-muted`, transitions to `--accent-text` on focus.
 - Labels: 12px, weight 500, `--text-secondary`, `letter-spacing: .03em`, block above input.
-- Error messages: 12px, `#f87171`, flex row with `bi-x-circle` icon.
+- Error messages: 12px, `#dc2626`, flex row with `bxs-x-circle` icon.
 - Read-only / locked fields (e.g. auto-computed facture total): `opacity: .6`, `cursor: not-allowed`, `bg: var(--bg-raised)`.
 
 ### Navigation (Sidebar)
+
 - Width: 240px expanded / 68px collapsed. Toggle persists in `localStorage`.
 - Active link: `color: var(--accent)`, `background: var(--accent-dim)`, left `3px` green bar `::before`.
 - Section group labels: 9.5px, uppercase, `--text-muted`, `letter-spacing: .1em`; hidden on collapse.
 - Collapsed state: `.nav-link-label`, `.brand-text`, `.user-info` → `opacity: 0; width: 0; overflow: hidden`.
 
 ### Alerts / Toasts
+
 ```css
-background: var(--bg-raised);
-border: 1px solid var(--border-strong);
+background: var(--bg-surface);
+border: 1px solid var(--border);
 border-radius: var(--radius-md);
 padding: 12px 16px;
-box-shadow: 0 8px 32px rgba(0,0,0,.45);
+box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 border-left: 3px solid <semantic color>;
 ```
+
 Auto-dismiss after 4500ms with `opacity → 0` + `translateX(20px)` transition.
 
 ### FIFO Preview Block
 
-Used on the *Règlement Fournisseur* form to show the auto-allocation before confirmation.
+Used on the _Règlement Fournisseur_ form to show the auto-allocation before confirmation.
 
 ```html
 <div class="fifo-preview">
   <div class="fifo-preview__header">
-    <i class="bi bi-distribute-vertical"></i> Allocation FIFO automatique
+    <i class="bx bx-transfer"></i> Allocation FIFO automatique
   </div>
   <div class="fifo-preview__row">
     <span class="fifo-preview__ref">F-2025-011</span>
@@ -301,13 +357,44 @@ Used on the *Règlement Fournisseur* form to show the auto-allocation before con
   </div>
 </div>
 ```
+
 ```css
-.fifo-preview { background: var(--bg-raised); border: 1px solid var(--border-strong); border-radius: var(--radius-md); padding: 14px 16px; margin-top: 14px; }
-.fifo-preview__header { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
-.fifo-preview__row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-.fifo-preview__row--partial { color: #fbbf24; }
-.fifo-preview__ref { flex: 1; font-family: 'DM Sans', monospace; color: var(--text-secondary); }
-.fifo-preview__footer { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
+.fifo-preview {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-top: 14px;
+}
+.fifo-preview__header {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.fifo-preview__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.fifo-preview__row--partial {
+  color: #b45309;
+}
+.fifo-preview__ref {
+  flex: 1;
+  font-family: "Inter", monospace;
+  color: var(--text-secondary);
+}
+.fifo-preview__footer {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 10px;
+}
 ```
 
 ### Lot Card (Dashboard)
@@ -321,24 +408,69 @@ Compact at-a-glance card per open lot:
     <span class="pill-success">Ouvert</span>
   </div>
   <div class="lot-card__grid">
-    <div><div class="lot-stat-label">Effectif vivant</div><div class="lot-stat-val">4 780</div></div>
-    <div><div class="lot-stat-label">Mortalité</div><div class="lot-stat-val danger">4.4%</div></div>
-    <div><div class="lot-stat-label">IC estimé</div><div class="lot-stat-val">1.85</div></div>
-    <div><div class="lot-stat-label">Jours</div><div class="lot-stat-val">28</div></div>
+    <div>
+      <div class="lot-stat-label">Effectif vivant</div>
+      <div class="lot-stat-val">4 780</div>
+    </div>
+    <div>
+      <div class="lot-stat-label">Mortalité</div>
+      <div class="lot-stat-val danger">4.4%</div>
+    </div>
+    <div>
+      <div class="lot-stat-label">IC estimé</div>
+      <div class="lot-stat-val">1.85</div>
+    </div>
+    <div>
+      <div class="lot-stat-label">Jours</div>
+      <div class="lot-stat-val">28</div>
+    </div>
   </div>
 </div>
 ```
+
 ```css
-.lot-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; }
-.lot-card__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-.lot-card__name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13.5px; color: var(--text-primary); }
-.lot-card__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-.lot-stat-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); margin-bottom: 4px; }
-.lot-stat-val { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; color: var(--text-primary); }
-.lot-stat-val.danger { color: #f87171; }
+.lot-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+}
+.lot-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.lot-card__name {
+  font-family: "Nunito", sans-serif;
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--text-primary);
+}
+.lot-card__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.lot-stat-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.lot-stat-val {
+  font-family: "Nunito", sans-serif;
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--text-primary);
+}
+.lot-stat-val.danger {
+  color: #dc2626;
+}
 ```
 
-### Debt Indicator Bar (*Dette Fournisseur*)
+### Debt Indicator Bar (_Dette Fournisseur_)
 
 ```html
 <div class="debt-bar">
@@ -351,77 +483,94 @@ Compact at-a-glance card per open lot:
   </div>
 </div>
 ```
+
 ```css
-.debt-bar__track { height: 4px; background: var(--bg-hover); border-radius: 4px; margin-top: 6px; }
-.debt-bar__fill { height: 100%; border-radius: 4px; background: var(--accent); transition: width .4s ease; }
+.debt-bar__track {
+  height: 4px;
+  background: var(--bg-hover);
+  border-radius: 4px;
+  margin-top: 6px;
+}
+.debt-bar__fill {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent);
+  transition: width 0.4s ease;
+}
 /* Fill turns warning at >60%, danger at >85% via JS class toggle */
-.debt-bar__fill.warn { background: #f59e0b; }
-.debt-bar__fill.crit { background: #ef4444; }
+.debt-bar__fill.warn {
+  background: #f59e0b;
+}
+.debt-bar__fill.crit {
+  background: #ef4444;
+}
 ```
 
 ---
 
 ## 6. Iconography
 
-**Library:** Bootstrap Icons 1.11.3
-**CDN:** `https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css`
-**Usage:** `<i class="bi bi-{icon-name}"></i>`
+**Library:** Boxicons 2.1.4
+**CDN:** `https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css`
+**Usage:** `<i class='bx bx-{icon-name}'></i>` (regular) or `<i class='bx bxs-{icon-name}'></i>` (solid/filled)
 
 ### Icon Size Conventions
-| Context | Size |
-|---|---|
-| Sidebar nav | `16px` |
-| Metric card icon box | `18–20px` |
-| Form field prefix | `15px` |
-| Topbar action buttons | `15px` |
-| Table action icons | `14px` |
-| Inline body text | `13–14px` |
+
+| Context               | Size      |
+| --------------------- | --------- |
+| Sidebar nav           | `16px`    |
+| Metric card icon box  | `18–20px` |
+| Form field prefix     | `15px`    |
+| Topbar action buttons | `15px`    |
+| Table action icons    | `14px`    |
+| Inline body text      | `13–14px` |
 
 ### Standard Icon Mapping
-| Module / Concept | Icon |
-|---|---|
-| Dashboard | `bi-speedometer2` |
-| Lot d'Élevage | `bi-grid-3x3-gap-fill` |
-| Consommation | `bi-droplet-fill` |
-| Mortalité | `bi-heartbreak` |
-| Production | `bi-arrow-repeat` |
-| Intrants / Catalog | `bi-boxes` |
-| Stock Intrants | `bi-archive-fill` |
-| Stock Produits Finis | `bi-bag-check-fill` |
-| Fournisseur | `bi-building` |
-| BL Fournisseur | `bi-truck` |
-| Facture Fournisseur | `bi-file-earmark-text` |
-| Règlement Fournisseur | `bi-cash-coin` |
-| Client | `bi-people-fill` |
-| BL Client | `bi-box-arrow-up-right` |
-| Facture Client | `bi-receipt` |
-| Paiement Client | `bi-credit-card-fill` |
-| Dépenses | `bi-wallet2` |
-| Alertes | `bi-bell-fill` |
-| Rapports | `bi-bar-chart-line` |
-| Paramètres | `bi-sliders` |
-| Acompte / Avance | `bi-piggy-bank` |
-| Dette / Solde | `bi-hourglass-split` |
-| Pièce jointe | `bi-paperclip` |
-| Sans pièce jointe | `bi-paperclip` + `color: #f87171` |
-| FIFO / Allocation | `bi-distribute-vertical` |
-| Lot fermé | `bi-lock-fill` |
-| Mortalité spike | `bi-exclamation-triangle-fill` |
-| Print | `bi-printer` |
-| Export CSV | `bi-file-earmark-spreadsheet` |
-| Add / Create | `bi-plus-lg` |
-| Edit | `bi-pencil` |
-| Deactivate | `bi-slash-circle` |
-| Search | `bi-search` |
-| Filter | `bi-funnel` |
-| Calendar | `bi-calendar3` |
-| Success / Check | `bi-check-circle-fill` |
-| Error | `bi-exclamation-circle-fill` |
-| Warning | `bi-exclamation-triangle-fill` |
-| Info | `bi-info-circle` |
-| Back | `bi-arrow-left` |
-| User / Login | `bi-person` |
-| Sign out | `bi-box-arrow-left` |
+
+| Module / Concept      | Icon                              |
+| --------------------- | --------------------------------- |
+| Dashboard             | `bxs-dashboard`                   |
+| Lot d'Élevage         | `bxs-grid-alt`                    |
+| Consommation          | `bxs-droplet`                     |
+| Mortalité             | `bxs-heart`                       |
+| Production            | `bx-refresh`                      |
+| Intrants / Catalog    | `bxs-cube-alt`                    |
+| Stock Intrants        | `bxs-archive`                     |
+| Stock Produits Finis  | `bxs-badge-check`                 |
+| Fournisseur           | `bxs-building`                    |
+| BL Fournisseur        | `bxs-truck`                       |
+| Facture Fournisseur   | `bxs-file-txt`                    |
+| Règlement Fournisseur | `bxs-coin`                        |
+| Client                | `bxs-group`                       |
+| BL Client             | `bx-link-external`                |
+| Facture Client        | `bxs-receipt`                     |
+| Paiement Client       | `bxs-credit-card`                 |
+| Dépenses              | `bxs-wallet`                      |
+| Alertes               | `bxs-bell`                        |
+| Rapports              | `bxs-bar-chart-alt-2`             |
+| Paramètres            | `bxs-slider`                      |
+| Acompte / Avance      | `bxs-piggy-bank`                  |
+| Dette / Solde         | `bx-hourglass`                    |
+| Pièce jointe          | `bx-paperclip`                    |
+| Sans pièce jointe     | `bx-paperclip` + `color: #dc2626` |
+| FIFO / Allocation     | `bx-transfer`                     |
+| Lot fermé             | `bxs-lock`                        |
+| Mortalité spike       | `bxs-error`                       |
+| Print                 | `bxs-printer`                     |
+| Export CSV            | `bxs-spreadsheet`                 |
+| Add / Create          | `bx-plus`                         |
+| Edit                  | `bxs-pencil`                      |
+| Deactivate            | `bx-block`                        |
+| Search                | `bx-search`                       |
+| Filter                | `bxs-filter-alt`                  |
+| Calendar              | `bxs-calendar`                    |
+| Success / Check       | `bxs-check-circle`                |
+| Error                 | `bxs-error-circle`                |
+| Warning               | `bxs-error`                       |
+| Info                  | `bxs-info-circle`                 |
+| Back                  | `bx-arrow-back`                   |
+| User / Login          | `bxs-user`                        |
+| Sign out              | `bx-log-out`                      |
 
 ---
 
@@ -431,45 +580,50 @@ Compact at-a-glance card per open lot:
 **CDN:** `https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js`
 
 ### Global Defaults (apply once in base.html)
+
 ```js
-Chart.defaults.color = '#8892a0';
-Chart.defaults.borderColor = 'rgba(255,255,255,0.07)';
-Chart.defaults.font.family = "'DM Sans', sans-serif";
+Chart.defaults.color = "#7a8c78";
+Chart.defaults.borderColor = "rgba(0,0,0,0.07)";
+Chart.defaults.font.family = "'Inter', sans-serif";
 ```
 
 ### Tooltip Standard Config
+
 ```js
 tooltip: {
-  backgroundColor: '#191d24',
-  borderColor: 'rgba(255,255,255,.12)',
+  backgroundColor: '#ffffff',
+  borderColor: 'rgba(0,0,0,.12)',
   borderWidth: 1,
-  titleColor: '#edf0f3',
-  bodyColor: '#8892a0',
+  titleColor: '#1a2219',
+  bodyColor: '#3d5242',
   padding: 10,
   cornerRadius: 8,
 }
 ```
 
 ### Grid Lines
+
 ```js
-grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false }
-ticks: { color: '#50586a', font: { size: 10.5 } }
+grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false }
+ticks: { color: '#7a8c78', font: { size: 10.5 } }
 ```
 
 ### Chart Types & Use Cases
-| Chart | Use Case | Key Config |
-|---|---|---|
-| Area line | Feed consumption over time / cash flow trend | `fill: true`, green gradient, `tension: 0.4`, `borderColor: #22c55e` |
-| Horizontal bar | Consommation par lot / supplier debt ranking | `indexAxis: 'y'`, `borderRadius: 6`, `borderSkipped: false` |
-| Doughnut | Stock composition / expense breakdown by category | `cutout: '68%'`, `borderColor: #12151a`, `borderWidth: 3` |
-| Vertical bar | Monthly production volume / revenue by period | `borderRadius: 6`, `borderSkipped: false` |
-| Grouped bar | IC comparison across lots | dual dataset, palette positions 1 & 2 |
+
+| Chart          | Use Case                                          | Key Config                                                           |
+| -------------- | ------------------------------------------------- | -------------------------------------------------------------------- |
+| Area line      | Feed consumption over time / cash flow trend      | `fill: true`, green gradient, `tension: 0.4`, `borderColor: #22c55e` |
+| Horizontal bar | Consommation par lot / supplier debt ranking      | `indexAxis: 'y'`, `borderRadius: 6`, `borderSkipped: false`          |
+| Doughnut       | Stock composition / expense breakdown by category | `cutout: '68%'`, `borderColor: #ffffff`, `borderWidth: 3`            |
+| Vertical bar   | Monthly production volume / revenue by period     | `borderRadius: 6`, `borderSkipped: false`                            |
+| Grouped bar    | IC comparison across lots                         | dual dataset, palette positions 1 & 2                                |
 
 ### Area Chart Gradient Recipe
+
 ```js
 const gradient = ctx.createLinearGradient(0, 0, 0, chartHeight);
-gradient.addColorStop(0, 'rgba(34,197,94,0.22)');
-gradient.addColorStop(1, 'rgba(34,197,94,0)');
+gradient.addColorStop(0, "rgba(34,197,94,0.22)");
+gradient.addColorStop(1, "rgba(34,197,94,0)");
 // then: backgroundColor: gradient
 ```
 
@@ -477,25 +631,37 @@ gradient.addColorStop(1, 'rgba(34,197,94,0)');
 
 ## 8. Animation Conventions
 
-| Pattern | Values |
-|---|---|
-| Default transition | `0.18s ease` |
-| Card hover lift | `transform: translateY(-2px)` |
-| Page entry | `opacity 0→1` + `translateY(10px→0)`, `0.3s ease` |
+| Pattern              | Values                                             |
+| -------------------- | -------------------------------------------------- |
+| Default transition   | `0.18s ease`                                       |
+| Card hover lift      | `transform: translateY(-2px)`                      |
+| Page entry           | `opacity 0→1` + `translateY(10px→0)`, `0.3s ease`  |
 | Staggered list entry | `animation-delay: nth-child × 35ms` (cap at 350ms) |
-| Toast slide-in | `translateX(20px→0)`, `0.2s ease` |
-| Toast dismiss | `opacity→0` + `translateX(20px)`, `0.3s ease` |
-| FIFO preview expand | `max-height 0→auto`, `opacity 0→1`, `0.25s ease` |
-| Sidebar collapse | `width` transition `0.18s ease` |
+| Toast slide-in       | `translateX(20px→0)`, `0.2s ease`                  |
+| Toast dismiss        | `opacity→0` + `translateX(20px)`, `0.3s ease`      |
+| FIFO preview expand  | `max-height 0→auto`, `opacity 0→1`, `0.25s ease`   |
+| Sidebar collapse     | `width` transition `0.18s ease`                    |
 
 ```css
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 @keyframes slideIn {
-  from { opacity: 0; transform: translateX(20px); }
-  to   { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 ```
 
@@ -504,6 +670,7 @@ gradient.addColorStop(1, 'rgba(34,197,94,0)');
 ## 9. Template Architecture
 
 ### Inheritance Chain
+
 ```
 base.html
 ├── registration/login.html          (standalone — no base)
@@ -527,17 +694,19 @@ base.html
 ```
 
 ### Blocks Available in base.html
-| Block | Purpose |
-|---|---|
-| `{% block title %}` | `<title>` tag content |
-| `{% block nav_{name} %}` | Inject `active` class to highlight sidebar link |
-| `{% block page_title %}` | Topbar breadcrumb main text |
+
+| Block                       | Purpose                                          |
+| --------------------------- | ------------------------------------------------ |
+| `{% block title %}`         | `<title>` tag content                            |
+| `{% block nav_{name} %}`    | Inject `active` class to highlight sidebar link  |
+| `{% block page_title %}`    | Topbar breadcrumb main text                      |
 | `{% block page_sub_text %}` | Topbar subtitle (lot count, date, balance, etc.) |
-| `{% block extra_css %}` | Page-specific `<style>` blocks |
-| `{% block content %}` | Main page body inside `.page-body` |
-| `{% block extra_js %}` | Page-specific scripts before `</body>` |
+| `{% block extra_css %}`     | Page-specific `<style>` blocks                   |
+| `{% block content %}`       | Main page body inside `.page-body`               |
+| `{% block extra_js %}`      | Page-specific scripts before `</body>`           |
 
 ### Available Nav Block Names
+
 ```
 nav_dashboard
 nav_lots           nav_consumption    nav_production
@@ -551,6 +720,7 @@ nav_settings
 ```
 
 ### Sidebar Group Structure
+
 ```
 ─ Dashboard
 ─ Élevage
@@ -577,6 +747,7 @@ nav_settings
 ```
 
 ### Context Variables Always Available (from context processor)
+
 - `request.user` — authenticated user
 - `request.user.userprofile` — UserProfile with `.role`, `.is_admin`, `.is_staff`
 - `app_name` — `"Élevage Avicole"`
@@ -587,68 +758,107 @@ nav_settings
 ## 10. Reusable HTML Snippets
 
 ### Section Eyebrow
+
 ```html
 <div class="section-eyebrow">Titre de section</div>
 <!-- 10.5px, uppercase, letter-spacing .1em, --text-muted, font-weight 600 -->
 ```
 
 ### Section Header with Link
+
 ```html
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-  <span style="font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Section</span>
-  <a href="{% url 'app:view' %}" style="font-size:12px;color:var(--accent);display:flex;align-items:center;gap:4px;">
-    Voir tout <i class="bi bi-arrow-right"></i>
+<div
+  style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;"
+>
+  <span
+    style="font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);font-weight:600;"
+    >Section</span
+  >
+  <a
+    href="{% url 'app:view' %}"
+    style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;"
+  >
+    Voir tout <i class="bx bx-right-arrow-alt"></i>
   </a>
 </div>
 ```
 
 ### Metric Card Shell
+
 ```html
 <div class="metric-card">
-  <div class="metric-icon ic-{color}"><i class="bi bi-{icon}"></i></div>
+  <div class="metric-icon ic-{color}"><i class="bx bxs-{icon}"></i></div>
   <div class="metric-label">LABEL</div>
   <div class="metric-value">VALUE</div>
   <span class="metric-delta up|down|neutral">
-    <i class="bi bi-arrow-up-right|arrow-down-right|dash"></i> texte
+    <i class="bx bx-trending-up|bx-trending-down|bx-minus"></i> texte
   </span>
 </div>
 ```
 
 ### Empty State
+
 ```html
 <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
-  <i class="bi bi-{icon}" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
-  <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">Aucun enregistrement</div>
+  <i
+    class="bx bxs-{icon}"
+    style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"
+  ></i>
+  <div
+    style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;"
+  >
+    Aucun enregistrement
+  </div>
   <div style="font-size:13px;">Message descriptif ici.</div>
-  <a href="{% url 'app:create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
-    <i class="bi bi-plus-lg"></i> Créer
+  <a
+    href="{% url 'app:create' %}"
+    class="btn-primary"
+    style="margin-top:16px;display:inline-flex;"
+  >
+    <i class="bx bx-plus"></i> Créer
   </a>
 </div>
 ```
 
 ### Locked Lot Warning Banner
+
 ```html
-<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:20px;">
-  <i class="bi bi-lock-fill" style="color:#fbbf24;font-size:15px;"></i>
-  <span style="font-size:13px;color:var(--text-secondary);">Ce lot est <strong style="color:#fbbf24;">clôturé</strong> — aucune saisie n'est possible.</span>
+<div
+  style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:20px;"
+>
+  <i class="bx bxs-lock" style="color:#b45309;font-size:15px;"></i>
+  <span style="font-size:13px;color:var(--text-secondary);"
+    >Ce lot est <strong style="color:#b45309;">clôturé</strong> — aucune saisie
+    n'est possible.</span
+  >
 </div>
 ```
 
 ### Danger Zone Box
+
 ```html
-<div style="background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius-md);padding:16px 18px;">
-  <div style="font-family:'Syne',sans-serif;font-weight:700;color:#f87171;margin-bottom:4px;">
-    <i class="bi bi-exclamation-triangle me-1"></i> Zone sensible
+<div
+  style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:16px 18px;"
+>
+  <div
+    style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;margin-bottom:4px;"
+  >
+    <i class="bx bxs-error me-1"></i> Zone sensible
   </div>
-  <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px;">Message d'avertissement.</p>
+  <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px;">
+    Message d'avertissement.
+  </p>
   <button class="btn-danger">Action irréversible</button>
 </div>
 ```
 
 ### Sans Pièce Jointe Flag
+
 ```html
-<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#f87171;">
-  <i class="bi bi-paperclip"></i> Sans pièce jointe
+<span
+  style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#dc2626;"
+>
+  <i class="bx bx-paperclip"></i> Sans pièce jointe
 </span>
 ```
 
@@ -661,17 +871,51 @@ Print templates (`documents/{type}/print.html`) use **no base.html**, no sidebar
 ```css
 /* Print template base */
 @media print {
-  body { background: #fff; color: #111; font-family: 'DM Sans', sans-serif; font-size: 12px; }
-  .no-print { display: none !important; }
+  body {
+    background: #fff;
+    color: #111;
+    font-family: "Inter", sans-serif;
+    font-size: 12px;
+  }
+  .no-print {
+    display: none !important;
+  }
 }
 /* On-screen preview */
-.print-preview { max-width: 720px; margin: 32px auto; background: #fff; color: #111;
-  padding: 40px 48px; border-radius: var(--radius-lg); box-shadow: 0 4px 32px rgba(0,0,0,.4); }
-.print-preview h1 { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; color: #111; }
-.print-preview table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.print-preview th { background: #f3f4f6; padding: 8px 10px; text-align: left; font-weight: 600; }
-.print-preview td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; }
-.print-preview .total-row td { font-weight: 700; border-top: 2px solid #111; }
+.print-preview {
+  max-width: 720px;
+  margin: 32px auto;
+  background: #fff;
+  color: #111;
+  padding: 40px 48px;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+}
+.print-preview h1 {
+  font-family: "Nunito", sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: #111;
+}
+.print-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.print-preview th {
+  background: #f3f4f6;
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 600;
+}
+.print-preview td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.print-preview .total-row td {
+  font-weight: 700;
+  border-top: 2px solid #111;
+}
 ```
 
 Each print view must include a `<button class="no-print" onclick="window.print()">` trigger visible on-screen only.
