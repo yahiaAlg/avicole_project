@@ -630,3 +630,35 @@ def stock_produit_fini_balance_json(request, pk):
             "seuil_alerte": 0,
         }
     return JsonResponse(data)
+
+
+@login_required(login_url=LOGIN_URL)
+def stock_intrant_json(request, pk):
+    """
+    Return the current stock balance and PMP for one intrant as JSON.
+    Used by forms to display live stock information.
+    """
+    from django.http import JsonResponse
+    from intrants.models import Intrant
+
+    intrant = get_object_or_404(Intrant, pk=pk)
+    try:
+        stock = intrant.stock
+        data = {
+            "quantite": float(stock.quantite),
+            "prix_moyen_pondere": float(stock.prix_moyen_pondere),
+            "valeur_stock": float(stock.valeur_stock),
+            "unite_mesure": intrant.unite_mesure,
+            "en_alerte": stock.en_alerte,
+            "seuil_alerte": float(intrant.seuil_alerte),
+        }
+    except Exception:
+        data = {
+            "quantite": 0,
+            "prix_moyen_pondere": 0,
+            "valeur_stock": 0,
+            "unite_mesure": intrant.unite_mesure,
+            "en_alerte": True,
+            "seuil_alerte": float(intrant.seuil_alerte),
+        }
+    return JsonResponse(data)
