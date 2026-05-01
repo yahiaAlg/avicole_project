@@ -485,4 +485,4 @@ Business logic guards (e.g. `Consommation.intrant` queryset, `consommation_total
 
 ## License
 
-Internal use only — _Élevage Avicole Tizi-Ouzou_.
+Internal use only — _Élevage Avicole Setif_.
