@@ -11,12 +11,14 @@ from depenses import views
 app_name = "depenses"
 
 urlpatterns = [
+
     # ── Dashboard ────────────────────────────────────────────────────────
     path(
         "",
         views.depenses_dashboard,
         name="dashboard",
     ),
+
     # ── CategorieDepense ─────────────────────────────────────────────────
     path(
         "categories/",
@@ -39,6 +41,7 @@ urlpatterns = [
         views.categorie_depense_toggle_active,
         name="categorie_depense_toggle_active",
     ),
+
     # ── Depense ──────────────────────────────────────────────────────────
     path(
         "depenses/",

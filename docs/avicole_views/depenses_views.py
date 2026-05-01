@@ -44,7 +44,6 @@ PER_PAGE = 25
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-
 def _paginate(qs, page_number, per_page=PER_PAGE):
     paginator = Paginator(qs, per_page)
     try:
@@ -58,7 +57,6 @@ def _paginate(qs, page_number, per_page=PER_PAGE):
 # ===========================================================================
 # Dashboard
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def depenses_dashboard(request):
@@ -75,34 +73,35 @@ def depenses_dashboard(request):
     premier_du_mois = today.replace(day=1)
     premier_de_lannee = today.replace(month=1, day=1)
 
-    summary_mois = get_depenses_summary(date_debut=premier_du_mois, date_fin=today)
-    summary_annee = get_depenses_summary(date_debut=premier_de_lannee, date_fin=today)
+    summary_mois = get_depenses_summary(
+        date_debut=premier_du_mois, date_fin=today
+    )
+    summary_annee = get_depenses_summary(
+        date_debut=premier_de_lannee, date_fin=today
+    )
 
-    depenses_recentes = Depense.objects.select_related("categorie", "lot").order_by(
-        "-date", "-created_at"
-    )[:10]
+    depenses_recentes = (
+        Depense.objects
+        .select_related("categorie", "lot")
+        .order_by("-date", "-created_at")[:10]
+    )
 
     nb_categories_actives = CategorieDepense.objects.filter(actif=True).count()
 
-    return render(
-        request,
-        "depenses/dashboard.html",
-        {
-            "summary_mois": summary_mois,
-            "summary_annee": summary_annee,
-            "depenses_recentes": depenses_recentes,
-            "nb_categories_actives": nb_categories_actives,
-            "today": today,
-            "premier_du_mois": premier_du_mois,
-            "title": "Tableau de bord — Dépenses",
-        },
-    )
+    return render(request, "depenses/dashboard.html", {
+        "summary_mois": summary_mois,
+        "summary_annee": summary_annee,
+        "depenses_recentes": depenses_recentes,
+        "nb_categories_actives": nb_categories_actives,
+        "today": today,
+        "premier_du_mois": premier_du_mois,
+        "title": "Tableau de bord — Dépenses",
+    })
 
 
 # ===========================================================================
 # CategorieDepense — List
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def categorie_depense_list(request):
@@ -123,21 +122,16 @@ def categorie_depense_list(request):
     # Annotate with depenses count for display
     qs = qs.annotate(nb_depenses=Sum("depenses__montant"))
 
-    return render(
-        request,
-        "depenses/categorie_depense_list.html",
-        {
-            "categories": qs,
-            "actif_param": actif_param,
-            "title": "Catégories de dépenses",
-        },
-    )
+    return render(request, "depenses/categorie_depense_list.html", {
+        "categories": qs,
+        "actif_param": actif_param,
+        "title": "Catégories de dépenses",
+    })
 
 
 # ===========================================================================
 # CategorieDepense — Create
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def categorie_depense_create(request):
@@ -152,9 +146,7 @@ def categorie_depense_create(request):
                 )
                 logger.info(
                     "CategorieDepense pk=%s ('%s') created by '%s'.",
-                    categorie.pk,
-                    categorie.code,
-                    request.user,
+                    categorie.pk, categorie.code, request.user,
                 )
                 return redirect("depenses:categorie_depense_list")
             except Exception as exc:
@@ -165,21 +157,16 @@ def categorie_depense_create(request):
     else:
         form = CategorieDepenseForm()
 
-    return render(
-        request,
-        "depenses/categorie_depense_form.html",
-        {
-            "form": form,
-            "title": "Nouvelle catégorie de dépense",
-            "action_label": "Créer la catégorie",
-        },
-    )
+    return render(request, "depenses/categorie_depense_form.html", {
+        "form": form,
+        "title": "Nouvelle catégorie de dépense",
+        "action_label": "Créer la catégorie",
+    })
 
 
 # ===========================================================================
 # CategorieDepense — Edit
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def categorie_depense_edit(request, pk):
@@ -196,34 +183,30 @@ def categorie_depense_edit(request, pk):
                 )
                 logger.info(
                     "CategorieDepense pk=%s updated by '%s'.",
-                    categorie.pk,
-                    request.user,
+                    categorie.pk, request.user,
                 )
                 return redirect("depenses:categorie_depense_list")
             except Exception as exc:
-                logger.exception("Error updating CategorieDepense pk=%s: %s", pk, exc)
+                logger.exception(
+                    "Error updating CategorieDepense pk=%s: %s", pk, exc
+                )
                 messages.error(request, f"Erreur lors de la mise à jour : {exc}")
         else:
             messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
     else:
         form = CategorieDepenseForm(instance=categorie)
 
-    return render(
-        request,
-        "depenses/categorie_depense_form.html",
-        {
-            "form": form,
-            "categorie": categorie,
-            "title": f"Modifier — {categorie.libelle}",
-            "action_label": "Enregistrer les modifications",
-        },
-    )
+    return render(request, "depenses/categorie_depense_form.html", {
+        "form": form,
+        "categorie": categorie,
+        "title": f"Modifier — {categorie.libelle}",
+        "action_label": "Enregistrer les modifications",
+    })
 
 
 # ===========================================================================
 # CategorieDepense — Toggle Active  (POST-only)
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 @require_POST
@@ -240,9 +223,7 @@ def categorie_depense_toggle_active(request, pk):
     messages.success(request, f"Catégorie « {categorie.libelle} » {state}.")
     logger.info(
         "CategorieDepense pk=%s toggled actif=%s by '%s'.",
-        categorie.pk,
-        categorie.actif,
-        request.user,
+        categorie.pk, categorie.actif, request.user,
     )
     return redirect("depenses:categorie_depense_list")
 
@@ -250,7 +231,6 @@ def categorie_depense_toggle_active(request, pk):
 # ===========================================================================
 # Depense — List
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def depense_list(request):
@@ -261,8 +241,10 @@ def depense_list(request):
                         Lot (if attributed)
     Filters (spec §9.10): Category, date range, lot, method
     """
-    qs = Depense.objects.select_related("categorie", "lot", "enregistre_par").order_by(
-        "-date", "-created_at"
+    qs = (
+        Depense.objects
+        .select_related("categorie", "lot", "enregistre_par")
+        .order_by("-date", "-created_at")
     )
 
     filter_form = DepenseFilterForm(request.GET or None)
@@ -298,23 +280,18 @@ def depense_list(request):
 
     page = _paginate(qs, request.GET.get("page"))
 
-    return render(
-        request,
-        "depenses/depense_list.html",
-        {
-            "page": page,
-            "filter_form": filter_form,
-            "q": q,
-            "total": total,
-            "title": "Dépenses opérationnelles",
-        },
-    )
+    return render(request, "depenses/depense_list.html", {
+        "page": page,
+        "filter_form": filter_form,
+        "q": q,
+        "total": total,
+        "title": "Dépenses opérationnelles",
+    })
 
 
 # ===========================================================================
 # Depense — Create
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def depense_create(request):
@@ -344,11 +321,8 @@ def depense_create(request):
                 logger.info(
                     "Depense pk=%s created by '%s' "
                     "(categorie=%s, montant=%s DZD, date=%s).",
-                    depense.pk,
-                    request.user,
-                    depense.categorie.code,
-                    depense.montant,
-                    depense.date,
+                    depense.pk, request.user,
+                    depense.categorie.code, depense.montant, depense.date,
                 )
                 return redirect("depenses:depense_detail", pk=depense.pk)
 
@@ -359,24 +333,18 @@ def depense_create(request):
             messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
     else:
         import datetime
-
         form = DepenseForm(initial={"date": datetime.date.today()})
 
-    return render(
-        request,
-        "depenses/depense_form.html",
-        {
-            "form": form,
-            "title": "Enregistrer une dépense",
-            "action_label": "Enregistrer la dépense",
-        },
-    )
+    return render(request, "depenses/depense_form.html", {
+        "form": form,
+        "title": "Enregistrer une dépense",
+        "action_label": "Enregistrer la dépense",
+    })
 
 
 # ===========================================================================
 # Depense — Detail
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def depense_detail(request, pk):
@@ -386,20 +354,15 @@ def depense_detail(request, pk):
         ),
         pk=pk,
     )
-    return render(
-        request,
-        "depenses/depense_detail.html",
-        {
-            "depense": depense,
-            "title": f"Dépense — {depense.date} | {depense.categorie.libelle}",
-        },
-    )
+    return render(request, "depenses/depense_detail.html", {
+        "depense": depense,
+        "title": f"Dépense — {depense.date} | {depense.categorie.libelle}",
+    })
 
 
 # ===========================================================================
 # Depense — Edit
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def depense_edit(request, pk):
@@ -424,33 +387,32 @@ def depense_edit(request, pk):
                     request,
                     f"Dépense « {depense.description[:60]} » mise à jour.",
                 )
-                logger.info("Depense pk=%s updated by '%s'.", depense.pk, request.user)
+                logger.info(
+                    "Depense pk=%s updated by '%s'.", depense.pk, request.user
+                )
                 return redirect("depenses:depense_detail", pk=depense.pk)
 
             except Exception as exc:
-                logger.exception("Error updating Depense pk=%s: %s", pk, exc)
+                logger.exception(
+                    "Error updating Depense pk=%s: %s", pk, exc
+                )
                 messages.error(request, f"Erreur lors de la mise à jour : {exc}")
         else:
             messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
     else:
         form = DepenseForm(instance=depense)
 
-    return render(
-        request,
-        "depenses/depense_form.html",
-        {
-            "form": form,
-            "depense": depense,
-            "title": f"Modifier la dépense — {depense.date}",
-            "action_label": "Enregistrer les modifications",
-        },
-    )
+    return render(request, "depenses/depense_form.html", {
+        "form": form,
+        "depense": depense,
+        "title": f"Modifier la dépense — {depense.date}",
+        "action_label": "Enregistrer les modifications",
+    })
 
 
 # ===========================================================================
 # Depense — Delete  (POST-only)
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 @require_POST
@@ -473,9 +435,7 @@ def depense_delete(request, pk):
         )
         logger.info(
             "Depense pk=%s ('%s') deleted by '%s'.",
-            pk,
-            description,
-            request.user,
+            pk, description, request.user,
         )
     except Exception as exc:
         logger.exception("Error deleting Depense pk=%s: %s", pk, exc)
@@ -488,7 +448,6 @@ def depense_delete(request, pk):
 # ===========================================================================
 # Depense — Print (Expense Voucher / Pièce Justificative)
 # ===========================================================================
-
 
 @login_required(login_url=LOGIN_URL)
 def depense_print(request, pk):
@@ -511,14 +470,9 @@ def depense_print(request, pk):
     )
 
     from core.models import CompanyInfo
-
     company = CompanyInfo.get_instance()
 
-    return render(
-        request,
-        "depenses/depense_print.html",
-        {
-            "depense": depense,
-            "company": company,
-        },
-    )
+    return render(request, "depenses/depense_print.html", {
+        "depense": depense,
+        "company": company,
+    })

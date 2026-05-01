@@ -11,12 +11,14 @@ from clients import views
 app_name = "clients"
 
 urlpatterns = [
+
     # ── Dashboard ───────────────────────────────────────────────────────
     path(
         "",
         views.clients_dashboard,
         name="dashboard",
     ),
+
     # ── Client ──────────────────────────────────────────────────────────
     path(
         "clients/",
@@ -43,6 +45,7 @@ urlpatterns = [
         views.client_toggle_active,
         name="client_toggle_active",
     ),
+
     # ── BL Client ────────────────────────────────────────────────────────
     path(
         "bls/",
@@ -88,6 +91,7 @@ urlpatterns = [
         views.bl_client_print,
         name="bl_client_print",
     ),
+
     # ── Facture Client ───────────────────────────────────────────────────
     path(
         "factures/",
@@ -116,6 +120,7 @@ urlpatterns = [
         views.facture_client_print,
         name="facture_client_print",
     ),
+
     # ── Paiement Client ──────────────────────────────────────────────────
     path(
         "paiements/",
@@ -144,6 +149,7 @@ urlpatterns = [
         views.paiement_client_print,
         name="paiement_client_print",
     ),
+
     # ── AJAX ─────────────────────────────────────────────────────────────
     path(
         "clients/<int:pk>/solde.json",
