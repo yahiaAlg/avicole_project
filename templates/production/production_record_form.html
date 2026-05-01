@@ -1,0 +1,334 @@
+
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block nav_production %}active{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}{% if record %}Réf. {{ record.pk }} — Lot {{ record.lot.designation }}{% else %}Nouvel enregistrement de production{% endif %}{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'production:production_record_list' %}" class="btn-ghost">
+  <i class="bx bx-arrow-back"></i> Retour
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="form-layout">
+  <div class="form-main">
+    <form method="post" id="production-form" novalidate>
+      {% csrf_token %}
+
+      <!-- General info -->
+      <div class="section-card" style="margin-bottom:20px;">
+        <div class="section-card__head">
+          <span class="section-card__title">Informations générales</span>
+        </div>
+        <div class="section-card__body">
+          <div class="form-grid">
+            <div class="field-group">
+              <label class="field-label" for="{{ form.lot.id_for_label }}">Lot <span class="req">*</span></label>
+              <div class="input-wrapper">
+                <i class="bx bxs-home input-icon"></i>
+                {{ form.lot }}
+              </div>
+              {% for err in form.lot.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
+            <div class="field-group">
+              <label class="field-label" for="{{ form.date_production.id_for_label }}">Date de production <span class="req">*</span></label>
+              <div class="input-wrapper">
+                <i class="bx bx-calendar input-icon"></i>
+                {{ form.date_production }}
+              </div>
+              {% for err in form.date_production.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
+            <div class="field-group">
+              <label class="field-label" for="{{ form.nombre_oiseaux_abattus.id_for_label }}">Oiseaux abattus <span class="req">*</span></label>
+              <div class="input-wrapper">
+                <i class="bx bxs-face input-icon"></i>
+                {{ form.nombre_oiseaux_abattus }}
+              </div>
+              {% for err in form.nombre_oiseaux_abattus.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
+            <div class="field-group">
+              <label class="field-label" for="{{ form.poids_total_kg.id_for_label }}">Poids total (kg) <span class="req">*</span></label>
+              <div class="input-wrapper">
+                <i class="bx bx-scale input-icon"></i>
+                {{ form.poids_total_kg }}
+              </div>
+              {% for err in form.poids_total_kg.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
+            <div class="field-group field-group--full">
+              <label class="field-label" for="{{ form.notes.id_for_label }}">Notes</label>
+              {{ form.notes }}
+              {% for err in form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Production lines -->
+      <div class="section-card" style="margin-bottom:20px;">
+        <div class="section-card__head" style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="section-card__title">Produits générés</span>
+          {% if not record or record.statut == 'brouillon' %}
+          <button type="button" id="add-ligne" class="btn-ghost btn-sm">
+            <i class="bx bx-plus"></i> Ajouter un produit
+          </button>
+          {% endif %}
+        </div>
+        <div class="section-card__body">
+          {{ formset.management_form }}
+          <div id="lignes-container">
+            {% for ligne_form in formset %}
+            <div class="inline-row{% if ligne_form.instance.pk %} existing{% endif %}" data-index="{{ forloop.counter0 }}">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;">
+                <div class="field-group" style="margin-bottom:0;">
+                  <label class="field-label">Produit <span class="req">*</span></label>
+                  <div class="input-wrapper">
+                    <i class="bx bxs-cube-alt input-icon"></i>
+                    {{ ligne_form.produit_fini }}
+                  </div>
+                  {% for err in ligne_form.produit_fini.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+                </div>
+                <div class="field-group" style="margin-bottom:0;">
+                  <label class="field-label">Quantité <span class="req">*</span></label>
+                  <div class="input-wrapper">
+                    <i class="bx bx-hash input-icon"></i>
+                    {{ ligne_form.quantite }}
+                  </div>
+                  {% for err in ligne_form.quantite.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+                </div>
+                <div class="field-group" style="margin-bottom:0;">
+                  <label class="field-label">Coût unitaire (DZD)</label>
+                  <div class="input-wrapper">
+                    <i class="bx bxs-coin input-icon"></i>
+                    {{ ligne_form.cout_unitaire }}
+                  </div>
+                  {% for err in ligne_form.cout_unitaire.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+                </div>
+                <button type="button" class="btn-ghost btn-sm danger remove-ligne" title="Supprimer" style="height:44px;">
+                  <i class="bx bxs-trash"></i>
+                </button>
+              </div>
+              {{ ligne_form.id }}
+              {% if ligne_form.DELETE %}{{ ligne_form.DELETE }}{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          {% if formset.non_form_errors %}
+          <div class="error-banner" style="margin-top:12px;">
+            <i class="bx bxs-error-circle"></i>
+            <div>{% for err in formset.non_form_errors %}<div>{{ err }}</div>{% endfor %}</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Validation -->
+      {% if record and record.statut == 'brouillon' %}
+      <div class="section-card" style="margin-bottom:20px;">
+        <div class="section-card__head">
+          <span class="section-card__title">Validation</span>
+        </div>
+        <div class="section-card__body">
+          <div class="checkbox-row">
+            <input type="checkbox" id="valider" name="valider" value="1" />
+            <label for="valider" style="font-size:13px;color:var(--text-secondary);cursor:pointer;">
+              <strong>Valider cette production</strong> — Les quantités seront ajoutées au stock et les coûts de production seront répartis selon le CMP pondéré.
+            </label>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">
+          <i class="bx bxs-save"></i> {{ action_label }}
+        </button>
+        <a href="{% url 'production:production_record_list' %}" class="btn-ghost">Annuler</a>
+      </div>
+
+      {% if form.non_field_errors %}
+      <div class="error-banner" style="margin-top:16px;">
+        <i class="bx bxs-error-circle"></i>
+        <div>{% for err in form.non_field_errors %}<div>{{ err }}</div>{% endfor %}</div>
+      </div>
+      {% endif %}
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  max-width: 900px;
+}
+.form-main { display: flex; flex-direction: column; gap: 18px; }
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+.field-group--full { grid-column: 1 / -1; }
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.inline-row {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+}
+.inline-row:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--ring-accent);
+}
+.inline-row:last-child { margin-bottom: 0; }
+.inline-row.deleting {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.error-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(239,68,68,.08);
+  border: 1px solid rgba(239,68,68,.2);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #dc2626;
+}
+.error-banner i { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 13px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  min-height: 44px;
+}
+.checkbox-row input[type="checkbox"] {
+  width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer;
+}
+
+.field-group { margin-bottom: 0; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const container = document.getElementById('lignes-container');
+  const totalForms = document.getElementById('id_lignes-TOTAL_FORMS');
+  const maxForms = document.getElementById('id_lignes-MAX_NUM_FORMS');
+  const addBtn = document.getElementById('add-ligne');
+
+  // Extract prefix and empty form HTML
+  function getFormIndex(row) {
+    return parseInt(row.dataset.index);
+  }
+
+  function updateIndices() {
+    const rows = container.querySelectorAll('.inline-row');
+    rows.forEach((row, i) => {
+      row.dataset.index = i;
+      row.querySelectorAll('input, select, textarea, label').forEach(el => {
+        if (el.name) el.name = el.name.replace(/lignes-\d+/, `lignes-${i}`);
+        if (el.id) el.id = el.id.replace(/id_lignes-\d+/, `id_lignes-${i}`);
+        if (el.htmlFor) el.htmlFor = el.htmlFor.replace(/id_lignes-\d+/, `id_lignes-${i}`);
+      });
+    });
+    totalForms.value = rows.length;
+  }
+
+  function createEmptyRow(index) {
+    const div = document.createElement('div');
+    div.className = 'inline-row';
+    div.dataset.index = index;
+    div.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;">
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Produit <span class="req">*</span></label>
+          <div class="input-wrapper">
+            <i class="bx bxs-cube-alt input-icon"></i>
+            <select name="lignes-${index}-produit_fini" id="id_lignes-${index}-produit_fini" class="field-input has-icon">
+              <option value="">Choisir...</option>
+              {% for p in produits_actifs|default:form.fields.produit_fini.queryset %}
+              <option value="{{ p.pk }}">{{ p.designation }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Quantité <span class="req">*</span></label>
+          <div class="input-wrapper">
+            <i class="bx bx-hash input-icon"></i>
+            <input type="number" name="lignes-${index}-quantite" id="id_lignes-${index}-quantite" step="0.01" class="field-input has-icon" />
+          </div>
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Coût unitaire (DZD)</label>
+          <div class="input-wrapper">
+            <i class="bx bxs-coin input-icon"></i>
+            <input type="number" name="lignes-${index}-cout_unitaire" id="id_lignes-${index}-cout_unitaire" step="0.01" class="field-input has-icon" />
+          </div>
+        </div>
+        <button type="button" class="btn-ghost btn-sm danger remove-ligne" title="Supprimer" style="height:44px;">
+          <i class="bx bxs-trash"></i>
+        </button>
+      </div>
+      <input type="hidden" name="lignes-${index}-id" id="id_lignes-${index}-id" />
+    `;
+    return div;
+  }
+
+  if (addBtn) {
+    addBtn.addEventListener('click', function () {
+      const currentCount = parseInt(totalForms.value);
+      const maxCount = parseInt(maxForms ? maxForms.value : 1000);
+      if (currentCount >= maxCount) return;
+      const row = createEmptyRow(currentCount);
+      container.appendChild(row);
+      totalForms.value = currentCount + 1;
+      updateIndices();
+    });
+  }
+
+  container.addEventListener('click', function (e) {
+    const btn = e.target.closest('.remove-ligne');
+    if (!btn) return;
+    const row = btn.closest('.inline-row');
+    const deleteField = row.querySelector('input[name$="-DELETE"]');
+    if (deleteField) {
+      deleteField.checked = true;
+      row.classList.add('deleting');
+    } else {
+      row.remove();
+      updateIndices();
+    }
+  });
+});
+</script>
+{% endblock %}

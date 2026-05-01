@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Acomptes Fournisseurs — Élevage Avicole{% endblock %}
+{% block nav_reglements_fournisseurs %}active{% endblock %}
+
+{% block page_title %}Acomptes Fournisseurs{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} acompte{{ page.paginator.count|pluralize }} enregistré{{ page.paginator.count|pluralize }} — Soldes créditeurs fournisseurs{% endblock %}
+
+{% block topbar_actions %}
+  <span style="font-size:12.5px;color:var(--text-muted);padding:6px 12px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border);">
+    <i class="bx bxs-info-circle"></i> Les acomptes sont générés automatiquement lors des règlements excédentaires
+  </span>
+{% endblock %}
+
+{% block content %}
+
+<!-- Filter bar -->
+<div class="filter-bar">
+  <div class="input-wrapper" style="flex:1;max-width:280px;">
+    <i class="bx bx-search input-icon"></i>
+    <input type="text" name="q" form="filter-form" value="{{ q }}" placeholder="Fournisseur, référence règlement..." class="field-input has-icon">
+  </div>
+
+  <select name="statut" form="filter-form" class="field-input" onchange="document.getElementById('filter-form').submit();">
+    <option value="">Tous les statuts</option>
+    {% for val, label in statut_choices %}
+    <option value="{{ val }}" {% if statut == val %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+
+  <select name="fournisseur" form="filter-form" class="field-input" onchange="document.getElementById('filter-form').submit();">
+    <option value="">Tous les fournisseurs</option>
+    {% for f in fournisseurs %}
+    <option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.nom }}</option>
+    {% endfor %}
+  </select>
+
+  {% if q or statut or fournisseur_pk %}
+  <a href="{% url 'achats:acompte_fournisseur_list' %}" class="btn-ghost btn-sm">
+    <i class="bx bx-x"></i> Réinitialiser
+  </a>
+  {% endif %}
+
+  <form id="filter-form" method="get" style="display:none;"></form>
+</div>
+
+<!-- Acompte table -->
+<div class="section-card">
+  <div class="section-card__body no-pad">
+    {% if page.object_list %}
+    <div class="table-wrap">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>Fournisseur</th>
+            <th>Règlement source</th>
+            <th style="text-align:right;">Montant</th>
+            <th style="text-align:right;">Utilisé</th>
+            <th style="text-align:right;">Reste</th>
+            <th>Statut</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ac in page.object_list %}
+          <tr class="stagger-row">
+            <td>
+              <a href="{% url 'achats:fournisseur_tableau_de_bord' ac.fournisseur.pk %}" style="color:var(--text-primary);font-weight:600;">
+                {{ ac.fournisseur.nom }}
+              </a>
+            </td>
+            <td style="white-space:nowrap;">
+              <a href="{% url 'achats:reglement_fournisseur_detail' ac.reglement.pk %}" style="color:var(--accent-text);font-size:12px;">
+                <i class="bx bxs-coin"></i> {{ ac.reglement.date_reglement|date:"d/m/Y" }}
+              </a>
+            </td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;white-space:nowrap;">
+              {{ ac.montant|floatformat:0 }} DZD
+            </td>
+            <td style="text-align:right;color:#15803d;font-family:'Nunito',sans-serif;font-weight:600;white-space:nowrap;">
+              {{ ac.montant_utilise|floatformat:0 }} DZD
+            </td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;white-space:nowrap;">
+              {% if ac.reste > 0 %}
+              <span style="color:#b45309;">{{ ac.reste|floatformat:0 }} DZD</span>
+              {% else %}
+              <span style="color:#15803d;">0 DZD</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if ac.statut == 'disponible' %}
+              <span class="pill-base pill-success">Disponible</span>
+              {% elif ac.statut == 'partiellement_utilise' %}
+              <span class="pill-base pill-warning">Part. utilisé</span>
+              {% elif ac.statut == 'epuise' %}
+              <span class="pill-base pill-neutral">Épuisé</span>
+              {% endif %}
+            </td>
+            <td>
+              <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;">
+                <a href="{% url 'achats:acompte_fournisseur_detail' ac.pk %}" class="action-btn" title="Détail">
+                  <i class="bx bx-show"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page.has_other_pages %}
+    <div class="pagination-bar">
+      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
+      <div class="page-links">
+        {% if page.has_previous %}
+        <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-left"></i></span>
+        {% endif %}
+
+        {% for num in page.paginator.page_range %}
+          {% if num == page.number %}
+          <span class="page-link active">{{ num }}</span>
+          {% elif num > page.number|add:-3 and num < page.number|add:3 %}
+          <a href="?page={{ num }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}" class="page-link">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
+
+        {% if page.has_next %}
+        <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}" class="page-link"><i class="bx bx-chevron-right"></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-right"></i></span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bxs-wallet empty-state__icon"></i>
+      <div class="empty-state__title">Aucun acompte</div>
+      <div class="empty-state__text">
+        {% if q or statut or fournisseur_pk %}
+        Aucun résultat pour les filtres sélectionnés.
+        {% else %}
+        Les acomptes sont créés automatiquement quand un règlement excède le solde des factures d'un fournisseur.
+      </div>
+      <a href="{% url 'achats:reglement_fournisseur_create' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
+        <i class="bx bx-plus"></i> Nouveau règlement
+      </a>
+        {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.table-wrap { overflow-x: auto; }
+</style>
+{% endblock %}
+
+{% block extra_js %}{% endblock %}

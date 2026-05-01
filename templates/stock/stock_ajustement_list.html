@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Ajustements de stock — Élevage Avicole{% endblock %}
+{% block nav_stock_intrants %}active{% endblock %}
+
+{% block page_title %}Ajustements de stock{% endblock %}
+{% block page_sub_text %}Corrections manuelles · {{ page.paginator.count }} enregistrement{{ page.paginator.count|pluralize }}{% endblock %}
+
+{% block topbar_actions %}
+{% if request.user.userprofile %}
+  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'stock:stock_ajustement_create' %}" class="btn-primary">
+    <i class="bx bx-plus"></i> Nouvel ajustement
+  </a>
+  {% endif %}
+{% endif %}
+<a href="{% url 'stock:stock_mouvement_list' %}" class="btn-ghost">
+  <i class="bx bxs-transfer"></i> Mouvements
+</a>
+{% endblock %}
+
+{% block content %}
+
+{# ── Filter bar ──────────────────────────────────────────────────────── #}
+<div class="filter-bar">
+  <form method="get" action="{% url 'stock:stock_ajustement_list' %}" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;">
+    <select name="segment" class="field-input" style="min-width:160px;" onchange="this.form.submit()">
+      <option value="">Tous segments</option>
+      {% for code, label in segment_choices %}
+      <option value="{{ code }}" {% if segment == code %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <div class="input-wrapper" style="min-width:130px;">
+      <i class="bx bxs-calendar input-icon"></i>
+      <input type="date" name="date_debut" value="{{ date_debut }}" class="field-input has-icon" style="padding-left:34px;" onchange="this.form.submit()" />
+    </div>
+    <div class="input-wrapper" style="min-width:130px;">
+      <i class="bx bxs-calendar input-icon"></i>
+      <input type="date" name="date_fin" value="{{ date_fin }}" class="field-input has-icon" style="padding-left:34px;" onchange="this.form.submit()" />
+    </div>
+  </form>
+  {% if segment or date_debut or date_fin %}
+  <a href="{% url 'stock:stock_ajustement_list' %}" class="btn-ghost btn-sm">
+    <i class="bx bx-x"></i> Réinitialiser
+  </a>
+  {% endif %}
+</div>
+
+{# ── Adjustments table ───────────────────────────────────────────────── #}
+<div class="section-card">
+  <div class="section-card__body no-pad">
+    {% if page.object_list %}
+    <table class="table-base">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Segment</th>
+          <th>Article</th>
+          <th style="text-align:center;">Avant → Après</th>
+          <th style="text-align:right;">Delta</th>
+          <th>Raison</th>
+          <th style="text-align:right;">Par</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in page.object_list %}
+        <tr class="stagger-row">
+          <td style="color:var(--text-muted);white-space:nowrap;font-size:12px;">
+            {{ a.date_ajustement|date:"d/m/Y" }}
+          </td>
+          <td>
+            {% if a.segment == 'intrant' %}
+            <span class="pill-base pill-info">Intrants</span>
+            {% else %}
+            <span class="pill-base pill-info">Produits finis</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="val-money">
+              {% if a.intrant %}{{ a.intrant.designation }}{% elif a.produit_fini %}{{ a.produit_fini.designation }}{% else %}—{% endif %}
+            </span>
+            <div style="font-size:11px;color:var(--text-muted);">
+              {% if a.intrant %}{{ a.intrant.unite_mesure }}{% elif a.produit_fini %}{{ a.produit_fini.unite_mesure }}{% endif %}
+            </div>
+          </td>
+          <td style="text-align:center;font-family:'Nunito',sans-serif;font-weight:700;white-space:nowrap;">
+            <span style="color:var(--text-muted);">{{ a.quantite_avant|floatformat:2 }}</span>
+            <i class="bx bx-right-arrow-alt" style="color:var(--text-muted);font-size:11px;"></i>
+            <span style="color:var(--text-primary);">{{ a.quantite_apres|floatformat:2 }}</span>
+          </td>
+          <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
+            {% with delta=a.quantite_apres|add:a.quantite_avant %}
+              {% comment %} Can't do real math in Django templates; just display both values {% endcomment %}
+            {% endwith %}
+            <span style="color:{% if a.quantite_apres > a.quantite_avant %}#16a34a{% elif a.quantite_apres < a.quantite_avant %}#dc2626{% else %}var(--text-muted){% endif %};">
+              {% if a.quantite_apres > a.quantite_avant %}+{% endif %}
+              {% if a.quantite_apres != a.quantite_avant %}
+                {{ a.quantite_apres|floatformat:2 }}
+              {% else %}
+                0
+              {% endif %}
+            </span>
+          </td>
+          <td style="font-size:12px;color:var(--text-secondary);max-width:240px;overflow:hidden;text-overflow:ellipsis;">
+            {{ a.raison|truncatechars:60 }}
+          </td>
+          <td style="text-align:right;font-size:12px;color:var(--text-muted);white-space:nowrap;">
+            {{ a.effectue_par.get_full_name|default:a.effectue_par.username|default:"—" }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {# ── Pagination ─────────────────────────────────────────────────── #}
+    {% if page.paginator.num_pages > 1 %}
+    <div class="pagination-bar">
+      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
+      <div class="page-links">
+        {% if page.has_previous %}
+        <a href="?{% if segment %}segment={{ segment }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ page.previous_page_number }}" class="page-link">
+          <i class="bx bx-chevron-left"></i>
+        </a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-left"></i></span>
+        {% endif %}
+        {% for p in page.paginator.page_range %}
+          {% if p == page.number %}
+          <span class="page-link active">{{ p }}</span>
+          {% elif p >= page.number|add:"-2" and p <= page.number|add:"2" %}
+          <a href="?{% if segment %}segment={{ segment }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ p }}" class="page-link">{{ p }}</a>
+          {% endif %}
+        {% endfor %}
+        {% if page.has_next %}
+        <a href="?{% if segment %}segment={{ segment }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ page.next_page_number }}" class="page-link">
+          <i class="bx bx-chevron-right"></i>
+        </a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-right"></i></span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bx-transfer empty-state__icon"></i>
+      <div class="empty-state__title">Aucun ajustement</div>
+      <div class="empty-state__text">Les corrections manuelles de stock apparaîtront ici.</div>
+      {% if request.user.userprofile %}
+        {% if not request.user.userprofile.role == 'viewer' %}
+        <a href="{% url 'stock:stock_ajustement_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
+          <i class="bx bx-plus"></i> Ajustement
+        </a>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* No page-unique styles needed */
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Filter form auto-submits on select/change */
+</script>
+{% endblock %}

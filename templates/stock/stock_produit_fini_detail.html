@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block nav_stock_produits %}active{% endblock %}
+
+{% block page_title %}{{ stock.produit_fini.designation }}{% endblock %}
+{% block page_sub_text %}{{ stock.produit_fini.get_type_produit_display }} · {{ stock.produit_fini.unite_mesure }}{% endblock %}
+
+{% block topbar_actions %}
+{% if request.user.userprofile %}
+  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'stock:stock_ajustement_create' %}?segment=produit_fini&produit_fini={{ stock.produit_fini.pk }}" class="btn-primary">
+    <i class="bx bx-transfer"></i> Ajustement
+  </a>
+  {% endif %}
+{% endif %}
+<a href="{% url 'stock:stock_produit_fini_list' %}" class="btn-ghost">
+  <i class="bx bx-arrow-back"></i> Retour
+</a>
+{% endblock %}
+
+{% block content %}
+
+{# ── Header card: current balance ──────────────────────────────────────── #}
+<div class="section-card mb-4">
+  <div class="section-card__body">
+    <div class="row g-4">
+
+      <div class="col-md-3">
+        <div style="text-align:center;">
+          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Quantité en stock</div>
+          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:32px;color:{% if stock.en_alerte %}#dc2626{% else %}var(--text-primary){% endif %};">
+            {{ stock.quantite|floatformat:2 }}
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);">{{ stock.produit_fini.unite_mesure }}</div>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div style="text-align:center;">
+          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Coût moyen</div>
+          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:26px;color:var(--text-primary);">
+            {{ stock.cout_moyen_production|floatformat:2 }}
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);">DZD / {{ stock.produit_fini.unite_mesure }}</div>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div style="text-align:center;">
+          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Valeur stock</div>
+          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:26px;color:var(--text-primary);">
+            {{ stock.valeur_stock|floatformat:0 }}
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);">DZD</div>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div style="text-align:center;">
+          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Seuil d'alerte</div>
+          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:26px;color:{% if stock.en_alerte %}#b45309{% else %}var(--text-primary){% endif %};">
+            {{ stock.seuil_alerte|floatformat:2 }}
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);">
+            {% if stock.en_alerte %}
+            <span class="pill-base pill-danger"><i class="bx bxs-error"></i> Sous seuil</span>
+            {% else %}
+            <span class="pill-base pill-success"><i class="bx bxs-check-circle"></i> Normal</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{# ── Two-column: Mouvements + Ajustements ──────────────────────────────── #}
+<div class="row g-3">
+
+  {# Mouvements récents #}
+  <div class="col-xl-7">
+    <div class="section-card h-100">
+      <div class="section-card__head">
+        <span class="section-card__title">
+          <i class="bx bxs-transfer" style="color:var(--text-muted);margin-right:8px;"></i>Mouvements récents
+        </span>
+        <a href="{% url 'stock:stock_mouvement_list' %}?segment=produit_fini" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
+          Voir tout <i class="bx bx-right-arrow-alt"></i>
+        </a>
+      </div>
+      <div class="section-card__body no-pad">
+        {% if mouvements %}
+        <table class="table-base">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Source</th>
+              <th style="text-align:right;">Qté</th>
+              <th style="text-align:center;">Stock</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in mouvements %}
+            <tr class="stagger-row">
+              <td style="color:var(--text-muted);white-space:nowrap;font-size:12px;">{{ m.date_mouvement|date:"d/m/Y" }}</td>
+              <td>
+                {% if m.type_mouvement == 'entree' %}
+                <span class="pill-base pill-success"><i class="bx bx-trending-up"></i> Entrée</span>
+                {% elif m.type_mouvement == 'sortie' %}
+                <span class="pill-base pill-danger"><i class="bx bx-trending-down"></i> Sortie</span>
+                {% else %}
+                <span class="pill-base pill-warning"><i class="bx bx-transfer"></i> Ajust.</span>
+                {% endif %}
+              </td>
+              <td style="color:var(--text-muted);font-size:12px;">{{ m.get_source_display }}</td>
+              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ m.quantite|floatformat:2 }}</td>
+              <td style="text-align:center;font-size:12px;color:var(--text-muted);">
+                {{ m.quantite_avant|floatformat:2 }} → {{ m.quantite_apres|floatformat:2 }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state" style="padding:36px 20px;">
+          <i class="bx bxs-transfer empty-state__icon"></i>
+          <div class="empty-state__title">Aucun mouvement</div>
+          <div class="empty-state__text">Les mouvements de stock apparaîtront ici.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# Ajustements récents #}
+  <div class="col-xl-5">
+    <div class="section-card h-100">
+      <div class="section-card__head">
+        <span class="section-card__title">
+          <i class="bx bx-transfer" style="color:var(--text-muted);margin-right:8px;"></i>Ajustements
+        </span>
+      </div>
+      <div class="section-card__body no-pad">
+        {% if ajustements %}
+        <table class="table-base">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th style="text-align:center;">Ajustement</th>
+              <th style="text-align:right;">Par</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in ajustements %}
+            <tr class="stagger-row">
+              <td style="color:var(--text-muted);white-space:nowrap;font-size:12px;">{{ a.date_ajustement|date:"d/m/Y" }}</td>
+              <td style="text-align:center;font-family:'Nunito',sans-serif;font-weight:700;">
+                <span style="color:var(--text-muted);">{{ a.quantite_avant|floatformat:2 }}</span>
+                <i class="bx bx-right-arrow-alt" style="color:var(--text-muted);font-size:11px;"></i>
+                <span style="color:var(--text-primary);">{{ a.quantite_apres|floatformat:2 }}</span>
+              </td>
+              <td style="text-align:right;font-size:12px;color:var(--text-muted);">
+                {{ a.effectue_par.get_full_name|default:a.effectue_par.username|default:"—" }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state" style="padding:36px 20px;">
+          <i class="bx bx-transfer empty-state__icon"></i>
+          <div class="empty-state__title">Aucun ajustement</div>
+          <div class="empty-state__text">Les corrections manuelles apparaîtront ici.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.h-100 { height: 100%; }
+.mb-4 { margin-bottom: 1.5rem; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* No page-specific JS */
+</script>
+{% endblock %}

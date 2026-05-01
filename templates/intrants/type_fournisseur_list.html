@@ -3,13 +3,13 @@
 
 {% block title %}Types de fournisseurs — Élevage Avicole{% endblock %}
 
-{% block nav_settings %}active{% endblock %}
+{% block nav_type_fournisseurs %}active{% endblock %}
 
 {% block page_title %}Types de fournisseurs{% endblock %}
 {% block page_sub_text %}{{ types|length }} type{{ types|length|pluralize }} configuré{{ types|length|pluralize }}{% endblock %}
 
 {% block topbar_actions %}
-  {% if request.user.userprofile.is_admin %}
+  {% if request.user.profile.role == 'admin' %}
   <a href="{% url 'intrants:type_fournisseur_create' %}" class="btn-primary">
     <i class="bx bx-plus"></i> Nouveau type
   </a>
@@ -33,7 +33,7 @@
             <th>Libellé</th>
             <th>Ordre</th>
             <th>Statut</th>
-            {% if request.user.userprofile.is_admin %}<th style="text-align:right;">Actions</th>{% endif %}
+            {% if request.user.profile.role == 'admin' %}<th style="text-align:right;">Actions</th>{% endif %}
           </tr>
         </thead>
         <tbody>
@@ -51,7 +51,7 @@
                 <span class="pill-neutral"><i class="bx bx-block"></i> Inactif</span>
               {% endif %}
             </td>
-            {% if request.user.userprofile.is_admin %}
+            {% if request.user.profile.role == 'admin' %}
             <td>
               <div class="actions-cell">
                 <a href="{% url 'intrants:type_fournisseur_edit' t.pk %}" class="action-btn" title="Modifier">
@@ -78,7 +78,7 @@
       <i class="bx bxs-user-badge empty-state__icon"></i>
       <div class="empty-state__title">Aucun type de fournisseur</div>
       <div class="empty-state__body">Créez le premier type de fournisseur.</div>
-      {% if request.user.userprofile.is_admin %}
+      {% if request.user.profile.role == 'admin' %}
       <a href="{% url 'intrants:type_fournisseur_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
         <i class="bx bx-plus"></i> Créer
       </a>

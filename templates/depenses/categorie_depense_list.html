@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block nav_depenses %}active{% endblock %}
+
+{% block page_title %}Catégories de dépenses{% endblock %}
+{% block page_sub_text %}{{ categories|length }} catégorie{{ categories|length|pluralize }} · Gérez les catégories utilisées pour classer vos dépenses{% endblock %}
+
+{% block topbar_actions %}
+{% if not request.user.profile.role == 'viewer' %}
+<a href="{% url 'depenses:categorie_depense_create' %}" class="btn-primary">
+  <i class="bx bx-plus"></i> Nouvelle catégorie
+</a>
+{% endif %}
+<a href="{% url 'depenses:depense_list' %}" class="btn-ghost">
+  <i class="bx bx-arrow-back"></i> Dépenses
+</a>
+{% endblock %}
+
+{% block content %}
+
+{# ── Filter tabs ───────────────────────────────────────────────────────── #}
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+  <a href="{% url 'depenses:categorie_depense_list' %}" class="filter-tab {% if not actif_param %}filter-tab--active{% endif %}">
+    <i class="bx bxs-grid-alt"></i> Toutes
+  </a>
+  <a href="?actif=1" class="filter-tab {% if actif_param == '1' %}filter-tab--active{% endif %}">
+    <i class="bx bxs-check-circle"></i> Actives
+  </a>
+  <a href="?actif=0" class="filter-tab {% if actif_param == '0' %}filter-tab--active{% endif %}">
+    <i class="bx bx-block"></i> Inactives
+  </a>
+</div>
+
+{# ── Categories table ──────────────────────────────────────────────────── #}
+<div class="section-card">
+  <div class="section-card__head">
+    <span class="section-card__title">
+      <i class="bx bxs-category" style="color:var(--accent);margin-right:8px;"></i>Liste des catégories
+    </span>
+  </div>
+  <div class="section-card__body no-pad">
+    {% if categories %}
+    <div class="table-wrapper">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th style="width:40px;">Ordre</th>
+            <th>Code</th>
+            <th>Libellé</th>
+            <th>Description</th>
+            <th style="text-align:center;">Statut</th>
+            <th style="text-align:right;">Dépenses (DZD)</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cat in categories %}
+          <tr class="stagger-row {% if not cat.actif %}row-inactive{% endif %}" style="--row-i:{{ forloop.counter0 }};">
+            <td style="color:var(--text-muted);text-align:center;">{{ cat.ordre }}</td>
+            <td><code class="code-tag">{{ cat.code }}</code></td>
+            <td>
+              <span style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
+                {{ cat.libelle }}
+              </span>
+            </td>
+            <td style="color:var(--text-muted);font-size:12px;">{{ cat.description|truncatechars:60|default:"—" }}</td>
+            <td style="text-align:center;">
+              {% if cat.actif %}
+              <span class="pill-base pill-success"><i class="bx bxs-check-circle"></i> Active</span>
+              {% else %}
+              <span class="pill-base pill-neutral"><i class="bx bx-block"></i> Inactive</span>
+              {% endif %}
+            </td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
+              {% if cat.nb_depenses %}{{ cat.nb_depenses|floatformat:0 }}{% else %}0{% endif %}
+            </td>
+            <td>
+              <div class="actions-cell">
+                <a href="{% url 'depenses:categorie_depense_edit' cat.pk %}" class="action-btn" title="Modifier">
+                  <i class="bx bxs-pencil"></i>
+                </a>
+                {% if not request.user.profile.role == 'viewer' %}
+                <form method="post" action="{% url 'depenses:categorie_depense_toggle_active' cat.pk %}" style="margin:0;display:inline;">
+                  {% csrf_token %}
+                  <button type="submit" class="action-btn {% if cat.actif %}danger{% else %}success{% endif %}"
+                    title="{% if cat.actif %}Désactiver{% else %}Activer{% endif %}"
+                    onclick="return confirmToggle(this, '{{ cat.libelle|escapejs }}', {{ cat.actif|yesno:'true,false' }});">
+                    <i class="bx {% if cat.actif %}bx-block{% else %}bxs-check-circle{% endif %}"></i>
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bxs-category empty-state__icon"></i>
+      <div class="empty-state__title">Aucune catégorie</div>
+      <div class="empty-state__text">
+        {% if actif_param == '0' %}
+        Aucune catégorie inactive.
+        {% else %}
+        Créez votre première catégorie de dépense.
+        {% endif %}
+      </div>
+      {% if not request.user.profile.role == 'viewer' %}
+      <a href="{% url 'depenses:categorie_depense_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
+        <i class="bx bx-plus"></i> Nouvelle catégorie
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Filter tabs */
+.filter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  cursor: pointer;
+}
+.filter-tab:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+.filter-tab--active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+/* Code tag */
+.code-tag {
+  font-family: 'Inter', monospace;
+  font-size: 11.5px;
+  font-weight: 500;
+  background: var(--bg-raised);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+
+/* Inactive row */
+.row-inactive {
+  opacity: 0.55;
+}
+
+/* Table wrapper */
+.table-wrapper { overflow-x: auto; }
+
+/* Actions cell */
+.actions-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Simple inline confirmation for toggle (non-destructive, so a lightweight confirm is acceptable per spec) */
+function confirmToggle(btn, libelle, isActive) {
+  var action = isActive ? 'désactiver' : 'activer';
+  return confirm('Voulez-vous ' + action + ' la catégorie "' + libelle + '" ?');
+}
+</script>
+{% endblock %}

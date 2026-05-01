@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Lots d'Élevage — Élevage Avicole{% endblock %}
+{% block nav_lots %}active{% endblock %}
+
+{% block page_title %}Lots d'Élevage{% endblock %}
+{% block page_sub_text %}{{ nb_ouverts }} ouvert{{ nb_ouverts|pluralize }} · {{ nb_fermes }} fermé{{ nb_fermes|pluralize }} · {{ page.paginator.count }} total{% endblock %}
+
+{% block topbar_actions %}
+{% if request.user.userprofile %}
+  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'elevage:lot_create' %}" class="btn-primary">
+    <i class="bx bx-plus"></i> Nouveau Lot
+  </a>
+  {% endif %}
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<!-- Filter bar -->
+<div class="filter-bar">
+  <form method="get" action="{% url 'elevage:lot_list' %}" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;">
+    <div class="input-wrapper" style="position:relative;flex:1;min-width:220px;">
+      <i class="bx bx-search input-icon"></i>
+      <input type="text" name="q" class="field-input has-icon" placeholder="Rechercher un lot..." value="{{ q }}" />
+    </div>
+    <select name="statut" class="field-input" onchange="this.form.submit()" style="min-width:140px;">
+      <option value="">Tous les statuts</option>
+      {% for code, label in statut_choices %}
+      <option value="{{ code }}" {% if statut == code %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <select name="batiment" class="field-input" onchange="this.form.submit()" style="min-width:160px;">
+      <option value="">Tous les bâtiments</option>
+      {% for b in batiments %}
+      <option value="{{ b.pk }}" {% if batiment_pk == b.pk|stringformat:"s" %}selected{% endif %}>{{ b.nom }}</option>
+      {% endfor %}
+    </select>
+    {% if q or statut or batiment_pk %}
+    <a href="{% url 'elevage:lot_list' %}" class="btn-ghost btn-sm">
+      <i class="bx bx-x"></i> Réinitialiser
+    </a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- Lot table -->
+<div class="section-card">
+  <div class="section-card__body no-pad">
+    {% if page.object_list %}
+    <div class="table-wrapper">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>Lot</th>
+            <th>Date ouverture</th>
+            <th>Bâtiment</th>
+            <th style="text-align:right;">Poussins</th>
+            <th style="text-align:right;">Effectif</th>
+            <th style="text-align:right;">Mortalité</th>
+            <th style="text-align:center;">Jours</th>
+            <th style="text-align:center;">Statut</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lot in page.object_list %}
+          <tr class="stagger-row">
+            <td>
+              <a href="{% url 'elevage:lot_detail' lot.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;">
+                {{ lot.designation }}
+              </a>
+              {% if lot.souche %}<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">{{ lot.souche }}</div>{% endif %}
+            </td>
+            <td style="color:var(--text-muted);white-space:nowrap;">{{ lot.date_ouverture|date:"d/m/Y" }}</td>
+            <td>{{ lot.batiment.nom }}</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ lot.nombre_poussins_initial|floatformat:0 }}</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ lot.effectif_vivant|floatformat:0 }}</td>
+            <td style="text-align:right;">
+              <span class="{% if lot.taux_mortalite > 5 %}val-danger{% elif lot.taux_mortalite > 3 %}val-warn{% endif %}" style="font-family:'Nunito',sans-serif;font-weight:700;">
+                {{ lot.taux_mortalite|floatformat:2 }}%
+              </span>
+            </td>
+            <td style="text-align:center;color:var(--text-muted);">{{ lot.duree_elevage }}j</td>
+            <td style="text-align:center;">
+              {% if lot.statut == lot.STATUT_OUVERT %}
+              <span class="pill-base pill-success">Ouvert</span>
+              {% else %}
+              <span class="pill-base pill-neutral"><i class="bx bxs-lock" style="font-size:10px;"></i> Fermé</span>
+              {% endif %}
+            </td>
+            <td style="text-align:right;">
+              <div class="actions-cell">
+                <a href="{% url 'elevage:lot_detail' lot.pk %}" class="action-btn" title="Détail">
+                  <i class="bx bx-show"></i>
+                </a>
+                {% if lot.statut == lot.STATUT_OUVERT %}
+                  {% if request.user.userprofile %}
+                    {% if not request.user.userprofile.role == 'viewer' %}
+                    <a href="{% url 'elevage:mortalite_create' lot.pk %}" class="action-btn success" title="Mortalité">
+                      <i class="bx bxs-heart"></i>
+                    </a>
+                    <a href="{% url 'elevage:consommation_create' lot.pk %}" class="action-btn success" title="Consommation">
+                      <i class="bx bxs-droplet"></i>
+                    </a>
+                    <a href="{% url 'elevage:lot_edit' lot.pk %}" class="action-btn" title="Modifier">
+                      <i class="bx bxs-pencil"></i>
+                    </a>
+                    {% endif %}
+                  {% endif %}
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page.has_other_pages %}
+    <div class="pagination-bar">
+      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
+      <div class="page-links">
+        {% if page.has_previous %}
+        <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if batiment_pk %}&batiment={{ batiment_pk }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-left"></i></span>
+        {% endif %}
+        {% for num in page.paginator.page_range %}
+          {% if num == page.number %}
+          <span class="page-link active">{{ num }}</span>
+          {% elif num > page.number|add:-3 and num < page.number|add:3 %}
+          <a href="?page={{ num }}{% if q %}&q={{ q }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if batiment_pk %}&batiment={{ batiment_pk }}{% endif %}" class="page-link">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
+        {% if page.has_next %}
+        <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if batiment_pk %}&batiment={{ batiment_pk }}{% endif %}" class="page-link"><i class="bx bx-chevron-right"></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-right"></i></span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bxs-grid-alt empty-state__icon"></i>
+      <div class="empty-state__title">Aucun lot trouvé</div>
+      <div class="empty-state__text">Ajustez les filtres ou créez un nouveau lot.</div>
+      {% if request.user.userprofile %}
+        {% if not request.user.userprofile.role == 'viewer' %}
+        <a href="{% url 'elevage:lot_create' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
+          <i class="bx bx-plus"></i> Nouveau Lot
+        </a>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.table-wrapper { overflow-x: auto; }
+.actions-cell {
+  display: flex; align-items: center; justify-content: flex-end; gap: 4px;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* Filter form submit on select change handled inline via onchange */
+});
+</script>
+{% endblock %}

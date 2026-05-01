@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Mouvements de stock — Élevage Avicole{% endblock %}
+{% block nav_stock_intrants %}active{% endblock %}
+
+{% block page_title %}Mouvements de stock{% endblock %}
+{% block page_sub_text %}Audit trail · {{ page.paginator.count }} mouvement{{ page.paginator.count|pluralize }}{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'stock:stock_ajustement_list' %}" class="btn-ghost">
+  <i class="bx bx-transfer"></i> Ajustements
+</a>
+{% endblock %}
+
+{% block content %}
+
+{# ── Filter bar ──────────────────────────────────────────────────────── #}
+<div class="filter-bar">
+  <form method="get" action="{% url 'stock:stock_mouvement_list' %}" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;">
+    <div class="input-wrapper" style="flex:1;min-width:180px;">
+      <i class="bx bx-search input-icon"></i>
+      <input type="text" name="q" value="{{ q }}" class="field-input has-icon" placeholder="Rechercher un article ou référence…" />
+    </div>
+    <select name="segment" class="field-input" style="min-width:140px;" onchange="this.form.submit()">
+      <option value="">Tous segments</option>
+      <option value="intrant" {% if segment == 'intrant' %}selected{% endif %}>Intrants</option>
+      <option value="produit_fini" {% if segment == 'produit_fini' %}selected{% endif %}>Produits finis</option>
+    </select>
+    <select name="type_mouvement" class="field-input" style="min-width:140px;" onchange="this.form.submit()">
+      <option value="">Tous types</option>
+      {% for code, label in type_choices %}
+      <option value="{{ code }}" {% if type_mouvement == code %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <select name="source" class="field-input" style="min-width:160px;" onchange="this.form.submit()">
+      <option value="">Toutes sources</option>
+      {% for code, label in source_choices %}
+      <option value="{{ code }}" {% if source == code %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <div class="input-wrapper" style="min-width:130px;">
+      <i class="bx bxs-calendar input-icon"></i>
+      <input type="date" name="date_debut" value="{{ date_debut }}" class="field-input has-icon" style="padding-left:34px;" onchange="this.form.submit()" />
+    </div>
+    <div class="input-wrapper" style="min-width:130px;">
+      <i class="bx bxs-calendar input-icon"></i>
+      <input type="date" name="date_fin" value="{{ date_fin }}" class="field-input has-icon" style="padding-left:34px;" onchange="this.form.submit()" />
+    </div>
+  </form>
+  {% if q or segment or type_mouvement or source or date_debut or date_fin %}
+  <a href="{% url 'stock:stock_mouvement_list' %}" class="btn-ghost btn-sm">
+    <i class="bx bx-x"></i> Réinitialiser
+  </a>
+  {% endif %}
+</div>
+
+{# ── Movement table ──────────────────────────────────────────────────── #}
+<div class="section-card">
+  <div class="section-card__body no-pad">
+    {% if page.object_list %}
+    <table class="table-base">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Segment</th>
+          <th>Article</th>
+          <th>Source</th>
+          <th>Référence</th>
+          <th style="text-align:right;">Qté</th>
+          <th style="text-align:center;">Avant → Après</th>
+          <th style="text-align:right;">Par</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in page.object_list %}
+        <tr class="stagger-row">
+          <td style="color:var(--text-muted);white-space:nowrap;font-size:12px;">
+            {{ m.date_mouvement|date:"d/m/Y" }}<br>
+            <span style="font-size:10.5px;">{{ m.created_at|date:"H:i" }}</span>
+          </td>
+          <td>
+            {% if m.type_mouvement == 'entree' %}
+            <span class="pill-base pill-success"><i class="bx bx-trending-up"></i> Entrée</span>
+            {% elif m.type_mouvement == 'sortie' %}
+            <span class="pill-base pill-danger"><i class="bx bx-trending-down"></i> Sortie</span>
+            {% else %}
+            <span class="pill-base pill-warning"><i class="bx bx-transfer"></i> Ajustement</span>
+            {% endif %}
+          </td>
+          <td style="font-size:12px;color:var(--text-muted);">
+            {% if m.intrant %}Intrant{% elif m.produit_fini %}Produit fini{% else %}—{% endif %}
+          </td>
+          <td>
+            <span class="val-money">
+              {% if m.intrant %}{{ m.intrant.designation }}{% elif m.produit_fini %}{{ m.produit_fini.designation }}{% else %}—{% endif %}
+            </span>
+          </td>
+          <td style="color:var(--text-muted);font-size:12px;">{{ m.get_source_display }}</td>
+          <td class="text-mono" style="font-size:11px;color:var(--text-muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;">
+            {{ m.reference_label|default:"—" }}
+          </td>
+          <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
+            {{ m.quantite|floatformat:2 }}
+          </td>
+          <td style="text-align:center;font-size:12px;color:var(--text-muted);white-space:nowrap;">
+            {{ m.quantite_avant|floatformat:2 }} → {{ m.quantite_apres|floatformat:2 }}
+          </td>
+          <td style="text-align:right;font-size:12px;color:var(--text-muted);white-space:nowrap;">
+            {{ m.created_by.get_full_name|default:m.created_by.username|default:"Système" }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {# ── Pagination ─────────────────────────────────────────────────── #}
+    {% if page.paginator.num_pages > 1 %}
+    <div class="pagination-bar">
+      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
+      <div class="page-links">
+        {% if page.has_previous %}
+        <a href="?{% if q %}q={{ q }}&{% endif %}{% if segment %}segment={{ segment }}&{% endif %}{% if type_mouvement %}type_mouvement={{ type_mouvement }}&{% endif %}{% if source %}source={{ source }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ page.previous_page_number }}" class="page-link">
+          <i class="bx bx-chevron-left"></i>
+        </a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-left"></i></span>
+        {% endif %}
+        {% for p in page.paginator.page_range %}
+          {% if p == page.number %}
+          <span class="page-link active">{{ p }}</span>
+          {% elif p >= page.number|add:"-2" and p <= page.number|add:"2" %}
+          <a href="?{% if q %}q={{ q }}&{% endif %}{% if segment %}segment={{ segment }}&{% endif %}{% if type_mouvement %}type_mouvement={{ type_mouvement }}&{% endif %}{% if source %}source={{ source }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ p }}" class="page-link">{{ p }}</a>
+          {% endif %}
+        {% endfor %}
+        {% if page.has_next %}
+        <a href="?{% if q %}q={{ q }}&{% endif %}{% if segment %}segment={{ segment }}&{% endif %}{% if type_mouvement %}type_mouvement={{ type_mouvement }}&{% endif %}{% if source %}source={{ source }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ page.next_page_number }}" class="page-link">
+          <i class="bx bx-chevron-right"></i>
+        </a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-right"></i></span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bxs-transfer empty-state__icon"></i>
+      <div class="empty-state__title">Aucun mouvement</div>
+      <div class="empty-state__text">Les mouvements de stock apparaîtront ici.</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* No page-unique styles needed */
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Filter form auto-submits on select/change */
+</script>
+{% endblock %}

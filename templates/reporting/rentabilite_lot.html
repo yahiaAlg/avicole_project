@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+{% load reporting_extras %}
+{% load static i18n %}
+
+{% block title %}{{ title }} — {{ company.nom|default:"AviTrack" }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h6 class="mb-0 fw-bold"><i class="fas fa-filter me-2 text-primary"></i>Filtres</h6>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end" id="filter-form">
+            <div class="col-md-3 col-lg-3">
+                <label for="lot" class="form-label small text-muted">Lot</label>
+                <select name="lot" id="lot" class="form-select">
+                    <option value="">— Tous les lots —</option>
+                    {% for l in lots_all %}
+                    <option value="{{ l.pk }}" {% if lot_pk == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.designation }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 col-lg-2">
+                <label for="statut" class="form-label small text-muted">Statut</label>
+                <select name="statut" id="statut" class="form-select">
+                    <option value="">— Tous —</option>
+                    {% for code, label in statut_choices %}
+                    <option value="{{ code }}" {% if statut == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 col-lg-2">
+                <label for="date_debut" class="form-label small text-muted">Date début</label>
+                <input type="date" name="date_debut" id="date_debut" class="form-control" value="{{ date_debut|date:'Y-m-d'|default:'' }}">
+            </div>
+            <div class="col-md-3 col-lg-2">
+                <label for="date_fin" class="form-label small text-muted">Date fin</label>
+                <input type="date" name="date_fin" id="date_fin" class="form-control" value="{{ date_fin|date:'Y-m-d'|default:'' }}">
+            </div>
+            <div class="col-md-12 col-lg-3 text-lg-end">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-filter me-1"></i> Filtrer</button>
+                <a href="{{ request.path }}" class="btn btn-outline-secondary"><i class="fas fa-rotate-left"></i></a>
+                <a href="{{ request.path }}?{% if lot_pk %}lot={{ lot_pk }}&{% endif %}{% if statut %}statut={{ statut }}&{% endif %}{% if date_debut %}date_debut={{ date_debut|date:'Y-m-d' }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:'Y-m-d' }}&{% endif %}export=csv" class="btn btn-success"><i class="fas fa-file-csv"></i></a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if lot_obj and lot_summary %}
+<!-- Single Lot Drill-down -->
+<div class="card mb-4 border-primary border-2">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-bold"><i class="fas fa-magnifying-glass-chart me-2"></i>Détail Lot: {{ lot_obj.designation }}</h6>
+        <a href="{% url 'reporting:rentabilite_lot' %}" class="btn btn-sm btn-light"><i class="fas fa-xmark"></i> Fermer</a>
+    </div>
+    <div class="card-body">
+        <div class="row g-4">
+            <div class="col-md-3 text-center">
+                <div class="text-muted small text-uppercase">Effectif Vivant</div>
+                <div class="h4 fw-bold">{{ lot_summary.effectif_vivant }}</div>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="text-muted small text-uppercase">Mortalité</div>
+                <div class="h4 fw-bold {% if lot_summary.taux_mortalite > 5 %}text-danger{% else %}text-success{% endif %}">{{ lot_summary.taux_mortalite|floatformat:2 }}%</div>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="text-muted small text-uppercase">IC</div>
+                <div class="h4 fw-bold">{{ lot_summary.ic|default:"—"|floatformat:3 }}</div>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="text-muted small text-uppercase">Marge Brute</div>
+                <div class="h4 fw-bold {% if lot_summary.marge_brute >= 0 %}text-success{% else %}text-danger{% endif %}">{{ lot_summary.marge_brute|floatformat:2 }} DZD</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header bg-light">
+                <h6 class="mb-0 fw-bold"><i class="fas fa-chart-bar me-2 text-primary"></i>Marges par Lot</h6>
+            </div>
+            <div class="card-body">
+                <div style="height: 280px;"><canvas id="margeChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header bg-light">
+                <h6 class="mb-0 fw-bold"><i class="fas fa-chart-line me-2 text-success"></i>Coûts vs Revenus</h6>
+            </div>
+            <div class="card-body">
+                <div style="height: 280px;"><canvas id="coutChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-start border-4 border-primary">
+            <div class="card-body d-flex justify-content-between">
+                <div>
+                    <div class="text-muted small text-uppercase">Coût Intrants</div>
+                    <div class="h5 fw-bold mb-0">{{ totaux.cout_total_intrants|floatformat:2 }} DZD</div>
+                </div>
+                <div class="text-primary fs-3"><i class="fas fa-wheat-awn"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-start border-4 border-warning">
+            <div class="card-body d-flex justify-content-between">
+                <div>
+                    <div class="text-muted small text-uppercase">Dépenses</div>
+                    <div class="h5 fw-bold mb-0">{{ totaux.cout_total_depenses|floatformat:2 }} DZD</div>
+                </div>
+                <div class="text-warning fs-3"><i class="fas fa-money-bill-wave"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-start border-4 border-success">
+            <div class="card-body d-flex justify-content-between">
+                <div>
+                    <div class="text-muted small text-uppercase">Revenus Ventes</div>
+                    <div class="h5 fw-bold mb-0">{{ totaux.revenus_ventes|floatformat:2 }} DZD</div>
+                </div>
+                <div class="text-success fs-3"><i class="fas fa-sack-dollar"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-start border-4 {% if totaux.marge_brute >= 0 %}border-success{% else %}border-danger{% endif %}">
+            <div class="card-body d-flex justify-content-between">
+                <div>
+                    <div class="text-muted small text-uppercase">Marge Brute Totale</div>
+                    <div class="h5 fw-bold mb-0 {% if totaux.marge_brute >= 0 %}text-success{% else %}text-danger{% endif %}">{{ totaux.marge_brute|floatformat:2 }} DZD</div>
+                </div>
+                <div class="{% if totaux.marge_brute >= 0 %}text-success{% else %}text-danger{% endif %} fs-3"><i class="fas fa-scale-balanced"></i></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Data Table -->
+<div class="card mb-4">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h6 class="mb-0 fw-bold"><i class="fas fa-table me-2 text-primary"></i>Synthèse par Lot</h6>
+        <div class="small text-muted">{{ lot_rows|length }} lot(s)</div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0 align-middle" id="data-table">
+                <thead class="table-light">
+                    <tr>
+                        <th class="cursor-pointer" onclick="sortTable(0)">Lot <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(1)">Poussins <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(2)">Vivants <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(3)">Mortalité <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(4)">Taux % <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(5)">Durée <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(6)">Aliment (kg) <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(7)">Poids (kg) <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(8)">IC <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(9)">Coût Intrants <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(10)">Dépenses <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(11)">Revenus <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(12)">Marge <i class="fas fa-sort text-muted small"></i></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in lot_rows %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'reporting:rentabilite_lot' %}?lot={{ r.lot.pk }}" class="fw-bold text-decoration-none">{{ r.lot.designation }}</a>
+                            <div class="small text-muted">{{ r.lot.batiment.nom }} | {{ r.lot.get_statut_display }}</div>
+                        </td>
+                        <td class="text-end">{{ r.lot.nombre_poussins_initial }}</td>
+                        <td class="text-end">{{ r.effectif_vivant }}</td>
+                        <td class="text-end">{{ r.total_mortalite }}</td>
+                        <td class="text-end {% if r.taux_mortalite > 5 %}text-danger{% else %}text-success{% endif %}">{{ r.taux_mortalite|floatformat:2 }}%</td>
+                        <td class="text-end">{{ r.duree_elevage }}</td>
+                        <td class="text-end">{{ r.consommation_totale_aliment_kg|floatformat:2 }}</td>
+                        <td class="text-end">{{ r.poids_total_produit_kg|floatformat:2 }}</td>
+                        <td class="text-end">{{ r.ic|default:"—"|floatformat:3 }}</td>
+                        <td class="text-end">{{ r.cout_total_intrants|floatformat:2 }}</td>
+                        <td class="text-end">{{ r.cout_total_depenses|floatformat:2 }}</td>
+                        <td class="text-end">{{ r.revenus_ventes|floatformat:2 }}</td>
+                        <td class="text-end fw-bold {% if r.marge_brute >= 0 %}text-success{% else %}text-danger{% endif %}">{{ r.marge_brute|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="13" class="text-center py-4 text-muted"><i class="fas fa-circle-info fa-2x mb-2 text-info"></i><br>Aucun lot trouvé pour les filtres sélectionnés.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+(function() {
+    'use strict';
+
+    var lotLabels = [];
+    var margeData = [], coutIntrantData = [], coutDepenseData = [], revenuData = [];
+    {% for r in lot_rows %}
+    lotLabels.push("{{ r.lot.designation|escapejs }}");
+    margeData.push({{ r.marge_brute|default:0 }});
+    coutIntrantData.push({{ r.cout_total_intrants|default:0 }});
+    coutDepenseData.push({{ r.cout_total_depenses|default:0 }});
+    revenuData.push({{ r.revenus_ventes|default:0 }});
+    {% endfor %}
+
+    var ctx1 = document.getElementById('margeChart');
+    if (ctx1 && lotLabels.length > 0) {
+        new Chart(ctx1.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: lotLabels,
+                datasets: [{
+                    label: 'Marge Brute (DZD)',
+                    data: margeData,
+                    backgroundColor: margeData.map(function(v) { return v >= 0 ? 'rgba(25, 135, 84, 0.7)' : 'rgba(220, 53, 69, 0.7)'; }),
+                    borderColor: margeData.map(function(v) { return v >= 0 ? '#198754' : '#dc3545'; }),
+                    borderWidth: 1
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        });
+    } else if (ctx1) { ctx1.parentNode.innerHTML = '<div class="text-center text-muted py-5">Aucune donnée</div>'; }
+
+    var ctx2 = document.getElementById('coutChart');
+    if (ctx2 && lotLabels.length > 0) {
+        new Chart(ctx2.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: lotLabels,
+                datasets: [
+                    { label: 'Coût Intrants', data: coutIntrantData, backgroundColor: 'rgba(13, 110, 253, 0.7)', borderColor: '#0d6efd', borderWidth: 1 },
+                    { label: 'Dépenses', data: coutDepenseData, backgroundColor: 'rgba(255, 193, 7, 0.7)', borderColor: '#ffc107', borderWidth: 1 },
+                    { label: 'Revenus', data: revenuData, backgroundColor: 'rgba(25, 135, 84, 0.7)', borderColor: '#198754', borderWidth: 1 }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+        });
+    } else if (ctx2) { ctx2.parentNode.innerHTML = '<div class="text-center text-muted py-5">Aucune donnée</div>'; }
+
+    window.sortTable = function(n) {
+        var table = document.getElementById('data-table');
+        if (!table) return;
+        var tbody = table.querySelector('tbody');
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+        var asc = table.getAttribute('data-sort-col') != n || table.getAttribute('data-sort-dir') === 'desc';
+        table.setAttribute('data-sort-col', n);
+        table.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
+        rows.sort(function(a, b) {
+            var x = a.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
+            var y = b.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
+            var xn = parseFloat(x), yn = parseFloat(y);
+            if (!isNaN(xn) && !isNaN(yn)) return asc ? xn - yn : yn - xn;
+            return asc ? x.localeCompare(y) : y.localeCompare(x);
+        });
+        rows.forEach(function(r) { tbody.appendChild(r); });
+    };
+})();
+</script>
+{% endblock extra_js %}

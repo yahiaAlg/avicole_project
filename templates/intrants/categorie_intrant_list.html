@@ -3,13 +3,13 @@
 
 {% block title %}Catégories d'intrants — Élevage Avicole{% endblock %}
 
-{% block nav_settings %}active{% endblock %}
+{% block nav_categories %}active{% endblock %}
 
 {% block page_title %}Catégories d'intrants{% endblock %}
 {% block page_sub_text %}{{ categories|length }} catégorie{{ categories|length|pluralize }} configurée{{ categories|length|pluralize }}{% endblock %}
 
 {% block topbar_actions %}
-  {% if request.user.userprofile.is_admin %}
+  {% if request.user.profile.role == 'admin' %}
   <a href="{% url 'intrants:categorie_intrant_create' %}" class="btn-primary">
     <i class="bx bx-plus"></i> Nouvelle catégorie
   </a>
@@ -34,7 +34,7 @@
             <th>Consommable en lot</th>
             <th>Ordre</th>
             <th>Statut</th>
-            {% if request.user.userprofile.is_admin %}<th style="text-align:right;">Actions</th>{% endif %}
+            {% if request.user.profile.role == 'admin' %}<th style="text-align:right;">Actions</th>{% endif %}
           </tr>
         </thead>
         <tbody>
@@ -59,9 +59,13 @@
                 <span class="pill-neutral"><i class="bx bx-block"></i> Inactive</span>
               {% endif %}
             </td>
-            {% if request.user.userprofile.is_admin %}
+            {% if request.user.profile.role == 'admin' %}
             <td>
               <div class="actions-cell">
+                <a href="{% url 'intrants:intrant_list' %}?categorie={{ cat.pk }}"
+                   class="action-btn" title="Voir les intrants de cette catégorie">
+                  <i class="bx bxs-package"></i>
+                </a>
                 <a href="{% url 'intrants:categorie_intrant_edit' cat.pk %}" class="action-btn" title="Modifier">
                   <i class="bx bxs-pencil"></i>
                 </a>
@@ -88,7 +92,7 @@
         Aucune catégorie
       </div>
       <div style="font-size:13px;">Créez la première catégorie d'intrant.</div>
-      {% if request.user.userprofile.is_admin %}
+      {% if request.user.profile.role == 'admin' %}
       <a href="{% url 'intrants:categorie_intrant_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
         <i class="bx bx-plus"></i> Créer
       </a>
@@ -98,7 +102,7 @@
   </div>
 
   <!-- Info box: stable codes warning -->
-  {% if request.user.userprofile.is_admin %}
+  {% if request.user.profile.role == 'admin' %}
   <div style="margin-top:14px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:flex-start;gap:10px;">
     <i class="bx bxs-info-circle" style="color:#b45309;font-size:15px;margin-top:1px;flex-shrink:0;"></i>
     <span style="font-size:13px;color:var(--text-secondary);">

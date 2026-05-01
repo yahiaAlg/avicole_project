@@ -1,0 +1,173 @@
+
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block nav_production %}active{% endblock %}
+
+{% block page_title %}{{ produit.designation }}{% endblock %}
+{% block page_sub_text %}{{ produit.get_type_produit_display }} — {{ produit.get_unite_mesure_display }}{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'production:produit_fini_list' %}" class="btn-ghost">
+  <i class="bx bx-arrow-back"></i> Retour
+</a>
+{% if not request.user.profile.role == 'viewer' %}
+<a href="{% url 'production:produit_fini_edit' produit.pk %}" class="btn-primary">
+  <i class="bx bxs-pencil"></i> Modifier
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- KPI Card -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-green"><i class="bx bxs-badge-check"></i></div>
+      <div class="metric-label">Stock actuel</div>
+      <div class="metric-value sm">{{ produit.quantite_en_stock|floatformat:2 }}</div>
+      <span class="metric-delta neutral">{{ produit.get_unite_mesure_display }}</span>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-blue"><i class="bx bxs-coin"></i></div>
+      <div class="metric-label">Prix vente défaut</div>
+      <div class="metric-value sm">{{ produit.prix_vente_defaut|floatformat:2 }} DZD</div>
+      <span class="metric-delta neutral">Par {{ produit.get_unite_mesure_display }}</span>
+    </div>
+  </div>
+  {% if stock %}
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-amber"><i class="bx bxs-bar-chart-alt-2"></i></div>
+      <div class="metric-label">Coût moyen production</div>
+      <div class="metric-value sm">{{ stock.cout_moyen_production|floatformat:2 }} DZD</div>
+      <span class="metric-delta neutral">CMP pondéré</span>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-purple"><i class="bx bxs-wallet"></i></div>
+      <div class="metric-label">Valeur stock</div>
+      <div class="metric-value sm">{{ stock.valeur_stock|floatformat:0 }} DZD</div>
+      <span class="metric-delta neutral">Valorisation</span>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="row g-3">
+  <!-- Stock movements -->
+  <div class="col-xl-7">
+    <div class="section-card h-100">
+      <div class="section-card__head">
+        <span class="section-card__title"><i class="bx bxs-archive" style="color:var(--accent);margin-right:8px;"></i>Mouvements de stock récents</span>
+        <a href="{% url 'stock:stock_produit_fini_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
+          Voir tout <i class="bx bx-right-arrow-alt"></i>
+        </a>
+      </div>
+      <div class="section-card__body no-pad">
+        {% if mouvements %}
+        <table class="table-base">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Source</th>
+              <th style="text-align:right;">Quantité</th>
+              <th style="text-align:right;">Stock après</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in mouvements %}
+            <tr class="stagger-row">
+              <td style="color:var(--text-muted);white-space:nowrap;">{{ m.date_mouvement|date:"d/m/Y" }}</td>
+              <td>
+                {% if m.type_mouvement == 'entree' %}
+                <span class="pill-base pill-success"><i class="bx bx-trending-up"></i> Entrée</span>
+                {% elif m.type_mouvement == 'sortie' %}
+                <span class="pill-base pill-danger"><i class="bx bx-trending-down"></i> Sortie</span>
+                {% else %}
+                <span class="pill-base pill-warning"><i class="bx bx-transfer"></i> Ajustement</span>
+                {% endif %}
+              </td>
+              <td style="color:var(--text-muted);font-size:12px;">{{ m.get_source_display }}</td>
+              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
+                {{ m.quantite|floatformat:2 }}
+              </td>
+              <td style="text-align:right;color:var(--text-muted);font-size:12px;">
+                {{ m.quantite_apres|floatformat:2 }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+          <i class="bx bxs-archive empty-state__icon"></i>
+          <div class="empty-state__title">Aucun mouvement</div>
+          <div class="empty-state__text">Les mouvements apparaîtront après la première production validée.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent production lines -->
+  <div class="col-xl-5">
+    <div class="section-card h-100">
+      <div class="section-card__head">
+        <span class="section-card__title"><i class="bx bx-refresh" style="color:var(--accent);margin-right:8px;"></i>Productions récentes</span>
+      </div>
+      <div class="section-card__body no-pad">
+        {% if lignes_recentes %}
+        <table class="table-base">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Lot</th>
+              <th style="text-align:right;">Qté</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ligne in lignes_recentes %}
+            <tr class="stagger-row">
+              <td style="color:var(--text-muted);white-space:nowrap;">{{ ligne.production.date_production|date:"d/m/Y" }}</td>
+              <td>
+                <a href="{% url 'elevage:lot_detail' ligne.production.lot.pk %}" style="font-weight:500;color:var(--text-primary);text-decoration:none;">
+                  {{ ligne.production.lot.designation }}
+                </a>
+              </td>
+              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
+                {{ ligne.quantite|floatformat:2 }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+          <i class="bx bx-refresh empty-state__icon"></i>
+          <div class="empty-state__title">Aucune production</div>
+          <div class="empty-state__text">Ce produit n'a pas encore été généré en production.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+});
+</script>
+{% endblock %}

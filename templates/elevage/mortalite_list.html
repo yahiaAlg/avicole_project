@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Mortalités — Élevage Avicole{% endblock %}
+{% block nav_lots %}active{% endblock %}
+
+{% block page_title %}Suivi des Mortalités{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} enregistrement{{ page.paginator.count|pluralize }} · Total : {{ total_morts|floatformat:0 }} morts{% endblock %}
+
+{% block topbar_actions %}
+{% if request.user.userprofile %}
+  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'elevage:mortalite_create' %}" class="btn-primary">
+    <i class="bx bx-plus"></i> Nouvelle mortalité
+  </a>
+  {% endif %}
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<!-- Filters -->
+<div class="filter-bar">
+  <form method="get" action="{% url 'elevage:mortalite_list' %}" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;">
+    <div class="input-wrapper" style="position:relative;flex:1;min-width:180px;">
+      <i class="bx bx-search input-icon"></i>
+      <input type="text" name="q" class="field-input has-icon" placeholder="Rechercher un lot..." value="{{ q }}" />
+    </div>
+    <input type="date" name="date" class="field-input" value="{{ date|date:'Y-m-d' }}" style="min-width:150px;" />
+    <select name="lot" class="field-input" onchange="this.form.submit()" style="min-width:180px;">
+      <option value="">Tous les lots</option>
+      {% for l in lots %}
+      <option value="{{ l.pk }}" {% if lot_pk == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.designation }}</option>
+      {% endfor %}
+    </select>
+    {% if q or date or lot_pk %}
+    <a href="{% url 'elevage:mortalite_list' %}" class="btn-ghost btn-sm">
+      <i class="bx bx-x"></i> Réinitialiser
+    </a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- Table -->
+<div class="section-card">
+  <div class="section-card__body no-pad">
+    {% if page.object_list %}
+    <div class="table-wrapper">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Lot</th>
+            <th style="text-align:right;">Nombre</th>
+            <th>Cause</th>
+            <th>Note</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in page.object_list %}
+          <tr class="stagger-row">
+            <td style="white-space:nowrap;color:var(--text-muted);">{{ m.date|date:"d/m/Y" }}</td>
+            <td>
+              <a href="{% url 'elevage:lot_detail' m.lot.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;">
+                {{ m.lot.designation }}
+              </a>
+              <div style="font-size:11px;color:var(--text-muted);">{{ m.lot.batiment.nom }}</div>
+            </td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;">{{ m.nombre }}</td>
+            <td>{% if m.cause %}<span class="pill-base pill-neutral">{{ m.cause }}</span>{% else %}—{% endif %}</td>
+            <td style="color:var(--text-muted);">{{ m.note|default:"—" }}</td>
+            <td style="text-align:right;">
+              {% if m.lot.statut == m.lot.STATUT_OUVERT %}
+                {% if request.user.userprofile %}
+                  {% if not request.user.userprofile.role == 'viewer' %}
+                  <div class="actions-cell">
+                    <a href="{% url 'elevage:mortalite_edit' m.lot.pk m.pk %}" class="action-btn" title="Modifier"><i class="bx bxs-pencil"></i></a>
+                  </div>
+                  {% endif %}
+                {% endif %}
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page.has_other_pages %}
+    <div class="pagination-bar">
+      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
+      <div class="page-links">
+        {% if page.has_previous %}
+        <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if date %}&date={{ date|date:'Y-m-d' }}{% endif %}{% if lot_pk %}&lot={{ lot_pk }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-left"></i></span>
+        {% endif %}
+        {% for num in page.paginator.page_range %}
+          {% if num == page.number %}
+          <span class="page-link active">{{ num }}</span>
+          {% elif num > page.number|add:-3 and num < page.number|add:3 %}
+          <a href="?page={{ num }}{% if q %}&q={{ q }}{% endif %}{% if date %}&date={{ date|date:'Y-m-d' }}{% endif %}{% if lot_pk %}&lot={{ lot_pk }}{% endif %}" class="page-link">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
+        {% if page.has_next %}
+        <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if date %}&date={{ date|date:'Y-m-d' }}{% endif %}{% if lot_pk %}&lot={{ lot_pk }}{% endif %}" class="page-link"><i class="bx bx-chevron-right"></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-right"></i></span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bxs-heart empty-state__icon"></i>
+      <div class="empty-state__title">Aucune mortalité enregistrée</div>
+      <div class="empty-state__text">Les enregistrements apparaîtront après les premières saisies.</div>
+      {% if request.user.userprofile %}
+        {% if not request.user.userprofile.role == 'viewer' %}
+        <a href="{% url 'elevage:mortalite_create' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
+          <i class="bx bx-plus"></i> Nouvelle mortalité
+        </a>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.actions-cell { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* No inline handlers */
+});
+</script>
+{% endblock %}

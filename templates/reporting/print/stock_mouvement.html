@@ -1,0 +1,116 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Bon de Mouvement — {{ mouvement.reference }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; }
+            .print-container { box-shadow: none !important; border: none !important; }
+        }
+        body { background: #f5f5f5; }
+        .print-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            background: white;
+            padding: 2rem;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .company-header { border-bottom: 2px solid #0d6efd; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+        .doc-title { font-size: 1.5rem; font-weight: bold; color: #0d6efd; text-transform: uppercase; }
+        .info-row { margin-bottom: 0.5rem; }
+        .info-label { font-weight: bold; color: #555; }
+        .table-print th { background: #f8f9fa; }
+        .signature-zone { margin-top: 3rem; border-top: 1px dashed #ccc; padding-top: 1rem; }
+    </style>
+</head>
+<body>
+<div class="no-print text-center py-3">
+    <button onclick="window.print()" class="btn btn-primary"><i class="fas fa-print me-1"></i> Imprimer</button>
+    <button onclick="window.close()" class="btn btn-secondary"><i class="fas fa-xmark me-1"></i> Fermer</button>
+</div>
+
+<div class="print-container">
+    <!-- Company Header -->
+    <div class="company-header d-flex justify-content-between align-items-start">
+        <div>
+            <h4 class="mb-1 fw-bold">{{ company.nom|default:"AviTrack" }}</h4>
+            <div class="small text-muted">
+                {% if company.adresse %}{{ company.adresse }}<br>{% endif %}
+                {% if company.telephone %}Tél: {{ company.telephone }}{% endif %}
+                {% if company.email %} | Email: {{ company.email }}{% endif %}
+            </div>
+        </div>
+        <div class="text-end">
+            <div class="doc-title">Bon de Mouvement</div>
+            <div class="h5 fw-bold mt-1">{{ mouvement.reference }}</div>
+        </div>
+    </div>
+
+    <!-- Document Info -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="info-row"><span class="info-label">Date:</span> {{ mouvement.date_mouvement|date:"d/m/Y H:i" }}</div>
+            <div class="info-row"><span class="info-label">Type:</span> {{ mouvement.get_type_mouvement_display }}</div>
+            <div class="info-row"><span class="info-label">Motif:</span> {{ mouvement.motif|default:"—" }}</div>
+        </div>
+        <div class="col-md-6">
+            <div class="info-row"><span class="info-label">Enregistré par:</span> {{ mouvement.enregistre_par.get_full_name|default:mouvement.enregistre_par.username }}</div>
+            {% if mouvement.lot %}<div class="info-row"><span class="info-label">Lot:</span> {{ mouvement.lot.designation }}</div>{% endif %}
+        </div>
+    </div>
+
+    <!-- Lines Table -->
+    <table class="table table-bordered table-print">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Intrant</th>
+                <th>Catégorie</th>
+                <th class="text-end">Quantité</th>
+                <th>Unité</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ligne in mouvement.lignes.all %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ ligne.intrant.designation }}</td>
+                <td>{{ ligne.intrant.categorie.libelle }}</td>
+                <td class="text-end">{{ ligne.quantite|floatformat:3 }}</td>
+                <td>{{ ligne.intrant.unite_mesure }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center text-muted">Aucune ligne.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Notes -->
+    {% if mouvement.notes %}
+    <div class="mt-3 p-2 bg-light rounded">
+        <strong>Notes:</strong> {{ mouvement.notes }}
+    </div>
+    {% endif %}
+
+    <!-- Signature Zone -->
+    <div class="signature-zone row">
+        <div class="col-6 text-center">
+            <div class="small text-muted mb-5">Signature Responsable Stock</div>
+            <div>_______________________</div>
+        </div>
+        <div class="col-6 text-center">
+            <div class="small text-muted mb-5">Signature Responsable</div>
+            <div>_______________________</div>
+        </div>
+    </div>
+
+    <div class="text-center mt-4 small text-muted">
+        Document généré par AviTrack — {{ mouvement.created_at|date:"d/m/Y H:i" }}
+    </div>
+</div>
+</body>
+</html>

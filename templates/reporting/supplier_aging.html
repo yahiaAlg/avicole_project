@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% load reporting_extras %}
+{% load static i18n %}
+
+{% block title %}{{ title }} — {{ company.nom|default:"AviTrack" }}{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h6 class="mb-0 fw-bold"><i class="fas fa-filter me-2 text-primary"></i>Filtres</h6>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end" id="filter-form">
+            <div class="col-md-4 col-lg-3">
+                <label for="fournisseur" class="form-label small text-muted">Fournisseur</label>
+                <select name="fournisseur" id="fournisseur" class="form-select">
+                    <option value="">— Tous les fournisseurs —</option>
+                    {% for f in fournisseurs %}
+                    <option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ f.nom }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-filter me-1"></i> Filtrer
+                </button>
+                <a href="{{ request.path }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-rotate-left me-1"></i> Réinitialiser
+                </a>
+            </div>
+            <div class="col-md-4 col-lg-6 text-md-end">
+                <a href="{{ request.path }}?{% if fournisseur_pk %}fournisseur={{ fournisseur_pk }}&{% endif %}export=csv" class="btn btn-success">
+                    <i class="fas fa-file-csv me-1"></i> Exporter CSV
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Chart -->
+<div class="card mb-4">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-bold"><i class="fas fa-chart-bar me-2 text-primary"></i>Répartition par Échéance</h6>
+        {% if fournisseur_obj %}
+        <span class="badge bg-primary">{{ fournisseur_obj.nom }}</span>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        <div style="height: 320px;">
+            <canvas id="agingChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Data Table -->
+<div class="card mb-4">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h6 class="mb-0 fw-bold"><i class="fas fa-table me-2 text-primary"></i>Détail par Fournisseur</h6>
+        <div class="small text-muted">
+            Total dette: <strong class="text-danger">{{ totaux.total|floatformat:2 }} DZD</strong>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0 align-middle" id="data-table">
+                <thead class="table-light">
+                    <tr>
+                        <th class="cursor-pointer" onclick="sortTable(0)">Fournisseur <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(1)">Courant <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(2)">1–30 j <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(3)">31–60 j <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(4)">61–90 j <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(5)">> 90 j <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(6)">Total <i class="fas fa-sort text-muted small"></i></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in buckets %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'reporting:supplier_aging' %}?fournisseur={{ b.fournisseur.pk }}" class="fw-bold text-decoration-none">
+                                {{ b.fournisseur.nom }}
+                            </a>
+                        </td>
+                        <td class="text-end">{{ b.current|floatformat:2 }}</td>
+                        <td class="text-end">{{ b.1_30|floatformat:2 }}</td>
+                        <td class="text-end">{{ b.31_60|floatformat:2 }}</td>
+                        <td class="text-end">{{ b.61_90|floatformat:2 }}</td>
+                        <td class="text-end text-danger fw-bold">{{ b.over_90|floatformat:2 }}</td>
+                        <td class="text-end fw-bold">{{ b.total|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            <i class="fas fa-circle-check fa-2x mb-2 text-success"></i><br>
+                            Aucune dette fournisseur en cours.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-group-divider fw-bold">
+                    <tr class="table-light">
+                        <td>TOTAL</td>
+                        <td class="text-end">{{ totaux.current|floatformat:2 }}</td>
+                        <td class="text-end">{{ totaux.1_30|floatformat:2 }}</td>
+                        <td class="text-end">{{ totaux.31_60|floatformat:2 }}</td>
+                        <td class="text-end">{{ totaux.61_90|floatformat:2 }}</td>
+                        <td class="text-end text-danger">{{ totaux.over_90|floatformat:2 }}</td>
+                        <td class="text-end">{{ totaux.total|floatformat:2 }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+(function() {
+    'use strict';
+
+    var chartLabels = [];
+    var dataCurrent = [], data1_30 = [], data31_60 = [], data61_90 = [], dataOver90 = [];
+
+    {% for b in buckets %}
+    chartLabels.push("{{ b.fournisseur.nom|escapejs }}");
+    dataCurrent.push({{ b.current|default:0 }});
+    data1_30.push({{ b.1_30|default:0 }});
+    data31_60.push({{ b.31_60|default:0 }});
+    data61_90.push({{ b.61_90|default:0 }});
+    dataOver90.push({{ b.over_90|default:0 }});
+    {% endfor %}
+
+    var ctx = document.getElementById('agingChart');
+    if (ctx && chartLabels.length > 0) {
+        new Chart(ctx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: chartLabels,
+                datasets: [
+                    { label: 'Courant', data: dataCurrent, backgroundColor: 'rgba(13, 110, 253, 0.7)', borderColor: '#0d6efd', borderWidth: 1 },
+                    { label: '1–30 j',    data: data1_30,   backgroundColor: 'rgba(25, 135, 84, 0.7)',  borderColor: '#198754', borderWidth: 1 },
+                    { label: '31–60 j',   data: data31_60,  backgroundColor: 'rgba(255, 193, 7, 0.7)',  borderColor: '#ffc107', borderWidth: 1 },
+                    { label: '61–90 j',   data: data61_90,  backgroundColor: 'rgba(253, 126, 20, 0.7)', borderColor: '#fd7e14', borderWidth: 1 },
+                    { label: '> 90 j',    data: dataOver90, backgroundColor: 'rgba(220, 53, 69, 0.7)',  borderColor: '#dc3545', borderWidth: 1 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + new Intl.NumberFormat('fr-DZ', {
+                                    style: 'currency', currency: 'DZD', maximumFractionDigits: 2
+                                }).format(context.raw);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { stacked: true },
+                    y: { stacked: true, beginAtZero: true }
+                }
+            }
+        });
+    } else if (ctx) {
+        ctx.parentNode.innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-circle-check fa-2x mb-2 text-success"></i><br>Aucune donnée à afficher</div>';
+    }
+
+    window.sortTable = function(n) {
+        var table = document.getElementById('data-table');
+        if (!table) return;
+        var tbody = table.querySelector('tbody');
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+        var asc = table.getAttribute('data-sort-col') != n || table.getAttribute('data-sort-dir') === 'desc';
+        table.setAttribute('data-sort-col', n);
+        table.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
+
+        rows.sort(function(a, b) {
+            var x = a.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
+            var y = b.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
+            var xn = parseFloat(x);
+            var yn = parseFloat(y);
+            if (!isNaN(xn) && !isNaN(yn)) {
+                return asc ? xn - yn : yn - xn;
+            }
+            return asc ? x.localeCompare(y) : y.localeCompare(x);
+        });
+        rows.forEach(function(r) { tbody.appendChild(r); });
+    };
+})();
+</script>
+{% endblock extra_js %}

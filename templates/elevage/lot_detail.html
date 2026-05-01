@@ -1,0 +1,470 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ lot.designation }} — Élevage Avicole{% endblock %}
+{% block nav_lots %}active{% endblock %}
+
+{% block page_title %}{{ lot.designation }}{% endblock %}
+{% block page_sub_text %}
+{{ lot.souche }} · {{ lot.date_ouverture|date:"d/m/Y" }} · {{ lot.batiment.nom }} ·
+{% if lot.statut == lot.STATUT_OUVERT %}<span style="color:#22c55e;">Ouvert</span>{% else %}<span style="color:var(--text-muted);">Fermé le {{ lot.date_fermeture|date:"d/m/Y" }}</span>{% endif %}
+{% endblock %}
+
+{% block topbar_actions %}
+{% if lot.statut == lot.STATUT_OUVERT %}
+  {% if request.user.userprofile %}
+    {% if not request.user.userprofile.role == 'viewer' %}
+    <a href="{% url 'elevage:mortalite_create' lot.pk %}" class="btn-ghost">
+      <i class="bx bxs-heart" style="color:#dc2626;"></i> Mortalité
+    </a>
+    <a href="{% url 'elevage:consommation_create' lot.pk %}" class="btn-ghost">
+      <i class="bx bxs-droplet"></i> Consommation
+    </a>
+    <a href="{% url 'elevage:lot_edit' lot.pk %}" class="btn-ghost">
+      <i class="bx bxs-pencil"></i> Modifier
+    </a>
+    {% endif %}
+  {% endif %}
+  {% if can_close %}
+  <a href="{% url 'elevage:lot_fermer' lot.pk %}" class="btn-primary" style="background:#dc2626;border-color:#dc2626;">
+    <i class="bx bxs-lock"></i> Fermer le lot
+  </a>
+  {% endif %}
+{% else %}
+<a href="{% url 'elevage:lot_list' %}" class="btn-ghost">
+  <i class="bx bx-arrow-back"></i> Liste
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<!-- KPIs -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-green"><i class="bx bxs-heart"></i></div>
+      <div class="metric-label">Effectif Vivant</div>
+      <div class="metric-value">{{ lot.effectif_vivant|floatformat:0 }}</div>
+      <span class="metric-delta neutral">
+        <i class="bx bx-minus"></i> sur {{ lot.nombre_poussins_initial|floatformat:0 }} initiaux
+      </span>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-red"><i class="bx bxs-error"></i></div>
+      <div class="metric-label">Mortalité cumulée</div>
+      <div class="metric-value"{% if taux_mortalite > 5 %} style="color:#dc2626;"{% endif %}>
+        {{ taux_mortalite|floatformat:2 }}%
+      </div>
+      <span class="metric-delta {% if taux_mortalite > 5 %}down{% elif taux_mortalite > 3 %}warn{% else %}up{% endif %}">
+        {% if taux_mortalite > 5 %}<i class="bx bxs-error"></i> Seuil critique{% elif taux_mortalite > 3 %}<i class="bx bxs-error"></i> Surveillance{% else %}<i class="bx bxs-check-circle"></i> Normal{% endif %}
+      </span>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-amber"><i class="bx bxs-droplet"></i></div>
+      <div class="metric-label">Consommations</div>
+      <div class="metric-value sm">
+        {{ total_aliment|floatformat:2 }}<span style="font-size:13px;color:var(--text-muted);"> kg aliment</span>
+      </div>
+      <span class="metric-delta neutral">
+        <i class="bx bx-minus"></i> {{ total_eau|floatformat:2 }} L eau
+      </span>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-blue"><i class="bx bxs-time"></i></div>
+      <div class="metric-label">Âge du lot</div>
+      <div class="metric-value">{{ lot.duree_elevage }}<span style="font-size:18px;color:var(--text-muted);"> jours</span></div>
+      <span class="metric-delta neutral">
+        {% if lot.statut == lot.STATUT_OUVERT %}<i class="bx bx-minus"></i> Actif{% else %}<i class="bx bxs-lock"></i> Fermé{% endif %}
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- Alert banner -->
+{% if taux_mortalite > 5 and lot.statut == lot.STATUT_OUVERT %}
+<div class="alert-banner-red mb-4">
+  <i class="bx bxs-error-circle"></i>
+  <span style="font-weight:600;">Alerte mortalité :</span> taux cumulé de {{ taux_mortalite|floatformat:2 }}% — vérification sanitaire recommandée.
+</div>
+{% endif %}
+
+<!-- Tabs -->
+<div class="section-card">
+  <div class="section-card__body no-pad">
+    <div class="detail-tabs">
+      <button class="tab-btn active" data-tab="tab-mortalites">
+        <i class="bx bxs-heart"></i> Mortalités ({{ mortalites|length }})
+      </button>
+      <button class="tab-btn" data-tab="tab-consommations">
+        <i class="bx bxs-droplet"></i> Consommations ({{ consommations|length }})
+      </button>
+      <button class="tab-btn" data-tab="tab-production">
+        <i class="bx bxs-line-chart"></i> Production
+      </button>
+      <button class="tab-btn" data-tab="tab-historique">
+        <i class="bx bxs-detail"></i> Historique
+      </button>
+    </div>
+
+    <!-- Tab: Mortalités -->
+    <div id="tab-mortalites" class="tab-panel active">
+      <div class="tab-panel__body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3 class="card-title-sm">Enregistrements de mortalité</h3>
+          {% if lot.statut == lot.STATUT_OUVERT and request.user.userprofile %}
+            {% if not request.user.userprofile.role == 'viewer' %}
+            <a href="{% url 'elevage:mortalite_create' lot.pk %}" class="btn-primary btn-sm">
+              <i class="bx bx-plus"></i> Enregistrer
+            </a>
+            {% endif %}
+          {% endif %}
+        </div>
+        {% if mortalites %}
+        <div class="table-wrapper">
+          <table class="table-base">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th style="text-align:right;">Nombre</th>
+                <th>Cause</th>
+                <th>Note</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for m in mortalites %}
+              <tr>
+                <td style="white-space:nowrap;color:var(--text-muted);">{{ m.date|date:"d/m/Y" }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;">{{ m.nombre }}</td>
+                <td>{% if m.cause %}<span class="pill-base pill-neutral">{{ m.cause }}</span>{% else %}—{% endif %}</td>
+                <td style="color:var(--text-muted);">{{ m.note|default:"—" }}</td>
+                <td style="text-align:right;">
+                  {% if lot.statut == lot.STATUT_OUVERT %}
+                    {% if request.user.userprofile %}
+                      {% if not request.user.userprofile.role == 'viewer' %}
+                      <div class="actions-cell">
+                        <a href="{% url 'elevage:mortalite_edit' lot.pk m.pk %}" class="action-btn" title="Modifier"><i class="bx bxs-pencil"></i></a>
+                      </div>
+                      {% endif %}
+                    {% endif %}
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state compact">
+          <i class="bx bxs-heart empty-state__icon"></i>
+          <div class="empty-state__title">Aucune mortalité enregistrée</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Tab: Consommations -->
+    <div id="tab-consommations" class="tab-panel">
+      <div class="tab-panel__body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3 class="card-title-sm">Enregistrements de consommation</h3>
+          {% if lot.statut == lot.STATUT_OUVERT and request.user.userprofile %}
+            {% if not request.user.userprofile.role == 'viewer' %}
+            <a href="{% url 'elevage:consommation_create' lot.pk %}" class="btn-primary btn-sm">
+              <i class="bx bx-plus"></i> Enregistrer
+            </a>
+            {% endif %}
+          {% endif %}
+        </div>
+        {% if consommations %}
+        <div class="table-wrapper">
+          <table class="table-base">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Intrant</th>
+                <th style="text-align:right;">Quantité</th>
+                <th>BL / Réf</th>
+                <th>Note</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in consommations %}
+              <tr>
+                <td style="white-space:nowrap;color:var(--text-muted);">{{ c.date|date:"d/m/Y" }}</td>
+                <td>
+                  <div style="font-family:'Nunito',sans-serif;font-weight:600;">{{ c.intrant.nom }}</div>
+                  <div style="font-size:11px;color:var(--text-muted);">{{ c.intrant.type_intrant.name }}</div>
+                </td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
+                  {{ c.quantite|floatformat:2 }} {{ c.intrant.unite_mesure }}
+                </td>
+                <td style="color:var(--text-muted);">{{ c.bl_fournisseur|default:"—" }}</td>
+                <td style="color:var(--text-muted);">{{ c.note|default:"—" }}</td>
+                <td style="text-align:right;">
+                  {% if lot.statut == lot.STATUT_OUVERT %}
+                    {% if request.user.userprofile %}
+                      {% if not request.user.userprofile.role == 'viewer' %}
+                      <div class="actions-cell">
+                        <a href="{% url 'elevage:consommation_edit' lot.pk c.pk %}" class="action-btn" title="Modifier"><i class="bx bxs-pencil"></i></a>
+                      </div>
+                      {% endif %}
+                    {% endif %}
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state compact">
+          <i class="bx bxs-droplet empty-state__icon"></i>
+          <div class="empty-state__title">Aucune consommation enregistrée</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Tab: Production -->
+    <div id="tab-production" class="tab-panel">
+      <div class="tab-panel__body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3 class="card-title-sm">Courbes de production</h3>
+        </div>
+        {% if poids_moyen_entries or aliment_entries %}
+        <div class="chart-row">
+          <div class="chart-card">
+            <div class="chart-card__header">
+              <div class="chart-card__icon ic-blue"><i class="bx bxs-weight"></i></div>
+              <div>
+                <div class="chart-card__title">Poids moyen (g)</div>
+                <div class="chart-card__sub">Évolution hebdomadaire du poids moyen</div>
+              </div>
+            </div>
+            <div class="chart-card__body">
+              <canvas id="chart-poids"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card__header">
+              <div class="chart-card__icon ic-amber"><i class="bx bxs-droplet"></i></div>
+              <div>
+                <div class="chart-card__title">Aliment consommé (kg)</div>
+                <div class="chart-card__sub">Quantité totale d'aliment par relevé</div>
+              </div>
+            </div>
+            <div class="chart-card__body">
+              <canvas id="chart-aliment"></canvas>
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div class="empty-state compact">
+          <i class="bx bxs-line-chart empty-state__icon"></i>
+          <div class="empty-state__title">Aucune donnée de production</div>
+          <div class="empty-state__text">Les courbes apparaîtront après les premiers relevés de poids et d'aliment.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Tab: Historique -->
+    <div id="tab-historique" class="tab-panel">
+      <div class="tab-panel__body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3 class="card-title-sm">Tous les enregistrements</h3>
+        </div>
+        {% if productions %}
+        <div class="table-wrapper">
+          <table class="table-base">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Éffectif</th>
+                <th style="text-align:right;">Valeur</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for entry in productions %}
+              <tr>
+                <td style="white-space:nowrap;color:var(--text-muted);">{{ entry.date|date:"d/m/Y" }}</td>
+                <td>
+                  <span class="pill-base pill-neutral">{{ entry.get_type_display }}</span>
+                </td>
+                <td>{{ entry.effectif|default:"—" }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
+                  {% if entry.valeur %}{{ entry.valeur|floatformat:2 }}{% if entry.type == 'poids_moyen' %} g{% elif entry.type == 'aliment' %} kg{% endif %}{% else %}—{% endif %}
+                </td>
+                <td style="color:var(--text-muted);">{{ entry.note|default:"—" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state compact">
+          <i class="bx bxs-detail empty-state__icon"></i>
+          <div class="empty-state__title">Aucun enregistrement</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.alert-banner-red {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(220,38,38,.08); border: 1px solid rgba(220,38,38,.2);
+  border-radius: var(--radius-md); padding: 12px 16px;
+  font-size: 13px; color: #991b1b;
+}
+.alert-banner-red i { font-size: 18px; flex-shrink: 0; }
+
+.detail-tabs {
+  display: flex; border-bottom: 1px solid var(--border);
+  padding: 0 16px; gap: 4px; flex-wrap: wrap;
+}
+.tab-btn {
+  padding: 10px 16px; font-size: 12.5px; font-weight: 600;
+  color: var(--text-muted); cursor: pointer; border: none; background: none;
+  border-bottom: 2px solid transparent; transition: color .12s, border-color .12s;
+  display: flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+.tab-btn.active { color: var(--text-primary); border-bottom-color: var(--accent-text); }
+.tab-btn:hover { color: var(--text-primary); }
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: fadeIn .18s ease both; }
+.tab-panel__body { padding: 18px 20px; }
+
+.card-title-sm {
+  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px; color: var(--text-primary); margin: 0;
+}
+
+.d-flex { display: flex; }
+.justify-content-between { justify-content: space-between; }
+.align-items-center { align-items: center; }
+.mb-3 { margin-bottom: 12px; }
+
+.compact.empty-state { padding: 36px 0; }
+.compact .empty-state__icon { font-size: 28px; margin-bottom: 8px; }
+.compact .empty-state__title { font-size: 14px; }
+
+.chart-row {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px;
+}
+.chart-card {
+  background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+}
+.chart-card__header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px; border-bottom: 1px solid var(--border);
+}
+.chart-card__icon {
+  width: 32px; height: 32px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center; font-size: 15px;
+}
+.chart-card__title {
+  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px; color: var(--text-primary);
+}
+.chart-card__sub { font-size: 11.5px; color: var(--text-muted); }
+.chart-card__body {
+  padding: 16px; min-height: 220px; display: flex; align-items: center; justify-content: center;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* ---- Tabs ---- */
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  const tabPanels = document.querySelectorAll('.tab-panel');
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', function () {
+      const target = this.getAttribute('data-tab');
+      tabBtns.forEach(b => b.classList.toggle('active', b === this));
+      tabPanels.forEach(p => p.classList.toggle('active', p.id === target));
+    });
+  });
+
+  /* ---- Charts ---- */
+  Chart.defaults.font.family = "'Inter', sans-serif";
+  Chart.defaults.color = '#9aa0a6';
+
+  /* Poids moyen chart */
+  {% if poids_moyen_entries %}
+  const ctxPoids = document.getElementById('chart-poids');
+  if (ctxPoids) {
+    new Chart(ctxPoids, {
+      type: 'line',
+      data: {
+        labels: [{% for e in poids_moyen_entries %}"{{ e.date|date:\"d/m\" }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+        datasets: [{
+          label: 'Poids moyen (g)',
+          data: [{% for e in poids_moyen_entries %}{{ e.valeur|default:0 }}{% if not forloop.last %},{% endif %}{% endfor %}],
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59,130,246,.10)',
+          borderWidth: 2, pointRadius: 3, pointHoverRadius: 5,
+          fill: true, tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,.06)' } },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+  }
+  {% endif %}
+
+  /* Aliment chart */
+  {% if aliment_entries %}
+  const ctxAliment = document.getElementById('chart-aliment');
+  if (ctxAliment) {
+    new Chart(ctxAliment, {
+      type: 'bar',
+      data: {
+        labels: [{% for e in aliment_entries %}"{{ e.date|date:\"d/m\" }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+        datasets: [{
+          label: 'Aliment (kg)',
+          data: [{% for e in aliment_entries %}{{ e.valeur|default:0 }}{% if not forloop.last %},{% endif %}{% endfor %}],
+          backgroundColor: 'rgba(34,197,94,.65)',
+          borderColor: '#22c55e',
+          borderWidth: 1, borderRadius: 4, barPercentage: 0.6
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,.06)' } },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+  }
+  {% endif %}
+});
+</script>
+{% endblock %}

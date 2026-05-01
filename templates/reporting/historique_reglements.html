@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% load reporting_extras %}
+{% load static i18n %}
+
+{% block title %}{{ title }} — {{ company.nom|default:"AviTrack" }}{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h6 class="mb-0 fw-bold"><i class="fas fa-filter me-2 text-primary"></i>Filtres</h6>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end" id="filter-form">
+            <div class="col-md-3 col-lg-3">
+                <label for="fournisseur" class="form-label small text-muted">Fournisseur</label>
+                <select name="fournisseur" id="fournisseur" class="form-select">
+                    <option value="">— Tous —</option>
+                    {% for f in fournisseurs %}
+                    <option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ f.nom }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 col-lg-2">
+                <label for="mode" class="form-label small text-muted">Mode de paiement</label>
+                <select name="mode" id="mode" class="form-select">
+                    <option value="">— Tous —</option>
+                    {% for code, label in mode_choices %}
+                    <option value="{{ code }}" {% if mode == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 col-lg-2">
+                <label for="date_debut" class="form-label small text-muted">Date début</label>
+                <input type="date" name="date_debut" id="date_debut" class="form-control" value="{{ date_debut|date:'Y-m-d'|default:'' }}">
+            </div>
+            <div class="col-md-3 col-lg-2">
+                <label for="date_fin" class="form-label small text-muted">Date fin</label>
+                <input type="date" name="date_fin" id="date_fin" class="form-control" value="{{ date_fin|date:'Y-m-d'|default:'' }}">
+            </div>
+            <div class="col-md-12 col-lg-3 text-lg-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-filter me-1"></i> Filtrer
+                </button>
+                <a href="{{ request.path }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-rotate-left"></i>
+                </a>
+                <a href="{{ request.path }}?{% if fournisseur_pk %}fournisseur={{ fournisseur_pk }}&{% endif %}{% if mode %}mode={{ mode }}&{% endif %}{% if date_debut %}date_debut={{ date_debut|date:'Y-m-d' }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:'Y-m-d' }}&{% endif %}export=csv" class="btn btn-success">
+                    <i class="fas fa-file-csv"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card border-start border-4 border-success">
+            <div class="card-body d-flex justify-content-between">
+                <div>
+                    <div class="text-muted small text-uppercase">Total Règlements</div>
+                    <div class="h5 fw-bold mb-0">{{ totaux.total|default:0|floatformat:2 }} DZD</div>
+                </div>
+                <div class="text-success fs-3"><i class="fas fa-money-bill-wave"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-start border-4 border-info">
+            <div class="card-body d-flex justify-content-between">
+                <div>
+                    <div class="text-muted small text-uppercase">Nombre de Règlements</div>
+                    <div class="h5 fw-bold mb-0">{{ totaux.nb|default:0 }}</div>
+                </div>
+                <div class="text-info fs-3"><i class="fas fa-receipt"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-start border-4 border-primary">
+            <div class="card-body d-flex justify-content-between">
+                <div>
+                    <div class="text-muted small text-uppercase">Moyenne par règlement</div>
+                    <div class="h5 fw-bold mb-0">
+                        {% if totaux.nb %}{{ totaux.total|default:0|div:totaux.nb|floatformat:2 }}{% else %}0.00{% endif %} DZD
+                    </div>
+                </div>
+                <div class="text-primary fs-3"><i class="fas fa-calculator"></i></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Data Table -->
+<div class="card mb-4">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h6 class="mb-0 fw-bold"><i class="fas fa-table me-2 text-primary"></i>Historique des Règlements</h6>
+        <div class="small text-muted">{{ page.paginator.count|default:0 }} enregistrement(s)</div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0 align-middle" id="data-table">
+                <thead class="table-light">
+                    <tr>
+                        <th class="cursor-pointer" onclick="sortTable(0)">Date <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="cursor-pointer" onclick="sortTable(1)">Fournisseur <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(2)">Montant <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="cursor-pointer" onclick="sortTable(3)">Mode <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="cursor-pointer" onclick="sortTable(4)">Référence <i class="fas fa-sort text-muted small"></i></th>
+                        <th>Factures imputées</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in page.object_list %}
+                    <tr>
+                        <td>{{ r.date_reglement|date:"d/m/Y" }}</td>
+                        <td>
+                            <a href="{% url 'reporting:historique_reglements' %}?fournisseur={{ r.fournisseur.pk }}" class="fw-bold text-decoration-none">
+                                {{ r.fournisseur.nom }}
+                            </a>
+                        </td>
+                        <td class="text-end fw-bold text-success">{{ r.montant|floatformat:2 }}</td>
+                        <td><span class="badge bg-secondary">{{ r.get_mode_paiement_display }}</span></td>
+                        <td><code class="small">{{ r.reference_paiement|default:"—" }}</code></td>
+                        <td>
+                            {% with allocs=allocations_map|get_item:r.pk %}
+                            {% if allocs %}
+                                {% for a in allocs %}
+                                <div class="small">
+                                    <span class="text-muted">{{ a.facture.reference }}</span>
+                                    <span class="fw-bold text-primary">{{ a.montant_alloue|floatformat:2 }} DZD</span>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted small">—</span>
+                            {% endif %}
+                            {% endwith %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">
+                            <i class="fas fa-circle-info fa-2x mb-2 text-info"></i><br>
+                            Aucun règlement trouvé pour les filtres sélectionnés.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if page.has_other_pages %}
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <small class="text-muted">Page {{ page.number }} / {{ page.paginator.num_pages }}</small>
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% if page.has_previous %}
+                <li class="page-item"><a class="page-link" href="?{% param_replace page=1 %}"><i class="fas fa-angles-left"></i></a></li>
+                <li class="page-item"><a class="page-link" href="?{% param_replace page=page.previous_page_number %}"><i class="fas fa-angle-left"></i></a></li>
+                {% endif %}
+                <li class="page-item active"><span class="page-link">{{ page.number }}</span></li>
+                {% if page.has_next %}
+                <li class="page-item"><a class="page-link" href="?{% param_replace page=page.next_page_number %}"><i class="fas fa-angle-right"></i></a></li>
+                <li class="page-item"><a class="page-link" href="?{% param_replace page=page.paginator.num_pages %}"><i class="fas fa-angles-right"></i></a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+(function() {
+    'use strict';
+
+    // ── Table sort utility ────────────────────────────────────────────
+    window.sortTable = function(n) {
+        var table = document.getElementById('data-table');
+        if (!table) return;
+        var tbody = table.querySelector('tbody');
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+        var asc = table.getAttribute('data-sort-col') != n || table.getAttribute('data-sort-dir') === 'desc';
+        table.setAttribute('data-sort-col', n);
+        table.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
+
+        rows.sort(function(a, b) {
+            var x = a.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
+            var y = b.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
+            var xn = parseFloat(x);
+            var yn = parseFloat(y);
+            if (!isNaN(xn) && !isNaN(yn)) {
+                return asc ? xn - yn : yn - xn;
+            }
+            return asc ? x.localeCompare(y) : y.localeCompare(x);
+        });
+        rows.forEach(function(r) { tbody.appendChild(r); });
+    };
+})();
+</script>
+{% endblock extra_js %}

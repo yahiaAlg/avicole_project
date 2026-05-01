@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block nav_depenses %}active{% endblock %}
+
+{% block page_title %}Dépenses{% endblock %}
+{% block page_sub_text %}Tableau de bord · {{ today|date:"d/m/Y" }}{% endblock %}
+
+{% block topbar_actions %}
+{% if not request.user.profile.role == 'viewer' %}
+<a href="{% url 'depenses:depense_create' %}" class="btn-primary">
+  <i class="bx bx-plus"></i> Nouvelle dépense
+</a>
+{% endif %}
+<a href="{% url 'depenses:categorie_depense_list' %}" class="btn-ghost">
+  <i class="bx bxs-category"></i> Catégories
+</a>
+{% endblock %}
+
+{% block content %}
+
+{# ── KPI Metric Cards ──────────────────────────────────────────────────── #}
+<div class="row g-3 mb-4">
+
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-red"><i class="bx bxs-wallet"></i></div>
+      <div class="metric-label">Dépenses du mois</div>
+      <div class="metric-value sm">{{ summary_mois.total|floatformat:0 }} <span style="font-size:14px;color:var(--text-muted);">DZD</span></div>
+      <span class="metric-delta neutral">
+        <i class="bx bxs-calendar"></i> {{ premier_du_mois|date:"d/m/Y" }} – {{ today|date:"d/m/Y" }}
+      </span>
+    </div>
+  </div>
+
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-amber"><i class="bx bxs-bar-chart-alt-2"></i></div>
+      <div class="metric-label">Dépenses YTD</div>
+      <div class="metric-value sm">{{ summary_annee.total|floatformat:0 }} <span style="font-size:14px;color:var(--text-muted);">DZD</span></div>
+      <span class="metric-delta neutral">
+        <i class="bx bxs-calendar"></i> Depuis {{ premier_de_lannee|date:"d/m/Y" }}
+      </span>
+    </div>
+  </div>
+
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-blue"><i class="bx bxs-receipt"></i></div>
+      <div class="metric-label">Nombre d'opérations (mois)</div>
+      <div class="metric-value">{{ summary_mois.nb_depenses }}</div>
+      <span class="metric-delta neutral">
+        <i class="bx bx-trending-up"></i> Moy. {{ summary_mois.moyenne_par_jour|floatformat:0|default:"—" }} DZD/j
+      </span>
+    </div>
+  </div>
+
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-green"><i class="bx bxs-category"></i></div>
+      <div class="metric-label">Catégories actives</div>
+      <div class="metric-value">{{ nb_categories_actives }}</div>
+      <span class="metric-delta neutral">
+        <i class="bx bxs-cog"></i> <a href="{% url 'depenses:categorie_depense_list' %}" style="color:var(--accent-text);">Gérer</a>
+      </span>
+    </div>
+  </div>
+
+</div>
+
+{# ── Main row: Category breakdown + Recent expenses ────────────────────── #}
+<div class="row g-3 mb-4">
+
+  {# Category breakdown chart #}
+  <div class="col-xl-5">
+    <div class="section-card h-100">
+      <div class="section-card__head">
+        <span class="section-card__title">
+          <i class="bx bxs-pie-chart-alt-2" style="color:var(--accent);margin-right:8px;"></i>Répartition par catégorie
+        </span>
+        <span style="font-size:11px;color:var(--text-muted);">Mois en cours</span>
+      </div>
+      <div class="section-card__body" style="min-height:280px;">
+        {% if summary_mois.par_categorie %}
+        <div id="chartCategoriesWrap" style="position:relative;width:100%;height:240px;">
+          <canvas id="chartCategories"></canvas>
+        </div>
+        <div class="cat-legend">
+          {% for item in summary_mois.par_categorie %}
+          <div class="cat-legend__item">
+            <span class="cat-legend__dot" style="background:{{ item.color|default:'var(--accent)' }};"></span>
+            <span class="cat-legend__label">{{ item.categorie.libelle }}</span>
+            <span class="cat-legend__pct">{{ item.pct|floatformat:1 }}%</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding:36px 20px;">
+          <i class="bx bxs-pie-chart-alt-2 empty-state__icon"></i>
+          <div class="empty-state__title">Aucune donnée</div>
+          <div class="empty-state__text">Aucune dépense enregistrée ce mois.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# Payment method breakdown #}
+  <div class="col-xl-3">
+    <div class="section-card h-100">
+      <div class="section-card__head">
+        <span class="section-card__title">
+          <i class="bx bxs-coin" style="color:#b45309;margin-right:8px;"></i>Modes de paiement
+        </span>
+        <span style="font-size:11px;color:var(--text-muted);">Mois en cours</span>
+      </div>
+      <div class="section-card__body no-pad">
+        {% if summary_mois.par_mode_paiement %}
+        <table class="table-base">
+          <thead>
+            <tr>
+              <th>Mode</th>
+              <th style="text-align:right;">Montant</th>
+              <th style="text-align:right;">Nb</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for mode in summary_mois.par_mode_paiement %}
+            <tr class="stagger-row">
+              <td>{{ mode.label }}</td>
+              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ mode.total|floatformat:0 }} DZD</td>
+              <td style="text-align:right;color:var(--text-muted);">{{ mode.nb }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state" style="padding:36px 20px;">
+          <i class="bx bxs-coin empty-state__icon"></i>
+          <div class="empty-state__title">Aucune donnée</div>
+          <div class="empty-state__text">Aucune dépense ce mois.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# Recent expenses #}
+  <div class="col-xl-4">
+    <div class="section-card h-100">
+      <div class="section-card__head">
+        <span class="section-card__title">
+          <i class="bx bxs-time-five" style="color:var(--text-muted);margin-right:8px;"></i>Dépenses récentes
+        </span>
+        <a href="{% url 'depenses:depense_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
+          Voir tout <i class="bx bx-right-arrow-alt"></i>
+        </a>
+      </div>
+      <div class="section-card__body no-pad">
+        {% if depenses_recentes %}
+        <div class="recent-list">
+          {% for dep in depenses_recentes %}
+          <a href="{% url 'depenses:depense_detail' dep.pk %}" class="recent-item">
+            <div class="recent-item__main">
+              <div class="recent-item__cat">
+                <span class="pill-base pill-neutral">{{ dep.categorie.libelle }}</span>
+              </div>
+              <div class="recent-item__desc">{{ dep.description|truncatechars:50 }}</div>
+              <div class="recent-item__meta">{{ dep.date|date:"d/m/Y" }}</div>
+            </div>
+            <div class="recent-item__amount">{{ dep.montant|floatformat:0 }} DZD</div>
+          </a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding:36px 20px;">
+          <i class="bx bxs-wallet empty-state__icon"></i>
+          <div class="empty-state__title">Aucune dépense</div>
+          <div class="empty-state__text">Enregistrez votre première dépense.</div>
+          {% if not request.user.profile.role == 'viewer' %}
+          <a href="{% url 'depenses:depense_create' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
+            <i class="bx bx-plus"></i> Nouvelle dépense
+          </a>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{# ── Top expenses table ────────────────────────────────────────────────── #}
+{% if summary_mois.max_depense %}
+<div class="section-card">
+  <div class="section-card__head">
+    <span class="section-card__title">
+      <i class="bx bxs-up-arrow-circle" style="color:#dc2626;margin-right:8px;"></i>Dépense la plus élevée ce mois
+    </span>
+  </div>
+  <div class="section-card__body">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+      <div>
+        <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:15px;color:var(--text-primary);margin-bottom:4px;">
+          {{ summary_mois.max_depense.description }}
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);">
+          {{ summary_mois.max_depense.categorie.libelle }} · {{ summary_mois.max_depense.date|date:"d/m/Y" }} · {{ summary_mois.max_depense.get_mode_paiement_display }}
+        </div>
+      </div>
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;color:#dc2626;white-space:nowrap;">
+        {{ summary_mois.max_depense.montant|floatformat:0 }} DZD
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Category legend */
+.cat-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.cat-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.cat-legend__dot {
+  width: 10px; height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.cat-legend__label { color: var(--text-secondary); }
+.cat-legend__pct { color: var(--text-muted); font-weight: 500; }
+
+/* Recent expenses list */
+.recent-list { display: flex; flex-direction: column; }
+.recent-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.12s;
+}
+.recent-item:last-child { border-bottom: none; }
+.recent-item:hover { background: var(--bg-raised); }
+.recent-item__main { flex: 1; min-width: 0; }
+.recent-item__cat { margin-bottom: 4px; }
+.recent-item__desc {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.recent-item__meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.recent-item__amount {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  /* Design system chart color sequence */
+  var DS_COLORS = [
+    '#22c55e', '#38bdf8', '#f59e0b', '#c4b5fd',
+    '#fb923c', '#5eead4', '#f9a8d4', '#a5b4fc', '#f87171'
+  ];
+
+  var tipConfig = {
+    backgroundColor: '#ffffff',
+    borderColor:     'rgba(0,0,0,.12)',
+    borderWidth:     1,
+    titleColor:      '#1a2219',
+    bodyColor:       '#3d5242',
+    padding:         10,
+    cornerRadius:    8,
+  };
+
+  function fmtDZD(n) {
+    return new Intl.NumberFormat('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(Math.round(n)) + ' DZD';
+  }
+
+  /* ── Doughnut: Répartition par catégorie ────────────────────────────── */
+  var canvas = document.getElementById('chartCategories');
+  if (canvas && typeof Chart !== 'undefined') {
+    var catData = [];
+    var catLabels = [];
+    var catColors = [];
+
+    {% for item in summary_mois.par_categorie %}
+    catLabels.push("{{ item.categorie.libelle|escapejs }}");
+    catData.push({{ item.total|floatformat:0 }});
+    catColors.push(DS_COLORS[{{ forloop.counter0 }} % DS_COLORS.length]);
+    {% endfor %}
+
+    if (catData.length > 0) {
+      new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+          labels: catLabels,
+          datasets: [{
+            data: catData,
+            backgroundColor: catColors,
+            borderColor: '#ffffff',
+            borderWidth: 3,
+          }]
+        },
+        options: {
+          cutout: '68%',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: Object.assign({}, tipConfig, {
+              callbacks: {
+                label: function (ctx) {
+                  return ctx.label + ' : ' + fmtDZD(ctx.raw);
+                }
+              }
+            })
+          }
+        }
+      });
+    }
+  }
+
+});
+</script>
+{% endblock %}

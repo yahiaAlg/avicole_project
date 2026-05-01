@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Nouvel ajustement — Stock — Élevage Avicole{% endblock %}
+{% block nav_stock_intrants %}active{% endblock %}
+
+{% block page_title %}Nouvel ajustement{% endblock %}
+{% block page_sub_text %}Correction manuelle de stock{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'stock:stock_ajustement_list' %}" class="btn-ghost">
+  <i class="bx bx-arrow-back"></i> Retour
+</a>
+{% endblock %}
+
+{% block content %}
+
+{# ── Current stock preview card (when deep-linked) ─────────────────────── #}
+{% if current_stock %}
+<div class="section-card mb-4" style="background:var(--bg-raised);border-color:var(--border-strong);">
+  <div class="section-card__body">
+    <div class="row g-3 align-items-center">
+      <div class="col-md-4">
+        <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);">Article sélectionné</div>
+        <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:16px;color:var(--text-primary);margin-top:4px;">
+          {% if current_stock.intrant %}{{ current_stock.intrant.designation }}{% elif current_stock.produit_fini %}{{ current_stock.produit_fini.designation }}{% endif %}
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);">Stock actuel</div>
+        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;color:var(--text-primary);margin-top:4px;">
+          {{ current_stock.quantite|floatformat:2 }}
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);">{% if current_stock.intrant %}PMP{% else %}Coût moyen{% endif %}</div>
+        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;color:var(--text-primary);margin-top:4px;">
+          {% if current_stock.prix_moyen_pondere %}{{ current_stock.prix_moyen_pondere|floatformat:2 }}{% elif current_stock.cout_moyen_production %}{{ current_stock.cout_moyen_production|floatformat:2 }}{% else %}—{% endif %}
+        </div>
+      </div>
+      <div class="col-md-2" style="text-align:right;">
+        <span class="pill-base {% if current_stock.en_alerte %}pill-danger{% else %}pill-success{% endif %}">
+          {% if current_stock.en_alerte %}<i class="bx bxs-error"></i> Alerte{% else %}<i class="bx bxs-check-circle"></i> OK{% endif %}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ── Adjustment form ─────────────────────────────────────────────────── #}
+<div class="section-card" style="max-width:720px;">
+  <div class="section-card__head">
+    <span class="section-card__title">Informations de l'ajustement</span>
+  </div>
+  <div class="section-card__body">
+    <form method="post" action="{% url 'stock:stock_ajustement_create' %}">
+      {% csrf_token %}
+
+      {# ── Segment ── #}
+      <div class="field-group">
+        <label class="field-label" for="{{ form.segment.id_for_label }}">Segment <span class="req">*</span></label>
+        {{ form.segment }}
+        {% if form.segment.errors %}
+        <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.segment.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      {# ── Intrant ── #}
+      <div class="field-group" id="fg-intrant">
+        <label class="field-label" for="{{ form.intrant.id_for_label }}">Intrant</label>
+        <div class="input-wrapper">
+          <i class="bx bxs-cube-alt input-icon"></i>
+          {{ form.intrant }}
+        </div>
+        {% if form.intrant.errors %}
+        <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.intrant.errors.0 }}</div>
+        {% endif %}
+        <div id="intrant-balance-display" style="margin-top:6px;font-size:12px;color:var(--text-muted);"></div>
+      </div>
+
+      {# ── Produit fini ── #}
+      <div class="field-group" id="fg-produit_fini" style="display:none;">
+        <label class="field-label" for="{{ form.produit_fini.id_for_label }}">Produit fini</label>
+        <div class="input-wrapper">
+          <i class="bx bxs-badge-check input-icon"></i>
+          {{ form.produit_fini }}
+        </div>
+        {% if form.produit_fini.errors %}
+        <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.produit_fini.errors.0 }}</div>
+        {% endif %}
+        <div id="produit-balance-display" style="margin-top:6px;font-size:12px;color:var(--text-muted);"></div>
+      </div>
+
+      {# ── Date ── #}
+      <div class="field-group">
+        <label class="field-label" for="{{ form.date_ajustement.id_for_label }}">Date de l'ajustement <span class="req">*</span></label>
+        <div class="input-wrapper">
+          <i class="bx bxs-calendar input-icon"></i>
+          {{ form.date_ajustement }}
+        </div>
+        {% if form.date_ajustement.errors %}
+        <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.date_ajustement.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      {# ── Quantité avant (read-only) ── #}
+      <div class="field-group">
+        <label class="field-label" for="{{ form.quantite_avant.id_for_label }}">Quantité avant ajustement</label>
+        <div class="input-wrapper">
+          <i class="bx bxs-archive input-icon"></i>
+          {{ form.quantite_avant }}
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Auto-rempli depuis le stock actuel.</div>
+        {% if form.quantite_avant.errors %}
+        <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.quantite_avant.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      {# ── Quantité après ── #}
+      <div class="field-group">
+        <label class="field-label" for="{{ form.quantite_apres.id_for_label }}">Quantité après ajustement <span class="req">*</span></label>
+        <div class="input-wrapper">
+          <i class="bx bx-transfer input-icon"></i>
+          {{ form.quantite_apres }}
+        </div>
+        {% if form.quantite_apres.errors %}
+        <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.quantite_apres.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      {# ── Raison ── #}
+      <div class="field-group">
+        <label class="field-label" for="{{ form.raison.id_for_label }}">Raison / Justification <span class="req">*</span></label>
+        <div class="input-wrapper">
+          {{ form.raison }}
+        </div>
+        {% if form.raison.errors %}
+        <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.raison.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      {# ── Non-field errors ── #}
+      {% if form.non_field_errors %}
+      <div class="field-error" style="margin-bottom:16px;">
+        <i class="bx bxs-error-circle"></i> {{ form.non_field_errors.0 }}
+      </div>
+      {% endif %}
+
+      {# ── Actions ── #}
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid var(--border);">
+        <a href="{% url 'stock:stock_ajustement_list' %}" class="btn-ghost">Annuler</a>
+        <button type="submit" class="btn-primary">
+          <i class="bx bx-check"></i> {{ action_label|default:"Enregistrer" }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Segment-dependent field visibility ──────────────────────────────── */
+#fg-intrant, #fg-produit_fini {
+  transition: opacity 0.18s ease;
+}
+
+/* ── Form max-width wrapper inside section-card ──────────────────────── */
+.section-card form { width: 100%; }
+
+/* ── Make select inputs match design system ──────────────────────────── */
+.field-input select {
+  width: 100%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 13.5px;
+  padding: 11px 13px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  appearance: auto;
+}
+.field-input select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(34,197,94,.15);
+  outline: none;
+}
+
+/* ── Read-only balance field styling ─────────────────────────────────── */
+input[readonly] {
+  opacity: .6;
+  cursor: not-allowed;
+  background: var(--bg-raised) !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  var segmentSelect = document.getElementById('{{ form.segment.id_for_label }}');
+  var intrantField = document.getElementById('{{ form.intrant.id_for_label }}');
+  var produitField = document.getElementById('{{ form.produit_fini.id_for_label }}');
+  var fgIntrant = document.getElementById('fg-intrant');
+  var fgProduit = document.getElementById('fg-produit_fini');
+  var intrantBalanceDisplay = document.getElementById('intrant-balance-display');
+  var produitBalanceDisplay = document.getElementById('produit-balance-display');
+  var quantiteAvantInput = document.getElementById('{{ form.quantite_avant.id_for_label }}');
+
+  function toggleFields() {
+    var segment = segmentSelect.value;
+    if (segment === 'intrant') {
+      fgIntrant.style.display = '';
+      fgProduit.style.display = 'none';
+      intrantField.disabled = false;
+      produitField.disabled = true;
+    } else if (segment === 'produit_fini') {
+      fgIntrant.style.display = 'none';
+      fgProduit.style.display = '';
+      intrantField.disabled = true;
+      produitField.disabled = false;
+    } else {
+      fgIntrant.style.display = '';
+      fgProduit.style.display = 'none';
+    }
+  }
+
+  function fetchIntrantBalance(pk) {
+    if (!pk) return;
+    var url = "{% url 'stock:stock_intrant_balance_json' 0 %}".replace('/0/', '/' + pk + '/');
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        intrantBalanceDisplay.innerHTML =
+          '<span style="display:inline-flex;align-items:center;gap:4px;">' +
+          '<i class="bx bxs-archive" style="color:' + (d.en_alerte ? '#dc2626' : 'var(--accent-text)') + ';"></i>' +
+          'Stock actuel : <strong>' + d.quantite.toFixed(2) + '</strong> ' + (d.unite_mesure || '') +
+          (d.en_alerte ? ' <span style="color:#dc2626;">(Sous seuil)</span>' : '') +
+          '</span>';
+        if (quantiteAvantInput) quantiteAvantInput.value = d.quantite;
+      })
+      .catch(function () {
+        intrantBalanceDisplay.textContent = '';
+      });
+  }
+
+  function fetchProduitBalance(pk) {
+    if (!pk) return;
+    var url = "{% url 'stock:stock_produit_fini_balance_json' 0 %}".replace('/0/', '/' + pk + '/');
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        produitBalanceDisplay.innerHTML =
+          '<span style="display:inline-flex;align-items:center;gap:4px;">' +
+          '<i class="bx bxs-badge-check" style="color:' + (d.en_alerte ? '#dc2626' : 'var(--accent-text)') + ';"></i>' +
+          'Stock actuel : <strong>' + d.quantite.toFixed(2) + '</strong> ' + (d.unite_mesure || '') +
+          (d.en_alerte ? ' <span style="color:#dc2626;">(Sous seuil)</span>' : '') +
+          '</span>';
+        if (quantiteAvantInput) quantiteAvantInput.value = d.quantite;
+      })
+      .catch(function () {
+        produitBalanceDisplay.textContent = '';
+      });
+  }
+
+  // Segment change → toggle visible fields
+  if (segmentSelect) {
+    segmentSelect.addEventListener('change', toggleFields);
+    toggleFields();
+  }
+
+  // Intrant change → fetch balance
+  if (intrantField) {
+    intrantField.addEventListener('change', function () {
+      fetchIntrantBalance(intrantField.value);
+    });
+    if (intrantField.value) fetchIntrantBalance(intrantField.value);
+  }
+
+  // Produit fini change → fetch balance
+  if (produitField) {
+    produitField.addEventListener('change', function () {
+      fetchProduitBalance(produitField.value);
+    });
+    if (produitField.value) fetchProduitBalance(produitField.value);
+  }
+
+});
+</script>
+{% endblock %}

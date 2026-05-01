@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}BL Fournisseurs — Élevage Avicole{% endblock %}
+{% block nav_bl_fournisseur %}active{% endblock %}
+
+{% block page_title %}BL Fournisseurs{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} bon{{ page.paginator.count|pluralize:"s" }} de livraison{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'achats:bl_fournisseur_create' %}" class="btn-primary">
+    <i class="bx bx-plus"></i> Nouveau BL
+  </a>
+{% endblock %}
+
+{% block content %}
+
+<!-- Filter bar -->
+<div class="filter-bar">
+  <div class="input-wrapper" style="flex:1;max-width:280px;">
+    <i class="bx bx-search input-icon"></i>
+    <input type="text" name="q" form="filter-form" value="{{ q }}" placeholder="Référence, fournisseur..." class="field-input has-icon">
+  </div>
+
+  <select name="statut" form="filter-form" class="field-input" onchange="document.getElementById('filter-form').submit();">
+    <option value="">Tous les statuts</option>
+    {% for val, label in statut_choices %}
+    <option value="{{ val }}" {% if statut == val %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+
+  <select name="fournisseur" form="filter-form" class="field-input" onchange="document.getElementById('filter-form').submit();">
+    <option value="">Tous les fournisseurs</option>
+    {% for f in fournisseurs %}
+    <option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.nom }}</option>
+    {% endfor %}
+  </select>
+
+  {% if q or statut or fournisseur_pk %}
+  <a href="{% url 'achats:bl_fournisseur_list' %}" class="btn-ghost btn-sm">
+    <i class="bx bx-x"></i> Réinitialiser
+  </a>
+  {% endif %}
+
+  <form id="filter-form" method="get" style="display:none;"></form>
+</div>
+
+<!-- BL Table -->
+<div class="section-card">
+  <div class="section-card__body no-pad">
+    {% if page.object_list %}
+    <div class="table-wrap">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>Référence</th>
+            <th>Fournisseur</th>
+            <th>Date</th>
+            <th>Réf. fournisseur</th>
+            <th style="text-align:right;">Montant</th>
+            <th>Statut</th>
+            <th style="text-align:center;">PJ</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for bl in page.object_list %}
+          <tr class="stagger-row">
+            <td>
+              <a href="{% url 'achats:bl_fournisseur_detail' bl.pk %}" class="text-mono val-money" style="color:var(--text-primary);">
+                {{ bl.reference }}
+              </a>
+            </td>
+            <td>
+              <a href="{% url 'achats:bl_fournisseur_list' %}?fournisseur={{ bl.fournisseur.pk }}" style="color:var(--text-secondary);">
+                {{ bl.fournisseur.nom }}
+              </a>
+            </td>
+            <td style="color:var(--text-muted);white-space:nowrap;">{{ bl.date_bl|date:"d/m/Y" }}</td>
+            <td style="color:var(--text-muted);font-size:12px;">{{ bl.reference_fournisseur|default:"—" }}</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;white-space:nowrap;">
+              {{ bl.montant_total|floatformat:0 }} DZD
+            </td>
+            <td>
+              {% if bl.statut == 'brouillon' %}
+              <span class="pill-base pill-warning">Brouillon</span>
+              {% elif bl.statut == 'recu' %}
+              <span class="pill-base pill-info">Reçu</span>
+              {% elif bl.statut == 'facture' %}
+              <span class="pill-base pill-success">Facturé</span>
+              {% elif bl.statut == 'litige' %}
+              <span class="pill-base pill-danger">En Litige</span>
+              {% endif %}
+            </td>
+            <td style="text-align:center;">
+              {% if bl.a_piece_jointe %}
+              <i class="bx bx-paperclip" style="color:var(--accent-text);font-size:14px;"></i>
+              {% else %}
+              <span class="sans-pj"><i class="bx bx-paperclip"></i></span>
+              {% endif %}
+            </td>
+            <td>
+              <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;">
+                <a href="{% url 'achats:bl_fournisseur_detail' bl.pk %}" class="action-btn" title="Détail">
+                  <i class="bx bx-show"></i>
+                </a>
+                {% if not bl.est_verrouille %}
+                <a href="{% url 'achats:bl_fournisseur_edit' bl.pk %}" class="action-btn" title="Modifier">
+                  <i class="bx bxs-pencil"></i>
+                </a>
+                {% endif %}
+                <a href="{% url 'achats:bl_fournisseur_print' bl.pk %}" class="action-btn" title="Imprimer" target="_blank">
+                  <i class="bx bxs-printer"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page.has_other_pages %}
+    <div class="pagination-bar">
+      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
+      <div class="page-links">
+        {% if page.has_previous %}
+        <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-left"></i></span>
+        {% endif %}
+
+        {% for num in page.paginator.page_range %}
+          {% if num == page.number %}
+          <span class="page-link active">{{ num }}</span>
+          {% elif num > page.number|add:-3 and num < page.number|add:3 %}
+          <a href="?page={{ num }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}" class="page-link">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
+
+        {% if page.has_next %}
+        <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}" class="page-link"><i class="bx bx-chevron-right"></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-right"></i></span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bxs-truck empty-state__icon"></i>
+      <div class="empty-state__title">Aucun BL trouvé</div>
+      <div class="empty-state__text">
+        {% if q or statut or fournisseur_pk %}
+        Aucun résultat pour les filtres sélectionnés.
+        {% else %}
+        Créez votre premier bon de livraison fournisseur.
+        {% endif %}
+      </div>
+      <a href="{% url 'achats:bl_fournisseur_create' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
+        <i class="bx bx-plus"></i> Nouveau BL
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.table-wrap { overflow-x: auto; }
+</style>
+{% endblock %}
+
+{% block extra_js %}{% endblock %}

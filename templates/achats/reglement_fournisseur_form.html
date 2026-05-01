@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block nav_reglements_fournisseurs %}active{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}{% if fournisseur %}{{ fournisseur.nom }}{% else %}Attribution automatique FIFO aux factures{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'achats:reglement_fournisseur_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Retour
+  </a>
+{% endblock %}
+
+{% block content %}
+
+{% if already_alloue %}
+<div class="locked-lot-banner">
+  <i class="bx bxs-info-circle" style="color:var(--accent-text);"></i>
+  <span style="font-size:13px;color:var(--text-secondary);">
+    Ce règlement a déjà été alloué. <strong>Aucune modification</strong> n'est possible.
+  </span>
+</div>
+{% endif %}
+
+<form method="post" novalidate id="reglement-form">
+  {% csrf_token %}
+
+  <div class="reglement-layout">
+
+    <!-- Left column: Form -->
+    <div class="reglement-main">
+
+      <!-- Fournisseur selection -->
+      <div class="section-card" style="margin-bottom:18px;">
+        <div class="section-card__head">
+          <span class="section-card__title"><i class="bx bxs-building" style="color:var(--accent);margin-right:8px;"></i>Fournisseur</span>
+        </div>
+        <div class="section-card__body">
+          <div class="field-group">
+            <label class="field-label" for="{{ form.fournisseur.id_for_label }}">Fournisseur <span class="req">*</span></label>
+            <div class="input-wrapper">
+              <i class="bx bxs-building input-icon"></i>
+              {{ form.fournisseur }}
+            </div>
+            {% for err in form.fournisseur.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+          </div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:6px;">
+            <i class="bx bxs-info-circle"></i> Les factures ouvertes de ce fournisseur seront affichées ci-dessous.
+          </div>
+        </div>
+      </div>
+
+      <!-- Reglement details -->
+      <div class="section-card" style="margin-bottom:18px;">
+        <div class="section-card__head">
+          <span class="section-card__title"><i class="bx bxs-coin" style="color:var(--accent);margin-right:8px;"></i>Détails du règlement</span>
+        </div>
+        <div class="section-card__body">
+          <div class="form-grid">
+            <div class="field-group">
+              <label class="field-label" for="{{ form.date_reglement.id_for_label }}">Date du règlement <span class="req">*</span></label>
+              <div class="input-wrapper">
+                <i class="bx bxs-calendar input-icon"></i>
+                {{ form.date_reglement }}
+              </div>
+              {% for err in form.date_reglement.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="{{ form.montant.id_for_label }}">Montant (DZD) <span class="req">*</span></label>
+              <div class="input-wrapper">
+                <i class="bx bxs-coin-stack input-icon"></i>
+                {{ form.montant }}
+              </div>
+              {% for err in form.montant.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="{{ form.mode_paiement.id_for_label }}">Mode de paiement <span class="req">*</span></label>
+              <div class="input-wrapper">
+                <i class="bx bxs-credit-card input-icon"></i>
+                {{ form.mode_paiement }}
+              </div>
+              {% for err in form.mode_paiement.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="{{ form.reference_paiement.id_for_label }}">Référence de paiement</label>
+              <div class="input-wrapper">
+                <i class="bx bxs-file-txt input-icon"></i>
+                {{ form.reference_paiement }}
+              </div>
+              {% for err in form.reference_paiement.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="{{ form.banque.id_for_label }}">Banque</label>
+              <div class="input-wrapper">
+                <i class="bx bxs-bank input-icon"></i>
+                {{ form.banque }}
+              </div>
+              {% for err in form.banque.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="{{ form.numero_cheque.id_for_label }}">Numéro de chèque</label>
+              <div class="input-wrapper">
+                <i class="bx bxs-credit-card-front input-icon"></i>
+                {{ form.numero_cheque }}
+              </div>
+              {% for err in form.numero_cheque.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+            <div class="field-group" style="grid-column:1 / -1;">
+              <label class="field-label" for="{{ form.notes.id_for_label }}">Notes</label>
+              {{ form.notes }}
+              {% for err in form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+          </div>
+
+          {% if form.non_field_errors %}
+          <div class="field-error" style="margin-top:12px;">
+            <i class="bx bxs-error-circle"></i> {% for err in form.non_field_errors %}{{ err }}{% endfor %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right column: FIFO preview -->
+    <div class="reglement-side">
+
+      <!-- Summary card -->
+      <div class="section-card" style="margin-bottom:16px;">
+        <div class="section-card__head">
+          <span class="section-card__title">Aperçu allocation</span>
+        </div>
+        <div class="section-card__body">
+
+          <!-- Montant saisi -->
+          <div style="margin-bottom:14px;">
+            <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Montant du règlement</div>
+            <div id="preview-montant-reglement" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;color:var(--text-primary);">
+              {{ montant_initial|default:"0"|floatformat:0 }} DZD
+            </div>
+          </div>
+
+          <!-- Solde fournisseur -->
+          {% if solde_fournisseur is not None %}
+          <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+            <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Solde fournisseur</div>
+            <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:16px;{% if solde_fournisseur > 0 %}color:#dc2626;{% else %}color:#15803d;{% endif %}">
+              {% if solde_fournisseur > 0 %}{{ solde_fournisseur|floatformat:0 }} DZD (dû){% else %}{{ solde_fournisseur|floatformat:0 }} DZD (crédit){% endif %}
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Reste après allocation -->
+          <div id="preview-reste-section" style="display:none;">
+            <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Reste non alloué</div>
+            <div id="preview-reste" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:20px;color:#b45309;">
+              0 DZD
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+              Ce montant sera enregistré comme acompte fournisseur.
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- FIFO facture list -->
+      <div class="section-card" style="margin-bottom:16px;">
+        <div class="section-card__head">
+          <span class="section-card__title">Factures ouvertes (FIFO)</span>
+        </div>
+        <div class="section-card__body no-pad" id="fifo-factures-container">
+          {% if factures_ouvertes %}
+          <div style="padding:10px 16px;background:var(--accent-dim);border-bottom:1px solid var(--border);font-size:11.5px;color:var(--text-muted);">
+            <i class="bx bxs-info-circle"></i> Attribution automatique par ancienneté
+          </div>
+          {% for fac in factures_ouvertes %}
+          <div class="fifo-facture-row" data-fac-pk="{{ fac.pk }}" data-fac-reste="{{ fac.reste_a_payer }}">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span class="text-mono" style="font-size:12px;font-weight:600;color:var(--text-primary);">{{ fac.reference }}</span>
+              <span style="font-size:11px;color:var(--text-muted);">{{ fac.date_echeance|date:"d/m/Y"|default:"—" }}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:12px;color:var(--text-secondary);">Reste : <strong style="color:var(--text-primary);">{{ fac.reste_a_payer|floatformat:0 }} DZD</strong></span>
+              <span class="fifo-allocation-amount" style="font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;color:#15803d;">0 DZD</span>
+            </div>
+            <!-- Progress bar for this invoice -->
+            <div class="debt-bar" style="margin-top:6px;">
+              <div class="debt-bar__track" style="height:4px;">
+                <div class="debt-bar__fill fifo-fill" style="width:0%;height:4px;background:var(--accent);transition:width 0.3s;"></div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+          {% else %}
+          <div style="padding:24px 20px;text-align:center;color:var(--text-muted);font-size:13px;">
+            <i class="bx bxs-file-txt" style="display:block;font-size:24px;margin-bottom:8px;color:var(--border-strong);"></i>
+            {% if fournisseur %}
+            Aucune facture ouverte pour {{ fournisseur.nom }}.
+            {% else %}
+            Sélectionnez un fournisseur pour voir ses factures.
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="section-card">
+        <div class="section-card__body">
+          <button type="submit" class="btn-primary" style="width:100%;justify-content:center;">
+            <i class="bx bxs-save"></i> Enregistrer le règlement
+          </button>
+          <a href="{% url 'achats:reglement_fournisseur_list' %}" class="btn-ghost" style="width:100%;justify-content:center;margin-top:10px;display:flex;">
+            Annuler
+          </a>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+</form>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.reglement-layout {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 1024px) { .reglement-layout { grid-template-columns: 1fr; } }
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+
+.fifo-facture-row {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.12s;
+}
+.fifo-facture-row:last-child { border-bottom: none; }
+.fifo-facture-row:hover { background: var(--bg-raised); }
+.fifo-facture-row.alloue { background: var(--accent-dim); }
+
+.debt-bar { margin: 8px 0 0; }
+.debt-bar__track {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.debt-bar__fill {
+  height: 6px;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  var fournisseurSelect = document.getElementById('{{ form.fournisseur.id_for_label }}');
+  var montantInput = document.getElementById('{{ form.montant.id_for_label }}');
+  var previewMontant = document.getElementById('preview-montant-reglement');
+  var previewResteSection = document.getElementById('preview-reste-section');
+  var previewReste = document.getElementById('preview-reste');
+
+  function fmtDZD(n) {
+    return new Intl.NumberFormat('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    }).format(n) + ' DZD';
+  }
+
+  /* ── Fournisseur change → reload page with ?fournisseur= param ─────── */
+  if (fournisseurSelect) {
+    fournisseurSelect.addEventListener('change', function () {
+      var url = new URL(window.location.href);
+      if (fournisseurSelect.value) {
+        url.searchParams.set('fournisseur', fournisseurSelect.value);
+      } else {
+        url.searchParams.delete('fournisseur');
+      }
+      window.location.href = url.toString();
+    });
+  }
+
+  /* ── FIFO allocation preview ──────────────────────────────────────── */
+  function updateFIFOPreview() {
+    var montant = parseFloat(montantInput.value) || 0;
+    previewMontant.textContent = fmtDZD(montant);
+
+    var remaining = montant;
+    var factureRows = document.querySelectorAll('.fifo-facture-row');
+    var totalAllocated = 0;
+
+    factureRows.forEach(function (row) {
+      var reste = parseFloat(row.dataset.facReste) || 0;
+      var allocEl = row.querySelector('.fifo-allocation-amount');
+      var fillEl = row.querySelector('.fifo-fill');
+
+      if (remaining > 0 && reste > 0) {
+        var allocated = Math.min(remaining, reste);
+        remaining -= allocated;
+        totalAllocated += allocated;
+
+        if (allocEl) allocEl.textContent = fmtDZD(allocated);
+        row.classList.add('alloue');
+
+        if (fillEl) {
+          var pct = reste > 0 ? (allocated / reste * 100) : 0;
+          fillEl.style.width = pct + '%';
+        }
+      } else {
+        if (allocEl) allocEl.textContent = '0 DZD';
+        row.classList.remove('alloue');
+        if (fillEl) fillEl.style.width = '0%';
+      }
+    });
+
+    if (remaining > 0.01) {
+      previewResteSection.style.display = 'block';
+      previewReste.textContent = fmtDZD(remaining);
+    } else {
+      previewResteSection.style.display = 'none';
+    }
+  }
+
+  if (montantInput) {
+    montantInput.addEventListener('input', updateFIFOPreview);
+    updateFIFOPreview();
+  }
+
+});
+</script>
+{% endblock %}

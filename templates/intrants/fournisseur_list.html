@@ -9,7 +9,7 @@
 {% block page_sub_text %}{{ page.paginator.count }} fournisseur{{ page.paginator.count|pluralize }}{% endblock %}
 
 {% block topbar_actions %}
-  {% if not request.user.userprofile.role == 'viewer' %}
+  {% if not request.user.profile.role == 'viewer' %}
   <a href="{% url 'intrants:fournisseur_create' %}" class="btn-primary">
     <i class="bx bx-plus"></i> Nouveau fournisseur
   </a>
@@ -91,11 +91,11 @@
                 <a href="{% url 'intrants:fournisseur_detail' f.pk %}" class="action-btn" title="Détail">
                   <i class="bx bx-show"></i>
                 </a>
-                {% if not request.user.userprofile.role == 'viewer' %}
+                {% if not request.user.profile.role == 'viewer' %}
                 <a href="{% url 'intrants:fournisseur_edit' f.pk %}" class="action-btn" title="Modifier">
                   <i class="bx bxs-pencil"></i>
                 </a>
-                {% if request.user.userprofile.is_admin %}
+                {% if request.user.profile.role == 'admin' %}
                 <button type="button"
                   class="action-btn {% if f.actif %}action-btn--danger{% endif %}"
                   data-toggle-item="{{ f.pk }}"
@@ -136,7 +136,7 @@
       <i class="bx bxs-truck empty-state__icon"></i>
       <div class="empty-state__title">Aucun fournisseur trouvé</div>
       <div class="empty-state__body">{% if q %}Aucun résultat pour « {{ q }} ».{% else %}Créez le premier fournisseur.{% endif %}</div>
-      {% if not q and not request.user.userprofile.role == 'viewer' %}
+      {% if not q and not request.user.profile.role == 'viewer' %}
       <a href="{% url 'intrants:fournisseur_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
         <i class="bx bx-plus"></i> Créer
       </a>

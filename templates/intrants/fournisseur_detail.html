@@ -15,7 +15,7 @@
   <a href="{% url 'intrants:fournisseur_list' %}" class="btn-ghost">
     <i class="bx bx-arrow-back"></i> Fournisseurs
   </a>
-  {% if not request.user.userprofile.role == 'viewer' %}
+  {% if not request.user.profile.role == 'viewer' %}
   <a href="{% url 'intrants:fournisseur_edit' fournisseur.pk %}" class="btn-primary">
     <i class="bx bxs-pencil"></i> Modifier
   </a>
@@ -58,7 +58,7 @@
       <div class="card">
         <div class="card-header-row">
           <div class="section-eyebrow">Fiche fournisseur</div>
-          {% if not request.user.userprofile.role == 'viewer' %}
+          {% if not request.user.profile.role == 'viewer' %}
           <a href="{% url 'intrants:fournisseur_edit' fournisseur.pk %}" class="btn-ghost btn-sm">
             <i class="bx bxs-pencil"></i> Modifier
           </a>
@@ -234,7 +234,7 @@
       </div>
 
       <!-- Danger zone (admin only) -->
-      {% if request.user.userprofile.is_admin %}
+      {% if request.user.profile.role == 'admin' %}
       <div class="card card--danger">
         <div class="card-header-row">
           <div class="section-eyebrow" style="color:#dc2626;">Zone de danger</div>
@@ -441,7 +441,7 @@
 {% endblock %}
 
 {% block extra_js %}
-{% if request.user.userprofile.is_admin %}
+{% if request.user.profile.role == 'admin' %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const toggleBtn  = document.getElementById('toggle-active-btn');

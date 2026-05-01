@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% load reporting_extras %}
+{% load static i18n %}
+
+{% block title %}{{ title }} — {{ company.nom|default:"AviTrack" }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<!-- Back Link -->
+<div class="mb-3">
+    <a href="{% url 'reporting:consommation_lot' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-arrow-left me-1"></i> Retour aux consommations
+    </a>
+</div>
+
+<!-- Lot Header -->
+<div class="card mb-4 border-info border-2">
+    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-bold"><i class="fas fa-warehouse me-2"></i>{{ lot.designation }}</h6>
+        <span class="badge bg-light text-dark">{{ lot.get_statut_display }}</span>
+    </div>
+    <div class="card-body">
+        <div class="row g-4">
+            <div class="col-md-3 text-center">
+                <div class="text-muted small text-uppercase">Poussins Initial</div>
+                <div class="h4 fw-bold">{{ lot.nombre_poussins_initial }}</div>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="text-muted small text-uppercase">Effectif Vivant</div>
+                <div class="h4 fw-bold">{{ summary.effectif_vivant }}</div>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="text-muted small text-uppercase">Mortalité</div>
+                <div class="h4 fw-bold {% if summary.taux_mortalite > 5 %}text-danger{% else %}text-success{% endif %}">{{ summary.taux_mortalite|floatformat:2 }}%</div>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="text-muted small text-uppercase">IC</div>
+                <div class="h4 fw-bold">{{ summary.ic|default:"—"|floatformat:3 }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Consumption Summary Chart -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h6 class="mb-0 fw-bold"><i class="fas fa-chart-bar me-2 text-primary"></i>Consommation par Intrant</h6>
+    </div>
+    <div class="card-body">
+        <div style="height: 300px;"><canvas id="consoChart"></canvas></div>
+    </div>
+</div>
+
+<!-- Consumption Table -->
+<div class="card mb-4">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h6 class="mb-0 fw-bold"><i class="fas fa-table me-2 text-primary"></i>Détail des Consommations</h6>
+        <div class="small text-muted">{{ summary.consommations|length }} enregistrement(s)</div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0 align-middle" id="data-table">
+                <thead class="table-light">
+                    <tr>
+                        <th class="cursor-pointer" onclick="sortTable(0)">Date <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="cursor-pointer" onclick="sortTable(1)">Intrant <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="cursor-pointer" onclick="sortTable(2)">Catégorie <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(3)">Quantité <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="cursor-pointer" onclick="sortTable(4)">Unité <i class="fas fa-sort text-muted small"></i></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in summary.consommations %}
+                    <tr>
+                        <td>{{ c.date|date:"d/m/Y" }}</td>
+                        <td>{{ c.intrant.designation }}</td>
+                        <td><span class="badge bg-secondary">{{ c.intrant.categorie.libelle }}</span></td>
+                        <td class="text-end fw-bold">{{ c.quantite|floatformat:3 }}</td>
+                        <td>{{ c.intrant.unite_mesure }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center py-4 text-muted"><i class="fas fa-circle-info fa-2x mb-2 text-info"></i><br>Aucune consommation enregistrée pour ce lot.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Mortality Table -->
+<div class="card mb-4">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-bold"><i class="fas fa-skull-crossbones me-2 text-danger"></i>Mortalités</h6>
+        <div class="small text-muted">{{ summary.mortalites|length }} enregistrement(s)</div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0 align-middle" id="mortalite-table">
+                <thead class="table-light">
+                    <tr>
+                        <th class="cursor-pointer" onclick="sortTableId('mortalite-table',0)">Date <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTableId('mortalite-table',1)">Nombre <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTableId('mortalite-table',2)">Taux % <i class="fas fa-sort text-muted small"></i></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in summary.mortalites %}
+                    <tr>
+                        <td>{{ m.date|date:"d/m/Y" }}</td>
+                        <td class="text-end fw-bold text-danger">{{ m.nombre }}</td>
+                        <td class="text-end">{{ m.taux_mortalite|floatformat:3 }}%</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center py-3 text-muted">Aucune mortalité enregistrée.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Depenses Table -->
+<div class="card mb-4">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-bold"><i class="fas fa-money-bill-wave me-2 text-warning"></i>Dépenses Attribuées</h6>
+        <div class="small text-muted">Total: {{ summary.cout_total_depenses|floatformat:2 }} DZD</div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0 align-middle" id="depense-table">
+                <thead class="table-light">
+                    <tr>
+                        <th class="cursor-pointer" onclick="sortTableId('depense-table',0)">Date <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="cursor-pointer" onclick="sortTableId('depense-table',1)">Catégorie <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="cursor-pointer" onclick="sortTableId('depense-table',2)">Description <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTableId('depense-table',3)">Montant <i class="fas fa-sort text-muted small"></i></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in summary.depenses %}
+                    <tr>
+                        <td>{{ d.date|date:"d/m/Y" }}</td>
+                        <td><span class="badge bg-info">{{ d.categorie.libelle }}</span></td>
+                        <td>{{ d.description|truncatechars:50 }}</td>
+                        <td class="text-end fw-bold">{{ d.montant|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="text-center py-3 text-muted">Aucune dépense attribuée.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="text-end">
+    <a href="{{ request.path }}?export=csv" class="btn btn-success"><i class="fas fa-file-csv me-1"></i> Exporter CSV</a>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+(function() {
+    'use strict';
+
+    var labels = [];
+    var dataQty = [];
+
+    // Aggregate consumption by intrant for the chart
+    var agg = {};
+    {% for c in summary.consommations %}
+    var key = "{{ c.intrant.designation|escapejs }}";
+    if (!agg[key]) agg[key] = 0;
+    agg[key] += {{ c.quantite|default:0 }};
+    {% endfor %}
+
+    for (var k in agg) {
+        labels.push(k);
+        dataQty.push(agg[k]);
+    }
+
+    var ctx = document.getElementById('consoChart');
+    if (ctx && labels.length > 0) {
+        new Chart(ctx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Quantité consommée',
+                    data: dataQty,
+                    backgroundColor: 'rgba(13, 110, 253, 0.7)',
+                    borderColor: '#0d6efd',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    } else if (ctx) {
+        ctx.parentNode.innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-circle-info fa-2x mb-2 text-info"></i><br>Aucune consommation à afficher</div>';
+    }
+
+    window.sortTable = function(n) {
+        var table = document.getElementById('data-table');
+        if (!table) return;
+        var tbody = table.querySelector('tbody');
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+        var asc = table.getAttribute('data-sort-col') != n || table.getAttribute('data-sort-dir') === 'desc';
+        table.setAttribute('data-sort-col', n);
+        table.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
+        rows.sort(function(a, b) {
+            var x = a.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
+            var y = b.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
+            var xn = parseFloat(x), yn = parseFloat(y);
+            if (!isNaN(xn) && !isNaN(yn)) return asc ? xn - yn : yn - xn;
+            return asc ? x.localeCompare(y) : y.localeCompare(x);
+        });
+        rows.forEach(function(r) { tbody.appendChild(r); });
+    };
+
+    window.sortTableId = function(tableId, n) {
+        var table = document.getElementById(tableId);
+        if (!table) return;
+        var tbody = table.querySelector('tbody');
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+        var asc = table.getAttribute('data-sort-col') != n || table.getAttribute('data-sort-dir') === 'desc';
+        table.setAttribute('data-sort-col', n);
+        table.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
+        rows.sort(function(a, b) {
+            var x = a.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
+            var y = b.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
+            var xn = parseFloat(x), yn = parseFloat(y);
+            if (!isNaN(xn) && !isNaN(yn)) return asc ? xn - yn : yn - xn;
+            return asc ? x.localeCompare(y) : y.localeCompare(x);
+        });
+        rows.forEach(function(r) { tbody.appendChild(r); });
+    };
+})();
+</script>
+{% endblock extra_js %}

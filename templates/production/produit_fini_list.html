@@ -1,0 +1,165 @@
+
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Catalogue — Produits Finis — Élevage Avicole{% endblock %}
+{% block nav_production %}active{% endblock %}
+
+{% block page_title %}Catalogue des Produits Finis{% endblock %}
+{% block page_sub_text %}Types de produits générés à la production{% endblock %}
+
+{% block topbar_actions %}
+{% if request.user.profile %}
+  {% if not request.user.profile.role == 'viewer' %}
+  <a href="{% url 'production:produit_fini_create' %}" class="btn-primary">
+    <i class="bx bx-plus"></i> Nouveau Produit
+  </a>
+  {% endif %}
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+  <div class="input-wrapper" style="flex:1;max-width:320px;">
+    <i class="bx bx-search input-icon"></i>
+    <input type="text" name="q" form="filter-form" class="field-input has-icon" placeholder="Rechercher un produit..." value="{{ q }}" />
+  </div>
+  <select name="type_produit" form="filter-form" class="field-input" style="max-width:180px;" onchange="document.getElementById('filter-form').submit();">
+    <option value="">Tous les types</option>
+    {% for code, label in type_choices %}
+    <option value="{{ code }}" {% if type_produit == code %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <select name="actif" form="filter-form" class="field-input" style="max-width:160px;" onchange="document.getElementById('filter-form').submit();">
+    <option value="1" {% if actif_param != '0' %}selected{% endif %}>Actifs</option>
+    <option value="0" {% if actif_param == '0' %}selected{% endif %}>Tous (incl. inactifs)</option>
+  </select>
+  <button type="submit" form="filter-form" class="btn-ghost btn-sm" style="display:none;">Filtrer</button>
+  <a href="{% url 'production:produit_fini_list' %}" class="btn-ghost btn-sm">
+    <i class="bx bx-reset"></i> Réinitialiser
+  </a>
+</div>
+
+<form id="filter-form" method="get" action="{% url 'production:produit_fini_list' %}"></form>
+
+<div class="section-card">
+  <div class="section-card__body no-pad">
+    {% if page.object_list %}
+    <table class="table-base">
+      <thead>
+        <tr>
+          <th>Produit</th>
+          <th>Type</th>
+          <th>Unité</th>
+          <th style="text-align:right;">Prix vente défaut</th>
+          <th style="text-align:right;">Stock</th>
+          <th>Statut</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in page.object_list %}
+        <tr class="stagger-row">
+          <td>
+            <a href="{% url 'production:produit_fini_detail' p.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;">
+              {{ p.designation }}
+            </a>
+          </td>
+          <td>
+            <span class="pill-base pill-info">{{ p.get_type_produit_display }}</span>
+          </td>
+          <td style="color:var(--text-muted);">{{ p.get_unite_mesure_display }}</td>
+          <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
+            {{ p.prix_vente_defaut|floatformat:2 }} DZD
+          </td>
+          <td style="text-align:right;">
+            <span class="{% if p.quantite_en_stock <= 0 %}val-danger{% else %}val-success{% endif %}">
+              {{ p.quantite_en_stock|floatformat:2 }} {{ p.get_unite_mesure_display }}
+            </span>
+          </td>
+          <td>
+            {% if p.actif %}
+            <span class="pill-base pill-success">Actif</span>
+            {% else %}
+            <span class="pill-base pill-neutral">Inactif</span>
+            {% endif %}
+          </td>
+          <td>
+            <div style="display:flex;justify-content:flex-end;gap:4px;">
+              <a href="{% url 'production:produit_fini_detail' p.pk %}" class="action-btn" title="Détail">
+                <i class="bx bx-show"></i>
+              </a>
+              {% if not request.user.profile.role == 'viewer' %}
+              <a href="{% url 'production:produit_fini_edit' p.pk %}" class="action-btn" title="Modifier">
+                <i class="bx bxs-pencil"></i>
+              </a>
+              <form method="post" action="{% url 'production:produit_fini_toggle_active' p.pk %}" style="margin:0;display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="action-btn {% if p.actif %}danger{% else %}success{% endif %}" title="{% if p.actif %}Désactiver{% else %}Activer{% endif %}">
+                  <i class="bx {% if p.actif %}bx-block{% else %}bxs-check-circle{% endif %}"></i>
+                </button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if page.has_other_pages %}
+    <div class="pagination-bar">
+      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
+      <div class="page-links">
+        {% if page.has_previous %}
+        <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if type_produit %}&type_produit={{ type_produit }}{% endif %}{% if actif_param == '0' %}&actif=0{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-left"></i></span>
+        {% endif %}
+
+        {% for num in page.paginator.page_range %}
+          {% if page.number == num %}
+          <span class="page-link active">{{ num }}</span>
+          {% elif num > page.number|add:'-3' and num < page.number|add:'3' %}
+          <a href="?page={{ num }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if type_produit %}&type_produit={{ type_produit }}{% endif %}{% if actif_param == '0' %}&actif=0{% endif %}" class="page-link">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
+
+        {% if page.has_next %}
+        <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if type_produit %}&type_produit={{ type_produit }}{% endif %}{% if actif_param == '0' %}&actif=0{% endif %}" class="page-link"><i class="bx bx-chevron-right"></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-right"></i></span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bxs-cube-alt empty-state__icon"></i>
+      <div class="empty-state__title">Aucun produit fini</div>
+      <div class="empty-state__text">Créez un produit pour commencer le catalogue.</div>
+      {% if not request.user.profile.role == 'viewer' %}
+      <a href="{% url 'production:produit_fini_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
+        <i class="bx bx-plus"></i> Nouveau Produit
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.filter-bar .field-input.has-icon { padding-left: 36px; }
+.filter-bar .input-icon { font-size: 14px; left: 11px; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+});
+</script>
+{% endblock %}

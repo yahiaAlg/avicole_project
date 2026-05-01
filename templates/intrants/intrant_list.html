@@ -9,7 +9,7 @@
 {% block page_sub_text %}{{ page.paginator.count }} intrant{{ page.paginator.count|pluralize }}{% endblock %}
 
 {% block topbar_actions %}
-  {% if not request.user.userprofile.role == 'viewer' %}
+  {% if not request.user.profile.role == 'viewer' %}
   <a href="{% url 'intrants:intrant_create' %}" class="btn-primary">
     <i class="bx bx-plus"></i> Nouvel intrant
   </a>
@@ -109,11 +109,11 @@
                 <a href="{% url 'intrants:intrant_detail' intrant.pk %}" class="action-btn" title="Détail">
                   <i class="bx bx-show"></i>
                 </a>
-                {% if not request.user.userprofile.role == 'viewer' %}
+                {% if not request.user.profile.role == 'viewer' %}
                 <a href="{% url 'intrants:intrant_edit' intrant.pk %}" class="action-btn" title="Modifier">
                   <i class="bx bxs-pencil"></i>
                 </a>
-                {% if request.user.userprofile.is_admin %}
+                {% if request.user.profile.role == 'admin' %}
                 <button type="button"
                   class="action-btn {% if intrant.actif %}action-btn--danger{% endif %}"
                   data-toggle-item="{{ intrant.pk }}"
@@ -161,7 +161,7 @@
           Créez le premier intrant du catalogue.
         {% endif %}
       </div>
-      {% if not q and not categorie_pk and not request.user.userprofile.role == 'viewer' %}
+      {% if not q and not categorie_pk and not request.user.profile.role == 'viewer' %}
       <a href="{% url 'intrants:intrant_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
         <i class="bx bx-plus"></i> Créer
       </a>

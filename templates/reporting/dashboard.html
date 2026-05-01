@@ -1,0 +1,456 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}Rapports & Tableaux de Bord — {{ company.nom|default:"AviTrack" }}{% endblock %}
+
+{% block page_title %}Rapports & Tableaux de Bord{% endblock %}
+
+{% block content %}
+<!-- KPI Header Widgets -->
+<div class="row mb-4" id="kpi-widgets">
+    <div class="col-md-4 col-lg-2 mb-3">
+        <div class="card kpi-card h-100 border-start border-4 border-danger">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="text-muted small text-uppercase fw-bold">Dettes Fournisseurs</div>
+                        <div class="h4 mt-2 mb-0 fw-bold" id="kpi-dette-fournisseurs">
+                            <span class="spinner-border spinner-border-sm" role="status"></span>
+                        </div>
+                    </div>
+                    <div class="bg-danger bg-opacity-10 rounded p-2 text-danger">
+                        <i class="fas fa-file-invoice-dollar fa-lg"></i>
+                    </div>
+                </div>
+                <div class="small text-muted mt-2">Factures non payées</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 col-lg-2 mb-3">
+        <div class="card kpi-card h-100 border-start border-4 border-warning">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="text-muted small text-uppercase fw-bold">Créances Clients</div>
+                        <div class="h4 mt-2 mb-0 fw-bold" id="kpi-creances-clients">
+                            <span class="spinner-border spinner-border-sm" role="status"></span>
+                        </div>
+                    </div>
+                    <div class="bg-warning bg-opacity-10 rounded p-2 text-warning">
+                        <i class="fas fa-hand-holding-dollar fa-lg"></i>
+                    </div>
+                </div>
+                <div class="small text-muted mt-2">Factures client non payées</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 col-lg-2 mb-3">
+        <div class="card kpi-card h-100 border-start border-4 border-success">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="text-muted small text-uppercase fw-bold">Lots Ouverts</div>
+                        <div class="h4 mt-2 mb-0 fw-bold" id="kpi-lots-ouverts">
+                            <span class="spinner-border spinner-border-sm" role="status"></span>
+                        </div>
+                    </div>
+                    <div class="bg-success bg-opacity-10 rounded p-2 text-success">
+                        <i class="fas fa-warehouse fa-lg"></i>
+                    </div>
+                </div>
+                <div class="small text-muted mt-2">Lots en cours d'élevage</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 col-lg-2 mb-3">
+        <div class="card kpi-card h-100 border-start border-4 border-info">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="text-muted small text-uppercase fw-bold">Alertes Stock</div>
+                        <div class="h4 mt-2 mb-0 fw-bold" id="kpi-alertes-stock">
+                            <span class="spinner-border spinner-border-sm" role="status"></span>
+                        </div>
+                    </div>
+                    <div class="bg-info bg-opacity-10 rounded p-2 text-info">
+                        <i class="fas fa-boxes-stacked fa-lg"></i>
+                    </div>
+                </div>
+                <div class="small text-muted mt-2">Intrants sous seuil</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 col-lg-2 mb-3">
+        <div class="card kpi-card h-100 border-start border-4 border-danger">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="text-muted small text-uppercase fw-bold">Fact. Fourn. Retard</div>
+                        <div class="h4 mt-2 mb-0 fw-bold" id="kpi-fact-fourn-retard">
+                            <span class="spinner-border spinner-border-sm" role="status"></span>
+                        </div>
+                    </div>
+                    <div class="bg-danger bg-opacity-10 rounded p-2 text-danger">
+                        <i class="fas fa-clock fa-lg"></i>
+                    </div>
+                </div>
+                <div class="small text-muted mt-2">Échéance dépassée</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 col-lg-2 mb-3">
+        <div class="card kpi-card h-100 border-start border-4 border-warning">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="text-muted small text-uppercase fw-bold">Fact. Client Retard</div>
+                        <div class="h4 mt-2 mb-0 fw-bold" id="kpi-fact-client-retard">
+                            <span class="spinner-border spinner-border-sm" role="status"></span>
+                        </div>
+                    </div>
+                    <div class="bg-warning bg-opacity-10 rounded p-2 text-warning">
+                        <i class="fas fa-bell fa-lg"></i>
+                    </div>
+                </div>
+                <div class="small text-muted mt-2">Échéance dépassée</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Report Cards Grid -->
+<div class="row g-4">
+    {% if is_financial %}
+    <!-- Fournisseurs Section -->
+    <div class="col-12">
+        <div class="d-flex align-items-center mb-3">
+            <div class="section-icon bg-primary bg-opacity-10 rounded-circle p-2 me-2 text-primary">
+                <i class="fas fa-truck-field"></i>
+            </div>
+            <h5 class="mb-0 fw-bold text-primary">Fournisseurs & Achats</h5>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4 col-xl-3">
+        <div class="card report-card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="icon-circle bg-primary bg-opacity-10 text-primary">
+                        <i class="fas fa-hourglass-half"></i>
+                    </div>
+                    <div class="ms-3">
+                        <h6 class="mb-0 fw-bold">Balance par Ancienneté</h6>
+                        <small class="text-muted">Dettes fournisseurs échelonnées</small>
+                    </div>
+                </div>
+                <a href="{% url 'reporting:supplier_aging' %}" class="btn btn-sm btn-primary w-100">
+                    <i class="fas fa-chart-pie me-1"></i> Consulter
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4 col-xl-3">
+        <div class="card report-card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="icon-circle bg-success bg-opacity-10 text-success">
+                        <i class="fas fa-money-bill-transfer"></i>
+                    </div>
+                    <div class="ms-3">
+                        <h6 class="mb-0 fw-bold">Historique Règlements</h6>
+                        <small class="text-muted">Chronologie des paiements</small>
+                    </div>
+                </div>
+                <a href="{% url 'reporting:historique_reglements' %}" class="btn btn-sm btn-success w-100">
+                    <i class="fas fa-list me-1"></i> Consulter
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4 col-xl-3">
+        <div class="card report-card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="icon-circle bg-info bg-opacity-10 text-info">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <div class="ms-3">
+                        <h6 class="mb-0 fw-bold">Répartition Règlements</h6>
+                        <small class="text-muted">Par fournisseur et mode</small>
+                    </div>
+                </div>
+                <a href="{% url 'reporting:repartition_reglements' %}" class="btn btn-sm btn-info text-white w-100">
+                    <i class="fas fa-chart-column me-1"></i> Consulter
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4 col-xl-3">
+        <div class="card report-card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="icon-circle bg-danger bg-opacity-10 text-danger">
+                        <i class="fas fa-file-invoice"></i>
+                    </div>
+                    <div class="ms-3">
+                        <h6 class="mb-0 fw-bold">Dettes en Cours</h6>
+                        <small class="text-muted">Synthèse dettes par fournisseur</small>
+                    </div>
+                </div>
+                <a href="{% url 'reporting:dettes_fournisseurs' %}" class="btn btn-sm btn-danger w-100">
+                    <i class="fas fa-table me-1"></i> Consulter
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trésorerie Section -->
+    <div class="col-12 mt-2">
+        <div class="d-flex align-items-center mb-3">
+            <div class="section-icon bg-success bg-opacity-10 rounded-circle p-2 me-2 text-success">
+                <i class="fas fa-coins"></i>
+            </div>
+            <h5 class="mb-0 fw-bold text-success">Trésorerie & Finances</h5>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4 col-xl-3">
+        <div class="card report-card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="icon-circle bg-success bg-opacity-10 text-success">
+                        <i class="fas fa-scale-balanced"></i>
+                    </div>
+                    <div class="ms-3">
+                        <h6 class="mb-0 fw-bold">Résumé de Trésorerie</h6>
+                        <small class="text-muted">Entrées, sorties, solde net</small>
+                    </div>
+                </div>
+                <a href="{% url 'reporting:cash_flow' %}" class="btn btn-sm btn-success w-100">
+                    <i class="fas fa-chart-line me-1"></i> Consulter
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4 col-xl-3">
+        <div class="card report-card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="icon-circle bg-warning bg-opacity-10 text-warning">
+                        <i class="fas fa-hand-holding-dollar"></i>
+                    </div>
+                    <div class="ms-3">
+                        <h6 class="mb-0 fw-bold">Créances Clients</h6>
+                        <small class="text-muted">Ancienneté créances clients</small>
+                    </div>
+                </div>
+                <a href="{% url 'reporting:creances_clients' %}" class="btn btn-sm btn-warning text-white w-100">
+                    <i class="fas fa-chart-pie me-1"></i> Consulter
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4 col-xl-3">
+        <div class="card report-card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="icon-circle bg-danger bg-opacity-10 text-danger">
+                        <i class="fas fa-money-bill-wave"></i>
+                    </div>
+                    <div class="ms-3">
+                        <h6 class="mb-0 fw-bold">Rapport Dépenses</h6>
+                        <small class="text-muted">Analyse des dépenses par période</small>
+                    </div>
+                </div>
+                <a href="{% url 'reporting:depenses' %}" class="btn btn-sm btn-danger w-100">
+                    <i class="fas fa-chart-column me-1"></i> Consulter
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Production & Élevage Section -->
+    <div class="col-12 mt-2">
+        <div class="d-flex align-items-center mb-3">
+            <div class="section-icon bg-info bg-opacity-10 rounded-circle p-2 me-2 text-info">
+                <i class="fas fa-egg"></i>
+            </div>
+            <h5 class="mb-0 fw-bold text-info">Production & Élevage</h5>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4 col-xl-3">
+        <div class="card report-card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="icon-circle bg-info bg-opacity-10 text-info">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="ms-3">
+                        <h6 class="mb-0 fw-bold">Rentabilité par Lot</h6>
+                        <small class="text-muted">Marges, IC, mortalité</small>
+                    </div>
+                </div>
+                {% if is_financial %}
+                <a href="{% url 'reporting:rentabilite_lot' %}" class="btn btn-sm btn-info text-white w-100">
+                    <i class="fas fa-chart-bar me-1"></i> Consulter
+                </a>
+                {% else %}
+                <button class="btn btn-sm btn-secondary w-100" disabled>
+                    <i class="fas fa-lock me-1"></i> Accès restreint
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4 col-xl-3">
+        <div class="card report-card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="icon-circle bg-primary bg-opacity-10 text-primary">
+                        <i class="fas fa-industry"></i>
+                    </div>
+                    <div class="ms-3">
+                        <h6 class="mb-0 fw-bold">Tableau de Bord Production</h6>
+                        <small class="text-muted">Oiseaux, poids, coûts</small>
+                    </div>
+                </div>
+                {% if is_financial %}
+                <a href="{% url 'reporting:production_dashboard' %}" class="btn btn-sm btn-primary w-100">
+                    <i class="fas fa-chart-area me-1"></i> Consulter
+                </a>
+                {% else %}
+                <button class="btn btn-sm btn-secondary w-100" disabled>
+                    <i class="fas fa-lock me-1"></i> Accès restreint
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4 col-xl-3">
+        <div class="card report-card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="icon-circle bg-secondary bg-opacity-10 text-secondary">
+                        <i class="fas fa-wheat-awn"></i>
+                    </div>
+                    <div class="ms-3">
+                        <h6 class="mb-0 fw-bold">Consommation par Lot</h6>
+                        <small class="text-muted">Aliment et médicaments</small>
+                    </div>
+                </div>
+                <a href="{% url 'reporting:consommation_lot' %}" class="btn btn-sm btn-secondary w-100">
+                    <i class="fas fa-list me-1"></i> Consulter
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock & Clients Section -->
+    <div class="col-12 mt-2">
+        <div class="d-flex align-items-center mb-3">
+            <div class="section-icon bg-warning bg-opacity-10 rounded-circle p-2 me-2 text-warning">
+                <i class="fas fa-boxes-packing"></i>
+            </div>
+            <h5 class="mb-0 fw-bold text-warning">Stock & Livraisons</h5>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4 col-xl-3">
+        <div class="card report-card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="icon-circle bg-warning bg-opacity-10 text-warning">
+                        <i class="fas fa-boxes-stacked"></i>
+                    </div>
+                    <div class="ms-3">
+                        <h6 class="mb-0 fw-bold">État des Stocks</h6>
+                        <small class="text-muted">Intrants et produits finis</small>
+                    </div>
+                </div>
+                <a href="{% url 'reporting:etat_stocks' %}" class="btn btn-sm btn-warning text-white w-100">
+                    <i class="fas fa-table me-1"></i> Consulter
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4 col-xl-3">
+        <div class="card report-card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="icon-circle bg-primary bg-opacity-10 text-primary">
+                        <i class="fas fa-truck-fast"></i>
+                    </div>
+                    <div class="ms-3">
+                        <h6 class="mb-0 fw-bold">Historique BL Clients</h6>
+                        <small class="text-muted">Bons de livraison client</small>
+                    </div>
+                </div>
+                <a href="{% url 'reporting:historique_bl_clients' %}" class="btn btn-sm btn-primary w-100">
+                    <i class="fas fa-list me-1"></i> Consulter
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+(function() {
+    'use strict';
+
+    // ── AJAX KPI loader ────────────────────────────────────────────
+    function fetchKPIs() {
+        fetch('{% url "reporting:kpi_summary_json" %}', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            },
+            credentials: 'same-origin'
+        })
+        .then(function(response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.json();
+        })
+        .then(function(data) {
+            _updateKPI('kpi-dette-fournisseurs',   data.dette_fournisseurs_totale,   true);
+            _updateKPI('kpi-creances-clients',     data.creances_clients_totale,     true);
+            _updateKPI('kpi-lots-ouverts',         data.nb_lots_ouverts,             false);
+            _updateKPI('kpi-alertes-stock',        data.nb_stocks_en_alerte,         false);
+            _updateKPI('kpi-fact-fourn-retard',    data.nb_factures_fournisseur_retard, false);
+            _updateKPI('kpi-fact-client-retard',   data.nb_factures_client_retard,   false);
+        })
+        .catch(function(err) {
+            console.error('KPI fetch failed:', err);
+            ['kpi-dette-fournisseurs','kpi-creances-clients','kpi-lots-ouverts',
+             'kpi-alertes-stock','kpi-fact-fourn-retard','kpi-fact-client-retard']
+            .forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.textContent = '—';
+            });
+        });
+    }
+
+    function _updateKPI(id, value, isCurrency) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        if (isCurrency) {
+            el.textContent = new Intl.NumberFormat('fr-DZ', {
+                style: 'currency', currency: 'DZD', maximumFractionDigits: 0
+            }).format(value);
+        } else {
+            el.textContent = new Intl.NumberFormat('fr-DZ').format(value);
+        }
+    }
+
+    // Load on DOM ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', fetchKPIs);
+    } else {
+        fetchKPIs();
+    }
+
+    // Refresh every 5 minutes
+    setInterval(fetchKPIs, 300000);
+})();
+</script>
+{% endblock extra_js %}

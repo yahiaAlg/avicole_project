@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Fermer {{ lot.designation }} — Élevage Avicole{% endblock %}
+{% block nav_lots %}active{% endblock %}
+
+{% block page_title %}Fermeture de lot{% endblock %}
+{% block page_sub_text %}{{ lot.designation }} · {{ lot.effectif_vivant|floatformat:0 }} oiseaux vivants{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'elevage:lot_detail' lot.pk %}" class="btn-ghost">
+  <i class="bx bx-arrow-back"></i> Retour au lot
+</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-body">
+
+  <!-- Statistiques récapitulatives -->
+  <div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card" style="border-color:rgba(34,197,94,.3);">
+        <div class="metric-icon ic-green"><i class="bx bxs-heart"></i></div>
+        <div class="metric-label">Poussins initiaux</div>
+        <div class="metric-value">{{ lot.nombre_poussins_initial|floatformat:0 }}</div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card" style="border-color:rgba(34,197,94,.3);">
+        <div class="metric-icon ic-blue"><i class="bx bxs-user-check"></i></div>
+        <div class="metric-label">Effectif final</div>
+        <div class="metric-value">{{ lot.effectif_vivant|floatformat:0 }}</div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card" style="border-color:rgba(220,38,38,.25);">
+        <div class="metric-icon ic-red"><i class="bx bxs-error"></i></div>
+        <div class="metric-label">Mortalité totale</div>
+        <div class="metric-value">{{ total_mortalite|floatformat:0 }}</div>
+        <span class="metric-delta down"><i class="bx bxs-error"></i> {{ taux_mortalite|floatformat:2 }}%</span>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card" style="border-color:rgba(245,158,11,.3);">
+        <div class="metric-icon ic-amber"><i class="bx bxs-droplet"></i></div>
+        <div class="metric-label">Durée d'élevage</div>
+        <div class="metric-value">{{ lot.duree_elevage }}<span style="font-size:18px;color:var(--text-muted);"> j</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Consommations récapitulatives -->
+  <div class="section-card mb-4">
+    <div class="section-card__head">
+      <span class="section-card__title">
+        <i class="bx bxs-calculator" style="color:var(--accent);margin-right:8px;"></i>Récapitulatif des consommations
+      </span>
+    </div>
+    <div class="section-card__body no-pad">
+      <div class="summary-row" style="padding:14px 18px;">
+        <span class="summary-label"><i class="bx bxs-bowl-rice" style="margin-right:6px;color:var(--accent);"></i>Aliment total</span>
+        <span class="summary-value val-money">{{ total_aliment|floatformat:2 }} kg</span>
+      </div>
+      <div class="summary-row" style="padding:14px 18px;border-top:1px solid var(--border);">
+        <span class="summary-label"><i class="bx bxs-droplet-half" style="margin-right:6px;color:#0ea5e9;"></i>Eau totale</span>
+        <span class="summary-value">{{ total_eau|floatformat:2 }} L</span>
+      </div>
+      {% if total_medicaments > 0 %}
+      <div class="summary-row" style="padding:14px 18px;border-top:1px solid var(--border);">
+        <span class="summary-label"><i class="bx bxs-capsule" style="margin-right:6px;color:#f59e0b;"></i>Médicaments</span>
+        <span class="summary-value">{{ total_medicaments|floatformat:2 }}</span>
+      </div>
+      {% endif %}
+      {% if total_vaccins > 0 %}
+      <div class="summary-row" style="padding:14px 18px;border-top:1px solid var(--border);">
+        <span class="summary-label"><i class="bx bxs-injection" style="margin-right:6px;color:#f43f5e;"></i>Vaccins</span>
+        <span class="summary-value">{{ total_vaccins|floatformat:2 }}</span>
+      </div>
+      {% endif %}
+      {% if total_vitamines > 0 %}
+      <div class="summary-row" style="padding:14px 18px;border-top:1px solid var(--border);">
+        <span class="summary-label"><i class="bx bxs-flask" style="margin-right:6px;color:#8b5cf6;"></i>Vitamines</span>
+        <span class="summary-value">{{ total_vitamines|floatformat:2 }}</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Form fermeture -->
+  <div class="row g-3 justify-content-center">
+    <div class="col-xl-6 col-lg-8">
+      <div class="form-card" style="border-color:rgba(220,38,38,.2);">
+        <div class="form-card__header">
+          <div class="form-card__icon ic-red"><i class="bx bxs-lock"></i></div>
+          <div>
+            <div class="form-card__title">Confirmer la fermeture</div>
+            <div class="form-card__sub">Cette action est irréversible. Le lot sera verrouillé.</div>
+          </div>
+        </div>
+
+        <form id="fermeture-form" method="post" action="" novalidate>
+          {% csrf_token %}
+
+          <div class="form-fields" style="margin-bottom:18px;">
+            <!-- Date de fermeture -->
+            <div class="field-group">
+              <label class="field-label" for="{{ fermeture_form.date_fermeture.id_for_label }}">Date de fermeture <span class="req">*</span></label>
+              <div class="input-wrapper">
+                <i class="bx bxs-calendar input-icon"></i>
+                {{ fermeture_form.date_fermeture }}
+              </div>
+              {% for err in fermeture_form.date_fermeture.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
+            <!-- Nombre fermé -->
+            <div class="field-group">
+              <label class="field-label" for="{{ fermeture_form.nb_ferme.id_for_label }}">Nombre fermé <span class="req">*</span></label>
+              <div class="input-wrapper">
+                <i class="bx bxs-user-check input-icon"></i>
+                {{ fermeture_form.nb_ferme }}
+              </div>
+              <div class="field-hint">Effectif réel au moment de la fermeture (défaut : {{ lot.effectif_vivant|floatformat:0 }}).</div>
+              {% for err in fermeture_form.nb_ferme.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
+            <!-- Poids moyen fermeture -->
+            <div class="field-group">
+              <label class="field-label" for="{{ fermeture_form.poids_moyen_fermeture.id_for_label }}">Poids moyen à fermeture</label>
+              <div class="input-wrapper">
+                <i class="bx bxs-weight input-icon"></i>
+                {{ fermeture_form.poids_moyen_fermeture }}
+              </div>
+              <div class="field-hint">En grammes (optionnel).</div>
+              {% for err in fermeture_form.poids_moyen_fermeture.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
+            <!-- Note fermeture -->
+            <div class="field-group">
+              <label class="field-label" for="{{ fermeture_form.note_fermeture.id_for_label }}">Note de fermeture</label>
+              {{ fermeture_form.note_fermeture }}
+              {% for err in fermeture_form.note_fermeture.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <!-- Non-field errors -->
+          {% if fermeture_form.non_field_errors %}
+          <div class="error-banner" style="margin-bottom:14px;">
+            <i class="bx bxs-error-circle"></i>
+            <div>{% for err in fermeture_form.non_field_errors %}<div>{{ err }}</div>{% endfor %}</div>
+          </div>
+          {% endif %}
+
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <a href="{% url 'elevage:lot_detail' lot.pk %}" class="btn-ghost">
+              Annuler
+            </a>
+            <button type="submit" class="btn-primary" style="background:#dc2626;border-color:#dc2626;">
+              <i class="bx bxs-lock"></i> Fermer définitivement
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.justify-content-center { justify-content: center; }
+
+.form-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  animation: fadeIn .3s ease both;
+}
+.form-card__header {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 20px; padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.form-card__icon {
+  width: 40px; height: 40px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.form-card__title {
+  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
+  color: var(--text-primary); margin-bottom: 2px;
+}
+.form-card__sub { font-size: 12px; color: var(--text-muted); }
+
+.form-fields { display: flex; flex-direction: column; gap: 14px; }
+.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .03em; }
+.req { color: #dc2626; }
+
+.input-wrapper { position: relative; }
+.input-wrapper input,
+.input-wrapper select {
+  width: 100%; background: var(--bg-surface);
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  color: var(--text-primary); font-family: 'Inter', sans-serif;
+  font-size: 13.5px; padding: 11px 13px 11px 40px;
+  transition: border-color .15s, box-shadow .15s; -webkit-appearance: none;
+}
+.input-wrapper input:focus,
+.input-wrapper select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none;
+}
+.input-wrapper input::placeholder { color: var(--text-muted); }
+.input-icon {
+  position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+  font-size: 15px; color: var(--text-muted); pointer-events: none;
+  transition: color .15s; z-index: 1;
+}
+.input-wrapper:focus-within .input-icon { color: var(--accent-text); }
+
+textarea {
+  width: 100%; background: var(--bg-surface);
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  color: var(--text-primary); font-family: 'Inter', sans-serif;
+  font-size: 13.5px; padding: 11px 13px;
+  resize: vertical; min-height: 70px;
+  transition: border-color .15s, box-shadow .15s;
+}
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none;
+}
+
+.field-hint { font-size: 11.5px; color: var(--text-muted); line-height: 1.5; }
+.field-error {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; color: #dc2626;
+}
+.field-error i { font-size: 13px; flex-shrink: 0; }
+
+.error-banner {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2);
+  border-radius: var(--radius-md); padding: 12px 16px;
+  font-size: 13px; color: #dc2626;
+}
+.error-banner i { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+.summary-row {
+  display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+.summary-row:last-child { border-bottom: none; }
+.summary-label { font-size: 12.5px; color: var(--text-muted); display:flex;align-items:center; }
+.summary-value {
+  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px;
+  color: var(--text-primary);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* No inline handlers */
+});
+</script>
+{% endblock %}

@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block nav_lots %}active{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}{% if lot %}{{ lot.designation }} · Enregistrement de mortalité{% else %}Sélectionnez un lot ouvert{% endif %}{% endblock %}
+
+{% block topbar_actions %}
+{% if lot %}
+<a href="{% url 'elevage:lot_detail' lot.pk %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> Retour</a>
+{% else %}
+<a href="{% url 'elevage:mortalite_list' %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> Liste</a>
+{% endif %}
+<button type="submit" form="mortalite-form" class="btn-primary"><i class="bx bxs-save"></i> {{ action_label }}</button>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+
+  {% if lot and lot.statut == lot.STATUT_FERME %}
+  <div class="locked-lot-banner">
+    <i class="bx bxs-lock"></i>
+    <span style="font-size:13px;color:var(--text-secondary);">Ce lot est <strong style="color:#b45309;">fermé</strong> — aucune mortalité ne peut y être ajoutée.</span>
+  </div>
+  {% endif %}
+
+  <div class="row g-3 justify-content-center">
+    <div class="col-xl-5 col-lg-7 col-md-8">
+      <div class="form-card">
+        <div class="form-card__header">
+          <div class="form-card__icon ic-red"><i class="bx bxs-heart"></i></div>
+          <div>
+            <div class="form-card__title">Enregistrement de mortalité</div>
+            <div class="form-card__sub">{% if lot %}{{ lot.designation }} · {{ lot.effectif_vivant|floatformat:0 }} vivants{% else %}Choisissez le lot concerné{% endif %}</div>
+          </div>
+        </div>
+
+        <form id="mortalite-form" method="post" action="" novalidate>
+          {% csrf_token %}
+
+          <div class="form-fields">
+            <!-- Lot -->
+            <div class="field-group">
+              <label class="field-label" for="{{ form.lot.id_for_label }}">Lot <span class="req">*</span></label>
+              {% if lot %}
+              <div style="display:flex;align-items:center;gap:10px;background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 13px;">
+                <i class="bx bxs-grid-alt" style="color:var(--text-muted);"></i>
+                <span style="font-family:'Nunito',sans-serif;font-weight:600;font-size:13.5px;">{{ lot.designation }}</span>
+                <span class="pill-base pill-success" style="margin-left:auto;">Ouvert</span>
+              </div>
+              {{ form.lot.as_hidden }}
+              {% else %}
+              <div class="input-wrapper">
+                <i class="bx bxs-grid-alt input-icon"></i>
+                {{ form.lot }}
+              </div>
+              {% endif %}
+              {% for err in form.lot.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
+            <!-- Date -->
+            <div class="field-group">
+              <label class="field-label" for="{{ form.date.id_for_label }}">Date <span class="req">*</span></label>
+              <div class="input-wrapper">
+                <i class="bx bxs-calendar input-icon"></i>
+                {{ form.date }}
+              </div>
+              {% for err in form.date.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
+            <!-- Nombre -->
+            <div class="field-group">
+              <label class="field-label" for="{{ form.nombre.id_for_label }}">Nombre de morts <span class="req">*</span></label>
+              <div class="input-wrapper">
+                <i class="bx bxs-heart input-icon"></i>
+                {{ form.nombre }}
+              </div>
+              {% for err in form.nombre.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
+            <!-- Cause -->
+            <div class="field-group">
+              <label class="field-label" for="{{ form.cause.id_for_label }}">Cause</label>
+              <div class="input-wrapper">
+                <i class="bx bxs-help-circle input-icon"></i>
+                {{ form.cause }}
+              </div>
+              {% for err in form.cause.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
+            <!-- Note -->
+            <div class="field-group">
+              <label class="field-label" for="{{ form.note.id_for_label }}">Note</label>
+              {{ form.note }}
+              {% for err in form.note.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+          </div>
+
+          {% if form.non_field_errors %}
+          <div class="error-banner" style="margin-top:14px;">
+            <i class="bx bxs-error-circle"></i>
+            <div>{% for err in form.non_field_errors %}<div>{{ err }}</div>{% endfor %}</div>
+          </div>
+          {% endif %}
+
+          <div class="form-actions" style="margin-top:18px;">
+            <a href="{% if lot %}{% url 'elevage:lot_detail' lot.pk %}{% else %}{% url 'elevage:mortalite_list' %}{% endif %}" class="btn-ghost">
+              Annuler
+            </a>
+            <button type="submit" class="btn-primary" style="background:#dc2626;border-color:#dc2626;">
+              <i class="bx bxs-save"></i> {{ action_label }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.justify-content-center { justify-content: center; }
+
+.form-card {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 22px 24px;
+  animation: fadeIn .3s ease both;
+}
+.form-card__header {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 20px; padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.form-card__icon {
+  width: 40px; height: 40px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.form-card__title {
+  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
+  color: var(--text-primary); margin-bottom: 2px;
+}
+.form-card__sub { font-size: 12px; color: var(--text-muted); }
+
+.form-fields { display: flex; flex-direction: column; gap: 14px; }
+.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .03em; }
+.req { color: #dc2626; }
+
+.input-wrapper { position: relative; }
+.input-wrapper input,
+.input-wrapper select {
+  width: 100%; background: var(--bg-surface);
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  color: var(--text-primary); font-family: 'Inter', sans-serif;
+  font-size: 13.5px; padding: 11px 13px 11px 40px;
+  transition: border-color .15s, box-shadow .15s; -webkit-appearance: none;
+}
+.input-wrapper input:focus,
+.input-wrapper select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none;
+}
+.input-wrapper input::placeholder { color: var(--text-muted); }
+.input-icon {
+  position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+  font-size: 15px; color: var(--text-muted); pointer-events: none;
+  transition: color .15s; z-index: 1;
+}
+.input-wrapper:focus-within .input-icon { color: var(--accent-text); }
+
+textarea {
+  width: 100%; background: var(--bg-surface);
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  color: var(--text-primary); font-family: 'Inter', sans-serif;
+  font-size: 13.5px; padding: 11px 13px;
+  resize: vertical; min-height: 70px;
+  transition: border-color .15s, box-shadow .15s;
+}
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none;
+}
+
+.field-error {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; color: #dc2626;
+}
+.field-error i { font-size: 13px; flex-shrink: 0; }
+
+.error-banner {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2);
+  border-radius: var(--radius-md); padding: 12px 16px;
+  font-size: 13px; color: #dc2626;
+}
+.error-banner i { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+.form-actions {
+  display: flex; justify-content: flex-end; gap: 10px;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* No inline handlers */
+});
+</script>
+{% endblock %}

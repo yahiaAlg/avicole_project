@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% load reporting_extras %}
+{% load static i18n %}
+
+{% block title %}{{ title }} — {{ company.nom|default:"AviTrack" }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h6 class="mb-0 fw-bold"><i class="fas fa-filter me-2 text-primary"></i>Filtres</h6>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end" id="filter-form">
+            <div class="col-md-6 col-lg-4">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" name="q" class="form-control" placeholder="Rechercher un fournisseur..." value="{{ q|default:'' }}">
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-8 text-md-end">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-filter me-1"></i> Filtrer</button>
+                <a href="{{ request.path }}" class="btn btn-outline-secondary"><i class="fas fa-rotate-left"></i></a>
+                <a href="{{ request.path }}?{% if q %}q={{ q|urlencode }}&{% endif %}export=csv" class="btn btn-success"><i class="fas fa-file-csv"></i></a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Grand Total -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card border-start border-4 border-danger">
+            <div class="card-body d-flex justify-content-between">
+                <div>
+                    <div class="text-muted small text-uppercase">Dette Globale</div>
+                    <div class="h5 fw-bold mb-0 text-danger">{{ grand_total_dette|floatformat:2 }} DZD</div>
+                </div>
+                <div class="text-danger fs-3"><i class="fas fa-file-invoice-dollar"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-start border-4 border-warning">
+            <div class="card-body d-flex justify-content-between">
+                <div>
+                    <div class="text-muted small text-uppercase">Fournisseurs Débiteurs</div>
+                    <div class="h5 fw-bold mb-0">{{ rows|length }}</div>
+                </div>
+                <div class="text-warning fs-3"><i class="fas fa-users"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-start border-4 border-info">
+            <div class="card-body d-flex justify-content-between">
+                <div>
+                    <div class="text-muted small text-uppercase">Date de référence</div>
+                    <div class="h5 fw-bold mb-0">{{ today|date:"d/m/Y" }}</div>
+                </div>
+                <div class="text-info fs-3"><i class="fas fa-calendar-day"></i></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h6 class="mb-0 fw-bold"><i class="fas fa-chart-bar me-2 text-primary"></i>Dettes par Fournisseur</h6>
+    </div>
+    <div class="card-body">
+        <div style="height: 320px;"><canvas id="dettesChart"></canvas></div>
+    </div>
+</div>
+
+<!-- Data Table -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h6 class="mb-0 fw-bold"><i class="fas fa-table me-2 text-primary"></i>Situation Détaillée</h6>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0 align-middle" id="data-table">
+                <thead class="table-light">
+                    <tr>
+                        <th class="cursor-pointer" onclick="sortTable(0)">Fournisseur <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(1)">Dette <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(2)">Factures <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="cursor-pointer" onclick="sortTable(3)">Ancienne facture <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="cursor-pointer" onclick="sortTable(4)">Prochaine échéance <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(5)">Retard <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="cursor-pointer" onclick="sortTable(6)">Dernier règlement <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(7)">Jours sans règlement <i class="fas fa-sort text-muted small"></i></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rows %}
+                    <tr>
+                        <td class="fw-bold">{{ r.fournisseur.nom }}</td>
+                        <td class="text-end fw-bold text-danger">{{ r.dette_globale|floatformat:2 }}</td>
+                        <td class="text-end">{{ r.nb_factures_ouvertes }}</td>
+                        <td>{{ r.date_facture_plus_ancienne|date:"d/m/Y"|default:"—" }}</td>
+                        <td>
+                            {% if r.prochaine_echeance %}
+                                {% if r.prochaine_echeance < today %}<span class="badge bg-danger">{{ r.prochaine_echeance|date:"d/m/Y" }}</span>
+                                {% else %}<span class="badge bg-success">{{ r.prochaine_echeance|date:"d/m/Y" }}</span>{% endif %}
+                            {% else %}<span class="text-muted">—</span>{% endif %}
+                        </td>
+                        <td class="text-end">{% if r.nb_retard > 0 %}<span class="badge bg-danger">{{ r.nb_retard }}</span>{% else %}<span class="text-muted">0</span>{% endif %}</td>
+                        <td>{{ r.last_reglement|date:"d/m/Y"|default:"—" }}</td>
+                        <td class="text-end">
+                            {% if r.jours_sans_reglement is not None %}
+                                {% if r.jours_sans_reglement > 60 %}<span class="text-danger fw-bold">{{ r.jours_sans_reglement }}</span>
+                                {% elif r.jours_sans_reglement > 30 %}<span class="text-warning fw-bold">{{ r.jours_sans_reglement }}</span>
+                                {% else %}<span class="text-success">{{ r.jours_sans_reglement }}</span>{% endif %}
+                            {% else %}<span class="text-muted">—</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="text-center py-4 text-muted"><i class="fas fa-circle-check fa-2x mb-2 text-success"></i><br>Aucune dette en cours. Excellent !</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+(function() {
+    'use strict';
+
+    var chartLabels = [];
+    var chartData = [];
+    {% for r in rows %}
+    chartLabels.push("{{ r.fournisseur.nom|escapejs }}");
+    chartData.push({{ r.dette_globale|default:0 }});
+    {% endfor %}
+
+    var ctx = document.getElementById('dettesChart');
+    if (ctx && chartLabels.length > 0) {
+        new Chart(ctx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: chartLabels,
+                datasets: [{
+                    label: 'Dette (DZD)',
+                    data: chartData,
+                    backgroundColor: 'rgba(220, 53, 69, 0.7)',
+                    borderColor: '#dc3545',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    } else if (ctx) {
+        ctx.parentNode.innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-circle-check fa-2x mb-2 text-success"></i><br>Aucune dette à afficher</div>';
+    }
+
+    window.sortTable = function(n) {
+        var table = document.getElementById('data-table');
+        if (!table) return;
+        var tbody = table.querySelector('tbody');
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+        var asc = table.getAttribute('data-sort-col') != n || table.getAttribute('data-sort-dir') === 'desc';
+        table.setAttribute('data-sort-col', n);
+        table.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
+        rows.sort(function(a, b) {
+            var x = a.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
+            var y = b.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
+            var xn = parseFloat(x), yn = parseFloat(y);
+            if (!isNaN(xn) && !isNaN(yn)) return asc ? xn - yn : yn - xn;
+            return asc ? x.localeCompare(y) : y.localeCompare(x);
+        });
+        rows.forEach(function(r) { tbody.appendChild(r); });
+    };
+})();
+</script>
+{% endblock extra_js %}

@@ -1,0 +1,223 @@
+
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block nav_production %}active{% endblock %}
+
+{% block page_title %}Production #{{ record.pk }}{% endblock %}
+{% block page_sub_text %}{{ record.date_production|date:"d/m/Y" }} — {{ record.lot.designation }} · {{ record.get_statut_display }}{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'production:production_record_list' %}" class="btn-ghost">
+  <i class="bx bx-arrow-back"></i> Retour
+</a>
+{% if record.statut == 'brouillon' and not request.user.profile.role == 'viewer' %}
+<a href="{% url 'production:production_record_edit' record.pk %}" class="btn-primary">
+  <i class="bx bxs-pencil"></i> Modifier
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- KPI cards -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-green"><i class="bx bxs-home"></i></div>
+      <div class="metric-label">Lot</div>
+      <div class="metric-value sm">{{ record.lot.designation }}</div>
+      <span class="metric-delta neutral">{{ record.lot.get_type_lot_display }}</span>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-amber"><i class="bx bxs-face"></i></div>
+      <div class="metric-label">Oiseaux abattus</div>
+      <div class="metric-value sm">{{ record.nombre_oiseaux_abattus|floatformat:0 }}</div>
+      <span class="metric-delta neutral">unités</span>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-blue"><i class="bx bx-scale"></i></div>
+      <div class="metric-label">Poids total</div>
+      <div class="metric-value sm">{{ record.poids_total_kg|floatformat:3 }} kg</div>
+      <span class="metric-delta neutral">abattage</span>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-purple"><i class="bx bxs-coin"></i></div>
+      <div class="metric-label">Valeur totale</div>
+      <div class="metric-value sm">{{ valeur_totale_production|floatformat:0 }} DZD</div>
+      <span class="metric-delta {% if rendement > 0 %}positive{% else %}neutral{% endif %}">Rendement {{ rendement|floatformat:1 }}%</span>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Production lines -->
+  <div class="col-xl-7">
+    <div class="section-card h-100">
+      <div class="section-card__head">
+        <span class="section-card__title"><i class="bx bxs-cube-alt" style="color:var(--accent);margin-right:8px;"></i>Produits générés</span>
+      </div>
+      <div class="section-card__body no-pad">
+        <table class="table-base">
+          <thead>
+            <tr>
+              <th>Produit</th>
+              <th>Type</th>
+              <th style="text-align:right;">Quantité</th>
+              <th style="text-align:right;">Coût unit.</th>
+              <th style="text-align:right;">Valeur</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ligne in lignes %}
+            <tr class="stagger-row">
+              <td>
+                <a href="{% url 'production:produit_fini_detail' ligne.produit_fini.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;">
+                  {{ ligne.produit_fini.designation }}
+                </a>
+              </td>
+              <td>
+                <span class="pill-base pill-info">{{ ligne.produit_fini.get_type_produit_display }}</span>
+              </td>
+              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
+                {{ ligne.quantite|floatformat:2 }} {{ ligne.produit_fini.get_unite_mesure_display }}
+              </td>
+              <td style="text-align:right;color:var(--text-muted);">
+                {{ ligne.cout_unitaire|floatformat:2 }} DZD
+              </td>
+              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
+                {{ ligne.valeur_production|floatformat:2 }} DZD
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Side info -->
+  <div class="col-xl-5">
+    <div class="section-card mb-3">
+      <div class="section-card__head">
+        <span class="section-card__title"><i class="bx bx-info-circle" style="color:var(--accent);margin-right:8px;"></i>Informations</span>
+      </div>
+      <div class="section-card__body">
+        <dl class="data-list">
+          <div class="data-list__row">
+            <dt>Date de production</dt>
+            <dd>{{ record.date_production|date:"d/m/Y" }}</dd>
+          </div>
+          <div class="data-list__row">
+            <dt>Statut</dt>
+            <dd>
+              {% if record.statut == 'brouillon' %}
+              <span class="pill-base pill-warning"><i class="bx bxs-edit-alt"></i> Brouillon</span>
+              {% else %}
+              <span class="pill-base pill-success"><i class="bx bxs-check-circle"></i> Validé</span>
+              {% endif %}
+            </dd>
+          </div>
+          <div class="data-list__row">
+            <dt>Créé par</dt>
+            <dd>{{ record.created_by.get_full_name|default:record.created_by.username }}</dd>
+          </div>
+          <div class="data-list__row">
+            <dt>Créé le</dt>
+            <dd>{{ record.created_at|date:"d/m/Y H:i" }}</dd>
+          </div>
+          {% if record.validated_by %}
+          <div class="data-list__row">
+            <dt>Validé par</dt>
+            <dd>{{ record.validated_by.get_full_name|default:record.validated_by.username }}</dd>
+          </div>
+          <div class="data-list__row">
+            <dt>Validé le</dt>
+            <dd>{{ record.validated_at|date:"d/m/Y H:i" }}</dd>
+          </div>
+          {% endif %}
+          {% if record.notes %}
+          <div class="data-list__row">
+            <dt>Notes</dt>
+            <dd style="white-space:pre-wrap;">{{ record.notes }}</dd>
+          </div>
+          {% endif %}
+        </dl>
+      </div>
+    </div>
+
+    <!-- Stock movements -->
+    {% if record.statut == 'valide' and mouvements %}
+    <div class="section-card">
+      <div class="section-card__head">
+        <span class="section-card__title"><i class="bx bxs-archive" style="color:var(--accent);margin-right:8px;"></i>Mouvements de stock</span>
+      </div>
+      <div class="section-card__body no-pad">
+        <table class="table-base">
+          <thead>
+            <tr>
+              <th>Produit</th>
+              <th style="text-align:right;">Qté</th>
+              <th style="text-align:right;">Stock après</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in mouvements %}
+            <tr class="stagger-row">
+              <td>{{ m.produit_fini.designation }}</td>
+              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
+                +{{ m.quantite|floatformat:2 }}
+              </td>
+              <td style="text-align:right;color:var(--text-muted);">
+                {{ m.quantite_apres|floatformat:2 }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.data-list { display: flex; flex-direction: column; gap: 6px; }
+.data-list__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.data-list__row:last-child { border-bottom: 0; }
+.data-list dt {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 400;
+  min-width: 110px;
+}
+.data-list dd {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-align: right;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+});
+</script>
+{% endblock %}

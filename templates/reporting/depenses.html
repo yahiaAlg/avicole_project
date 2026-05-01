@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% load reporting_extras %}
+{% load static i18n %}
+
+{% block title %}{{ title }} — {{ company.nom|default:"AviTrack" }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h6 class="mb-0 fw-bold"><i class="fas fa-filter me-2 text-primary"></i>Filtres</h6>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end" id="filter-form">
+            <div class="col-md-3 col-lg-2">
+                <label for="date_debut" class="form-label small text-muted">Date début</label>
+                <input type="date" name="date_debut" id="date_debut" class="form-control" value="{{ date_debut|date:'Y-m-d'|default:'' }}">
+            </div>
+            <div class="col-md-3 col-lg-2">
+                <label for="date_fin" class="form-label small text-muted">Date fin</label>
+                <input type="date" name="date_fin" id="date_fin" class="form-control" value="{{ date_fin|date:'Y-m-d'|default:'' }}">
+            </div>
+            <div class="col-md-3 col-lg-2">
+                <label for="categorie" class="form-label small text-muted">Catégorie</label>
+                <select name="categorie" id="categorie" class="form-select">
+                    <option value="">— Toutes —</option>
+                    {% for c in categories %}
+                    <option value="{{ c.pk }}" {% if categorie_pk == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.libelle }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 col-lg-2">
+                <label for="lot" class="form-label small text-muted">Lot</label>
+                <select name="lot" id="lot" class="form-select">
+                    <option value="">— Tous —</option>
+                    {% for l in lots %}
+                    <option value="{{ l.pk }}" {% if lot_pk == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.designation }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-12 col-lg-4 text-lg-end">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-filter me-1"></i> Filtrer</button>
+                <a href="{{ request.path }}" class="btn btn-outline-secondary"><i class="fas fa-rotate-left"></i></a>
+                <a href="{{ request.path }}?{% if date_debut %}date_debut={{ date_debut|date:'Y-m-d' }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:'Y-m-d' }}&{% endif %}{% if categorie_pk %}categorie={{ categorie_pk }}&{% endif %}{% if lot_pk %}lot={{ lot_pk }}&{% endif %}export=csv" class="btn btn-success"><i class="fas fa-file-csv"></i></a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-start border-4 border-danger">
+            <div class="card-body d-flex justify-content-between">
+                <div>
+                    <div class="text-muted small text-uppercase">Total Dépenses</div>
+                    <div class="h5 fw-bold mb-0">{{ summary.total|floatformat:2 }} DZD</div>
+                </div>
+                <div class="text-danger fs-3"><i class="fas fa-money-bill-wave"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-start border-4 border-info">
+            <div class="card-body d-flex justify-content-between">
+                <div>
+                    <div class="text-muted small text-uppercase">Nombre</div>
+                    <div class="h5 fw-bold mb-0">{{ summary.nb_depenses|default:0 }}</div>
+                </div>
+                <div class="text-info fs-3"><i class="fas fa-receipt"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-start border-4 border-primary">
+            <div class="card-body d-flex justify-content-between">
+                <div>
+                    <div class="text-muted small text-uppercase">Moyenne / Jour</div>
+                    <div class="h5 fw-bold mb-0">{{ summary.moyenne_par_jour|default:"—"|floatformat:2 }} DZD</div>
+                </div>
+                <div class="text-primary fs-3"><i class="fas fa-calculator"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-start border-4 border-warning">
+            <div class="card-body d-flex justify-content-between">
+                <div>
+                    <div class="text-muted small text-uppercase">Max Dépense</div>
+                    <div class="h5 fw-bold mb-0">{% if summary.max_depense %}{{ summary.max_depense.montant|floatformat:2 }} DZD{% else %}—{% endif %}</div>
+                </div>
+                <div class="text-warning fs-3"><i class="fas fa-arrow-trend-up"></i></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header bg-light">
+                <h6 class="mb-0 fw-bold"><i class="fas fa-chart-pie me-2 text-primary"></i>Par Catégorie</h6>
+            </div>
+            <div class="card-body">
+                <div style="height: 260px;"><canvas id="categorieChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header bg-light">
+                <h6 class="mb-0 fw-bold"><i class="fas fa-chart-pie me-2 text-success"></i>Par Mode de Paiement</h6>
+            </div>
+            <div class="card-body">
+                <div style="height: 260px;"><canvas id="modeChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detail Table -->
+<div class="card mb-4">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h6 class="mb-0 fw-bold"><i class="fas fa-table me-2 text-primary"></i>Détail des Dépenses</h6>
+        <div class="small text-muted">{{ page.paginator.count|default:0 }} enregistrement(s)</div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0 align-middle" id="data-table">
+                <thead class="table-light">
+                    <tr>
+                        <th class="cursor-pointer" onclick="sortTable(0)">Date <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="cursor-pointer" onclick="sortTable(1)">Catégorie <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="cursor-pointer" onclick="sortTable(2)">Description <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="text-end cursor-pointer" onclick="sortTable(3)">Montant <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="cursor-pointer" onclick="sortTable(4)">Mode <i class="fas fa-sort text-muted small"></i></th>
+                        <th class="cursor-pointer" onclick="sortTable(5)">Lot <i class="fas fa-sort text-muted small"></i></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in page.object_list %}
+                    <tr>
+                        <td>{{ d.date|date:"d/m/Y" }}</td>
+                        <td><span class="badge bg-info">{{ d.categorie.libelle }}</span></td>
+                        <td>{{ d.description|truncatechars:60 }}</td>
+                        <td class="text-end fw-bold">{{ d.montant|floatformat:2 }}</td>
+                        <td><span class="badge bg-secondary">{{ d.get_mode_paiement_display }}</span></td>
+                        <td>{% if d.lot %}<a href="{% url 'reporting:consommation_lot_detail' d.lot.pk %}" class="text-decoration-none">{{ d.lot.designation }}</a>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center py-4 text-muted"><i class="fas fa-circle-info fa-2x mb-2 text-info"></i><br>Aucune dépense trouvée.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if page.has_other_pages %}
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <small class="text-muted">Page {{ page.number }} / {{ page.paginator.num_pages }}</small>
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% if page.has_previous %}
+                <li class="page-item"><a class="page-link" href="?{% param_replace page=1 %}"><i class="fas fa-angles-left"></i></a></li>
+                <li class="page-item"><a class="page-link" href="?{% param_replace page=page.previous_page_number %}"><i class="fas fa-angle-left"></i></a></li>
+                {% endif %}
+                <li class="page-item active"><span class="page-link">{{ page.number }}</span></li>
+                {% if page.has_next %}
+                <li class="page-item"><a class="page-link" href="?{% param_replace page=page.next_page_number %}"><i class="fas fa-angle-right"></i></a></li>
+                <li class="page-item"><a class="page-link" href="?{% param_replace page=page.paginator.num_pages %}"><i class="fas fa-angles-right"></i></a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+(function() {
+    'use strict';
+
+    var catLabels = [], catData = [];
+    {% for c in summary.par_categorie %}
+    catLabels.push("{{ c.categorie.libelle|escapejs }}");
+    catData.push({{ c.total|default:0 }});
+    {% endfor %}
+
+    var modeLabels = [], modeData = [];
+    {% for m in summary.par_mode_paiement %}
+    modeLabels.push("{{ m.label|escapejs }}");
+    modeData.push({{ m.total|default:0 }});
+    {% endfor %}
+
+    if (catLabels.length > 0) {
+        new Chart(document.getElementById('categorieChart').getContext('2d'), {
+            type: 'doughnut',
+            data: { labels: catLabels, datasets: [{ data: catData, backgroundColor: ['#0d6efd','#198754','#ffc107','#dc3545','#6f42c1','#0dcaf0','#fd7e14','#20c997'] }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+        });
+    } else { document.getElementById('categorieChart').parentNode.innerHTML = '<div class="text-center text-muted py-5">Aucune donnée</div>'; }
+
+    if (modeLabels.length > 0) {
+        new Chart(document.getElementById('modeChart').getContext('2d'), {
+            type: 'pie',
+            data: { labels: modeLabels, datasets: [{ data: modeData, backgroundColor: ['#198754','#0d6efd','#ffc107','#dc3545','#6f42c1','#0dcaf0'] }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+        });
+    } else { document.getElementById('modeChart').parentNode.innerHTML = '<div class="text-center text-muted py-5">Aucune donnée</div>'; }
+
+    window.sortTable = function(n) {
+        var table = document.getElementById('data-table');
+        if (!table) return;
+        var tbody = table.querySelector('tbody');
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+        var asc = table.getAttribute('data-sort-col') != n || table.getAttribute('data-sort-dir') === 'desc';
+        table.setAttribute('data-sort-col', n);
+        table.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
+        rows.sort(function(a, b) {
+            var x = a.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
+            var y = b.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
+            var xn = parseFloat(x), yn = parseFloat(y);
+            if (!isNaN(xn) && !isNaN(yn)) return asc ? xn - yn : yn - xn;
+            return asc ? x.localeCompare(y) : y.localeCompare(x);
+        });
+        rows.forEach(function(r) { tbody.appendChild(r); });
+    };
+})();
+</script>
+{% endblock extra_js %}

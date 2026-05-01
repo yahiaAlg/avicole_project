@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Règlements Fournisseurs — Élevage Avicole{% endblock %}
+{% block nav_reglements_fournisseurs %}active{% endblock %}
+
+{% block page_title %}Règlements Fournisseurs{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} règlement{{ page.paginator.count|pluralize }} enregistré{{ page.paginator.count|pluralize }}{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'achats:reglement_fournisseur_create' %}" class="btn-primary">
+    <i class="bx bx-plus"></i> Nouveau règlement
+  </a>
+{% endblock %}
+
+{% block content %}
+
+<!-- Filter bar -->
+<div class="filter-bar">
+  <div class="input-wrapper" style="flex:1;max-width:280px;">
+    <i class="bx bx-search input-icon"></i>
+    <input type="text" name="q" form="filter-form" value="{{ q }}" placeholder="Référence, fournisseur, banque..." class="field-input has-icon">
+  </div>
+
+  <select name="fournisseur" form="filter-form" class="field-input" onchange="document.getElementById('filter-form').submit();">
+    <option value="">Tous les fournisseurs</option>
+    {% for f in fournisseurs %}
+    <option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.nom }}</option>
+    {% endfor %}
+  </select>
+
+  <select name="mode" form="filter-form" class="field-input" onchange="document.getElementById('filter-form').submit();">
+    <option value="">Tous les modes</option>
+    {% for val, label in mode_choices %}
+    <option value="{{ val }}" {% if mode == val %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+
+  <div class="input-wrapper" style="max-width:150px;">
+    <input type="date" name="date_debut" form="filter-form" value="{{ date_debut }}" class="field-input" title="Date début" onchange="document.getElementById('filter-form').submit();">
+  </div>
+  <div class="input-wrapper" style="max-width:150px;">
+    <input type="date" name="date_fin" form="filter-form" value="{{ date_fin }}" class="field-input" title="Date fin" onchange="document.getElementById('filter-form').submit();">
+  </div>
+
+  {% if q or fournisseur_pk or mode or date_debut or date_fin %}
+  <a href="{% url 'achats:reglement_fournisseur_list' %}" class="btn-ghost btn-sm">
+    <i class="bx bx-x"></i> Réinitialiser
+  </a>
+  {% endif %}
+
+  <form id="filter-form" method="get" style="display:none;"></form>
+</div>
+
+<!-- Reglement table -->
+<div class="section-card">
+  <div class="section-card__body no-pad">
+    {% if page.object_list %}
+    <div class="table-wrap">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Fournisseur</th>
+            <th>Mode de paiement</th>
+            <th style="text-align:right;">Montant</th>
+            <th style="text-align:right;">Réconcilié</th>
+            <th>Statut</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for reg in page.object_list %}
+          <tr class="stagger-row">
+            <td style="color:var(--text-muted);white-space:nowrap;">{{ reg.date_reglement|date:"d/m/Y" }}</td>
+            <td>
+              <a href="{% url 'achats:fournisseur_tableau_de_bord' reg.fournisseur.pk %}" style="color:var(--text-secondary);">
+                {{ reg.fournisseur.nom }}
+              </a>
+            </td>
+            <td>
+              <span class="pill-base pill-neutral">{{ reg.get_mode_paiement_display }}</span>
+            </td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;white-space:nowrap;">
+              {{ reg.montant|floatformat:0 }} DZD
+            </td>
+            <td style="text-align:right;color:var(--text-muted);white-space:nowrap;">
+              {{ reg.montant_reconcilie|floatformat:0 }} DZD
+            </td>
+            <td>
+              {% if reg.is_reconcilie %}
+              <span class="pill-base pill-success">Réconcilié</span>
+              {% else %}
+              <span class="pill-base pill-warning">Partiel</span>
+              {% endif %}
+            </td>
+            <td>
+              <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;">
+                <a href="{% url 'achats:reglement_fournisseur_detail' reg.pk %}" class="action-btn" title="Détail">
+                  <i class="bx bx-show"></i>
+                </a>
+                <form method="post" action="{% url 'achats:reglement_fournisseur_delete' reg.pk %}" style="display:inline;" onsubmit="return confirm('Supprimer ce règlement ?');">
+                  {% csrf_token %}
+                  <button type="submit" class="action-btn" title="Supprimer" {% if reg.is_reconcilie %}disabled style="opacity:0.3;cursor:not-allowed;"{% endif %}>
+                    <i class="bx bxs-trash"></i>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page.has_other_pages %}
+    <div class="pagination-bar">
+      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
+      <div class="page-links">
+        {% if page.has_previous %}
+        <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}{% if mode %}&mode={{ mode }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-left"></i></span>
+        {% endif %}
+
+        {% for num in page.paginator.page_range %}
+          {% if num == page.number %}
+          <span class="page-link active">{{ num }}</span>
+          {% elif num > page.number|add:-3 and num < page.number|add:3 %}
+          <a href="?page={{ num }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}{% if mode %}&mode={{ mode }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="page-link">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
+
+        {% if page.has_next %}
+        <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}{% if mode %}&mode={{ mode }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="page-link"><i class="bx bx-chevron-right"></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-right"></i></span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bxs-coin empty-state__icon"></i>
+      <div class="empty-state__title">Aucun règlement trouvé</div>
+      <div class="empty-state__text">
+        {% if q or fournisseur_pk or mode or date_debut or date_fin %}
+        Aucun résultat pour les filtres sélectionnés.
+        {% else %}
+        Enregistrez votre premier règlement fournisseur.
+        {% endif %}
+      </div>
+      <a href="{% url 'achats:reglement_fournisseur_create' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
+        <i class="bx bx-plus"></i> Nouveau règlement
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.table-wrap { overflow-x: auto; }
+</style>
+{% endblock %}
+
+{% block extra_js %}{% endblock %}

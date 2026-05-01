@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block nav_reglements_fournisseurs %}active{% endblock %}
+
+{% block page_title %}Règlement{% endblock %}
+{% block page_sub_text %}{{ reglement.fournisseur.nom }} — {{ reglement.date_reglement|date:"d/m/Y" }}{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'achats:reglement_fournisseur_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Retour
+  </a>
+{% endblock %}
+
+{% block content %}
+
+<div class="detail-layout">
+
+  <!-- Left column -->
+  <div class="detail-main">
+
+    <!-- Status banner -->
+    <div class="status-banner" style="margin-bottom:18px;">
+      {% if reglement.is_reconcilie %}
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius-md);">
+        <i class="bx bxs-check-circle" style="color:#15803d;font-size:16px;"></i>
+        <span style="font-size:13px;color:var(--text-secondary);">
+          <strong style="color:#15803d;">Réconcilié</strong> — Le montant est entièrement alloué aux factures.
+        </span>
+      </div>
+      {% else %}
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-md);">
+        <i class="bx bxs-hourglass" style="color:#b45309;font-size:16px;"></i>
+        <span style="font-size:13px;color:var(--text-secondary);">
+          <strong style="color:#b45309;">Allocation partielle</strong> — {{ reglement.montant_reconcilie|floatformat:0 }} DZD sur {{ reglement.montant|floatformat:0 }} DZD alloués.
+        </span>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Header info -->
+    <div class="section-card" style="margin-bottom:18px;">
+      <div class="section-card__head">
+        <span class="section-card__title">Informations du règlement</span>
+        <span class="pill-base pill-neutral">{{ reglement.get_mode_paiement_display }}</span>
+      </div>
+      <div class="section-card__body">
+        <div class="detail-grid">
+          <div>
+            <div class="detail-label">Fournisseur</div>
+            <div class="detail-value">
+              <a href="{% url 'achats:fournisseur_tableau_de_bord' reglement.fournisseur.pk %}" style="color:var(--accent-text);">{{ reglement.fournisseur.nom }}</a>
+            </div>
+          </div>
+          <div>
+            <div class="detail-label">Date du règlement</div>
+            <div class="detail-value">{{ reglement.date_reglement|date:"d/m/Y" }}</div>
+          </div>
+          <div>
+            <div class="detail-label">Montant</div>
+            <div class="detail-value val-money" style="font-size:16px;">{{ reglement.montant|floatformat:0 }} DZD</div>
+          </div>
+          <div>
+            <div class="detail-label">Montant réconcilié</div>
+            <div class="detail-value" style="color:#15803d;font-weight:700;">{{ reglement.montant_reconcilie|floatformat:0 }} DZD</div>
+          </div>
+          <div>
+            <div class="detail-label">Mode de paiement</div>
+            <div class="detail-value">{{ reglement.get_mode_paiement_display }}</div>
+          </div>
+          <div>
+            <div class="detail-label">Référence</div>
+            <div class="detail-value">{{ reglement.reference_paiement|default:"—" }}</div>
+          </div>
+          {% if reglement.banque %}
+          <div>
+            <div class="detail-label">Banque</div>
+            <div class="detail-value">{{ reglement.banque }}</div>
+          </div>
+          {% endif %}
+          {% if reglement.numero_cheque %}
+          <div>
+            <div class="detail-label">Numéro de chèque</div>
+            <div class="detail-value">{{ reglement.numero_cheque }}</div>
+          </div>
+          {% endif %}
+          <div>
+            <div class="detail-label">Créé par</div>
+            <div class="detail-value">{{ reglement.created_by.get_full_name|default:reglement.created_by.username|default:"—" }}</div>
+          </div>
+          <div>
+            <div class="detail-label">Date de création</div>
+            <div class="detail-value">{{ reglement.created_at|date:"d/m/Y H:i" }}</div>
+          </div>
+        </div>
+        {% if reglement.notes %}
+        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+          <div class="detail-label">Notes</div>
+          <div style="font-size:13px;color:var(--text-secondary);white-space:pre-wrap;">{{ reglement.notes }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Allocations detail -->
+    <div class="section-card" style="margin-bottom:18px;">
+      <div class="section-card__head">
+        <span class="section-card__title"><i class="bx bxs-file-txt" style="color:var(--accent);margin-right:8px;"></i>Allocations aux factures</span>
+      </div>
+      <div class="section-card__body no-pad">
+        {% if allocations %}
+        <div class="table-wrap">
+          <table class="table-base">
+            <thead>
+              <tr>
+                <th>Facture</th>
+                <th>Date</th>
+                <th style="text-align:right;">Montant total</th>
+                <th style="text-align:right;">Reste avant</th>
+                <th style="text-align:right;">Alloué</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for alloc in allocations %}
+              <tr class="stagger-row">
+                <td>
+                  <a href="{% url 'achats:facture_fournisseur_detail' alloc.facture.pk %}" class="text-mono" style="color:var(--text-primary);font-weight:600;">
+                    {{ alloc.facture.reference }}
+                  </a>
+                </td>
+                <td style="color:var(--text-muted);white-space:nowrap;">{{ alloc.facture.date_facture|date:"d/m/Y" }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:600;white-space:nowrap;">
+                  {{ alloc.facture.montant_total|floatformat:0 }} DZD
+                </td>
+                <td style="text-align:right;color:var(--text-muted);white-space:nowrap;">
+                  {{ alloc.reste_avant|floatformat:0 }} DZD
+                </td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;white-space:nowrap;">
+                  {{ alloc.montant_alloue|floatformat:2 }} DZD
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div style="padding:24px 20px;text-align:center;color:var(--text-muted);font-size:13px;">
+          <i class="bx bxs-file-txt" style="display:block;font-size:24px;margin-bottom:8px;color:var(--border-strong);"></i>
+          Aucune allocation. Le montant a été enregistré comme acompte.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Danger zone -->
+    {% if not reglement.is_reconcilie %}
+    <div class="danger-zone">
+      <div class="danger-zone__title"><i class="bx bxs-error me-1"></i> Zone sensible</div>
+      <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px;">
+        La suppression d'un règlement non réconcilié libère le montant. Les allocations partielles seront annulées.
+      </p>
+      <form method="post" action="{% url 'achats:reglement_fournisseur_delete' reglement.pk %}" onsubmit="return confirm('Confirmer la suppression de ce règlement ? Cette action est irréversible.');" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn-danger btn-sm">
+          <i class="bx bxs-trash"></i> Supprimer ce règlement
+        </button>
+      </form>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Right column -->
+  <div class="detail-side">
+
+    <!-- Balance summary -->
+    <div class="section-card" style="margin-bottom:16px;">
+      <div class="section-card__head">
+        <span class="section-card__title">Récapitulatif</span>
+      </div>
+      <div class="section-card__body">
+
+        <!-- Total -->
+        <div style="margin-bottom:14px;">
+          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Montant total</div>
+          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;color:var(--text-primary);">
+            {{ reglement.montant|floatformat:0 }} DZD
+          </div>
+        </div>
+
+        <!-- Réconcilié -->
+        <div style="margin-bottom:14px;">
+          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Réconcilié</div>
+          <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:18px;color:#15803d;">
+            {{ reglement.montant_reconcilie|floatformat:0 }} DZD
+          </div>
+        </div>
+
+        <!-- Non alloué -->
+        <div style="padding-top:14px;border-top:2px solid var(--border);">
+          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Non alloué / Acompte</div>
+          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:18px;{% if reglement.reste_non_alloue > 0 %}color:#b45309;{% else %}color:#15803d;{% endif %}">
+            {% if reglement.reste_non_alloue > 0 %}
+            {{ reglement.reste_non_alloue|floatformat:0 }} DZD
+            {% else %}
+            0 DZD
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Progress bar -->
+        {% if reglement.montant > 0 %}
+        <div class="debt-bar" style="margin-top:14px;margin-bottom:4px;">
+          <div class="debt-bar__track">
+            <div class="debt-bar__fill" style="width:{{ reglement.montant_reconcilie|default:0|floatformat:0 }}%"></div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);text-align:right;">
+          {{ reglement.montant_reconcilie|floatformat:0 }} / {{ reglement.montant|floatformat:0 }} DZD
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+
+    <!-- Quick links -->
+    <div class="section-card">
+      <div class="section-card__head">
+        <span class="section-card__title">Liens rapides</span>
+      </div>
+      <div class="section-card__body no-pad">
+        <a href="{% url 'achats:fournisseur_tableau_de_bord' reglement.fournisseur.pk %}" class="side-link-row">
+          <i class="bx bxs-building" style="color:var(--text-muted);"></i>
+          <span>Tableau de bord fournisseur</span>
+          <i class="bx bx-chevron-right" style="color:var(--text-muted);margin-left:auto;"></i>
+        </a>
+        <a href="{% url 'achats:facture_fournisseur_list' %}?fournisseur={{ reglement.fournisseur.pk }}" class="side-link-row">
+          <i class="bx bxs-file-txt" style="color:var(--text-muted);"></i>
+          <span>Factures de {{ reglement.fournisseur.nom }}</span>
+          <i class="bx bx-chevron-right" style="color:var(--text-muted);margin-left:auto;"></i>
+        </a>
+        <a href="{% url 'achats:bl_fournisseur_list' %}?fournisseur={{ reglement.fournisseur.pk }}" class="side-link-row">
+          <i class="bx bxs-truck" style="color:var(--text-muted);"></i>
+          <span>BL de {{ reglement.fournisseur.nom }}</span>
+          <i class="bx bx-chevron-right" style="color:var(--text-muted);margin-left:auto;"></i>
+        </a>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.detail-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 1024px) { .detail-layout { grid-template-columns: 1fr; } }
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 20px;
+}
+@media (max-width: 600px) { .detail-grid { grid-template-columns: 1fr; } }
+
+.detail-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+.detail-value {
+  font-size: 13.5px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.side-link-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: inherit;
+  font-size: 13px;
+  transition: background 0.12s;
+}
+.side-link-row:last-child { border-bottom: none; }
+.side-link-row:hover { background: var(--bg-raised); }
+
+.table-wrap { overflow-x: auto; }
+
+.debt-bar { margin: 8px 0 0; }
+.debt-bar__track {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.debt-bar__fill {
+  height: 6px;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}{% endblock %}

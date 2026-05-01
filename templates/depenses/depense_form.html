@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block nav_depenses %}active{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}{% if depense %}{{ depense.date|date:"d/m/Y" }} · {{ depense.categorie.libelle }}{% else %}Saisie d'une nouvelle dépense opérationnelle{% endif %}{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% if depense %}{% url 'depenses:depense_detail' depense.pk %}{% else %}{% url 'depenses:depense_list' %}{% endif %}" class="btn-ghost">
+  <i class="bx bx-arrow-back"></i> Retour
+</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="form-layout">
+
+  <!-- ── Main form column ──────────────────────────────────────────────── -->
+  <div class="form-main">
+
+    <form method="post" enctype="multipart/form-data" novalidate id="depense-form">
+      {% csrf_token %}
+
+      <!-- Core information -->
+      <div class="form-card">
+        <div class="form-card__header">
+          <div class="form-card__icon ic-red"><i class="bx bxs-wallet"></i></div>
+          <div>
+            <div class="form-card__title">Informations de la dépense</div>
+            <div class="form-card__sub">Date, catégorie, description et montant</div>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <!-- Date -->
+          <div class="field-group">
+            <label class="field-label" for="{{ form.date.id_for_label }}">
+              Date de la dépense <span class="req">*</span>
+            </label>
+            <div class="input-wrapper">
+              <i class="bx bxs-calendar input-icon"></i>
+              {{ form.date }}
+            </div>
+            {% for err in form.date.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+          </div>
+
+          <!-- Catégorie -->
+          <div class="field-group">
+            <label class="field-label" for="{{ form.categorie.id_for_label }}">
+              Catégorie <span class="req">*</span>
+            </label>
+            <div class="input-wrapper">
+              <i class="bx bxs-category input-icon"></i>
+              {{ form.categorie }}
+            </div>
+            {% for err in form.categorie.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+          </div>
+
+          <!-- Description -->
+          <div class="field-group field-group--full">
+            <label class="field-label" for="{{ form.description.id_for_label }}">
+              Description / Objet <span class="req">*</span>
+            </label>
+            <div class="input-wrapper">
+              <i class="bx bxs-pencil input-icon"></i>
+              {{ form.description }}
+            </div>
+            {% for err in form.description.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+          </div>
+
+          <!-- Montant -->
+          <div class="field-group">
+            <label class="field-label" for="{{ form.montant.id_for_label }}">
+              Montant (DZD) <span class="req">*</span>
+            </label>
+            <div class="input-wrapper">
+              <i class="bx bxs-coin input-icon"></i>
+              {{ form.montant }}
+            </div>
+            {% for err in form.montant.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+          </div>
+
+          <!-- Mode de paiement -->
+          <div class="field-group">
+            <label class="field-label" for="{{ form.mode_paiement.id_for_label }}">
+              Mode de paiement <span class="req">*</span>
+            </label>
+            <div class="input-wrapper">
+              <i class="bx bxs-credit-card input-icon"></i>
+              {{ form.mode_paiement }}
+            </div>
+            {% for err in form.mode_paiement.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+          </div>
+
+          <!-- Référence document -->
+          <div class="field-group field-group--full">
+            <label class="field-label" for="{{ form.reference_document.id_for_label }}">
+              Référence document (facture / reçu)
+            </label>
+            <div class="input-wrapper">
+              <i class="bx bxs-file-txt input-icon"></i>
+              {{ form.reference_document }}
+            </div>
+            {% for err in form.reference_document.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Attribution and linking -->
+      <div class="form-card">
+        <div class="form-card__header">
+          <div class="form-card__icon ic-blue"><i class="bx bxs-link"></i></div>
+          <div>
+            <div class="form-card__title">Attribution et liaison</div>
+            <div class="form-card__sub">Lot d'élevage et facture fournisseur liée (optionnel)</div>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <!-- Lot -->
+          <div class="field-group">
+            <label class="field-label" for="{{ form.lot.id_for_label }}">
+              Lot attribué
+            </label>
+            <div class="input-wrapper">
+              <i class="bx bxs-grid-alt input-icon"></i>
+              {{ form.lot }}
+            </div>
+            <div class="field-hint">Optionnel — pour le calcul de rentabilité par lot (BR-DEP-04).</div>
+            {% for err in form.lot.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+          </div>
+
+          <!-- Facture liée -->
+          <div class="field-group">
+            <label class="field-label" for="{{ form.facture_liee.id_for_label }}">
+              Facture fournisseur liée
+            </label>
+            <div class="input-wrapper">
+              <i class="bx bxs-file-txt input-icon"></i>
+              {{ form.facture_liee }}
+            </div>
+            <div class="field-hint">{{ form.facture_liee.help_text }}</div>
+            {% for err in form.facture_liee.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="form-card">
+        <div class="form-card__header">
+          <div class="form-card__icon ic-purple"><i class="bx bxs-notepad"></i></div>
+          <div>
+            <div class="form-card__title">Notes complémentaires</div>
+          </div>
+        </div>
+        <div class="field-group">
+          {{ form.notes }}
+          {% for err in form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+        </div>
+      </div>
+
+      <!-- Non-field errors -->
+      {% if form.non_field_errors %}
+      <div class="error-banner">
+        <i class="bx bxs-error-circle"></i>
+        <div>{% for err in form.non_field_errors %}<div>{{ err }}</div>{% endfor %}</div>
+      </div>
+      {% endif %}
+
+      <!-- Mobile submit -->
+      {% if not request.user.profile.role == 'viewer' %}
+      <div class="form-actions-mobile">
+        <button type="submit" class="btn-primary" style="width:100%;justify-content:center;">
+          <i class="bx bxs-save"></i> {{ action_label }}
+        </button>
+      </div>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- ── Side column ───────────────────────────────────────────────────── -->
+  <div class="form-side">
+
+    <!-- Pièce jointe -->
+    <div class="form-card">
+      <div class="form-card__header">
+        <div class="form-card__icon ic-green"><i class="bx bxs-paperclip"></i></div>
+        <div>
+          <div class="form-card__title">Pièce jointe</div>
+          <div class="form-card__sub">Scan de la pièce justificative</div>
+        </div>
+      </div>
+
+      <div class="field-group">
+        {% if depense and depense.a_piece_jointe %}
+        <div class="pj-preview">
+          <i class="bx bxs-file" style="font-size:28px;color:var(--accent-text);"></i>
+          <span class="pj-preview__name">{{ depense.piece_jointe.name|cut:"depenses/" }}</span>
+          <a href="{{ depense.piece_jointe.url }}" target="_blank" class="btn-ghost btn-sm" style="margin-top:8px;">
+            <i class="bx bx-show"></i> Voir le fichier
+          </a>
+        </div>
+        <div class="field-hint" style="margin-top:10px;">Sélectionnez un nouveau fichier pour remplacer.</div>
+        {% endif %}
+        {{ form.piece_jointe }}
+        <div class="field-hint">PDF, JPG ou PNG. Max 10 Mo.</div>
+        {% for err in form.piece_jointe.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+      </div>
+    </div>
+
+    <!-- BR-DEP-01 warning -->
+    <div class="form-card" style="background:rgba(245,158,11,.04);border-color:rgba(245,158,11,.18);">
+      <div class="form-card__header">
+        <div class="form-card__icon ic-amber" style="background:rgba(245,158,11,.14);color:#b45309;"><i class="bx bxs-error"></i></div>
+        <div>
+          <div class="form-card__title">Règle de séparation</div>
+        </div>
+      </div>
+      <p style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;margin:0;">
+        Les <strong>factures fournisseur de marchandises</strong> ne génèrent jamais automatiquement une dépense (BR-DEP-01). Seules les factures de <strong>type Service</strong> peuvent être liées manuellement (BR-DEP-03).
+      </p>
+    </div>
+
+    {% if request.user.profile.role == 'viewer' %}
+    <!-- Read-only indicator for viewers -->
+    <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 14px;text-align:center;font-size:12px;color:var(--text-muted);">
+      <i class="bx bxs-show" style="margin-right:4px;"></i> Accès en lecture seule
+    </div>
+    {% else %}
+    <!-- Desktop submit -->
+    <button type="submit" form="depense-form" class="btn-primary" style="width:100%;justify-content:center;">
+      <i class="bx bxs-save"></i> {{ action_label }}
+    </button>
+    {% endif %}
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 1024px) {
+  .form-layout { grid-template-columns: 1fr; }
+}
+.form-main { display: flex; flex-direction: column; gap: 18px; }
+.form-side { display: flex; flex-direction: column; gap: 16px; }
+
+.form-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  animation: fadeIn .3s ease both;
+}
+.form-card__header {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 20px; padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.form-card__icon {
+  width: 40px; height: 40px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.form-card__title {
+  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
+  color: var(--text-primary); margin-bottom: 2px;
+}
+.form-card__sub { font-size: 12px; color: var(--text-muted); }
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+.field-group--full { grid-column: 1 / -1; }
+
+/* Input styling for Django form widgets */
+.input-wrapper input[type="date"],
+.input-wrapper input[type="number"],
+.input-wrapper input[type="text"],
+.input-wrapper select,
+textarea {
+  width: 100%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 13.5px;
+  padding: 11px 13px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.input-wrapper input.has-icon,
+.input-wrapper select.has-icon {
+  padding-left: 40px;
+}
+.input-wrapper input:focus,
+.input-wrapper select:focus,
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(34,197,94,.15);
+  outline: none;
+}
+.input-wrapper input::placeholder,
+textarea::placeholder { color: var(--text-muted); }
+
+/* File input styling */
+input[type="file"] {
+  width: 100%;
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 8px 0;
+}
+input[type="file"]::file-selector-button {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background .15s;
+}
+input[type="file"]::file-selector-button:hover {
+  background: var(--bg-hover);
+}
+
+/* PJ preview */
+.pj-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px;
+  background: var(--bg-raised);
+  border-radius: var(--radius-md);
+  margin-bottom: 10px;
+}
+.pj-preview__name {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  text-align: center;
+  word-break: break-all;
+}
+
+.field-hint { font-size: 11.5px; color: var(--text-muted); line-height: 1.5; }
+.req { color: #dc2626; margin-left: 2px; }
+
+.error-banner {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2);
+  border-radius: var(--radius-md); padding: 12px 16px;
+  font-size: 13px; color: #dc2626;
+}
+.error-banner i { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+.form-actions-mobile { display: none; }
+@media (max-width: 1024px) { .form-actions-mobile { display: block; } }
+</style>
+{% endblock %}

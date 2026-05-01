@@ -1,0 +1,157 @@
+
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block nav_production %}active{% endblock %}
+
+{% block page_title %}Enregistrements de Production{% endblock %}
+{% block page_sub_text %}{{ nb_valides }} validé{{ nb_valides|pluralize }} · {{ nb_brouillons }} brouillon{{ nb_brouillons|pluralize }}{% endblock %}
+
+{% block topbar_actions %}
+{% if not request.user.profile.role == 'viewer' %}
+<a href="{% url 'production:production_record_create' %}" class="btn-primary">
+  <i class="bx bx-plus"></i> Nouvelle Production
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- Filter bar -->
+<div class="filter-bar">
+  <div class="input-wrapper" style="flex:1;max-width:280px;">
+    <i class="bx bx-search input-icon"></i>
+    <input type="text" name="q" form="filter-form" class="field-input has-icon" placeholder="Rechercher par lot..." value="{{ q }}" />
+  </div>
+  <select name="statut" form="filter-form" class="field-input" style="max-width:160px;" onchange="document.getElementById('filter-form').submit();">
+    <option value="">Tous les statuts</option>
+    {% for code, label in statut_choices %}
+    <option value="{{ code }}" {% if statut == code %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <select name="lot" form="filter-form" class="field-input" style="max-width:180px;" onchange="document.getElementById('filter-form').submit();">
+    <option value="">Tous les lots</option>
+    {% for l in lots %}
+    <option value="{{ l.pk }}" {% if lot_pk == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.designation }}</option>
+    {% endfor %}
+  </select>
+  <input type="date" name="date_debut" form="filter-form" class="field-input" style="max-width:150px;" value="{{ date_debut }}" onchange="document.getElementById('filter-form').submit();" />
+  <input type="date" name="date_fin" form="filter-form" class="field-input" style="max-width:150px;" value="{{ date_fin }}" onchange="document.getElementById('filter-form').submit();" />
+  <a href="{% url 'production:production_record_list' %}" class="btn-ghost btn-sm">
+    <i class="bx bx-reset"></i> Réinitialiser
+  </a>
+</div>
+<form id="filter-form" method="get" action="{% url 'production:production_record_list' %}"></form>
+
+<!-- Table -->
+<div class="section-card">
+  <div class="section-card__body no-pad">
+    {% if page.object_list %}
+    <table class="table-base">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Lot</th>
+          <th style="text-align:right;">Oiseaux</th>
+          <th style="text-align:right;">Poids total</th>
+          <th>Lignes</th>
+          <th>Statut</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in page.object_list %}
+        <tr class="stagger-row">
+          <td style="color:var(--text-muted);white-space:nowrap;">{{ r.date_production|date:"d/m/Y" }}</td>
+          <td>
+            <a href="{% url 'elevage:lot_detail' r.lot.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;">
+              {{ r.lot.designation }}
+            </a>
+          </td>
+          <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
+            {{ r.nombre_oiseaux_abattus|floatformat:0 }}
+          </td>
+          <td style="text-align:right;">
+            {{ r.poids_total_kg|floatformat:3 }} kg
+          </td>
+          <td style="color:var(--text-muted);">{{ r.lignes.count }} produit{{ r.lignes.count|pluralize }}</td>
+          <td>
+            {% if r.statut == 'brouillon' %}
+            <span class="pill-base pill-warning"><i class="bx bxs-edit-alt"></i> Brouillon</span>
+            {% else %}
+            <span class="pill-base pill-success"><i class="bx bxs-check-circle"></i> Validé</span>
+            {% endif %}
+          </td>
+          <td>
+            <div style="display:flex;justify-content:flex-end;gap:4px;">
+              <a href="{% url 'production:production_record_detail' r.pk %}" class="action-btn" title="Détail">
+                <i class="bx bx-show"></i>
+              </a>
+              {% if r.statut == 'brouillon' and not request.user.profile.role == 'viewer' %}
+              <a href="{% url 'production:production_record_edit' r.pk %}" class="action-btn" title="Modifier">
+                <i class="bx bxs-pencil"></i>
+              </a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if page.has_other_pages %}
+    <div class="pagination-bar">
+      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
+      <div class="page-links">
+        {% if page.has_previous %}
+        <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if lot_pk %}&lot={{ lot_pk }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-left"></i></span>
+        {% endif %}
+
+        {% for num in page.paginator.page_range %}
+          {% if page.number == num %}
+          <span class="page-link active">{{ num }}</span>
+          {% elif num > page.number|add:'-3' and num < page.number|add:'3' %}
+          <a href="?page={{ num }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if lot_pk %}&lot={{ lot_pk }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="page-link">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
+
+        {% if page.has_next %}
+        <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if lot_pk %}&lot={{ lot_pk }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="page-link"><i class="bx bx-chevron-right"></i></a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-right"></i></span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bx-refresh empty-state__icon"></i>
+      <div class="empty-state__title">Aucun enregistrement</div>
+      <div class="empty-state__text">Créez un enregistrement de production pour commencer.</div>
+      {% if not request.user.profile.role == 'viewer' %}
+      <a href="{% url 'production:production_record_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
+        <i class="bx bx-plus"></i> Nouvelle Production
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.filter-bar .field-input.has-icon { padding-left: 36px; }
+.filter-bar .input-icon { font-size: 14px; left: 11px; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+});
+</script>
+{% endblock %}

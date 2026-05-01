@@ -1034,6 +1034,10 @@
         <i class="bx bxs-badge-check"></i>
         <span class="nav-link-label">Stock Produits Finis</span>
       </a>
+      <a href="{% url 'intrants:intrant_list' %}" class="nav-link {% block nav_intrants %}{% endblock %}">
+        <i class="bx bxs-package"></i>
+        <span class="nav-link-label">Catalogue intrants</span>
+      </a>
 
       <!-- Fournisseurs -->
       <div class="nav-group-label">Fournisseurs</div>
@@ -1089,6 +1093,18 @@
       <a href="{% url 'core:company_info' %}" class="nav-link {% block nav_settings %}{% endblock %}">
         <i class="bx bxs-cog"></i>
         <span class="nav-link-label">Paramètres</span>
+      </a>
+      <a href="{% url 'intrants:batiment_list' %}" class="nav-link {% block nav_batiments %}{% endblock %}">
+        <i class="bx bxs-home"></i>
+        <span class="nav-link-label">Bâtiments</span>
+      </a>
+      <a href="{% url 'intrants:categorie_intrant_list' %}" class="nav-link {% block nav_categories %}{% endblock %}">
+        <i class="bx bxs-category"></i>
+        <span class="nav-link-label">Catégories d'intrants</span>
+      </a>
+      <a href="{% url 'intrants:type_fournisseur_list' %}" class="nav-link {% block nav_type_fournisseurs %}{% endblock %}">
+        <i class="bx bxs-user-badge"></i>
+        <span class="nav-link-label">Types fournisseurs</span>
       </a>
 
     </div><!-- /sidebar-nav -->

@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block nav_depenses %}active{% endblock %}
+
+{% block page_title %}Dépenses opérationnelles{% endblock %}
+{% block page_sub_text %}Total filtré : {{ total|floatformat:0 }} DZD · {{ page.paginator.count }} enregistrement{{ page.paginator.count|pluralize }}{% endblock %}
+
+{% block topbar_actions %}
+{% if not request.user.profile.role == 'viewer' %}
+<a href="{% url 'depenses:depense_create' %}" class="btn-primary">
+  <i class="bx bx-plus"></i> Nouvelle dépense
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+{# ── Filter bar ────────────────────────────────────────────────────────── #}
+<div class="section-card" style="margin-bottom:16px;">
+  <div class="section-card__body">
+    <form method="get" class="filter-bar" id="filter-form">
+      <div class="input-wrapper" style="min-width:180px;">
+        <i class="bx bxs-category input-icon"></i>
+        {{ filter_form.categorie }}
+      </div>
+      <div class="input-wrapper" style="min-width:150px;">
+        <i class="bx bxs-calendar input-icon"></i>
+        {{ filter_form.date_debut }}
+      </div>
+      <div class="input-wrapper" style="min-width:150px;">
+        <i class="bx bxs-calendar input-icon"></i>
+        {{ filter_form.date_fin }}
+      </div>
+      <div class="input-wrapper" style="min-width:180px;">
+        <i class="bx bxs-grid-alt input-icon"></i>
+        {{ filter_form.lot }}
+      </div>
+      <div class="input-wrapper" style="min-width:160px;">
+        <i class="bx bxs-coin input-icon"></i>
+        {{ filter_form.mode_paiement }}
+      </div>
+      <div class="input-wrapper" style="min-width:200px;flex:1;">
+        <i class="bx bx-search input-icon"></i>
+        <input type="text" name="q" class="field-input has-icon" placeholder="Rechercher..." value="{{ q|default:'' }}">
+      </div>
+      <button type="submit" class="btn-primary btn-sm">
+        <i class="bx bx-search"></i> Filtrer
+      </button>
+      <a href="{% url 'depenses:depense_list' %}" class="btn-ghost btn-sm">
+        <i class="bx bx-reset"></i> Réinitialiser
+      </a>
+    </form>
+  </div>
+</div>
+
+{# ── Expenses table ────────────────────────────────────────────────────── #}
+<div class="section-card">
+  <div class="section-card__head">
+    <span class="section-card__title">
+      <i class="bx bxs-list-ul" style="color:var(--accent);margin-right:8px;"></i>Liste des dépenses
+    </span>
+    {% if page.paginator.count > 0 %}
+    <span style="font-size:12px;color:var(--text-muted);">
+      Page {{ page.number }} / {{ page.paginator.num_pages }}
+    </span>
+    {% endif %}
+  </div>
+  <div class="section-card__body no-pad">
+    {% if page.object_list %}
+    <div class="table-wrapper">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Catégorie</th>
+            <th>Description</th>
+            <th style="text-align:right;">Montant</th>
+            <th>Mode de paiement</th>
+            <th>Lot</th>
+            <th>PJ</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for dep in page.object_list %}
+          <tr class="stagger-row" style="--row-i:{{ forloop.counter0 }};">
+            <td style="white-space:nowrap;color:var(--text-muted);">
+              <a href="{% url 'depenses:depense_detail' dep.pk %}" style="color:var(--text-primary);font-weight:500;">
+                {{ dep.date|date:"d/m/Y" }}
+              </a>
+            </td>
+            <td>
+              <span class="pill-base pill-neutral">{{ dep.categorie.libelle }}</span>
+            </td>
+            <td>
+              <span class="val-money">{{ dep.description|truncatechars:45 }}</span>
+            </td>
+            <td style="text-align:right;white-space:nowrap;">
+              <span class="val-money" style="font-weight:700;">{{ dep.montant|floatformat:0 }}</span>
+              <span style="font-size:11px;color:var(--text-muted);">DZD</span>
+            </td>
+            <td>{{ dep.get_mode_paiement_display }}</td>
+            <td>
+              {% if dep.lot %}
+              <a href="{% url 'elevage:lot_detail' dep.lot.pk %}" style="font-size:12px;">
+                {{ dep.lot.designation|truncatechars:20 }}
+              </a>
+              {% else %}
+              <span style="color:var(--text-muted);font-size:12px;">—</span>
+              {% endif %}
+            </td>
+            <td style="text-align:center;">
+              {% if dep.a_piece_jointe %}
+              <i class="bx bx-paperclip" style="color:var(--accent-text);font-size:15px;"></i>
+              {% else %}
+              <span style="color:var(--border-strong);font-size:13px;">—</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="actions-cell">
+                <a href="{% url 'depenses:depense_detail' dep.pk %}" class="action-btn" title="Détail">
+                  <i class="bx bx-show"></i>
+                </a>
+                {% if not request.user.profile.role == 'viewer' %}
+                <a href="{% url 'depenses:depense_edit' dep.pk %}" class="action-btn" title="Modifier">
+                  <i class="bx bxs-pencil"></i>
+                </a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# ── Pagination ────────────────────────────────────────────────────── #}
+    {% if page.has_other_pages %}
+    <div class="pagination-bar">
+      <span>{{ page.start_index }} – {{ page.end_index }} sur {{ page.paginator.count }}</span>
+      <div class="page-links">
+        {% if page.has_previous %}
+        <a href="?page={{ page.previous_page_number }}{% if request.GET.categorie %}&categorie={{ request.GET.categorie }}{% endif %}{% if request.GET.date_debut %}&date_debut={{ request.GET.date_debut }}{% endif %}{% if request.GET.date_fin %}&date_fin={{ request.GET.date_fin }}{% endif %}{% if request.GET.lot %}&lot={{ request.GET.lot }}{% endif %}{% if request.GET.mode_paiement %}&mode_paiement={{ request.GET.mode_paiement }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}" class="page-link">
+          <i class="bx bx-chevron-left"></i>
+        </a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-left"></i></span>
+        {% endif %}
+
+        {% for p in page.paginator.page_range %}
+          {% if p == page.number %}
+          <span class="page-link active">{{ p }}</span>
+          {% elif p >= page.number|add:"-2" and p <= page.number|add:"2" %}
+          <a href="?page={{ p }}{% if request.GET.categorie %}&categorie={{ request.GET.categorie }}{% endif %}{% if request.GET.date_debut %}&date_debut={{ request.GET.date_debut }}{% endif %}{% if request.GET.date_fin %}&date_fin={{ request.GET.date_fin }}{% endif %}{% if request.GET.lot %}&lot={{ request.GET.lot }}{% endif %}{% if request.GET.mode_paiement %}&mode_paiement={{ request.GET.mode_paiement }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}" class="page-link">{{ p }}</a>
+          {% elif p == 1 or p == page.paginator.num_pages %}
+          <a href="?page={{ p }}{% if request.GET.categorie %}&categorie={{ request.GET.categorie }}{% endif %}{% if request.GET.date_debut %}&date_debut={{ request.GET.date_debut }}{% endif %}{% if request.GET.date_fin %}&date_fin={{ request.GET.date_fin }}{% endif %}{% if request.GET.lot %}&lot={{ request.GET.lot }}{% endif %}{% if request.GET.mode_paiement %}&mode_paiement={{ request.GET.mode_paiement }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}" class="page-link">{{ p }}</a>
+          {% elif p == page.number|add:"-3" or p == page.number|add:"3" %}
+          <span class="page-link" style="border:none;cursor:default;">…</span>
+          {% endif %}
+        {% endfor %}
+
+        {% if page.has_next %}
+        <a href="?page={{ page.next_page_number }}{% if request.GET.categorie %}&categorie={{ request.GET.categorie }}{% endif %}{% if request.GET.date_debut %}&date_debut={{ request.GET.date_debut }}{% endif %}{% if request.GET.date_fin %}&date_fin={{ request.GET.date_fin }}{% endif %}{% if request.GET.lot %}&lot={{ request.GET.lot }}{% endif %}{% if request.GET.mode_paiement %}&mode_paiement={{ request.GET.mode_paiement }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}" class="page-link">
+          <i class="bx bx-chevron-right"></i>
+        </a>
+        {% else %}
+        <span class="page-link disabled"><i class="bx bx-chevron-right"></i></span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bxs-wallet empty-state__icon"></i>
+      <div class="empty-state__title">Aucune dépense trouvée</div>
+      <div class="empty-state__text">
+        {% if request.GET %}
+        Aucun résultat pour les filtres sélectionnés.
+        {% else %}
+        Enregistrez votre première dépense opérationnelle.
+        {% endif %}
+      </div>
+      {% if not request.user.profile.role == 'viewer' %}
+      <a href="{% url 'depenses:depense_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
+        <i class="bx bx-plus"></i> Nouvelle dépense
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Filter bar inputs — inherit base styles, adjust for horizontal layout */
+.filter-bar .field-input,
+.filter-bar select,
+.filter-bar input[type="text"] {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  padding: 9px 12px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+}
+.filter-bar .field-input.has-icon { padding-left: 34px; }
+.filter-bar .field-input:focus,
+.filter-bar select:focus,
+.filter-bar input[type="text"]:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(34,197,94,.15);
+  outline: none;
+}
+.filter-bar .input-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: var(--text-muted);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Table wrapper for horizontal scroll */
+.table-wrapper { overflow-x: auto; }
+
+/* Actions cell */
+.actions-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* Auto-submit filter form on select change */
+  var filterForm = document.getElementById('filter-form');
+  if (filterForm) {
+    filterForm.querySelectorAll('select').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        filterForm.submit();
+      });
+    });
+  }
+});
+</script>
+{% endblock %}

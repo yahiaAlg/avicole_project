@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block nav_bl_fournisseur %}active{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}{% if object %}{{ object.fournisseur.nom }} — {{ object.date_bl|date:"d/m/Y" }}{% else %}Nouveau bon de livraison fournisseur{% endif %}{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% if object %}{% url 'achats:bl_fournisseur_detail' object.pk %}{% else %}{% url 'achats:bl_fournisseur_list' %}{% endif %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Retour
+  </a>
+{% endblock %}
+
+{% block content %}
+
+{% if object and object.est_verrouille %}
+<!-- Locked BL banner -->
+<div class="locked-lot-banner">
+  <i class="bx bxs-lock"></i>
+  <span style="font-size:13px;color:var(--text-secondary);">
+    Ce BL est <strong style="color:#b45309;">verrouillé</strong> (statut Facturé) — aucune modification n'est possible.
+  </span>
+</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+
+  <!-- Header card -->
+  <div class="section-card" style="margin-bottom:18px;">
+    <div class="section-card__head">
+      <span class="section-card__title"><i class="bx bxs-truck" style="color:var(--accent);margin-right:8px;"></i>Informations du BL</span>
+    </div>
+    <div class="section-card__body">
+      <div class="form-grid">
+
+        <!-- Référence -->
+        <div class="field-group">
+          <label class="field-label" for="{{ form.reference.id_for_label }}">Référence BL <span class="req">*</span></label>
+          <div class="input-wrapper">
+            <i class="bx bxs-file-txt input-icon"></i>
+            {{ form.reference }}
+          </div>
+          {% for err in form.reference.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+        </div>
+
+        <!-- Fournisseur -->
+        <div class="field-group">
+          <label class="field-label" for="{{ form.fournisseur.id_for_label }}">Fournisseur <span class="req">*</span></label>
+          <div class="input-wrapper">
+            <i class="bx bxs-building input-icon"></i>
+            {{ form.fournisseur }}
+          </div>
+          {% for err in form.fournisseur.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+        </div>
+
+        <!-- Date BL -->
+        <div class="field-group">
+          <label class="field-label" for="{{ form.date_bl.id_for_label }}">Date du BL <span class="req">*</span></label>
+          <div class="input-wrapper">
+            <i class="bx bxs-calendar input-icon"></i>
+            {{ form.date_bl }}
+          </div>
+          {% for err in form.date_bl.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+        </div>
+
+        <!-- Statut -->
+        <div class="field-group">
+          <label class="field-label" for="{{ form.statut.id_for_label }}">Statut</label>
+          <div class="input-wrapper">
+            <i class="bx bxs-flag-alt input-icon"></i>
+            {{ form.statut }}
+          </div>
+          {% for err in form.statut.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+        </div>
+
+        <!-- Référence fournisseur -->
+        <div class="field-group">
+          <label class="field-label" for="{{ form.reference_fournisseur.id_for_label }}">Référence fournisseur</label>
+          <div class="input-wrapper">
+            <i class="bx bxs-file input-icon"></i>
+            {{ form.reference_fournisseur }}
+          </div>
+          {% for err in form.reference_fournisseur.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+        </div>
+
+        <!-- Pièce jointe -->
+        <div class="field-group">
+          <label class="field-label" for="{{ form.piece_jointe.id_for_label }}">Pièce jointe (PDF/JPG/PNG)</label>
+          {% if object and object.piece_jointe %}
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <a href="{{ object.piece_jointe.url }}" target="_blank" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
+              <i class="bx bx-paperclip"></i> Voir le fichier actuel
+            </a>
+          </div>
+          {% endif %}
+          {{ form.piece_jointe }}
+          {% for err in form.piece_jointe.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+        </div>
+
+        <!-- Notes -->
+        <div class="field-group" style="grid-column:1 / -1;">
+          <label class="field-label" for="{{ form.notes_reception.id_for_label }}">Notes de réception</label>
+          {{ form.notes_reception }}
+          {% for err in form.notes_reception.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+        </div>
+
+      </div>
+
+      {% if form.non_field_errors %}
+      <div class="field-error" style="margin-top:12px;">
+        <i class="bx bxs-error-circle"></i> {% for err in form.non_field_errors %}{{ err }}{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Lines card (formset) -->
+  <div class="section-card" style="margin-bottom:18px;">
+    <div class="section-card__head">
+      <span class="section-card__title"><i class="bx bxs-cube-alt" style="color:var(--accent);margin-right:8px;"></i>Lignes du BL</span>
+    </div>
+    <div class="section-card__body">
+
+      {{ formset.management_form }}
+
+      <div class="lines-table-wrap">
+        <table class="table-base" id="lines-table">
+          <thead>
+            <tr>
+              <th>Intrant</th>
+              <th style="text-align:right;">Quantité</th>
+              <th style="text-align:right;">Prix unitaire (DZD)</th>
+              <th style="text-align:right;">Montant</th>
+              <th>Notes</th>
+              <th style="text-align:center;">Suppr.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ligne_form in formset %}
+            <tr class="ligne-row">
+              <td>
+                {{ ligne_form.id }}
+                <div class="input-wrapper">
+                  {{ ligne_form.intrant }}
+                </div>
+                {% for err in ligne_form.intrant.errors %}<div class="field-error" style="margin-top:4px;"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              </td>
+              <td style="text-align:right;">
+                <div class="input-wrapper">
+                  {{ ligne_form.quantite }}
+                </div>
+                {% for err in ligne_form.quantite.errors %}<div class="field-error" style="margin-top:4px;"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              </td>
+              <td style="text-align:right;">
+                <div class="input-wrapper">
+                  {{ ligne_form.prix_unitaire }}
+                </div>
+                {% for err in ligne_form.prix_unitaire.errors %}<div class="field-error" style="margin-top:4px;"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              </td>
+              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;white-space:nowrap;" class="ligne-montant">
+                —
+              </td>
+              <td>
+                {{ ligne_form.notes }}
+              </td>
+              <td style="text-align:center;">
+                {% if ligne_form.instance.pk %}
+                {{ ligne_form.DELETE }}
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if formset.non_form_errors %}
+      <div class="field-error" style="margin-top:10px;">
+        <i class="bx bxs-error-circle"></i> {% for err in formset.non_form_errors %}{{ err }}{% endfor %}
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div style="display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      {% if object and object.statut == 'brouillon' %}
+      <button type="button" id="btn-delete-bl" class="btn-danger btn-sm" data-bl-ref="{{ object.reference }}">
+        <i class="bx bxs-trash"></i> Supprimer
+      </button>
+      {% endif %}
+    </div>
+    <div style="display:flex;gap:10px;">
+      <a href="{% if object %}{% url 'achats:bl_fournisseur_detail' object.pk %}{% else %}{% url 'achats:bl_fournisseur_list' %}{% endif %}" class="btn-ghost">Annuler</a>
+      <button type="submit" class="btn-primary">
+        <i class="bx bxs-save"></i> {{ action_label|default:"Enregistrer" }}
+      </button>
+    </div>
+  </div>
+
+</form>
+
+<!-- Delete confirmation panel -->
+{% if object and object.statut == 'brouillon' %}
+<div id="confirm-delete-panel" class="confirm-panel">
+  <div class="confirm-panel__text">
+    <i class="bx bxs-error" style="color:#dc2626;margin-right:6px;"></i>
+    Supprimer le BL <strong id="confirm-delete-ref"></strong> ? Cette action est irréversible.
+  </div>
+  <div class="confirm-panel__actions">
+    <button type="button" id="cancel-delete-btn" class="btn-ghost btn-sm">Annuler</button>
+    <form method="post" action="{% url 'achats:bl_fournisseur_delete' object.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="btn-danger btn-sm">Confirmer la suppression</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+@media (max-width: 900px) { .form-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+
+.lines-table-wrap { overflow-x: auto; }
+.lines-table-wrap .table-base { min-width: 700px; }
+.lines-table-wrap .field-input,
+.lines-table-wrap input,
+.lines-table-wrap select,
+.lines-table-wrap textarea {
+  padding: 8px 10px;
+  font-size: 13px;
+}
+.ligne-row td { vertical-align: top; padding: 10px 8px; }
+.ligne-row:first-child td { padding-top: 4px; }
+
+/* Style formset inputs to match design system */
+.ligne-row input[type="number"],
+.ligne-row select,
+.ligne-row textarea {
+  width: 100%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  padding: 8px 10px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.ligne-row input[type="number"]:focus,
+.ligne-row select:focus,
+.ligne-row textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(34,197,94,.12);
+  outline: none;
+}
+.ligne-row textarea { resize: vertical; min-height: 36px; }
+.ligne-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
+
+/* File input styling */
+input[type="file"] {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  /* ── Auto-calculate line totals ───────────────────────────────────── */
+  function recalcLines() {
+    document.querySelectorAll('.ligne-row').forEach(function (row) {
+      var qtyEl = row.querySelector('input[name*="quantite"]');
+      var prixEl = row.querySelector('input[name*="prix_unitaire"]');
+      var montantEl = row.querySelector('.ligne-montant');
+      if (!qtyEl || !prixEl || !montantEl) return;
+      var qty = parseFloat(qtyEl.value) || 0;
+      var prix = parseFloat(prixEl.value) || 0;
+      var total = qty * prix;
+      if (total > 0) {
+        montantEl.textContent = total.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' DZD';
+      } else {
+        montantEl.textContent = '—';
+      }
+    });
+  }
+
+  document.querySelectorAll('.ligne-row input').forEach(function (input) {
+    input.addEventListener('input', recalcLines);
+  });
+  recalcLines();
+
+  /* ── Delete confirmation ──────────────────────────────────────────── */
+  var deleteBtn = document.getElementById('btn-delete-bl');
+  var confirmPanel = document.getElementById('confirm-delete-panel');
+  if (deleteBtn && confirmPanel) {
+    deleteBtn.addEventListener('click', function () {
+      document.getElementById('confirm-delete-ref').textContent = deleteBtn.dataset.blRef;
+      confirmPanel.classList.add('visible');
+    });
+    document.getElementById('cancel-delete-btn').addEventListener('click', function () {
+      confirmPanel.classList.remove('visible');
+    });
+  }
+
+});
+</script>
+{% endblock %}

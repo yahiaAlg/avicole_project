@@ -15,7 +15,10 @@
   <a href="{% url 'intrants:intrant_list' %}" class="btn-ghost">
     <i class="bx bx-arrow-back"></i> Intrants
   </a>
-  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'intrants:intrant_list' %}?categorie={{ intrant.categorie.pk }}" class="btn-ghost">
+    <i class="bx bxs-category"></i> {{ intrant.categorie.libelle }}
+  </a>
+  {% if not request.user.profile.role == 'viewer' %}
   <a href="{% url 'intrants:intrant_edit' intrant.pk %}" class="btn-primary">
     <i class="bx bxs-pencil"></i> Modifier
   </a>
@@ -70,7 +73,7 @@
       <div class="card">
         <div class="card-header-row">
           <div class="section-eyebrow"><i class="bx bxs-package"></i> Fiche intrant</div>
-          {% if not request.user.userprofile.role == 'viewer' %}
+          {% if not request.user.profile.role == 'viewer' %}
           <a href="{% url 'intrants:intrant_edit' intrant.pk %}" class="btn-ghost btn-sm">
             <i class="bx bxs-pencil"></i> Modifier
           </a>
@@ -266,7 +269,7 @@
       </div>
 
       <!-- Admin actions -->
-      {% if request.user.userprofile.is_admin %}
+      {% if request.user.profile.role == 'admin' %}
       <div class="card">
         <div class="card-header-row">
           <div class="section-eyebrow">Actions</div>
@@ -290,7 +293,7 @@
   </div>
 
   <!-- Confirm toggle panel -->
-  {% if request.user.userprofile.is_admin %}
+  {% if request.user.profile.role == 'admin' %}
   <div id="confirm-toggle-panel" class="confirm-panel" style="display:none;">
     <div class="confirm-panel__inner">
       <div class="confirm-panel__icon" id="confirm-icon"><i class="bx bx-block"></i></div>
@@ -409,7 +412,7 @@
 {% endblock %}
 
 {% block extra_js %}
-{% if request.user.userprofile.is_admin %}
+{% if request.user.profile.role == 'admin' %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const toggleBtn  = document.getElementById('toggle-active-btn');
