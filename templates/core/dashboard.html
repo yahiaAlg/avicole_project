@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Tableau de Bord — Élevage Avicole{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+
+{% block page_title %}Tableau de Bord{% endblock %}
+{% block page_sub_text %}Vue d'ensemble de l'exploitation — {{ lots_ouverts_count }} lot{{ lots_ouverts_count|pluralize }} ouvert{{ lots_ouverts_count|pluralize }}{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'elevage:lot_create' %}" class="btn-primary btn-sm">
+    <i class="bx bx-plus"></i> Nouveau Lot
+  </a>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── KPI Row ─────────────────────────────── -->
+<div class="row g-3 mb-4">
+
+  <!-- Lots ouverts -->
+  <div class="col-xl-3 col-md-6">
+    <a href="{% url 'elevage:lot_list' %}" style="text-decoration:none;">
+      <div class="metric-card">
+        <div class="metric-icon ic-green"><i class="bx bxs-grid-alt"></i></div>
+        <div class="metric-label">Lots ouverts</div>
+        <div class="metric-value">{{ lots_ouverts_count }}</div>
+        <span class="metric-delta {% if lots_ouverts_count > 0 %}up{% else %}neutral{% endif %}">
+          <i class="bx bxs-grid-alt"></i> lots actifs
+        </span>
+      </div>
+    </a>
+  </div>
+
+  <!-- Dette fournisseurs -->
+  <div class="col-xl-3 col-md-6">
+    <a href="{% url 'achats:facture_fournisseur_list' %}" style="text-decoration:none;">
+      <div class="metric-card">
+        <div class="metric-icon ic-red"><i class="bx bx-hourglass"></i></div>
+        <div class="metric-label">Dette Fournisseurs</div>
+        <div class="metric-value sm {% if dette_globale_total > 0 %}val-danger{% endif %}">
+          {{ dette_globale_total|floatformat:0 }} DZD
+        </div>
+        {% if factures_fournisseur_retard > 0 %}
+        <span class="metric-delta down">
+          <i class="bx bxs-error-circle"></i> {{ factures_fournisseur_retard }} facture{{ factures_fournisseur_retard|pluralize }} en retard
+        </span>
+        {% else %}
+        <span class="metric-delta neutral">
+          <i class="bx bxs-check-circle"></i> Aucune en retard
+        </span>
+        {% endif %}
+      </div>
+    </a>
+  </div>
+
+  <!-- Créances clients -->
+  <div class="col-xl-3 col-md-6">
+    <a href="{% url 'clients:facture_client_list' %}" style="text-decoration:none;">
+      <div class="metric-card">
+        <div class="metric-icon ic-blue"><i class="bx bxs-receipt"></i></div>
+        <div class="metric-label">Créances Clients</div>
+        <div class="metric-value sm {% if creance_globale_total > 0 %}val-warn{% endif %}">
+          {{ creance_globale_total|floatformat:0 }} DZD
+        </div>
+        {% if factures_client_retard > 0 %}
+        <span class="metric-delta down">
+          <i class="bx bxs-error-circle"></i> {{ factures_client_retard }} facture{{ factures_client_retard|pluralize }} en retard
+        </span>
+        {% else %}
+        <span class="metric-delta neutral">
+          <i class="bx bxs-check-circle"></i> Aucune en retard
+        </span>
+        {% endif %}
+      </div>
+    </a>
+  </div>
+
+  <!-- Alertes stock -->
+  <div class="col-xl-3 col-md-6">
+    <a href="{% url 'stock:stock_intrant_list' %}" style="text-decoration:none;">
+      <div class="metric-card">
+        <div class="metric-icon {% if nb_alertes_intrants > 0 or nb_alertes_produits > 0 %}ic-amber{% else %}ic-green{% endif %}">
+          <i class="bx bxs-archive"></i>
+        </div>
+        <div class="metric-label">Alertes Stock</div>
+        <div class="metric-value {% if nb_alertes_intrants > 0 or nb_alertes_produits > 0 %}val-warn{% endif %}">
+          {{ nb_alertes_intrants|add:nb_alertes_produits }}
+        </div>
+        <span class="metric-delta {% if nb_alertes_intrants > 0 or nb_alertes_produits > 0 %}warn{% else %}up{% endif %}">
+          <i class="bx {% if nb_alertes_intrants > 0 or nb_alertes_produits > 0 %}bxs-error{% else %}bxs-check-circle{% endif %}"></i>
+          {{ nb_alertes_intrants }} intrant{{ nb_alertes_intrants|pluralize }}, {{ nb_alertes_produits }} produit{{ nb_alertes_produits|pluralize }}
+        </span>
+      </div>
+    </a>
+  </div>
+
+</div><!-- /KPI row -->
+
+<!-- ── Alert banners ────────────────────────── -->
+{% if bls_non_factures > 0 %}
+<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.20);border-radius:var(--radius-md);padding:11px 16px;display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+  <i class="bx bxs-truck" style="color:#b45309;font-size:15px;flex-shrink:0;"></i>
+  <span style="font-size:13px;color:var(--text-secondary);flex:1;">
+    <strong>{{ bls_non_factures }}</strong> BL fournisseur{{ bls_non_factures|pluralize }} reçu{{ bls_non_factures|pluralize }} en attente de facturation.
+  </span>
+  <a href="{% url 'achats:bl_fournisseur_list' %}" class="btn-ghost btn-sm">Voir les BL</a>
+</div>
+{% endif %}
+
+{% if bls_client_non_factures > 0 %}
+<div style="background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.20);border-radius:var(--radius-md);padding:11px 16px;display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+  <i class="bx bx-link-external" style="color:#0284c7;font-size:15px;flex-shrink:0;"></i>
+  <span style="font-size:13px;color:var(--text-secondary);flex:1;">
+    <strong>{{ bls_client_non_factures }}</strong> BL client{{ bls_client_non_factures|pluralize }} livré{{ bls_client_non_factures|pluralize }} en attente de facturation.
+  </span>
+  <a href="{% url 'clients:bl_client_list' %}" class="btn-ghost btn-sm">Voir les BL</a>
+</div>
+{% endif %}
+
+<!-- ── Main 2-col layout ─────────────────────── -->
+<div class="row g-3">
+
+  <!-- LEFT: Lots actifs -->
+  <div class="col-xl-7">
+    <div class="section-card">
+      <div class="section-card__head">
+        <span class="section-card__title"><i class="bx bxs-grid-alt" style="color:var(--accent-text);margin-right:6px;"></i>Lots d'Élevage Actifs</span>
+        <a href="{% url 'elevage:lot_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
+          Voir tout <i class="bx bx-right-arrow-alt"></i>
+        </a>
+      </div>
+      <div class="section-card__body">
+        {% if lots_actifs %}
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            {% for lot in lots_actifs %}
+            <a href="{% url 'elevage:lot_detail' lot.pk %}" style="text-decoration:none;">
+              <div class="lot-card stagger-row">
+                <div class="lot-card__header">
+                  <span class="lot-card__name">{{ lot.designation }}</span>
+                  <span class="pill-success pill-base">Ouvert</span>
+                </div>
+                <div class="lot-card__grid">
+                  <div>
+                    <div class="lot-stat-label">Effectif vivant</div>
+                    <div class="lot-stat-val">{{ lot.effectif_vivant|floatformat:0 }}</div>
+                  </div>
+                  <div>
+                    <div class="lot-stat-label">Mortalité</div>
+                    <div class="lot-stat-val {% if lot.taux_mortalite > 5 %}danger{% elif lot.taux_mortalite > 3 %}warn{% endif %}">
+                      {{ lot.taux_mortalite|floatformat:2 }}%
+                    </div>
+                  </div>
+                  <div>
+                    <div class="lot-stat-label">Bâtiment</div>
+                    <div class="lot-stat-val" style="font-size:14px;">{{ lot.batiment.nom }}</div>
+                  </div>
+                  <div>
+                    <div class="lot-stat-label">Jours</div>
+                    <div class="lot-stat-val">{{ lot.duree_elevage }}</div>
+                  </div>
+                </div>
+              </div>
+            </a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <i class="bx bxs-grid-alt empty-state__icon"></i>
+            <div class="empty-state__title">Aucun lot ouvert</div>
+            <div class="empty-state__text">Créez un nouveau lot pour démarrer l'élevage.</div>
+            <a href="{% url 'elevage:lot_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
+              <i class="bx bx-plus"></i> Créer un Lot
+            </a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Recent stock movements + quick alerts -->
+  <div class="col-xl-5">
+
+    <!-- Stock alerts summary -->
+    {% if alertes_stock.intrants or alertes_stock.produits_finis %}
+    <div class="section-card" style="margin-bottom:14px;">
+      <div class="section-card__head">
+        <span class="section-card__title"><i class="bx bxs-error" style="color:#b45309;margin-right:6px;"></i>Alertes Stock</span>
+        <a href="{% url 'stock:stock_intrant_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
+          Gérer <i class="bx bx-right-arrow-alt"></i>
+        </a>
+      </div>
+      <div class="section-card__body no-pad">
+        {% for item in alertes_stock.intrants %}
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);font-size:12.5px;">
+          <span style="color:var(--text-secondary);">{{ item.intrant.designation }}</span>
+          <span class="pill-warning pill-base">{{ item.quantite|floatformat:0 }} {{ item.intrant.unite_mesure }}</span>
+        </div>
+        {% endfor %}
+        {% for item in alertes_stock.produits_finis %}
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);font-size:12.5px;">
+          <span style="color:var(--text-secondary);">{{ item.produit_fini.designation }}</span>
+          <span class="pill-warning pill-base">{{ item.quantite|floatformat:0 }} {{ item.produit_fini.unite_mesure }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent stock movements -->
+    <div class="section-card">
+      <div class="section-card__head">
+        <span class="section-card__title"><i class="bx bxs-archive" style="color:var(--accent-text);margin-right:6px;"></i>Mouvements Récents</span>
+        <a href="{% url 'stock:stock_mouvement_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
+          Voir tout <i class="bx bx-right-arrow-alt"></i>
+        </a>
+      </div>
+      <div class="section-card__body no-pad">
+        {% if mouvements_recents %}
+        {% for mvt in mouvements_recents %}
+        <div class="stagger-row" style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);">
+          <div style="width:28px;height:28px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0;
+            {% if mvt.type_mouvement == 'entree' %}background:var(--success-bg);{% elif mvt.type_mouvement == 'sortie' %}background:var(--danger-bg);{% else %}background:var(--warning-bg);{% endif %}">
+            <i class="bx {% if mvt.type_mouvement == 'entree' %}bx-trending-up{% elif mvt.type_mouvement == 'sortie' %}bx-trending-down{% else %}bx-transfer{% endif %}"
+               style="font-size:13px;{% if mvt.type_mouvement == 'entree' %}color:#16a34a;{% elif mvt.type_mouvement == 'sortie' %}color:#dc2626;{% else %}color:#b45309;{% endif %}"></i>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12.5px;color:var(--text-primary);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+              {% if mvt.intrant %}{{ mvt.intrant.designation }}{% elif mvt.produit_fini %}{{ mvt.produit_fini.designation }}{% endif %}
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);">{{ mvt.get_source_display }} · {{ mvt.date_mouvement|date:"d/m/Y" }}</div>
+          </div>
+          <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:12.5px;white-space:nowrap;
+            {% if mvt.type_mouvement == 'entree' %}color:#16a34a;{% elif mvt.type_mouvement == 'sortie' %}color:#dc2626;{% else %}color:#b45309;{% endif %}">
+            {% if mvt.type_mouvement == 'entree' %}+{% elif mvt.type_mouvement == 'sortie' %}−{% endif %}{{ mvt.quantite|floatformat:0 }}
+          </div>
+        </div>
+        {% endfor %}
+        {% else %}
+          <div class="empty-state" style="padding:28px 20px;">
+            <i class="bx bxs-archive empty-state__icon" style="font-size:24px;"></i>
+            <div class="empty-state__text">Aucun mouvement récent</div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div><!-- /col right -->
+</div><!-- /row -->
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .lot-card { cursor: pointer; }
+</style>
+{% endblock %}

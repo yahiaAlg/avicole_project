@@ -1,0 +1,233 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Connexion — Élevage Avicole</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-base:    #f4f6f4;
+      --bg-surface: #ffffff;
+      --bg-raised:  #eef2ee;
+      --border:        rgba(0,0,0,.08);
+      --border-strong: rgba(0,0,0,.14);
+      --accent:      #22c55e;
+      --accent-text: #15803d;
+      --accent-dim:  rgba(34,197,94,.12);
+      --text-primary:   #1a2219;
+      --text-secondary: #3d5242;
+      --text-muted:     #7a8c78;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-base);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text-secondary);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .login-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 400px;
+      animation: fadeIn .35s ease;
+      box-shadow: 0 4px 24px rgba(0,0,0,.06);
+    }
+
+    .login-brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 32px;
+      gap: 12px;
+    }
+    .brand-icon {
+      width: 52px; height: 52px;
+      background: var(--accent-dim);
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .brand-icon i { font-size: 26px; color: var(--accent-text); }
+    .brand-name {
+      font-family: 'Nunito', sans-serif;
+      font-weight: 800;
+      font-size: 20px;
+      color: var(--text-primary);
+    }
+    .brand-subtitle {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      margin-top: -6px;
+    }
+
+    .field-group { margin-bottom: 16px; }
+    .field-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: .03em;
+      margin-bottom: 6px;
+    }
+    .input-wrapper { position: relative; }
+    .input-icon {
+      position: absolute;
+      left: 13px; top: 50%; transform: translateY(-50%);
+      font-size: 15px;
+      color: var(--text-muted);
+      pointer-events: none;
+      transition: color .15s;
+    }
+    .field-input {
+      width: 100%;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 13.5px;
+      padding: 11px 13px 11px 40px;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .field-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(34,197,94,.15);
+      outline: none;
+    }
+    .field-input:focus ~ .input-icon { color: var(--accent-text); }
+    .field-input::placeholder { color: var(--text-muted); }
+
+    .error-banner {
+      display: flex; align-items: flex-start; gap: 8px;
+      background: rgba(239,68,68,.08);
+      border: 1px solid rgba(239,68,68,.18);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      margin-bottom: 18px;
+      font-size: 12.5px;
+      color: #dc2626;
+    }
+    .error-banner i { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+
+    .btn-submit {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 12px 18px;
+      cursor: pointer;
+      margin-top: 22px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: opacity .18s, transform .12s;
+    }
+    .btn-submit:hover  { opacity: .88; }
+    .btn-submit:active { transform: scale(.99); }
+    .btn-submit i { font-size: 16px; }
+
+    .login-footer {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-card">
+
+    <div class="login-brand">
+      <div class="brand-icon">
+        <i class="bx bxs-leaf"></i>
+      </div>
+      <div class="brand-name">Élevage Avicole</div>
+      <div class="brand-subtitle">Système de gestion interne</div>
+    </div>
+
+    {% if error %}
+    <div class="error-banner" role="alert">
+      <i class="bx bxs-error-circle"></i>
+      <span>{{ error }}</span>
+    </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'core:login' %}" novalidate>
+      {% csrf_token %}
+      {% if next %}<input type="hidden" name="next" value="{{ next }}" />{% endif %}
+
+      <div class="field-group">
+        <label class="field-label" for="id_username">Nom d'utilisateur</label>
+        <div class="input-wrapper">
+          <input
+            class="field-input"
+            type="text"
+            id="id_username"
+            name="username"
+            autocomplete="username"
+            placeholder="Votre identifiant"
+            autofocus
+            required
+          />
+          <i class="bx bxs-user input-icon"></i>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="id_password">Mot de passe</label>
+        <div class="input-wrapper">
+          <input
+            class="field-input"
+            type="password"
+            id="id_password"
+            name="password"
+            autocomplete="current-password"
+            placeholder="••••••••"
+            required
+          />
+          <i class="bx bxs-lock-alt input-icon"></i>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-submit">
+        <i class="bx bx-log-in"></i> Se connecter
+      </button>
+    </form>
+
+    <div class="login-footer">
+      Accès réservé au personnel autorisé
+    </div>
+
+  </div>
+
+</body>
+</html>
