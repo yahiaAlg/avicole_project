@@ -219,9 +219,9 @@ class Command(BaseCommand):
         obj, created = CompanyInfo.objects.get_or_create(
             pk=1,
             defaults=dict(
-                nom="Élevage Avicole Tizi-Ouzou",
+                nom="Élevage Avicole Setifien",
                 adresse="Zone Industrielle, Route Nationale 12",
-                wilaya="Tizi-Ouzou",
+                wilaya="Setifien",
                 telephone="0555 123 456",
                 telephone_2="0770 987 654",
                 email="contact@avicole-to.dz",
@@ -233,10 +233,10 @@ class Command(BaseCommand):
                 assujetti_tva=True,
                 taux_tva=Decimal("19.00"),
                 rib="00799999000123456789 12",
-                banque="BNA — Agence Tizi-Ouzou Centre",
+                banque="BNA — Agence Setifien Centre",
                 devise="DZD",
                 pied_de_page=(
-                    "Merci de votre confiance — Élevage Avicole Tizi-Ouzou\n"
+                    "Merci de votre confiance — Élevage Avicole Setifien\n"
                     "Tél : 0555 123 456 | Email : contact@avicole-to.dz"
                 ),
                 prefixe_bl_client="BLC",
@@ -424,9 +424,9 @@ class Command(BaseCommand):
 
         specs = [
             dict(
-                nom="ONAB Tizi-Ouzou",
-                adresse="Route de Boghni, Tizi-Ouzou",
-                wilaya="Tizi-Ouzou",
+                nom="ONAB Setifien",
+                adresse="Route de Boghni, Setifien",
+                wilaya="Setifien",
                 telephone="026 12 34 56",
                 type_code="ALIMENTS",
                 nif="099000000001",
@@ -485,30 +485,30 @@ class Command(BaseCommand):
 
         specs = [
             dict(
-                nom="Marché de Gros Tizi-Ouzou",
+                nom="Marché de Gros Setifien",
                 type_client="grossiste",
-                wilaya="Tizi-Ouzou",
+                wilaya="Setifien",
                 telephone="0555 11 22 33",
                 plafond_credit=Decimal("500000"),
             ),
             dict(
                 nom="Restaurant Le Palmier",
                 type_client="restauration",
-                wilaya="Tizi-Ouzou",
+                wilaya="Setifien",
                 telephone="0770 22 33 44",
                 plafond_credit=Decimal("150000"),
             ),
             dict(
                 nom="Boucherie Amrane & Fils",
                 type_client="detaillant",
-                wilaya="Tizi-Ouzou",
+                wilaya="Setifien",
                 telephone="0660 33 44 55",
                 plafond_credit=Decimal("200000"),
             ),
             dict(
                 nom="Épicerie Centrale Azazga",
                 type_client="detaillant",
-                wilaya="Tizi-Ouzou",
+                wilaya="Setifien",
                 telephone="0555 44 55 66",
                 plafond_credit=Decimal("80000"),
             ),
@@ -570,7 +570,7 @@ class Command(BaseCommand):
                 designation="Aliment Démarrage 1er Âge (0–14j)",
                 unite="sac",
                 seuil=10,
-                fnoms=["ONAB Tizi-Ouzou", "Proxi-Aliments Boumerdès"],
+                fnoms=["ONAB Setifien", "Proxi-Aliments Boumerdès"],
             ),
             dict(
                 code="ALIM-CRO",
@@ -578,7 +578,7 @@ class Command(BaseCommand):
                 designation="Aliment Croissance 2ème Âge (15–28j)",
                 unite="sac",
                 seuil=15,
-                fnoms=["ONAB Tizi-Ouzou", "Proxi-Aliments Boumerdès"],
+                fnoms=["ONAB Setifien", "Proxi-Aliments Boumerdès"],
             ),
             dict(
                 code="ALIM-FIN",
@@ -586,7 +586,7 @@ class Command(BaseCommand):
                 designation="Aliment Finition 3ème Âge (29j+)",
                 unite="sac",
                 seuil=20,
-                fnoms=["ONAB Tizi-Ouzou"],
+                fnoms=["ONAB Setifien"],
             ),
             # ── Poussins ─────────────────────────────────────
             dict(
@@ -773,7 +773,7 @@ class Command(BaseCommand):
         bl_specs = [
             dict(
                 ref="BLF-2025-001",
-                fnom="ONAB Tizi-Ouzou",
+                fnom="ONAB Setifien",
                 date_ago=60,
                 statut="facture",
                 lines=[
@@ -803,7 +803,7 @@ class Command(BaseCommand):
             ),
             dict(
                 ref="BLF-2025-004",
-                fnom="ONAB Tizi-Ouzou",
+                fnom="ONAB Setifien",
                 date_ago=30,
                 statut="recu",
                 lines=[
@@ -832,7 +832,7 @@ class Command(BaseCommand):
             ),
             dict(
                 ref="BLF-2025-007",
-                fnom="ONAB Tizi-Ouzou",
+                fnom="ONAB Setifien",
                 date_ago=45,
                 statut="litige",
                 lines=[
@@ -909,7 +909,7 @@ class Command(BaseCommand):
         f1, created = FactureFournisseur.objects.get_or_create(
             reference="FRN-2025-001",
             defaults=dict(
-                fournisseur=fournisseurs["ONAB Tizi-Ouzou"],
+                fournisseur=fournisseurs["ONAB Setifien"],
                 date_facture=d(58),
                 date_echeance=d(28),
                 type_facture="marchandises",
@@ -977,7 +977,7 @@ class Command(BaseCommand):
 
         # Règlement 1 — fully covers FRN-2025-001
         r1, created = ReglementFournisseur.objects.get_or_create(
-            fournisseur=fournisseurs["ONAB Tizi-Ouzou"],
+            fournisseur=fournisseurs["ONAB Setifien"],
             date_reglement=d(40),
             defaults=dict(
                 montant=f1.montant_total,
@@ -1237,7 +1237,7 @@ class Command(BaseCommand):
         admin = User.objects.filter(is_superuser=True).first()
         vivant = produits_finis["Poulet vivant (plein poids)"]
         carcasse = produits_finis["Carcasse entière vidée"]
-        marche = clients["Marché de Gros Tizi-Ouzou"]
+        marche = clients["Marché de Gros Setifien"]
         palmier = clients["Restaurant Le Palmier"]
         amrane = clients["Boucherie Amrane & Fils"]
 
@@ -1332,7 +1332,7 @@ class Command(BaseCommand):
         f1, created = FactureClient.objects.get_or_create(
             reference="FAC-2025-001",
             defaults=dict(
-                client=clients["Marché de Gros Tizi-Ouzou"],
+                client=clients["Marché de Gros Setifien"],
                 date_facture=d(27),
                 date_echeance=d(0),
                 montant_ht=mt1_ht,
@@ -1382,7 +1382,7 @@ class Command(BaseCommand):
 
         # Partial payment on FAC-2025-001
         p1, created = PaiementClient.objects.get_or_create(
-            client=clients["Marché de Gros Tizi-Ouzou"],
+            client=clients["Marché de Gros Setifien"],
             date_paiement=d(20),
             montant=Decimal("400000.00"),
             defaults=dict(
