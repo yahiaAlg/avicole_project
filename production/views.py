@@ -818,6 +818,7 @@ def produit_fini_stock_json(request, pk):
             "unite_mesure": produit.unite_mesure,
             "en_alerte": stock.en_alerte,
             "seuil_alerte": float(stock.seuil_alerte),
+            "prix_vente_defaut": float(produit.prix_vente_defaut),  # ← add this line
         }
     except Exception:
         data = {
@@ -826,5 +827,27 @@ def produit_fini_stock_json(request, pk):
             "unite_mesure": produit.unite_mesure,
             "en_alerte": True,
             "seuil_alerte": 0.0,
+            "prix_vente_defaut": float(produit.prix_vente_defaut),  # ← add this line
         }
     return JsonResponse(data)
+
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_GET
+from production.models import ProduitFini
+
+
+@require_GET
+def produit_fini_detail_json(request, pk):
+    try:
+        p = ProduitFini.objects.get(pk=pk, actif=True)
+        stock = p.quantite_en_stock
+        return JsonResponse(
+            {
+                "quantite": float(stock),
+                "unite_mesure": p.unite_mesure,
+                "prix_vente_defaut": float(p.prix_vente_defaut),
+            }
+        )
+    except ProduitFini.DoesNotExist:
+        return JsonResponse({"error": "not found"}, status=404)

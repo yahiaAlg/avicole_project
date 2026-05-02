@@ -65,10 +65,7 @@
           <!-- Date BL -->
           <div class="form-field">
             <label class="form-label" for="{{ form.date_bl.id_for_label }}">Date du BL *</label>
-            <div class="input-icon-wrap">
-              <i class="bx bxs-calendar"></i>
-              {{ form.date_bl }}
-            </div>
+            {{ form.date_bl }}
             {% if form.date_bl.errors %}
             <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.date_bl.errors|join:", " }}</div>
             {% endif %}
@@ -101,10 +98,7 @@
           <!-- Pièce jointe -->
           <div class="form-field">
             <label class="form-label" for="{{ form.piece_jointe.id_for_label }}">Pièce jointe (PDF/JPG/PNG, max 5 Mo)</label>
-            <div class="input-icon-wrap">
-              <i class="bx bx-paperclip"></i>
-              {{ form.piece_jointe }}
-            </div>
+            {{ form.piece_jointe }}
             {% if form.piece_jointe.errors %}
             <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.piece_jointe.errors|join:", " }}</div>
             {% endif %}
@@ -149,11 +143,12 @@
           <table class="data-table" id="formset-table">
             <thead>
               <tr>
-                <th style="width:35%;">Intrant</th>
-                <th style="width:15%;">Quantité</th>
+                <th style="width:32%;">Intrant</th>
+                <th style="width:14%;">Quantité</th>
                 <th style="width:18%;">Prix unitaire (DZD)</th>
-                <th style="width:20%;">Montant</th>
-                <th style="width:8%;">Notes</th>
+                <th style="width:14%;">Montant</th>
+                <th style="width:12%;">Stock dispo</th>
+                <th style="width:16%;">Notes</th>
                 <th style="width:4%;text-align:center;"></th>
               </tr>
             </thead>
@@ -187,6 +182,9 @@
                   <span class="ligne-montant" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
                     0 DZD
                   </span>
+                </td>
+                <td>
+                  <span class="stock-hint" style="font-size:11px;color:var(--text-muted);"></span>
                 </td>
                 <td>
                   {{ ligne_form.notes }}
@@ -343,7 +341,7 @@
   .input-icon-wrap input,
   .input-icon-wrap select,
   .input-icon-wrap textarea {
-    padding-left: 36px;
+    padding-left: 36px !important;
     width: 100%;
   }
   input[type="text"], input[type="number"], input[type="date"], input[type="email"], input[type="file"],
@@ -365,6 +363,17 @@
     box-shadow: 0 0 0 3px var(--accent-glow);
   }
   textarea { resize: vertical; min-height: 64px; }
+  /* Hide the Django DELETE checkbox — deletion handled via JS hidden inputs */
+  input[name$="-DELETE"] { display: none; }
+  /* Notes textarea in table rows */
+  #formset-table textarea {
+    min-height: 36px;
+    height: 36px;
+    width: 100%;
+    resize: vertical;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
   input[type="file"] { padding: 8px 12px; }
 
   .field-error {
@@ -383,7 +392,7 @@
 
   /* Formset table */
   .data-table {
-    width: 100%; border-collapse: collapse;
+    width: 100%; min-width: 720px; border-collapse: collapse;
   }
   .data-table thead th {
     font-size: 10.5px; font-weight: 600; letter-spacing: .07em;
@@ -392,8 +401,8 @@
     background: var(--bg-raised);
   }
   .data-table td {
-    padding: 10px 12px; border-bottom: 1px solid var(--border);
-    vertical-align: top;
+    padding: 8px 10px; border-bottom: 1px solid var(--border);
+    vertical-align: middle;
   }
   .ligne-row td input, .ligne-row td select {
     padding: 8px 10px;
@@ -406,7 +415,7 @@
   .ligne-row--deleted td input,
   .ligne-row--deleted td select { pointer-events: none; }
 
-  .table-wrapper { overflow-x: auto; }
+  .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .section-eyebrow {
     font-size: 10.5px; font-weight: 600;
     letter-spacing: .1em; text-transform: uppercase;
@@ -489,7 +498,8 @@
     font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 15px;
     color: var(--text-primary); margin-bottom: 4px;
   }
-  .confirm-panel__body { font-size: 13px; color: var(--text-secondary); }
+  .stock-hint { font-size: 11px; color: var(--text-muted); }
+  .stock-hint--over { color: #dc2626 !important; font-weight: 600; }
   .confirm-panel__actions { display: flex; gap: 10px; justify-content: flex-end; }
   .confirm-panel__actions form { margin: 0; }
 </style>
@@ -533,6 +543,58 @@ document.addEventListener('DOMContentLoaded', function () {
     if (summaryTotalEl) summaryTotalEl.textContent = Math.round(grand).toLocaleString('fr-DZ') + ' DZD';
   }
 
+  /* ── AJAX: auto-fill price & show stock on intrant selection ── */
+  const INTRANT_STOCK_URL_TPL = '{% url "intrants:intrant_stock_json" 99999 %}';
+
+  function fetchIntrantHint(selectEl, row, forcePrice) {
+    const pk      = selectEl.value;
+    const hint    = row.querySelector('.stock-hint');
+    const qtEl    = row.querySelector('input[name$="-quantite"]');
+    const puEl    = row.querySelector('input[name$="-prix_unitaire"]');
+    if (!pk) { if (hint) hint.textContent = ''; return; }
+    fetch(INTRANT_STOCK_URL_TPL.replace('99999', pk))
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+      .then(function (data) {
+        const stock = parseFloat(data.quantite) || 0;
+        const qt    = parseFloat(qtEl ? qtEl.value : 0) || 0;
+
+        /* Pre-fill with PMP (last known purchase cost) when price is 0 or on fresh select */
+        if (puEl && data.prix_moyen_pondere !== undefined) {
+          const currentPu = parseFloat(puEl.value) || 0;
+          if (forcePrice || currentPu === 0) {
+            const pmp = parseFloat(data.prix_moyen_pondere) || 0;
+            if (pmp > 0) {
+              puEl.value = pmp.toFixed(4);
+              recalcTotals();
+            }
+          }
+        }
+
+        if (!hint) return;
+        hint.textContent = 'Dispo\u202f: ' + stock.toLocaleString('fr-DZ') + '\u00a0' + (data.unite_mesure || '');
+        hint.classList.toggle('stock-hint--over', qt > stock && stock > 0);
+      })
+      .catch(function () { if (hint) hint.textContent = ''; });
+  }
+
+  function bindIntrantRow(row) {
+    const sel = row.querySelector('select[name$="-intrant"]');
+    const qtEl = row.querySelector('input[name$="-quantite"]');
+    if (sel) {
+      sel.addEventListener('change', function () { fetchIntrantHint(sel, row, true); });
+      if (sel.value) fetchIntrantHint(sel, row, false);
+    }
+    if (qtEl) {
+      qtEl.addEventListener('input', function () {
+        const s = row.querySelector('select[name$="-intrant"]');
+        if (s && s.value) fetchIntrantHint(s, row, false);
+      });
+    }
+  }
+
+  tbody.querySelectorAll('.ligne-row').forEach(bindIntrantRow);
+
+  /* Re-bind after add-line clones a new row */
   tbody.addEventListener('input', recalcTotals);
   tbody.addEventListener('change', recalcTotals);
   recalcTotals();
@@ -566,6 +628,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     tbody.appendChild(newRow);
     totalFormInput.value = totalForms + 1;
+    bindIntrantRow(newRow);
     recalcTotals();
   });
 
@@ -576,14 +639,23 @@ document.addEventListener('DOMContentLoaded', function () {
     const row = btn.closest('.ligne-row');
     if (!row) return;
     const deleteChk = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
-    if (deleteChk) {
-      deleteChk.checked = !deleteChk.checked;
-      row.classList.toggle('ligne-row--deleted', deleteChk.checked);
+    const idInput   = row.querySelector('input[name$="-id"]');
+
+    if (deleteChk && idInput && idInput.value) {
+      /* Existing saved row — inject hidden DELETE fields so Django marks it deleted,
+         then remove the visible row instantly */
+      const hiddenHolder = document.createElement('div');
+      hiddenHolder.style.display = 'none';
+      hiddenHolder.innerHTML =
+        '<input type="hidden" name="' + idInput.name + '" value="' + idInput.value + '">' +
+        '<input type="hidden" name="' + deleteChk.name + '" value="on">';
+      row.parentNode.insertBefore(hiddenHolder, row);
     } else {
-      /* New unsaved row — just remove from DOM */
-      row.remove();
-      totalFormInput.value = parseInt(totalFormInput.value) - 1;
+      /* Unsaved new row — decrement TOTAL_FORMS */
+      totalFormInput.value = Math.max(0, parseInt(totalFormInput.value) - 1);
     }
+
+    row.remove();
     recalcTotals();
   });
 

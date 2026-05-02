@@ -99,4 +99,9 @@ urlpatterns = [
         views.produit_fini_stock_json,
         name="produit_fini_stock_json",
     ),
+    path(
+        "produits/<int:pk>/detail.json",
+        views.produit_fini_detail_json,
+        name="produit_fini_detail_json",
+    ),
 ]

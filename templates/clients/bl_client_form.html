@@ -24,273 +24,334 @@
 {% endblock %}
 
 {% block content %}
-<div class="page-body">
-  <form method="post" id="bl-form">
-    {% csrf_token %}
-    {{ formset.management_form }}
+{% if bl and bl.est_verrouille %}
+<div class="locked-banner">
+  <i class="bx bxs-lock"></i>
+  <span>Ce BL est <strong>verrouillé (Facturé)</strong> — aucune modification n'est possible.</span>
+</div>
+{% endif %}
 
-    <div class="form-grid">
+<form method="post" id="bl-form" novalidate>
+  {% csrf_token %}
+  {{ formset.management_form }}
 
-      <!-- Left: entête BL -->
-      <div class="form-col">
-        <div class="form-card">
-          <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bx-link-external"></i> Entête du BL</div>
-          </div>
-          <div class="form-card__body">
+  <div class="form-layout">
 
-            <div class="form-group">
-              <label class="form-label" for="{{ form.reference.id_for_label }}">Référence BL <span class="form-required">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bx-hash input-icon"></i>
-                {{ form.reference }}
-              </div>
-              {% for err in form.reference.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
+    <!-- Main column -->
+    <div class="form-main">
 
-            {% if not client %}
-            <div class="form-group">
-              <label class="form-label" for="{{ form.client.id_for_label }}">Client <span class="form-required">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bxs-group input-icon"></i>
-                {{ form.client }}
-              </div>
-              {% for err in form.client.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
-            {% else %}
-            {{ form.client }}
-            {% endif %}
-
-            <div class="form-group">
-              <label class="form-label" for="{{ form.date_bl.id_for_label }}">Date du BL <span class="form-required">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bxs-calendar input-icon"></i>
-                {{ form.date_bl }}
-              </div>
-              {% for err in form.date_bl.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="{{ form.statut.id_for_label }}">Statut <span class="form-required">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bxs-badge-check input-icon"></i>
-                {{ form.statut }}
-              </div>
-              {% for err in form.statut.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="{{ form.signe_par.id_for_label }}">Signé par (réceptionnaire)</label>
-              <div class="input-wrapper">
-                <i class="bx bxs-user input-icon"></i>
-                {{ form.signe_par }}
-              </div>
-              {% for err in form.signe_par.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="{{ form.adresse_livraison.id_for_label }}">Adresse de livraison</label>
-              <div class="input-wrapper input-wrapper--textarea">{{ form.adresse_livraison }}</div>
-              {% for err in form.adresse_livraison.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
-
-            <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" for="{{ form.notes.id_for_label }}">Notes</label>
-              <div class="input-wrapper input-wrapper--textarea">{{ form.notes }}</div>
-              {% for err in form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
-
-          </div>
+      <!-- Header card -->
+      <div class="form-card">
+        <div class="form-card__header">
+          <i class="bx bxs-truck ic-icon"></i>
+          <span class="form-card__title">Informations du BL</span>
         </div>
-      </div>
 
-      <!-- Right: lignes produits -->
-      <div class="form-col">
-        <div class="form-card">
-          <div class="form-card__header" style="display:flex;align-items:center;justify-content:space-between;">
-            <div class="section-eyebrow"><i class="bx bxs-badge-check"></i> Lignes produits finis</div>
-            <button type="button" id="add-line-btn" class="btn-ghost btn-xs">
-              <i class="bx bx-plus"></i> Ajouter une ligne
-            </button>
+        <div class="form-grid-2">
+
+          <!-- Référence -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.reference.id_for_label }}">Référence BL *</label>
+            <div class="input-icon-wrap"><i class="bx bx-hash"></i>{{ form.reference }}</div>
+            {% for err in form.reference.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
           </div>
-          <div class="form-card__body" style="padding:0;">
 
-            {% if formset.non_form_errors %}
-            <div class="field-error" style="padding:12px 16px;border-bottom:1px solid var(--border);">
-              {% for err in formset.non_form_errors %}<div><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
-            {% endif %}
-
-            <div id="formset-container">
-              {% for ligne_form in formset %}
-              <div class="ligne-form {% if ligne_form.instance.pk %}ligne-existing{% endif %}" data-form-idx="{{ forloop.counter0 }}">
-                {% for hfield in ligne_form.hidden_fields %}{{ hfield }}{% endfor %}
-                <div class="ligne-inner {% if ligne_form.instance.pk and ligne_form.instance.bl.est_verrouille %}ligne-locked{% endif %}">
-                  <div class="ligne-row">
-                    <div class="ligne-field ligne-field--product">
-                      <label class="form-label">Produit fini <span class="form-required">*</span></label>
-                      {{ ligne_form.produit_fini }}
-                    </div>
-                    <div class="ligne-field ligne-field--qty">
-                      <label class="form-label">Qté <span class="form-required">*</span></label>
-                      {{ ligne_form.quantite }}
-                      <div class="stock-hint" id="stock-hint-{{ forloop.counter0 }}"></div>
-                    </div>
-                    <div class="ligne-field ligne-field--price">
-                      <label class="form-label">Prix unit. <span class="form-required">*</span></label>
-                      {{ ligne_form.prix_unitaire }}
-                    </div>
-                    <div class="ligne-field ligne-field--total">
-                      <label class="form-label">Total</label>
-                      <div class="ligne-total" id="ligne-total-{{ forloop.counter0 }}">—</div>
-                    </div>
-                    <div class="ligne-field ligne-field--del">
-                      <label class="form-label" style="visibility:hidden;">Del</label>
-                      <label class="delete-label" title="Supprimer cette ligne">
-                        {{ ligne_form.DELETE }}
-                        <i class="bx bx-trash"></i>
-                      </label>
-                    </div>
-                  </div>
-                  {% if ligne_form.errors %}
-                  <div style="padding:0 14px 10px;">
-                    {% for field, errs in ligne_form.errors.items %}
-                    {% for err in errs %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-                    {% endfor %}
-                  </div>
-                  {% endif %}
-                </div>
-              </div>
-              {% endfor %}
-            </div>
-
-            <!-- Running total -->
-            <div class="bl-total-row">
-              <span>Total BL (indicatif)</span>
-              <span class="bl-total-value" id="bl-grand-total">0 DZD</span>
-            </div>
-
+          <!-- Client -->
+          {% if not client %}
+          <div class="form-field">
+            <label class="form-label" for="{{ form.client.id_for_label }}">Client *</label>
+            <div class="input-icon-wrap"><i class="bx bxs-group"></i>{{ form.client }}</div>
+            {% for err in form.client.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
           </div>
+          {% else %}
+          {{ form.client }}
+          {% endif %}
+
+          <!-- Date BL -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.date_bl.id_for_label }}">Date du BL *</label>
+            {{ form.date_bl }}
+            {% for err in form.date_bl.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+          </div>
+
+          <!-- Statut -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.statut.id_for_label }}">Statut *</label>
+            <div class="input-icon-wrap"><i class="bx bxs-badge-check"></i>{{ form.statut }}</div>
+            {% for err in form.statut.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+          </div>
+
+          <!-- Signé par -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.signe_par.id_for_label }}">Signé par (réceptionnaire)</label>
+            <div class="input-icon-wrap"><i class="bx bxs-user"></i>{{ form.signe_par }}</div>
+            {% for err in form.signe_par.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+          </div>
+
+          <!-- Adresse livraison -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.adresse_livraison.id_for_label }}">Adresse de livraison</label>
+            {{ form.adresse_livraison }}
+            {% for err in form.adresse_livraison.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+          </div>
+
+        </div>
+
+        <!-- Notes (full width) -->
+        <div class="form-field" style="margin-top:12px;">
+          <label class="form-label" for="{{ form.notes.id_for_label }}">Notes</label>
+          {{ form.notes }}
+          {% for err in form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
         </div>
 
         {% if form.non_field_errors %}
-        <div class="field-error" style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:12px 14px;">
-          {% for err in form.non_field_errors %}<div><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+        <div class="form-error-banner">
+          <i class="bx bxs-error-circle"></i>
+          {% for err in form.non_field_errors %}{{ err }}{% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Lines card -->
+      <div class="form-card" style="margin-top:16px;">
+        <div class="form-card__header" style="justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <i class="bx bxs-cube-alt ic-icon"></i>
+            <span class="form-card__title">Lignes produits finis</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span class="section-eyebrow">Total : <strong id="bl-grand-total">0 DZD</strong></span>
+            <button type="button" id="add-line-btn" class="btn-ghost btn-sm">
+              <i class="bx bx-plus"></i> Ajouter une ligne
+            </button>
+          </div>
+        </div>
+
+        {% if formset.non_form_errors %}
+        <div class="form-error-banner" style="margin:12px 16px 0;">
+          <i class="bx bxs-error-circle"></i> {{ formset.non_form_errors|join:", " }}
         </div>
         {% endif %}
 
-        <div class="form-actions-footer">
-          {% if bl %}
-          <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="btn-ghost">Annuler</a>
-          {% elif client %}
-          <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost">Annuler</a>
-          {% else %}
-          <a href="{% url 'clients:bl_client_list' %}" class="btn-ghost">Annuler</a>
-          {% endif %}
-          <button type="submit" class="btn-primary"><i class="bx bx-check"></i> {{ action_label }}</button>
+        <div class="table-wrapper" style="margin-top:8px;">
+          <table class="data-table" id="formset-table">
+            <thead>
+              <tr>
+                <th style="width:35%;">Produit fini</th>
+                <th style="width:14%;">Quantité</th>
+                <th style="width:18%;">Prix unit. (DZD)</th>
+                <th style="width:16%;">Montant</th>
+                <th style="width:13%;">Stock dispo</th>
+                <th style="width:4%;text-align:center;"></th>
+              </tr>
+            </thead>
+            <tbody id="formset-container">
+              {% for ligne_form in formset %}
+              <tr class="ligne-form {% if ligne_form.instance.pk %}ligne-existing{% endif %}" data-form-idx="{{ forloop.counter0 }}">
+                <td>
+                  {% for hfield in ligne_form.hidden_fields %}{{ hfield }}{% endfor %}
+                  {{ ligne_form.DELETE }}
+                  {{ ligne_form.produit_fini }}
+                  {% for err in ligne_form.produit_fini.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+                </td>
+                <td>
+                  {{ ligne_form.quantite }}
+                  {% for err in ligne_form.quantite.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+                </td>
+                <td>
+                  {{ ligne_form.prix_unitaire }}
+                  {% for err in ligne_form.prix_unitaire.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+                </td>
+                <td>
+                  <span class="ligne-total" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">—</span>
+                </td>
+                <td>
+                  <span class="stock-hint" style="font-size:11px;color:var(--text-muted);"></span>
+                </td>
+                <td style="text-align:center;">
+                  <button type="button" class="delete-btn" title="Supprimer la ligne">
+                    <i class="bx bx-trash"></i>
+                  </button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
+      </div>
 
+    </div><!-- /form-main -->
+
+    <!-- Sidebar -->
+    <div class="form-sidebar">
+      <div class="form-card sticky-card">
+        <div class="form-card__header">
+          <i class="bx bxs-calculator ic-icon"></i>
+          <span class="form-card__title">Récapitulatif</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Lignes</span>
+          <span class="summary-val" id="summary-lines">0</span>
+        </div>
+        <div class="summary-row summary-row--total">
+          <span class="summary-label">Total BL</span>
+          <span class="summary-val" id="summary-total">0 DZD</span>
+        </div>
+        <div style="margin-top:20px;display:flex;flex-direction:column;gap:10px;">
+          <button type="submit" class="btn-primary" style="width:100%;justify-content:center;">
+            <i class="bx bxs-save"></i> {{ action_label }}
+          </button>
+          {% if bl %}
+          <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="btn-ghost" style="width:100%;justify-content:center;">Annuler</a>
+          {% elif client %}
+          <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost" style="width:100%;justify-content:center;">Annuler</a>
+          {% else %}
+          <a href="{% url 'clients:bl_client_list' %}" class="btn-ghost" style="width:100%;justify-content:center;">Annuler</a>
+          {% endif %}
+        </div>
+        {% if bl and bl.statut == "brouillon" %}
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+          <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:14px 16px;">
+            <div style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;margin-bottom:4px;font-size:13px;">
+              <i class="bx bxs-trash me-1"></i> Zone sensible
+            </div>
+            <p style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;">Supprimer définitivement ce BL Brouillon.</p>
+            <button type="button" class="btn-danger" style="width:100%;justify-content:center;font-size:12px;" id="sidebar-delete-btn"
+              data-bl-pk="{{ bl.pk }}" data-bl-ref="{{ bl.reference }}">
+              <i class="bx bxs-trash"></i> Supprimer
+            </button>
+          </div>
+        </div>
+        {% endif %}
       </div>
     </div>
-  </form>
-</div>
 
-<!-- Hidden empty form template for JS cloning -->
-<div id="empty-form-template" style="display:none;">
-  <div class="ligne-form" data-form-idx="__prefix__">
-    <div class="ligne-inner">
-      <div class="ligne-row">
-        <div class="ligne-field ligne-field--product">
-          <label class="form-label">Produit fini <span class="form-required">*</span></label>
-          {{ formset.empty_form.produit_fini }}
-        </div>
-        <div class="ligne-field ligne-field--qty">
-          <label class="form-label">Qté <span class="form-required">*</span></label>
-          {{ formset.empty_form.quantite }}
-          <div class="stock-hint" id="stock-hint-__prefix__"></div>
-        </div>
-        <div class="ligne-field ligne-field--price">
-          <label class="form-label">Prix unit.</label>
-          {{ formset.empty_form.prix_unitaire }}
-        </div>
-        <div class="ligne-field ligne-field--total">
-          <label class="form-label">Total</label>
-          <div class="ligne-total">—</div>
-        </div>
-        <div class="ligne-field ligne-field--del">
-          <label class="form-label" style="visibility:hidden;">Del</label>
-          <label class="delete-label" title="Supprimer">
-            {{ formset.empty_form.DELETE }}
-            <i class="bx bx-trash"></i>
-          </label>
-        </div>
-      </div>
+  </div><!-- /form-layout -->
+</form>
+
+{% if bl and bl.statut == "brouillon" %}
+<div id="confirm-delete-panel" class="confirm-panel" style="display:none;">
+  <div class="confirm-panel__inner">
+    <div class="confirm-panel__icon"><i class="bx bxs-trash"></i></div>
+    <div>
+      <div class="confirm-panel__title">Supprimer le BL ?</div>
+      <div class="confirm-panel__body">Le BL <strong>{{ bl.reference }}</strong> sera définitivement supprimé.</div>
+    </div>
+    <div class="confirm-panel__actions">
+      <button type="button" id="confirm-delete-cancel" class="btn-ghost">Annuler</button>
+      <form method="post" action="{% url 'clients:bl_client_delete' bl.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn-danger"><i class="bx bxs-trash"></i> Supprimer</button>
+      </form>
     </div>
   </div>
 </div>
+{% endif %}
+
+<!-- Empty form template for JS cloning -->
+<template id="empty-form-template">
+  <tr class="ligne-form" data-form-idx="__prefix__">
+    <td>
+      {{ formset.empty_form.id }}
+      {{ formset.empty_form.DELETE }}
+      {{ formset.empty_form.produit_fini }}
+    </td>
+    <td>{{ formset.empty_form.quantite }}</td>
+    <td>{{ formset.empty_form.prix_unitaire }}</td>
+    <td><span class="ligne-total" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">—</span></td>
+    <td><span class="stock-hint" style="font-size:11px;color:var(--text-muted);"></span></td>
+    <td style="text-align:center;">
+      <button type="button" class="delete-btn" title="Supprimer la ligne"><i class="bx bx-trash"></i></button>
+    </td>
+  </tr>
+</template>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
-  @media (max-width: 900px) { .form-grid { grid-template-columns: 1fr; } }
-  .form-col { display: flex; flex-direction: column; gap: 18px; }
-
-  .form-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
-  .form-card__header { padding: 14px 20px 12px; border-bottom: 1px solid var(--border); }
-  .form-card__body { padding: 20px; }
-  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
-
-  .form-group { margin-bottom: 15px; }
-  .form-group:last-child { margin-bottom: 0; }
-  .form-label { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .03em; margin-bottom: 6px; }
-  .form-required { color: #dc2626; }
-
-  .input-wrapper { position: relative; }
-  .input-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; pointer-events: none; transition: color .15s; }
-  .input-wrapper:focus-within .input-icon { color: var(--accent-text); }
-  .input-wrapper input, .input-wrapper select {
-    width: 100%; background: var(--bg-surface); border: 1px solid var(--border);
-    border-radius: var(--radius-md); color: var(--text-primary); font-family: 'Inter',sans-serif;
-    font-size: 13.5px; padding: 10px 12px 10px 40px; transition: border-color .15s, box-shadow .15s;
+  .locked-banner {
+    background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.2);
+    border-radius: var(--radius-md); padding: 12px 16px;
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 20px; font-size: 13px; color: var(--text-secondary);
   }
-  .input-wrapper input:focus, .input-wrapper select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none; }
-  .input-wrapper--textarea textarea { width: 100%; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text-primary); font-family: 'Inter',sans-serif; font-size: 13.5px; padding: 10px 12px; resize: vertical; min-height: 72px; transition: border-color .15s; }
-  .input-wrapper--textarea textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none; }
+  .locked-banner i { color: #b45309; font-size: 15px; }
 
-  /* Formset ligne */
-  .ligne-form { border-bottom: 1px solid var(--border); }
-  .ligne-form:last-child { border-bottom: none; }
-  .ligne-inner { padding: 14px 16px; }
-  .ligne-locked { opacity: .6; pointer-events: none; }
-  .ligne-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 40px; gap: 10px; align-items: end; }
-  .ligne-field select, .ligne-field input[type="number"] {
-    width: 100%; background: var(--bg-surface); border: 1px solid var(--border);
-    border-radius: var(--radius-md); font-family: 'Inter',sans-serif;
-    font-size: 13px; color: var(--text-primary); padding: 9px 10px;
-    transition: border-color .15s;
+  .form-layout {
+    display: grid; grid-template-columns: 1fr 280px;
+    gap: 16px; align-items: start;
   }
-  .ligne-field select:focus, .ligne-field input[type="number"]:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px rgba(34,197,94,.15); }
-  .ligne-total { font-family: 'Nunito',sans-serif; font-weight: 700; font-size: 13.5px; color: var(--text-primary); padding: 9px 4px; }
-  .stock-hint { font-size: 11px; color: var(--text-muted); margin-top: 3px; min-height: 14px; }
+  @media (max-width: 900px) { .form-layout { grid-template-columns: 1fr; } .sticky-card { position: static; } }
+  .form-main { display: flex; flex-direction: column; }
+
+  .form-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; }
+  .form-card__header { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .ic-icon { font-size: 17px; color: var(--accent-text); }
+  .form-card__title { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px; color: var(--text-primary); }
+
+  .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 680px) { .form-grid-2 { grid-template-columns: 1fr; } }
+
+  .form-field { display: flex; flex-direction: column; gap: 5px; }
+  .form-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .03em; }
+
+  .input-icon-wrap { position: relative; display: flex; align-items: center; }
+  .input-icon-wrap > i { position: absolute; left: 12px; font-size: 14px; color: var(--text-muted); pointer-events: none; z-index: 1; }
+  .input-icon-wrap input,
+  .input-icon-wrap select { padding-left: 36px !important; width: 100%; }
+
+  input[type="text"], input[type="number"], input[type="date"], input[type="email"],
+  select, textarea {
+    background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md);
+    color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13.5px;
+    padding: 10px 13px; width: 100%; outline: none;
+    transition: border-color .15s, box-shadow .15s; appearance: auto;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  textarea { resize: vertical; min-height: 64px; }
+
+  input[name$="-DELETE"] { display: none; }
+
+  .field-error { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #dc2626; margin-top: 2px; }
+  .form-error-banner { background: rgba(239,68,68,.06); border: 1px solid rgba(239,68,68,.18); border-radius: var(--radius-md); padding: 10px 14px; font-size: 13px; color: #dc2626; display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+
+  /* Table */
+  .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .data-table { width: 100%; min-width: 640px; border-collapse: collapse; }
+  .data-table thead th { font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--bg-raised); }
+  .data-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .ligne-form td input, .ligne-form td select { padding: 8px 10px; font-size: 13px; border-radius: var(--radius-sm); }
   .stock-hint.over { color: #dc2626; }
 
-  .delete-label { display: flex; align-items: center; justify-content: center; width: 30px; height: 36px; border-radius: var(--radius-sm); border: 1px solid var(--border); cursor: pointer; color: var(--text-muted); transition: all .15s; }
-  .delete-label:hover { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.3); color: #dc2626; }
-  .delete-label input[type="checkbox"] { display: none; }
-  .ligne-form.marked-delete .ligne-inner { opacity: .4; }
+  /* Delete button */
+  .delete-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--radius-sm); border: 1px solid rgba(239,68,68,.2); background: transparent; color: #dc2626; cursor: pointer; font-size: 14px; transition: background .12s; }
+  .delete-btn:hover { background: rgba(239,68,68,.08); }
 
-  .bl-total-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-base); border-top: 1px solid var(--border); font-size: 12.5px; color: var(--text-muted); }
-  .bl-total-value { font-family: 'Nunito',sans-serif; font-weight: 800; font-size: 16px; color: var(--text-primary); }
-
-  .form-actions-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 16px 20px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
-  .field-error { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #dc2626; margin-top: 5px; }
+  /* Sidebar */
+  .sticky-card { position: sticky; top: calc(var(--topbar-h) + 16px); }
+  .summary-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .summary-row:last-of-type { border-bottom: none; }
+  .summary-label { color: var(--text-muted); }
+  .summary-val { font-family: 'Nunito', sans-serif; font-weight: 700; color: var(--text-primary); }
+  .summary-row--total .summary-val { font-size: 16px; color: var(--accent-text); }
 
   .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
   .btn-primary:hover { opacity:.88;color:#fff; }
   .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
-  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
-  .btn-xs { font-size:12px;padding:6px 10px; }
+  .btn-ghost:hover { background:var(--bg-hover);color:var(--text-primary); }
+  .btn-sm { padding:7px 12px;font-size:12px; }
+  .btn-danger { background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.22);color:#dc2626;font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px; }
+  .btn-danger:hover { background:rgba(239,68,68,.18); }
+
+  .confirm-panel { position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:500;display:flex!important;align-items:center;justify-content:center;padding:20px; }
+  .confirm-panel[style*="display:none"] { display:none!important; }
+  .confirm-panel__inner { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;max-width:420px;width:100%;display:flex;flex-direction:column;gap:16px;box-shadow:0 8px 32px rgba(0,0,0,.14); }
+  .confirm-panel__icon { width:44px;height:44px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:20px;background:rgba(239,68,68,.1);color:#dc2626; }
+  .confirm-panel__title { font-family:'Nunito',sans-serif;font-weight:700;font-size:15px;color:var(--text-primary);margin-bottom:4px; }
+  .confirm-panel__body { font-size:13px;color:var(--text-secondary); }
+  .confirm-panel__actions { display:flex;gap:10px;justify-content:flex-end; }
+  .confirm-panel__actions form { margin:0; }
 </style>
 {% endblock %}
 
@@ -298,101 +359,129 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const totalFormsInput = document.querySelector('[name$="-TOTAL_FORMS"]');
-  const container = document.getElementById('formset-container');
-  const emptyTemplate = document.getElementById('empty-form-template');
+  const tbody           = document.getElementById('formset-container');
+  const emptyTemplate   = document.getElementById('empty-form-template');
+  const grandTotalEl    = document.getElementById('bl-grand-total');
+  const summaryLinesEl  = document.getElementById('summary-lines');
+  const summaryTotalEl  = document.getElementById('summary-total');
 
   function getFormCount() { return parseInt(totalFormsInput.value, 10); }
-  function setFormCount(n) { totalFormsInput.value = n; }
 
-  function reindex(el, oldIdx, newIdx) {
-    el.querySelectorAll('[name], [id], [for]').forEach(function (node) {
-      ['name','id','for'].forEach(function (attr) {
-        if (node.getAttribute(attr)) {
-          node.setAttribute(attr, node.getAttribute(attr).replace('__prefix__', newIdx).replace(new RegExp('-' + oldIdx + '-'), '-' + newIdx + '-'));
+  function fmt(n) { return Math.round(n).toLocaleString('fr-DZ') + ' DZD'; }
+
+  function updateTotals() {
+    let grand = 0, count = 0;
+    tbody.querySelectorAll('.ligne-form').forEach(function (row) {
+      const qty   = parseFloat(row.querySelector('input[name$="-quantite"]')?.value) || 0;
+      const price = parseFloat(row.querySelector('input[name$="-prix_unitaire"]')?.value) || 0;
+      const total = qty * price;
+      const el    = row.querySelector('.ligne-total');
+      if (el) el.textContent = total > 0 ? fmt(total) : '—';
+      grand += total;
+      count++;
+    });
+    if (grandTotalEl)   grandTotalEl.textContent  = fmt(grand);
+    if (summaryLinesEl) summaryLinesEl.textContent = count;
+    if (summaryTotalEl) summaryTotalEl.textContent = fmt(grand);
+  }
+
+  // URL template: Django resolves the real path; JS swaps the sentinel PK at runtime.
+  const STOCK_URL_TPL = '{% url "production:produit_fini_stock_json" 99999 %}';
+
+  function fetchStockHint(selectEl, row, forcePrice) {
+    const pk      = selectEl.value;
+    const hint    = row.querySelector('.stock-hint');
+    const qtyEl   = row.querySelector('input[name$="-quantite"]');
+    const priceEl = row.querySelector('input[name$="-prix_unitaire"]');
+    if (!pk) { if (hint) hint.textContent = ''; return; }
+    fetch(STOCK_URL_TPL.replace('99999', pk))
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => {
+        const stock = parseFloat(data.quantite) || 0;
+        const qty   = parseFloat(qtyEl?.value) || 0;
+
+        // Auto-fill price when product is (re)selected, or when price is still 0/empty.
+        if (priceEl && data.prix_vente_defaut !== undefined) {
+          const currentPrice = parseFloat(priceEl.value) || 0;
+          if (forcePrice || currentPrice === 0) {
+            priceEl.value = parseFloat(data.prix_vente_defaut).toFixed(4);
+            updateTotals();
+          }
         }
+
+        if (!hint) return;
+        hint.textContent = 'Dispo\u202f: ' + stock.toLocaleString('fr-DZ') + '\u00a0' + (data.unite_mesure || '');
+        hint.classList.toggle('over', qty > stock);
+      })
+      .catch(() => { if (hint) hint.textContent = ''; });
+  }
+
+  function bindRow(row) {
+    const sel   = row.querySelector('select[name$="-produit_fini"]');
+    const qty   = row.querySelector('input[name$="-quantite"]');
+    const price = row.querySelector('input[name$="-prix_unitaire"]');
+    const del   = row.querySelector('.delete-btn');
+    const chk   = row.querySelector('input[name$="-DELETE"]');
+
+    if (sel) {
+      sel.addEventListener('change', function () { fetchStockHint(sel, row, true); });
+      if (sel.value) fetchStockHint(sel, row, false);   // on page load: only fill if price is 0
+    }
+    if (qty)   qty.addEventListener('input', function () { fetchStockHint(sel, row, false); updateTotals(); });
+    if (price) price.addEventListener('input', updateTotals);
+
+    if (del) {
+      del.addEventListener('click', function () {
+        const idInput = row.querySelector('input[name$="-id"]');
+        if (idInput && idInput.value && chk) {
+          const h = document.createElement('div');
+          h.style.display = 'none';
+          h.innerHTML = '<input type="hidden" name="' + idInput.name + '" value="' + idInput.value + '">'
+                      + '<input type="hidden" name="' + chk.name + '" value="on">';
+          row.parentNode.insertBefore(h, row);
+        } else {
+          totalFormsInput.value = Math.max(0, getFormCount() - 1);
+        }
+        row.remove();
+        updateTotals();
       });
-    });
+    }
   }
 
-  function computeLineTotal(formDiv) {
-    const idx = formDiv.dataset.formIdx;
-    const qtyEl = formDiv.querySelector('input[name$="-quantite"]');
-    const priceEl = formDiv.querySelector('input[name$="-prix_unitaire"]');
-    const totalEl = formDiv.querySelector('.ligne-total');
-    if (!qtyEl || !priceEl || !totalEl) return 0;
-    const qty = parseFloat(qtyEl.value) || 0;
-    const price = parseFloat(priceEl.value) || 0;
-    const total = qty * price;
-    totalEl.textContent = total > 0 ? total.toLocaleString('fr-DZ', {minimumFractionDigits:0,maximumFractionDigits:2}) + ' DZD' : '—';
-    return total;
-  }
-
-  function updateGrandTotal() {
-    let grand = 0;
-    container.querySelectorAll('.ligne-form').forEach(function (div) {
-      if (!div.classList.contains('marked-delete')) grand += computeLineTotal(div);
-    });
-    document.getElementById('bl-grand-total').textContent = grand.toLocaleString('fr-DZ', {minimumFractionDigits:0,maximumFractionDigits:2}) + ' DZD';
-  }
+  tbody.querySelectorAll('.ligne-form').forEach(bindRow);
+  updateTotals();
 
   // Add line
   document.getElementById('add-line-btn').addEventListener('click', function () {
-    const idx = getFormCount();
-    const clone = emptyTemplate.querySelector('.ligne-form').cloneNode(true);
-    reindex(clone, '__prefix__', idx);
+    const idx   = getFormCount();
+    const tmpl  = emptyTemplate.content.querySelector('.ligne-form');
+    const clone = tmpl.cloneNode(true);
     clone.dataset.formIdx = idx;
-    container.appendChild(clone);
-    setFormCount(idx + 1);
-    bindLineEvents(clone);
-    updateGrandTotal();
+    clone.querySelectorAll('[name],[id],[for]').forEach(function (el) {
+      ['name','id','for'].forEach(function (a) {
+        if (el.getAttribute(a)) el.setAttribute(a, el.getAttribute(a).replace(/__prefix__/g, idx));
+      });
+    });
+    clone.querySelectorAll('input:not([type="hidden"]), select').forEach(function (el) {
+      if (el.type === 'checkbox') el.checked = false; else el.value = '';
+    });
+    const lt = clone.querySelector('.ligne-total');
+    if (lt) lt.textContent = '—';
+    tbody.appendChild(clone);
+    totalFormsInput.value = idx + 1;
+    bindRow(clone);
+    updateTotals();
   });
 
-  // Stock hint fetch
-  function fetchStockHint(selectEl, formDiv) {
-    const pk = selectEl.value;
-    const idx = formDiv.dataset.formIdx;
-    const hintEl = formDiv.querySelector('.stock-hint');
-    if (!pk) { if (hintEl) hintEl.textContent = ''; return; }
-    fetch('/api/production/produits/' + pk + '/stock.json')
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (!hintEl) return;
-        const qtyEl = formDiv.querySelector('input[name$="-quantite"]');
-        const qty = parseFloat(qtyEl ? qtyEl.value : 0) || 0;
-        hintEl.textContent = 'Stock dispo : ' + (data.quantite !== undefined ? data.quantite : data.stock) + ' ' + (data.unite_mesure || '');
-        hintEl.classList.toggle('over', qty > (data.quantite !== undefined ? data.quantite : data.stock));
-      })
-      .catch(function () {});
+  // Sidebar delete
+  const sidebarDeleteBtn = document.getElementById('sidebar-delete-btn');
+  if (sidebarDeleteBtn) {
+    const panel     = document.getElementById('confirm-delete-panel');
+    const cancelBtn = document.getElementById('confirm-delete-cancel');
+    sidebarDeleteBtn.addEventListener('click', function () { if (panel) panel.style.display = ''; });
+    if (cancelBtn) cancelBtn.addEventListener('click', function () { panel.style.display = 'none'; });
+    if (panel) panel.addEventListener('click', function (e) { if (e.target === panel) panel.style.display = 'none'; });
   }
-
-  function bindLineEvents(formDiv) {
-    const productSel = formDiv.querySelector('select[name$="-produit_fini"]');
-    const qtyInput   = formDiv.querySelector('input[name$="-quantite"]');
-    const priceInput = formDiv.querySelector('input[name$="-prix_unitaire"]');
-    const deleteChk  = formDiv.querySelector('input[type="checkbox"][name$="-DELETE"]');
-
-    if (productSel) {
-      productSel.addEventListener('change', function () { fetchStockHint(productSel, formDiv); });
-      if (productSel.value) fetchStockHint(productSel, formDiv);
-    }
-    if (qtyInput) {
-      qtyInput.addEventListener('input', function () {
-        if (productSel && productSel.value) fetchStockHint(productSel, formDiv);
-        updateGrandTotal();
-      });
-    }
-    if (priceInput) priceInput.addEventListener('input', updateGrandTotal);
-    if (deleteChk) {
-      deleteChk.addEventListener('change', function () {
-        formDiv.classList.toggle('marked-delete', deleteChk.checked);
-        updateGrandTotal();
-      });
-    }
-  }
-
-  // Bind existing lines
-  container.querySelectorAll('.ligne-form').forEach(bindLineEvents);
-  updateGrandTotal();
 });
 </script>
 {% endblock %}
