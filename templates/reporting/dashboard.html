@@ -48,6 +48,7 @@
 .alert-metric--warn{border-left:3px solid #f59e0b;}
 .alert-metric--ok{border-left:3px solid #22c55e;}
 .alert-metric--info{border-left:3px solid #38bdf8;}
+a.alert-metric{text-decoration:none;cursor:pointer;display:flex;}
 
 .fin-card {
   background:var(--bg-surface); border:1px solid var(--border);
@@ -94,7 +95,7 @@
 <!-- ── ROW 1: 4 Alert KPI cards ───────────────────────────────── -->
 <div class="dash-grid-4 mb-4">
 
-  <div class="alert-metric {% if nb_factures_retard_fournisseur > 0 %}alert-metric--danger{% else %}alert-metric--ok{% endif %}">
+  <a href="{% url 'reporting:dettes_fournisseurs' %}" class="alert-metric {% if nb_factures_retard_fournisseur > 0 %}alert-metric--danger{% else %}alert-metric--ok{% endif %}">
     <div class="alert-metric__icon ic-red"><i class="bx bxs-buildings"></i></div>
     <div class="alert-metric__body">
       <div class="alert-metric__label">FF en retard</div>
@@ -104,9 +105,9 @@
         {% else %}<i class="bx bxs-check-circle"></i> Aucun retard{% endif %}
       </div>
     </div>
-  </div>
+  </a>
 
-  <div class="alert-metric {% if nb_factures_retard_client > 0 %}alert-metric--warn{% else %}alert-metric--ok{% endif %}">
+  <a href="{% url 'reporting:creances_clients' %}" class="alert-metric {% if nb_factures_retard_client > 0 %}alert-metric--warn{% else %}alert-metric--ok{% endif %}">
     <div class="alert-metric__icon ic-amber"><i class="bx bxs-group"></i></div>
     <div class="alert-metric__body">
       <div class="alert-metric__label">FC en retard</div>
@@ -116,9 +117,9 @@
         {% else %}<i class="bx bxs-check-circle"></i> À jour{% endif %}
       </div>
     </div>
-  </div>
+  </a>
 
-  <div class="alert-metric {% if nb_stocks_alerte > 0 %}alert-metric--warn{% else %}alert-metric--ok{% endif %}">
+  <a href="{% url 'reporting:etat_stocks' %}?alerte=1" class="alert-metric {% if nb_stocks_alerte > 0 %}alert-metric--warn{% else %}alert-metric--ok{% endif %}">
     <div class="alert-metric__icon ic-orange"><i class="bx bxs-archive"></i></div>
     <div class="alert-metric__body">
       <div class="alert-metric__label">Stocks en alerte</div>
@@ -128,9 +129,9 @@
         {% else %}<i class="bx bxs-check-circle"></i> Niveaux normaux{% endif %}
       </div>
     </div>
-  </div>
+  </a>
 
-  <div class="alert-metric alert-metric--info">
+  <a href="{% url 'reporting:consommation_lot' %}" class="alert-metric alert-metric--info">
     <div class="alert-metric__icon ic-green"><i class="bx bxs-grid-alt"></i></div>
     <div class="alert-metric__body">
       <div class="alert-metric__label">Lots ouverts</div>
@@ -139,7 +140,7 @@
         {% if nb_lots_ouverts > 0 %}<i class="bx bxs-check-circle"></i> En cours d'élevage{% else %}<i class="bx bx-minus"></i> Aucun lot actif{% endif %}
       </div>
     </div>
-  </div>
+  </a>
 
 </div>
 
@@ -382,6 +383,14 @@
     <div class="report-card__content">
       <div class="report-card__title">Historique BL Clients</div>
       <div class="report-card__desc">Journal bons de livraison clients : statuts, montants, lien facturation.</div>
+    </div>
+    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
+  </a>
+  <a href="{% url 'stock:stock_mouvement_list' %}" class="report-card">
+    <div class="report-card__icon ic-teal"><i class="bx bx-transfer"></i></div>
+    <div class="report-card__content">
+      <div class="report-card__title">Mouvements de Stock</div>
+      <div class="report-card__desc">Journal des entrées, sorties et ajustements avec bons de mouvement imprimables.</div>
     </div>
     <i class="bx bx-right-arrow-alt report-card__arrow"></i>
   </a>

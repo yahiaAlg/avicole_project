@@ -12,6 +12,7 @@
 <a href="?{% if segment %}segment={{ segment }}&{% endif %}{% if categorie_pk %}categorie={{ categorie_pk }}&{% endif %}{% if alerte_only %}alerte=1&{% endif %}{% if q %}q={{ q }}&{% endif %}export=csv" class="btn-ghost btn-sm">
   <i class="bx bxs-spreadsheet"></i> Exporter CSV
 </a>
+<a href="{% url 'stock:stock_mouvement_list' %}" class="btn-ghost btn-sm"><i class="bx bx-transfer"></i> Mouvements</a>
 <a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> Rapports</a>
 {% endblock %}
 
@@ -132,6 +133,7 @@
             <th style="text-align:right;">PMP</th>
             <th style="text-align:right;">Valeur Stock</th>
             <th style="font-size:10px;">Dernière MAJ</th>
+            <th style="font-size:10px;text-align:center;">Mouvements</th>
           </tr>
         </thead>
         <tbody>
@@ -169,13 +171,13 @@
             <td style="text-align:right;font-size:12.5px;">{{ s.prix_moyen_pondere|floatformat:2 }} DZD</td>
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ s.valeur_stock|floatformat:0 }} DZD</td>
             <td style="font-size:11px;color:var(--text-muted);">{{ s.derniere_mise_a_jour|date:"d/m/Y" }}</td>
+            <td style="text-align:center;">
+              <a href="{% url 'stock:stock_mouvement_list' %}?q={{ s.intrant.designation|urlencode }}" title="Mouvements de stock" style="color:var(--accent-text);font-size:12px;display:inline-flex;align-items:center;gap:3px;text-decoration:none;padding:3px 7px;border-radius:var(--radius-sm);background:var(--bg-raised);border:1px solid var(--border);">
+                <i class="bx bx-transfer"></i>
+              </a>
+            </td>
           </tr>
           {% endfor %}
-        </tbody>
-        <tfoot>
-          <tr style="background:var(--bg-raised);">
-            <td colspan="6" style="font-weight:700;padding:12px 14px;">TOTAL INTRANTS</td>
-            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;padding:12px 14px;">{{ valeur_intrants|floatformat:0 }} DZD</td>
             <td></td>
           </tr>
         </tfoot>
@@ -217,6 +219,7 @@
             <th style="text-align:right;">Coût Moyen</th>
             <th style="text-align:right;">Valeur Stock</th>
             <th style="font-size:10px;">Dernière MAJ</th>
+            <th style="font-size:10px;text-align:center;">Mouvements</th>
           </tr>
         </thead>
         <tbody>
@@ -241,6 +244,11 @@
             <td style="text-align:right;font-size:12.5px;">{{ s.cout_moyen_production|floatformat:2 }} DZD</td>
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ s.valeur_stock|floatformat:0 }} DZD</td>
             <td style="font-size:11px;color:var(--text-muted);">{{ s.derniere_mise_a_jour|date:"d/m/Y" }}</td>
+            <td style="text-align:center;">
+              <a href="{% url 'stock:stock_mouvement_list' %}?q={{ s.produit_fini.designation|urlencode }}" title="Mouvements de stock" style="color:var(--accent-text);font-size:12px;display:inline-flex;align-items:center;gap:3px;text-decoration:none;padding:3px 7px;border-radius:var(--radius-sm);background:var(--bg-raised);border:1px solid var(--border);">
+                <i class="bx bx-transfer"></i>
+              </a>
+            </td>
           </tr>
           {% endfor %}
         </tbody>

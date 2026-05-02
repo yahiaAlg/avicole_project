@@ -76,6 +76,7 @@
             <th>Stock après</th>
             <th>Référence</th>
             <th>Par</th>
+            <th style="text-align:right;">Imprimer</th>
           </tr>
         </thead>
         <tbody>
@@ -116,6 +117,11 @@
             </td>
             <td style="font-size:11.5px;color:var(--text-muted);white-space:nowrap;">
               {% if m.created_by %}{{ m.created_by.get_full_name|default:m.created_by.username }}{% else %}Système{% endif %}
+            </td>
+            <td style="text-align:right;">
+              <a href="{% url 'reporting:stock_mouvement_print' m.pk %}" class="action-btn" title="Imprimer bon de mouvement" target="_blank">
+                <i class="bx bx-printer"></i>
+              </a>
             </td>
           </tr>
           {% endfor %}
@@ -187,6 +193,9 @@
   .pill-success{ display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(34,197,94,.14);color:#15803d; }
   .pill-danger { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(239,68,68,.10);color:#dc2626; }
   .pill-warning{ display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(245,158,11,.14);color:#b45309; }
+
+  .action-btn { display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:14px;cursor:pointer;transition:background .12s,color .12s;text-decoration:none; }
+  .action-btn:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--accent-text); }
 
   .pagination-bar { display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;border-top:1px solid var(--border); }
   .page-btn { display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-surface);color:var(--text-secondary);font-size:15px;text-decoration:none;transition:background .12s; }
