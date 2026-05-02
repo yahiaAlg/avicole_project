@@ -6,12 +6,21 @@
 {% block nav_bl_fournisseur %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{% if object %}Modification du BL {{ object.reference }}{% else %}Nouveau bon de livraison fournisseur{% endif %}{% endblock %}
+{% block page_sub_text %}
+  {% if object %}Modification du BL {{ object.reference }} — {{ object.fournisseur.nom }}
+  {% elif fournisseur %}Nouveau BL pour {{ fournisseur.nom }}
+  {% else %}Nouveau bon de livraison fournisseur
+  {% endif %}
+{% endblock %}
 
 {% block topbar_actions %}
-  <a href="{% url 'achats:bl_fournisseur_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour à la liste
-  </a>
+  {% if object %}
+  <a href="{% url 'achats:bl_fournisseur_detail' object.pk %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> Retour au BL</a>
+  {% elif fournisseur %}
+  <a href="{% url 'achats:fournisseur_tableau_de_bord' fournisseur.pk %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> {{ fournisseur.nom }}</a>
+  {% else %}
+  <a href="{% url 'achats:bl_fournisseur_list' %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> Retour à la liste</a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}

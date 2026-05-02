@@ -28,6 +28,7 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
+from django import forms
 
 from achats.forms import (
     BLFournisseurForm,
@@ -138,13 +139,23 @@ def bl_fournisseur_list(request):
 
 
 @login_required(login_url=LOGIN_URL)
-def bl_fournisseur_create(request):
+def bl_fournisseur_create(request, fournisseur_pk=None):
     """
     Create a new BL Fournisseur with its lines (inline formset).
 
+    When called via the scoped URL (fournisseur_pk is set), the fournisseur
+    field is pre-filled and hidden, mirroring bl_client_create_for_client.
     Reference is auto-generated and pre-filled; the user may override it.
     Saving the form + formset is wrapped in a DB transaction.
     """
+    from intrants.models import Fournisseur as FournisseurModel
+
+    fournisseur = (
+        get_object_or_404(FournisseurModel, pk=fournisseur_pk)
+        if fournisseur_pk
+        else None
+    )
+
     if request.method == "POST":
         form = BLFournisseurForm(request.POST, request.FILES)
         formset = BLFournisseurLigneFormSet(request.POST, prefix="lignes")
@@ -180,7 +191,13 @@ def bl_fournisseur_create(request):
 
     else:
         initial_ref = _auto_reference_bl()
-        form = BLFournisseurForm(initial={"reference": initial_ref})
+        initial = {"reference": initial_ref}
+        if fournisseur:
+            initial["fournisseur"] = fournisseur
+        form = BLFournisseurForm(initial=initial)
+        if fournisseur:
+            form.fields["fournisseur"].widget = forms.HiddenInput()
+            form.fields["fournisseur"].initial = fournisseur
         formset = BLFournisseurLigneFormSet(prefix="lignes")
 
     return render(
@@ -191,6 +208,7 @@ def bl_fournisseur_create(request):
             "formset": formset,
             "title": "Nouveau BL Fournisseur",
             "action_label": "Créer",
+            "fournisseur": fournisseur,
         },
     )
 

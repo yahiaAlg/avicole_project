@@ -105,7 +105,7 @@
   <div class="debt-visual-card__header">
     <div class="section-eyebrow"><i class="bx bx-hourglass"></i> Situation financière</div>
     {% if solde.dette_globale > 0 %}
-    <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ fournisseur.pk %}" class="btn-primary btn-sm">
+    <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ fournisseur.pk }}" class="btn-primary btn-sm">
       <i class="bx bxs-coin"></i> Régler
     </a>
     {% endif %}
@@ -293,7 +293,7 @@
     <div style="text-align:center;padding:36px 16px;color:var(--text-muted);">
       <i class="bx bxs-coin" style="font-size:28px;display:block;margin-bottom:10px;color:var(--border-strong);"></i>
       <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;color:var(--text-secondary);">Aucun règlement</div>
-      <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ fournisseur.pk %}" class="btn-primary" style="display:inline-flex;margin-top:12px;">
+      <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ fournisseur.pk }}" class="btn-primary" style="display:inline-flex;margin-top:12px;">
         <i class="bx bxs-coin"></i> Premier règlement
       </a>
     </div>
@@ -307,7 +307,7 @@
 <div class="section-card">
   <div class="section-card__header">
     <div class="section-eyebrow"><i class="bx bxs-truck"></i> BLs reçus — non encore facturés</div>
-    <a href="{% url 'achats:facture_fournisseur_create' %}?fournisseur={{ fournisseur.pk %}"
+    <a href="{% url 'achats:facture_fournisseur_create' %}?fournisseur={{ fournisseur.pk }}"
        class="btn-primary btn-sm">
       <i class="bx bxs-file-txt"></i> Créer une facture
     </a>
@@ -360,16 +360,16 @@
 
 <!-- ── Quick links strip ── -->
 <div class="quick-links-strip">
-  <a href="{% url 'achats:bl_fournisseur_list' %}?fournisseur={{ fournisseur.pk %}" class="quick-link">
+  <a href="{% url 'achats:bl_fournisseur_list' %}?fournisseur={{ fournisseur.pk }}" class="quick-link">
     <i class="bx bxs-truck"></i> BLs fournisseur
   </a>
-  <a href="{% url 'achats:facture_fournisseur_list' %}?fournisseur={{ fournisseur.pk %}" class="quick-link">
+  <a href="{% url 'achats:facture_fournisseur_list' %}?fournisseur={{ fournisseur.pk }}" class="quick-link">
     <i class="bx bxs-file-txt"></i> Factures
   </a>
-  <a href="{% url 'achats:reglement_fournisseur_list' %}?fournisseur={{ fournisseur.pk %}" class="quick-link">
+  <a href="{% url 'achats:reglement_fournisseur_list' %}?fournisseur={{ fournisseur.pk }}" class="quick-link">
     <i class="bx bxs-coin"></i> Règlements
   </a>
-  <a href="{% url 'achats:acompte_fournisseur_list' %}?fournisseur={{ fournisseur.pk %}" class="quick-link">
+  <a href="{% url 'achats:acompte_fournisseur_list' %}?fournisseur={{ fournisseur.pk }}" class="quick-link">
     <i class="bx bxs-piggy-bank"></i> Acomptes
   </a>
   <a href="{% url 'intrants:fournisseur_detail' fournisseur.pk %}" class="quick-link">

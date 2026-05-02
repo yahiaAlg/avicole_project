@@ -16,8 +16,11 @@
     <i class="bx bx-arrow-back"></i> Fournisseurs
   </a>
   {% if not request.user.profile.role == 'viewer' %}
-  <a href="{% url 'intrants:fournisseur_edit' fournisseur.pk %}" class="btn-primary">
+  <a href="{% url 'intrants:fournisseur_edit' fournisseur.pk %}" class="btn-ghost">
     <i class="bx bxs-pencil"></i> Modifier
+  </a>
+  <a href="{% url 'achats:bl_fournisseur_create_for_fournisseur' fournisseur.pk %}" class="btn-primary">
+    <i class="bx bx-plus"></i> Nouveau BL
   </a>
   {% endif %}
 {% endblock %}
@@ -64,6 +67,19 @@
           </a>
           {% endif %}
         </div>
+        {% if not request.user.profile.role == 'viewer' %}
+        <div style="display:flex;gap:8px;padding:0 20px 16px;flex-wrap:wrap;">
+          <a href="{% url 'achats:bl_fournisseur_create_for_fournisseur' fournisseur.pk %}" class="btn-primary" style="font-size:12.5px;padding:8px 14px;">
+            <i class="bx bx-plus"></i> Nouveau BL
+          </a>
+          <a href="{% url 'achats:facture_fournisseur_create' %}?fournisseur={{ fournisseur.pk }}" class="btn-ghost btn-sm">
+            <i class="bx bxs-receipt"></i> Facturer
+          </a>
+          <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ fournisseur.pk }}" class="btn-ghost btn-sm">
+            <i class="bx bxs-credit-card"></i> Règlement
+          </a>
+        </div>
+        {% endif %}
         <div class="card-body">
           <div class="info-grid">
             <div class="info-item">

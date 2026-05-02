@@ -22,6 +22,12 @@ urlpatterns = [
         views.bl_fournisseur_create,
         name="bl_fournisseur_create",
     ),
+    # Create pre-scoped to a specific supplier
+    path(
+        "fournisseurs/<int:fournisseur_pk>/bls/creer/",
+        views.bl_fournisseur_create,
+        name="bl_fournisseur_create_for_fournisseur",
+    ),
     path(
         "bls/<int:pk>/",
         views.bl_fournisseur_detail,
