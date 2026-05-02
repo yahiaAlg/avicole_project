@@ -182,7 +182,34 @@ def reporting_dashboard(request):
 
     nb_stocks_alerte = StockIntrant.objects.filter(
         quantite__lte=F("intrant__seuil_alerte"),
+        quantite__gt=0,
     ).count()
+
+    from elevage.models import LotElevage
+    from achats.models import FactureFournisseur as FF2
+    from clients.models import FactureClient as FC2
+    from django.db.models import Sum as _Sum
+
+    nb_lots_ouverts = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT).count()
+
+    dette_totale = (
+        FF2.objects.filter(
+            statut__in=[FF2.STATUT_NON_PAYE, FF2.STATUT_PARTIELLEMENT_PAYE]
+        ).aggregate(total=_Sum("reste_a_payer"))["total"]
+        or 0
+    )
+
+    creances_totale = (
+        FC2.objects.filter(
+            statut__in=[FC2.STATUT_NON_PAYEE, FC2.STATUT_PARTIELLEMENT_PAYEE]
+        ).aggregate(total=_Sum("reste_a_payer"))["total"]
+        or 0
+    )
+
+    # Respect GET params so the period picker persists after Actualiser
+    _dd, _df = _parse_dates(request)
+    date_debut_default = _dd if _dd else today - datetime.timedelta(days=365)
+    date_fin_default = _df if _df else today
 
     return render(
         request,
@@ -195,6 +222,11 @@ def reporting_dashboard(request):
             "nb_factures_retard_fournisseur": nb_factures_retard_fournisseur,
             "nb_factures_retard_client": nb_factures_retard_client,
             "nb_stocks_alerte": nb_stocks_alerte,
+            "nb_lots_ouverts": nb_lots_ouverts,
+            "dette_totale": dette_totale,
+            "creances_totale": creances_totale,
+            "date_debut_default": date_debut_default,
+            "date_fin_default": date_fin_default,
             "today": today,
         },
     )
@@ -529,14 +561,14 @@ def rapport_dettes_fournisseurs(request):
 
     today = datetime.date.today()
 
-    fournisseurs_all = Fournisseur.objects.filter(actif=True).order_by("nom")
+    fournisseurs_qs = Fournisseur.objects.order_by("nom")
+    if request.GET.get("actif_seulement", "1") != "0":
+        fournisseurs_qs = fournisseurs_qs.filter(actif=True)
 
-    fournisseur_pk = request.GET.get("fournisseur", "").strip()
-    fournisseur_obj = None
-    if fournisseur_pk:
-        fournisseur_obj = get_object_or_404(Fournisseur, pk=fournisseur_pk)
-
-    fournisseurs_qs = [fournisseur_obj] if fournisseur_obj else list(fournisseurs_all)
+    # Search
+    q = request.GET.get("q", "").strip()
+    if q:
+        fournisseurs_qs = fournisseurs_qs.filter(nom__icontains=q)
 
     rows = []
     for fournisseur in fournisseurs_qs:
@@ -618,14 +650,14 @@ def rapport_dettes_fournisseurs(request):
         return _csv_response("dettes_fournisseurs", headers, csv_rows)
 
     return render(
+        request,
+        "reporting/dettes_fournisseurs.html",
         {
             "title": "Dettes en Cours par Fournisseur",
             "rows": rows,
             "grand_total_dette": grand_total_dette,
             "today": today,
-            "fournisseurs": fournisseurs_all,
-            "fournisseur_pk": fournisseur_pk,
-            "fournisseur_obj": fournisseur_obj,
+            "q": q,
         },
     )
 
@@ -799,10 +831,10 @@ def rapport_cash_flow(request):
 
     date_debut, date_fin = _parse_dates(request)
 
-    # Default to current month if no range provided
+    # Default to last 12 months if no range provided
     today = datetime.date.today()
     if not date_debut and not date_fin:
-        date_debut = today.replace(day=1)
+        date_debut = today - datetime.timedelta(days=365)
         date_fin = today
 
     summary = get_cash_flow_summary(date_debut=date_debut, date_fin=date_fin)
@@ -1381,7 +1413,7 @@ def rapport_depenses(request):
     date_debut, date_fin = _parse_dates(request)
     today = datetime.date.today()
     if not date_debut and not date_fin:
-        date_debut = today.replace(day=1)
+        date_debut = today - datetime.timedelta(days=365)
         date_fin = today
 
     categorie_pk = request.GET.get("categorie", "").strip()
@@ -1529,24 +1561,48 @@ def stock_mouvement_print(request, pk):
 @login_required(login_url=LOGIN_URL)
 def kpi_summary_json(request):
     """
-    Return top-level KPI figures for the reporting dashboard header widget.
+    Return full KPI + chart data for the reporting dashboard.
     Called by the dashboard via fetch() on page load.
 
+    Accepts optional ?date_debut=YYYY-MM-DD and ?date_fin=YYYY-MM-DD query
+    params to filter period-based metrics (cash flow, production).
+    Defaults to the last 12 months when not supplied.
+
     Response keys:
-      dette_fournisseurs_totale   — Decimal (DZD)
-      creances_clients_totale     — Decimal (DZD)
-      nb_lots_ouverts             — int
-      nb_stocks_en_alerte         — int
-      nb_factures_fournisseur_retard — int
-      nb_factures_client_retard   — int
+      dette_fournisseurs_totale         — float (DZD)
+      creances_clients_totale           — float (DZD)
+      nb_lots_ouverts                   — int
+      nb_stocks_en_alerte               — int
+      nb_ruptures_stock                 — int
+      nb_factures_fournisseur_retard    — int
+      nb_factures_client_retard         — int
+      supplier_aging                    — {current, 1_30, 31_60, 61_90, over_90} | null
+      client_aging                      — {current, 1_30, 31_60, 61_90, over_90} | null
+      lots                              — [{designation, batiment, effectif_vivant, taux_mortalite, duree}]
+      production_recent                 — [{lot, nb_oiseaux, poids_kg}]
+      stock_status                      — {normal, alerte, valeur_totale}
+      bl_clients                        — {brouillon, livre, facture, litige, total}
+      cash_flow                         — {encaissements, reglements, depenses, sorties, solde_net}
+      date_debut                        — str ISO
+      date_fin                          — str ISO
     """
-    from achats.models import FactureFournisseur
-    from clients.models import FactureClient
+    from achats.models import FactureFournisseur, ReglementFournisseur
+    from clients.models import BLClient, FactureClient, PaiementClient
+    from depenses.models import Depense
     from elevage.models import LotElevage
+    from production.models import ProductionRecord
     from stock.models import StockIntrant
 
     today = datetime.date.today()
 
+    # ── Date range (default: last 12 months) ──────────────────────────────
+    date_debut, date_fin = _parse_dates(request)
+    if not date_debut:
+        date_debut = today - datetime.timedelta(days=365)
+    if not date_fin:
+        date_fin = today
+
+    # ── Basic scalar KPIs ─────────────────────────────────────────────────
     dette = (
         FactureFournisseur.objects.filter(
             statut__in=[
@@ -1567,31 +1623,202 @@ def kpi_summary_json(request):
         or 0
     )
 
+    nb_lots_ouverts = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT).count()
+
+    nb_stocks_alerte = StockIntrant.objects.filter(
+        quantite__lte=F("intrant__seuil_alerte"),
+        quantite__gt=0,
+    ).count()
+
+    nb_ruptures = StockIntrant.objects.filter(quantite__lte=0).count()
+
+    nb_ff_retard = FactureFournisseur.objects.filter(
+        statut__in=[
+            FactureFournisseur.STATUT_NON_PAYE,
+            FactureFournisseur.STATUT_PARTIELLEMENT_PAYE,
+        ],
+        date_echeance__lt=today,
+    ).count()
+
+    nb_fc_retard = FactureClient.objects.filter(
+        statut__in=[
+            FactureClient.STATUT_NON_PAYEE,
+            FactureClient.STATUT_PARTIELLEMENT_PAYEE,
+        ],
+        date_echeance__lt=today,
+    ).count()
+
+    # ── Supplier aging buckets ────────────────────────────────────────────
+    open_ff = FactureFournisseur.objects.filter(
+        statut__in=[
+            FactureFournisseur.STATUT_NON_PAYE,
+            FactureFournisseur.STATUT_PARTIELLEMENT_PAYE,
+        ]
+    ).values("date_echeance", "reste_a_payer")
+
+    sup_aging = {
+        "current": 0.0,
+        "1_30": 0.0,
+        "31_60": 0.0,
+        "61_90": 0.0,
+        "over_90": 0.0,
+    }
+    for ff in open_ff:
+        amt = float(ff["reste_a_payer"] or 0)
+        if not ff["date_echeance"] or ff["date_echeance"] >= today:
+            sup_aging["current"] += amt
+        else:
+            days = (today - ff["date_echeance"]).days
+            if days <= 30:
+                sup_aging["1_30"] += amt
+            elif days <= 60:
+                sup_aging["31_60"] += amt
+            elif days <= 90:
+                sup_aging["61_90"] += amt
+            else:
+                sup_aging["over_90"] += amt
+    supplier_aging_out = sup_aging if sum(sup_aging.values()) > 0 else None
+
+    # ── Client aging buckets ──────────────────────────────────────────────
+    open_fc = FactureClient.objects.filter(
+        statut__in=[
+            FactureClient.STATUT_NON_PAYEE,
+            FactureClient.STATUT_PARTIELLEMENT_PAYEE,
+        ]
+    ).values("date_echeance", "reste_a_payer")
+
+    cli_aging = {
+        "current": 0.0,
+        "1_30": 0.0,
+        "31_60": 0.0,
+        "61_90": 0.0,
+        "over_90": 0.0,
+    }
+    for fc in open_fc:
+        amt = float(fc["reste_a_payer"] or 0)
+        if not fc["date_echeance"] or fc["date_echeance"] >= today:
+            cli_aging["current"] += amt
+        else:
+            days = (today - fc["date_echeance"]).days
+            if days <= 30:
+                cli_aging["1_30"] += amt
+            elif days <= 60:
+                cli_aging["31_60"] += amt
+            elif days <= 90:
+                cli_aging["61_90"] += amt
+            else:
+                cli_aging["over_90"] += amt
+    client_aging_out = cli_aging if sum(cli_aging.values()) > 0 else None
+
+    # ── Open lots summary ─────────────────────────────────────────────────
+    lots_qs = (
+        LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT)
+        .select_related("batiment")
+        .order_by("-date_ouverture")[:10]
+    )
+    lots_data = []
+    for lot in lots_qs:
+        lots_data.append(
+            {
+                "designation": lot.designation,
+                "batiment": lot.batiment.nom,
+                "effectif_vivant": lot.effectif_vivant,
+                "taux_mortalite": float(lot.taux_mortalite),
+                "duree": lot.duree_elevage,
+            }
+        )
+
+    # ── Recent production (within period) ────────────────────────────────
+    prod_qs = (
+        ProductionRecord.objects.filter(
+            statut=ProductionRecord.STATUT_VALIDE,
+            date_production__gte=date_debut,
+            date_production__lte=date_fin,
+        )
+        .select_related("lot")
+        .order_by("-date_production")[:6]
+    )
+    prod_data = [
+        {
+            "lot": r.lot.designation[:22],
+            "nb_oiseaux": r.nombre_oiseaux_abattus,
+            "poids_kg": float(r.poids_total_kg),
+        }
+        for r in prod_qs
+    ]
+
+    # ── Stock status ──────────────────────────────────────────────────────
+    all_si = StockIntrant.objects.select_related("intrant").all()
+    nb_normal_s = nb_alerte_s = 0
+    valeur_totale = 0.0
+    for si in all_si:
+        valeur_totale += float(si.valeur_stock)
+        if si.en_alerte or si.quantite <= 0:
+            nb_alerte_s += 1
+        else:
+            nb_normal_s += 1
+    stock_status = {
+        "normal": nb_normal_s,
+        "alerte": nb_alerte_s,
+        "valeur_totale": round(valeur_totale, 2),
+    }
+
+    # ── BL Clients status distribution ───────────────────────────────────
+    bl_counts = BLClient.objects.values("statut").annotate(nb=Count("pk"))
+    bl_map = {r["statut"]: r["nb"] for r in bl_counts}
+    bl_clients = {
+        "brouillon": bl_map.get("brouillon", 0),
+        "livre": bl_map.get("livre", 0),
+        "facture": bl_map.get("facture", 0),
+        "litige": bl_map.get("litige", 0),
+        "total": sum(bl_map.values()),
+    }
+
+    # ── Cash flow summary (for period) ────────────────────────────────────
+    encaissements = float(
+        PaiementClient.objects.filter(
+            date_paiement__gte=date_debut, date_paiement__lte=date_fin
+        ).aggregate(t=Sum("montant"))["t"]
+        or 0
+    )
+    reglements_total = float(
+        ReglementFournisseur.objects.filter(
+            date_reglement__gte=date_debut, date_reglement__lte=date_fin
+        ).aggregate(t=Sum("montant"))["t"]
+        or 0
+    )
+    depenses_total = float(
+        Depense.objects.filter(date__gte=date_debut, date__lte=date_fin).aggregate(
+            t=Sum("montant")
+        )["t"]
+        or 0
+    )
+    sorties = reglements_total + depenses_total
+    cash_flow = {
+        "encaissements": round(encaissements, 2),
+        "reglements": round(reglements_total, 2),
+        "depenses": round(depenses_total, 2),
+        "sorties": round(sorties, 2),
+        "solde_net": round(encaissements - sorties, 2),
+    }
+
     return JsonResponse(
         {
             "dette_fournisseurs_totale": float(dette),
             "creances_clients_totale": float(creances),
-            "nb_lots_ouverts": LotElevage.objects.filter(
-                statut=LotElevage.STATUT_OUVERT
-            ).count(),
-            "nb_stocks_en_alerte": StockIntrant.objects.filter(
-                quantite__lte=F("intrant__seuil_alerte"),
-                quantite__gt=0,
-            ).count(),
-            "nb_ruptures_stock": StockIntrant.objects.filter(quantite__lte=0).count(),
-            "nb_factures_fournisseur_retard": FactureFournisseur.objects.filter(
-                statut__in=[
-                    FactureFournisseur.STATUT_NON_PAYE,
-                    FactureFournisseur.STATUT_PARTIELLEMENT_PAYE,
-                ],
-                date_echeance__lt=today,
-            ).count(),
-            "nb_factures_client_retard": FactureClient.objects.filter(
-                statut__in=[
-                    FactureClient.STATUT_NON_PAYEE,
-                    FactureClient.STATUT_PARTIELLEMENT_PAYEE,
-                ],
-                date_echeance__lt=today,
-            ).count(),
+            "nb_lots_ouverts": nb_lots_ouverts,
+            "nb_stocks_en_alerte": nb_stocks_alerte,
+            "nb_ruptures_stock": nb_ruptures,
+            "nb_factures_fournisseur_retard": nb_ff_retard,
+            "nb_factures_client_retard": nb_fc_retard,
+            "supplier_aging": supplier_aging_out,
+            "client_aging": client_aging_out,
+            "lots": lots_data,
+            "production_recent": prod_data,
+            "stock_status": stock_status,
+            "bl_clients": bl_clients,
+            "cash_flow": cash_flow,
+            "date_debut": str(date_debut),
+            "date_fin": str(date_fin),
         }
     )

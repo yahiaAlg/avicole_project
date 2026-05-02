@@ -84,6 +84,7 @@ def _require_role(request, allowed_roles: set):
 # Pagination helper
 # ---------------------------------------------------------------------------
 
+
 def _paginate(qs, page_number, per_page=PER_PAGE):
     paginator = Paginator(qs, per_page)
     try:
@@ -97,6 +98,7 @@ def _paginate(qs, page_number, per_page=PER_PAGE):
 # ---------------------------------------------------------------------------
 # Date-range parse helper
 # ---------------------------------------------------------------------------
+
 
 def _parse_dates(request):
     """
@@ -124,6 +126,7 @@ def _parse_dates(request):
 # CSV response helper
 # ---------------------------------------------------------------------------
 
+
 def _csv_response(filename: str, headers: list, rows):
     """
     Build and return an HttpResponse that downloads a CSV file.
@@ -145,6 +148,7 @@ def _csv_response(filename: str, headers: list, rows):
 # ===========================================================================
 # Reporting Dashboard
 # ===========================================================================
+
 
 @login_required(login_url=LOGIN_URL)
 def reporting_dashboard(request):
@@ -178,23 +182,60 @@ def reporting_dashboard(request):
 
     nb_stocks_alerte = StockIntrant.objects.filter(
         quantite__lte=F("intrant__seuil_alerte"),
+        quantite__gt=0,
     ).count()
 
-    return render(request, "reporting/dashboard.html", {
-        "title": "Rapports & Tableaux de Bord",
-        "role": role,
-        "is_financial": role in FINANCIAL_ROLES,
-        "is_admin": role in ADMIN_ROLES,
-        "nb_factures_retard_fournisseur": nb_factures_retard_fournisseur,
-        "nb_factures_retard_client": nb_factures_retard_client,
-        "nb_stocks_alerte": nb_stocks_alerte,
-        "today": today,
-    })
+    from elevage.models import LotElevage
+    from achats.models import FactureFournisseur as FF2
+    from clients.models import FactureClient as FC2
+    from django.db.models import Sum as _Sum
+
+    nb_lots_ouverts = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT).count()
+
+    dette_totale = (
+        FF2.objects.filter(
+            statut__in=[FF2.STATUT_NON_PAYE, FF2.STATUT_PARTIELLEMENT_PAYE]
+        ).aggregate(total=_Sum("reste_a_payer"))["total"]
+        or 0
+    )
+
+    creances_totale = (
+        FC2.objects.filter(
+            statut__in=[FC2.STATUT_NON_PAYEE, FC2.STATUT_PARTIELLEMENT_PAYEE]
+        ).aggregate(total=_Sum("reste_a_payer"))["total"]
+        or 0
+    )
+
+    # Respect GET params so the period picker persists after Actualiser
+    _dd, _df = _parse_dates(request)
+    date_debut_default = _dd if _dd else today - datetime.timedelta(days=365)
+    date_fin_default = _df if _df else today
+
+    return render(
+        request,
+        "reporting/dashboard.html",
+        {
+            "title": "Rapports & Tableaux de Bord",
+            "role": role,
+            "is_financial": role in FINANCIAL_ROLES,
+            "is_admin": role in ADMIN_ROLES,
+            "nb_factures_retard_fournisseur": nb_factures_retard_fournisseur,
+            "nb_factures_retard_client": nb_factures_retard_client,
+            "nb_stocks_alerte": nb_stocks_alerte,
+            "nb_lots_ouverts": nb_lots_ouverts,
+            "dette_totale": dette_totale,
+            "creances_totale": creances_totale,
+            "date_debut_default": date_debut_default,
+            "date_fin_default": date_fin_default,
+            "today": today,
+        },
+    )
 
 
 # ===========================================================================
 # 20.1 — Balance Fournisseur par Ancienneté
 # ===========================================================================
+
 
 @login_required(login_url=LOGIN_URL)
 def rapport_supplier_aging(request):
@@ -223,11 +264,11 @@ def rapport_supplier_aging(request):
     # Column totals
     totaux = {
         "current": sum(b["current"] for b in buckets),
-        "1_30":    sum(b["1_30"]    for b in buckets),
-        "31_60":   sum(b["31_60"]   for b in buckets),
-        "61_90":   sum(b["61_90"]   for b in buckets),
+        "1_30": sum(b["1_30"] for b in buckets),
+        "31_60": sum(b["31_60"] for b in buckets),
+        "61_90": sum(b["61_90"] for b in buckets),
         "over_90": sum(b["over_90"] for b in buckets),
-        "total":   sum(b["total"]   for b in buckets),
+        "total": sum(b["total"] for b in buckets),
     }
 
     if request.GET.get("export") == "csv":
@@ -252,32 +293,39 @@ def rapport_supplier_aging(request):
             ]
             for b in buckets
         ]
-        rows.append([
-            "TOTAL",
-            totaux["current"],
-            totaux["1_30"],
-            totaux["31_60"],
-            totaux["61_90"],
-            totaux["over_90"],
-            totaux["total"],
-        ])
+        rows.append(
+            [
+                "TOTAL",
+                totaux["current"],
+                totaux["1_30"],
+                totaux["31_60"],
+                totaux["61_90"],
+                totaux["over_90"],
+                totaux["total"],
+            ]
+        )
         return _csv_response("balance_fournisseur_anciennete", headers, rows)
 
     fournisseurs = Fournisseur.objects.filter(actif=True).order_by("nom")
 
-    return render(request, "reporting/supplier_aging.html", {
-        "title": "Balance Fournisseur par Ancienneté",
-        "buckets": buckets,
-        "totaux": totaux,
-        "fournisseurs": fournisseurs,
-        "fournisseur_pk": fournisseur_pk,
-        "fournisseur_obj": fournisseur_obj,
-    })
+    return render(
+        request,
+        "reporting/supplier_aging.html",
+        {
+            "title": "Balance Fournisseur par Ancienneté",
+            "buckets": buckets,
+            "totaux": totaux,
+            "fournisseurs": fournisseurs,
+            "fournisseur_pk": fournisseur_pk,
+            "fournisseur_obj": fournisseur_obj,
+        },
+    )
 
 
 # ===========================================================================
 # 20.2 — Historique des Règlements
 # ===========================================================================
+
 
 @login_required(login_url=LOGIN_URL)
 def rapport_historique_reglements(request):
@@ -295,11 +343,9 @@ def rapport_historique_reglements(request):
     from achats.models import AllocationReglement, ReglementFournisseur
     from intrants.models import Fournisseur
 
-    qs = (
-        ReglementFournisseur.objects
-        .select_related("fournisseur", "created_by")
-        .order_by("-date_reglement", "-created_at")
-    )
+    qs = ReglementFournisseur.objects.select_related(
+        "fournisseur", "created_by"
+    ).order_by("-date_reglement", "-created_at")
 
     fournisseur_pk = request.GET.get("fournisseur", "").strip()
     if fournisseur_pk:
@@ -321,8 +367,7 @@ def rapport_historique_reglements(request):
     if request.GET.get("export") == "csv":
         # Flatten: one row per allocation
         allocations = (
-            AllocationReglement.objects
-            .filter(reglement__in=qs)
+            AllocationReglement.objects.filter(reglement__in=qs)
             .select_related("reglement__fournisseur", "facture")
             .order_by("-reglement__date_reglement", "reglement__pk")
         )
@@ -355,30 +400,33 @@ def rapport_historique_reglements(request):
     # Pre-fetch allocations for the current page to avoid N+1
     reglement_ids = [r.pk for r in page.object_list]
     allocations_map: dict = {}
-    for alloc in (
-        AllocationReglement.objects
-        .filter(reglement_id__in=reglement_ids)
-        .select_related("facture")
-    ):
+    for alloc in AllocationReglement.objects.filter(
+        reglement_id__in=reglement_ids
+    ).select_related("facture"):
         allocations_map.setdefault(alloc.reglement_id, []).append(alloc)
 
-    return render(request, "reporting/historique_reglements.html", {
-        "title": "Historique des Règlements",
-        "page": page,
-        "totaux": totaux,
-        "fournisseurs": fournisseurs,
-        "fournisseur_pk": fournisseur_pk,
-        "mode": mode,
-        "mode_choices": ReglementFournisseur.MODE_CHOICES,
-        "date_debut": date_debut,
-        "date_fin": date_fin,
-        "allocations_map": allocations_map,
-    })
+    return render(
+        request,
+        "reporting/historique_reglements.html",
+        {
+            "title": "Historique des Règlements",
+            "page": page,
+            "totaux": totaux,
+            "fournisseurs": fournisseurs,
+            "fournisseur_pk": fournisseur_pk,
+            "mode": mode,
+            "mode_choices": ReglementFournisseur.MODE_CHOICES,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+            "allocations_map": allocations_map,
+        },
+    )
 
 
 # ===========================================================================
 # 20.3 — Répartition des Règlements
 # ===========================================================================
+
 
 @login_required(login_url=LOGIN_URL)
 def rapport_repartition_reglements(request):
@@ -435,7 +483,9 @@ def rapport_repartition_reglements(request):
     mode_totals_display = [
         {
             "mode": row["reglement__mode_paiement"],
-            "label": mode_label_map.get(row["reglement__mode_paiement"], row["reglement__mode_paiement"]),
+            "label": mode_label_map.get(
+                row["reglement__mode_paiement"], row["reglement__mode_paiement"]
+            ),
             "total": row["total"],
             "nb": row["nb"],
         }
@@ -469,22 +519,27 @@ def rapport_repartition_reglements(request):
     fournisseurs = Fournisseur.objects.filter(actif=True).order_by("nom")
     page = _paginate(qs, request.GET.get("page"))
 
-    return render(request, "reporting/repartition_reglements.html", {
-        "title": "Répartition des Règlements",
-        "page": page,
-        "supplier_totals": supplier_totals,
-        "mode_totals": mode_totals_display,
-        "grand_total": grand_total,
-        "fournisseurs": fournisseurs,
-        "fournisseur_pk": fournisseur_pk,
-        "date_debut": date_debut,
-        "date_fin": date_fin,
-    })
+    return render(
+        request,
+        "reporting/repartition_reglements.html",
+        {
+            "title": "Répartition des Règlements",
+            "page": page,
+            "supplier_totals": supplier_totals,
+            "mode_totals": mode_totals_display,
+            "grand_total": grand_total,
+            "fournisseurs": fournisseurs,
+            "fournisseur_pk": fournisseur_pk,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+        },
+    )
 
 
 # ===========================================================================
 # 20.4 — Dettes en Cours par Fournisseur
 # ===========================================================================
+
 
 @login_required(login_url=LOGIN_URL)
 def rapport_dettes_fournisseurs(request):
@@ -536,29 +591,28 @@ def rapport_dettes_fournisseurs(request):
 
         # Last settlement date
         last_reg = (
-            ReglementFournisseur.objects
-            .filter(fournisseur=fournisseur)
+            ReglementFournisseur.objects.filter(fournisseur=fournisseur)
             .order_by("-date_reglement")
             .values_list("date_reglement", flat=True)
             .first()
         )
-        jours_sans_reglement = (
-            (today - last_reg).days if last_reg else None
-        )
+        jours_sans_reglement = (today - last_reg).days if last_reg else None
 
         # Overdue invoices
         nb_retard = factures_ouvertes.filter(date_echeance__lt=today).count()
 
-        rows.append({
-            "fournisseur": fournisseur,
-            "dette_globale": dette,
-            "nb_factures_ouvertes": agg["nb"] or 0,
-            "date_facture_plus_ancienne": agg["date_plus_ancienne"],
-            "prochaine_echeance": agg["prochaine_echeance"],
-            "nb_retard": nb_retard,
-            "last_reglement": last_reg,
-            "jours_sans_reglement": jours_sans_reglement,
-        })
+        rows.append(
+            {
+                "fournisseur": fournisseur,
+                "dette_globale": dette,
+                "nb_factures_ouvertes": agg["nb"] or 0,
+                "date_facture_plus_ancienne": agg["date_plus_ancienne"],
+                "prochaine_echeance": agg["prochaine_echeance"],
+                "nb_retard": nb_retard,
+                "last_reglement": last_reg,
+                "jours_sans_reglement": jours_sans_reglement,
+            }
+        )
 
     # Sort by debt descending
     rows.sort(key=lambda r: r["dette_globale"], reverse=True)
@@ -585,24 +639,33 @@ def rapport_dettes_fournisseurs(request):
                 r["prochaine_echeance"] or "",
                 r["nb_retard"],
                 r["last_reglement"] or "",
-                r["jours_sans_reglement"] if r["jours_sans_reglement"] is not None else "",
+                (
+                    r["jours_sans_reglement"]
+                    if r["jours_sans_reglement"] is not None
+                    else ""
+                ),
             ]
             for r in rows
         ]
         return _csv_response("dettes_fournisseurs", headers, csv_rows)
 
-    return render(request, "reporting/dettes_fournisseurs.html", {
-        "title": "Dettes en Cours par Fournisseur",
-        "rows": rows,
-        "grand_total_dette": grand_total_dette,
-        "today": today,
-        "q": q,
-    })
+    return render(
+        request,
+        "reporting/dettes_fournisseurs.html",
+        {
+            "title": "Dettes en Cours par Fournisseur",
+            "rows": rows,
+            "grand_total_dette": grand_total_dette,
+            "today": today,
+            "q": q,
+        },
+    )
 
 
 # ===========================================================================
 # 20.5 — Rentabilité par Lot
 # ===========================================================================
+
 
 @login_required(login_url=LOGIN_URL)
 def rapport_rentabilite_lot(request):
@@ -651,27 +714,31 @@ def rapport_rentabilite_lot(request):
     lot_rows = []
     for lot in qs:
         summary = get_lot_summary(lot)
-        lot_rows.append({
-            "lot": lot,
-            "effectif_vivant": summary["effectif_vivant"],
-            "total_mortalite": summary["total_mortalite"],
-            "taux_mortalite": summary["taux_mortalite"],
-            "duree_elevage": summary["duree_elevage"],
-            "consommation_totale_aliment_kg": summary["consommation_totale_aliment_kg"],
-            "poids_total_produit_kg": summary["poids_total_produit_kg"],
-            "ic": summary["ic"],
-            "cout_total_intrants": summary["cout_total_intrants"],
-            "cout_total_depenses": summary["cout_total_depenses"],
-            "revenus_ventes": summary["revenus_ventes"],
-            "marge_brute": summary["marge_brute"],
-        })
+        lot_rows.append(
+            {
+                "lot": lot,
+                "effectif_vivant": summary["effectif_vivant"],
+                "total_mortalite": summary["total_mortalite"],
+                "taux_mortalite": summary["taux_mortalite"],
+                "duree_elevage": summary["duree_elevage"],
+                "consommation_totale_aliment_kg": summary[
+                    "consommation_totale_aliment_kg"
+                ],
+                "poids_total_produit_kg": summary["poids_total_produit_kg"],
+                "ic": summary["ic"],
+                "cout_total_intrants": summary["cout_total_intrants"],
+                "cout_total_depenses": summary["cout_total_depenses"],
+                "revenus_ventes": summary["revenus_ventes"],
+                "marge_brute": summary["marge_brute"],
+            }
+        )
 
     # Aggregated totals across the filtered set
     totaux = {
         "cout_total_intrants": sum(r["cout_total_intrants"] for r in lot_rows),
         "cout_total_depenses": sum(r["cout_total_depenses"] for r in lot_rows),
-        "revenus_ventes":      sum(r["revenus_ventes"]      for r in lot_rows),
-        "marge_brute":         sum(r["marge_brute"]         for r in lot_rows),
+        "revenus_ventes": sum(r["revenus_ventes"] for r in lot_rows),
+        "marge_brute": sum(r["marge_brute"] for r in lot_rows),
     }
 
     if request.GET.get("export") == "csv":
@@ -720,24 +787,29 @@ def rapport_rentabilite_lot(request):
 
     lots_all = LotElevage.objects.order_by("-date_ouverture")
 
-    return render(request, "reporting/rentabilite_lot.html", {
-        "title": "Rentabilité par Lot",
-        "lot_rows": lot_rows,
-        "totaux": totaux,
-        "lot_obj": lot_obj,
-        "lot_summary": lot_summary,
-        "lots_all": lots_all,
-        "lot_pk": lot_pk,
-        "statut": statut,
-        "statut_choices": LotElevage.STATUT_CHOICES,
-        "date_debut": date_debut,
-        "date_fin": date_fin,
-    })
+    return render(
+        request,
+        "reporting/rentabilite_lot.html",
+        {
+            "title": "Rentabilité par Lot",
+            "lot_rows": lot_rows,
+            "totaux": totaux,
+            "lot_obj": lot_obj,
+            "lot_summary": lot_summary,
+            "lots_all": lots_all,
+            "lot_pk": lot_pk,
+            "statut": statut,
+            "statut_choices": LotElevage.STATUT_CHOICES,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+        },
+    )
 
 
 # ===========================================================================
 # 20.6 — Résumé de Trésorerie (Cash Flow Summary)
 # ===========================================================================
+
 
 @login_required(login_url=LOGIN_URL)
 def rapport_cash_flow(request):
@@ -759,10 +831,10 @@ def rapport_cash_flow(request):
 
     date_debut, date_fin = _parse_dates(request)
 
-    # Default to current month if no range provided
+    # Default to last 12 months if no range provided
     today = datetime.date.today()
     if not date_debut and not date_fin:
-        date_debut = today.replace(day=1)
+        date_debut = today - datetime.timedelta(days=365)
         date_fin = today
 
     summary = get_cash_flow_summary(date_debut=date_debut, date_fin=date_fin)
@@ -773,48 +845,59 @@ def rapport_cash_flow(request):
 
         # Inflows
         for p in summary["detail_paiements"]:
-            rows.append([
-                "Encaissement",
-                f"Paiement {p.client.nom}",
-                p.date_paiement,
-                p.montant,
-                p.get_mode_paiement_display(),
-            ])
+            rows.append(
+                [
+                    "Encaissement",
+                    f"Paiement {p.client.nom}",
+                    p.date_paiement,
+                    p.montant,
+                    p.get_mode_paiement_display(),
+                ]
+            )
 
         # Outflows — supplier settlements
         for r in summary["detail_reglements"]:
-            rows.append([
-                "Règlement fournisseur",
-                r.fournisseur.nom,
-                r.date_reglement,
-                r.montant,
-                r.get_mode_paiement_display(),
-            ])
+            rows.append(
+                [
+                    "Règlement fournisseur",
+                    r.fournisseur.nom,
+                    r.date_reglement,
+                    r.montant,
+                    r.get_mode_paiement_display(),
+                ]
+            )
 
         # Outflows — operational expenses
         for d in summary["detail_depenses"]:
-            rows.append([
-                "Dépense opérationnelle",
-                d.description[:80],
-                d.date,
-                d.montant,
-                d.get_mode_paiement_display(),
-            ])
+            rows.append(
+                [
+                    "Dépense opérationnelle",
+                    d.description[:80],
+                    d.date,
+                    d.montant,
+                    d.get_mode_paiement_display(),
+                ]
+            )
 
         return _csv_response("resume_tresorerie", headers, rows)
 
-    return render(request, "reporting/cash_flow.html", {
-        "title": "Résumé de Trésorerie",
-        "summary": summary,
-        "date_debut": date_debut,
-        "date_fin": date_fin,
-        "today": today,
-    })
+    return render(
+        request,
+        "reporting/cash_flow.html",
+        {
+            "title": "Résumé de Trésorerie",
+            "summary": summary,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+            "today": today,
+        },
+    )
 
 
 # ===========================================================================
 # 20.7 — État des Stocks
 # ===========================================================================
+
 
 @login_required(login_url=LOGIN_URL)
 def rapport_etat_stocks(request):
@@ -841,10 +924,8 @@ def rapport_etat_stocks(request):
     # ── Intrants ──────────────────────────────────────────────────────────
     stocks_intrants = []
     if segment in ("", "intrants"):
-        si_qs = (
-            StockIntrant.objects
-            .select_related("intrant__categorie")
-            .order_by("intrant__categorie__libelle", "intrant__designation")
+        si_qs = StockIntrant.objects.select_related("intrant__categorie").order_by(
+            "intrant__categorie__libelle", "intrant__designation"
         )
         if categorie_pk:
             si_qs = si_qs.filter(intrant__categorie_id=categorie_pk)
@@ -860,10 +941,8 @@ def rapport_etat_stocks(request):
     # ── Produits finis ────────────────────────────────────────────────────
     stocks_produits = []
     if segment in ("", "produits_finis"):
-        spf_qs = (
-            StockProduitFini.objects
-            .select_related("produit_fini")
-            .order_by("produit_fini__type_produit", "produit_fini__designation")
+        spf_qs = StockProduitFini.objects.select_related("produit_fini").order_by(
+            "produit_fini__type_produit", "produit_fini__designation"
         )
         if alerte_only:
             spf_qs = spf_qs.filter(quantite__lte=F("seuil_alerte"))
@@ -872,12 +951,8 @@ def rapport_etat_stocks(request):
         stocks_produits = list(spf_qs)
 
     # Valuation totals
-    valeur_intrants = sum(
-        (s.valeur_stock for s in stocks_intrants), Decimal("0")
-    )
-    valeur_produits = sum(
-        (s.valeur_stock for s in stocks_produits), Decimal("0")
-    )
+    valeur_intrants = sum((s.valeur_stock for s in stocks_intrants), Decimal("0"))
+    valeur_produits = sum((s.valeur_stock for s in stocks_produits), Decimal("0"))
 
     if request.GET.get("export") == "csv":
         headers = [
@@ -894,58 +969,75 @@ def rapport_etat_stocks(request):
         ]
         rows = []
         for s in stocks_intrants:
-            statut = "RUPTURE" if s.quantite <= 0 else ("ALERTE" if s.en_alerte else "OK")
-            rows.append([
-                "Intrant",
-                s.intrant.categorie.libelle,
-                s.intrant.designation,
-                s.quantite,
-                s.intrant.unite_mesure,
-                s.intrant.seuil_alerte,
-                statut,
-                s.prix_moyen_pondere,
-                s.valeur_stock,
-                s.derniere_mise_a_jour.date() if s.derniere_mise_a_jour else "",
-            ])
+            statut = (
+                "RUPTURE" if s.quantite <= 0 else ("ALERTE" if s.en_alerte else "OK")
+            )
+            rows.append(
+                [
+                    "Intrant",
+                    s.intrant.categorie.libelle,
+                    s.intrant.designation,
+                    s.quantite,
+                    s.intrant.unite_mesure,
+                    s.intrant.seuil_alerte,
+                    statut,
+                    s.prix_moyen_pondere,
+                    s.valeur_stock,
+                    s.derniere_mise_a_jour.date() if s.derniere_mise_a_jour else "",
+                ]
+            )
         for s in stocks_produits:
-            statut = "RUPTURE" if s.quantite <= 0 else ("ALERTE" if s.en_alerte else "OK")
-            rows.append([
-                "Produit fini",
-                s.produit_fini.get_type_produit_display(),
-                s.produit_fini.designation,
-                s.quantite,
-                s.produit_fini.unite_mesure,
-                s.seuil_alerte,
-                statut,
-                s.cout_moyen_production,
-                s.valeur_stock,
-                s.derniere_mise_a_jour.date() if s.derniere_mise_a_jour else "",
-            ])
+            statut = (
+                "RUPTURE" if s.quantite <= 0 else ("ALERTE" if s.en_alerte else "OK")
+            )
+            rows.append(
+                [
+                    "Produit fini",
+                    s.produit_fini.get_type_produit_display(),
+                    s.produit_fini.designation,
+                    s.quantite,
+                    s.produit_fini.unite_mesure,
+                    s.seuil_alerte,
+                    statut,
+                    s.cout_moyen_production,
+                    s.valeur_stock,
+                    s.derniere_mise_a_jour.date() if s.derniere_mise_a_jour else "",
+                ]
+            )
         return _csv_response("etat_stocks", headers, rows)
 
     categories = CategorieIntrant.objects.filter(actif=True).order_by("libelle")
 
-    return render(request, "reporting/etat_stocks.html", {
-        "title": "État des Stocks",
-        "stocks_intrants": stocks_intrants,
-        "stocks_produits": stocks_produits,
-        "valeur_intrants": valeur_intrants,
-        "valeur_produits": valeur_produits,
-        "valeur_totale": valeur_intrants + valeur_produits,
-        "categories": categories,
-        "segment": segment,
-        "categorie_pk": categorie_pk,
-        "alerte_only": alerte_only,
-        "q": q,
-        "nb_alerte_intrants": sum(1 for s in stocks_intrants if s.en_alerte and s.quantite > 0),
-        "nb_rupture_intrants": sum(1 for s in stocks_intrants if s.quantite <= 0),
-        "nb_alerte_produits": sum(1 for s in stocks_produits if s.en_alerte and s.quantite > 0),
-    })
+    return render(
+        request,
+        "reporting/etat_stocks.html",
+        {
+            "title": "État des Stocks",
+            "stocks_intrants": stocks_intrants,
+            "stocks_produits": stocks_produits,
+            "valeur_intrants": valeur_intrants,
+            "valeur_produits": valeur_produits,
+            "valeur_totale": valeur_intrants + valeur_produits,
+            "categories": categories,
+            "segment": segment,
+            "categorie_pk": categorie_pk,
+            "alerte_only": alerte_only,
+            "q": q,
+            "nb_alerte_intrants": sum(
+                1 for s in stocks_intrants if s.en_alerte and s.quantite > 0
+            ),
+            "nb_rupture_intrants": sum(1 for s in stocks_intrants if s.quantite <= 0),
+            "nb_alerte_produits": sum(
+                1 for s in stocks_produits if s.en_alerte and s.quantite > 0
+            ),
+        },
+    )
 
 
 # ===========================================================================
 # Consommation par Lot
 # ===========================================================================
+
 
 @login_required(login_url=LOGIN_URL)
 def rapport_consommation_lot(request):
@@ -961,11 +1053,9 @@ def rapport_consommation_lot(request):
     from elevage.models import Consommation, LotElevage
     from intrants.models import CategorieIntrant, Intrant
 
-    qs = (
-        Consommation.objects
-        .select_related("lot", "intrant__categorie", "created_by")
-        .order_by("-date", "lot__designation")
-    )
+    qs = Consommation.objects.select_related(
+        "lot", "intrant__categorie", "created_by"
+    ).order_by("-date", "lot__designation")
 
     lot_pk = request.GET.get("lot", "").strip()
     if lot_pk:
@@ -1024,28 +1114,35 @@ def rapport_consommation_lot(request):
 
     page = _paginate(qs, request.GET.get("page"))
     lots = LotElevage.objects.order_by("-date_ouverture")
-    intrants = Intrant.objects.filter(actif=True, categorie__consommable_en_lot=True).select_related("categorie")
+    intrants = Intrant.objects.filter(
+        actif=True, categorie__consommable_en_lot=True
+    ).select_related("categorie")
     categories = CategorieIntrant.objects.filter(actif=True)
 
-    return render(request, "reporting/consommation_lot.html", {
-        "title": "Consommation par Lot",
-        "page": page,
-        "par_intrant": par_intrant,
-        "nb_total": nb_total,
-        "lots": lots,
-        "intrants": intrants,
-        "categories": categories,
-        "lot_pk": lot_pk,
-        "intrant_pk": intrant_pk,
-        "categorie_pk": categorie_pk,
-        "date_debut": date_debut,
-        "date_fin": date_fin,
-    })
+    return render(
+        request,
+        "reporting/consommation_lot.html",
+        {
+            "title": "Consommation par Lot",
+            "page": page,
+            "par_intrant": par_intrant,
+            "nb_total": nb_total,
+            "lots": lots,
+            "intrants": intrants,
+            "categories": categories,
+            "lot_pk": lot_pk,
+            "intrant_pk": intrant_pk,
+            "categorie_pk": categorie_pk,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+        },
+    )
 
 
 # ===========================================================================
 # Créances Clients (Receivables Aging)
 # ===========================================================================
+
 
 @login_required(login_url=LOGIN_URL)
 def rapport_creances_clients(request):
@@ -1074,11 +1171,11 @@ def rapport_creances_clients(request):
 
     totaux = {
         "current": sum(b["current"] for b in buckets),
-        "1_30":    sum(b["1_30"]    for b in buckets),
-        "31_60":   sum(b["31_60"]   for b in buckets),
-        "61_90":   sum(b["61_90"]   for b in buckets),
+        "1_30": sum(b["1_30"] for b in buckets),
+        "31_60": sum(b["31_60"] for b in buckets),
+        "61_90": sum(b["61_90"] for b in buckets),
         "over_90": sum(b["over_90"] for b in buckets),
-        "total":   sum(b["total"]   for b in buckets),
+        "total": sum(b["total"] for b in buckets),
     }
 
     if request.GET.get("export") == "csv":
@@ -1103,32 +1200,39 @@ def rapport_creances_clients(request):
             ]
             for b in buckets
         ]
-        rows.append([
-            "TOTAL",
-            totaux["current"],
-            totaux["1_30"],
-            totaux["31_60"],
-            totaux["61_90"],
-            totaux["over_90"],
-            totaux["total"],
-        ])
+        rows.append(
+            [
+                "TOTAL",
+                totaux["current"],
+                totaux["1_30"],
+                totaux["31_60"],
+                totaux["61_90"],
+                totaux["over_90"],
+                totaux["total"],
+            ]
+        )
         return _csv_response("creances_clients", headers, rows)
 
     clients = Client.objects.filter(actif=True).order_by("nom")
 
-    return render(request, "reporting/creances_clients.html", {
-        "title": "Créances Clients",
-        "buckets": buckets,
-        "totaux": totaux,
-        "clients": clients,
-        "client_pk": client_pk,
-        "client_obj": client_obj,
-    })
+    return render(
+        request,
+        "reporting/creances_clients.html",
+        {
+            "title": "Créances Clients",
+            "buckets": buckets,
+            "totaux": totaux,
+            "clients": clients,
+            "client_pk": client_pk,
+            "client_obj": client_obj,
+        },
+    )
 
 
 # ===========================================================================
 # Historique BL Clients
 # ===========================================================================
+
 
 @login_required(login_url=LOGIN_URL)
 def rapport_historique_bl_clients(request):
@@ -1143,8 +1247,7 @@ def rapport_historique_bl_clients(request):
     from clients.models import BLClient, Client
 
     qs = (
-        BLClient.objects
-        .select_related("client", "created_by")
+        BLClient.objects.select_related("client", "created_by")
         .prefetch_related("lignes__produit_fini")
         .order_by("-date_bl")
     )
@@ -1165,10 +1268,7 @@ def rapport_historique_bl_clients(request):
 
     q = request.GET.get("q", "").strip()
     if q:
-        qs = qs.filter(
-            Q(reference__icontains=q)
-            | Q(client__nom__icontains=q)
-        )
+        qs = qs.filter(Q(reference__icontains=q) | Q(client__nom__icontains=q))
 
     # Totals
     agg = qs.aggregate(nb=Count("pk"))
@@ -1198,23 +1298,28 @@ def rapport_historique_bl_clients(request):
     page = _paginate(qs, request.GET.get("page"))
     clients = Client.objects.filter(actif=True).order_by("nom")
 
-    return render(request, "reporting/historique_bl_clients.html", {
-        "title": "Historique BL Clients",
-        "page": page,
-        "nb_total": agg["nb"] or 0,
-        "clients": clients,
-        "client_pk": client_pk,
-        "statut": statut,
-        "statut_choices": BLClient.STATUT_CHOICES,
-        "date_debut": date_debut,
-        "date_fin": date_fin,
-        "q": q,
-    })
+    return render(
+        request,
+        "reporting/historique_bl_clients.html",
+        {
+            "title": "Historique BL Clients",
+            "page": page,
+            "nb_total": agg["nb"] or 0,
+            "clients": clients,
+            "client_pk": client_pk,
+            "statut": statut,
+            "statut_choices": BLClient.STATUT_CHOICES,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+            "q": q,
+        },
+    )
 
 
 # ===========================================================================
 # Production Dashboard Report  (cross-lot KPI table — spec §20.5 supplement)
 # ===========================================================================
+
 
 @login_required(login_url=LOGIN_URL)
 def rapport_production_dashboard(request):
@@ -1242,8 +1347,8 @@ def rapport_production_dashboard(request):
 
     totaux = {
         "nb_oiseaux_abattus": sum(r["nb_oiseaux_abattus"] for r in rows),
-        "poids_total_kg":     sum(r["poids_total_kg"]     for r in rows),
-        "cout_total_dzd":     sum(r["cout_total_dzd"]     for r in rows),
+        "poids_total_kg": sum(r["poids_total_kg"] for r in rows),
+        "cout_total_dzd": sum(r["cout_total_dzd"] for r in rows),
     }
 
     if request.GET.get("export") == "csv":
@@ -1268,19 +1373,24 @@ def rapport_production_dashboard(request):
         ]
         return _csv_response("tableau_bord_production", headers, csv_rows)
 
-    return render(request, "reporting/production_dashboard.html", {
-        "title": "Tableau de Bord Production",
-        "rows": rows,
-        "totaux": totaux,
-        "date_debut": date_debut,
-        "date_fin": date_fin,
-        "today": today,
-    })
+    return render(
+        request,
+        "reporting/production_dashboard.html",
+        {
+            "title": "Tableau de Bord Production",
+            "rows": rows,
+            "totaux": totaux,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+            "today": today,
+        },
+    )
 
 
 # ===========================================================================
 # Dépenses Summary Report
 # ===========================================================================
+
 
 @login_required(login_url=LOGIN_URL)
 def rapport_depenses(request):
@@ -1303,7 +1413,7 @@ def rapport_depenses(request):
     date_debut, date_fin = _parse_dates(request)
     today = datetime.date.today()
     if not date_debut and not date_fin:
-        date_debut = today.replace(day=1)
+        date_debut = today - datetime.timedelta(days=365)
         date_fin = today
 
     categorie_pk = request.GET.get("categorie", "").strip()
@@ -1352,22 +1462,27 @@ def rapport_depenses(request):
     categories = CategorieDepense.objects.filter(actif=True).order_by("libelle")
     lots = LotElevage.objects.order_by("-date_ouverture")
 
-    return render(request, "reporting/depenses.html", {
-        "title": "Rapport des Dépenses",
-        "summary": summary,
-        "page": page,
-        "categories": categories,
-        "lots": lots,
-        "categorie_pk": categorie_pk,
-        "lot_pk": lot_pk,
-        "date_debut": date_debut,
-        "date_fin": date_fin,
-    })
+    return render(
+        request,
+        "reporting/depenses.html",
+        {
+            "title": "Rapport des Dépenses",
+            "summary": summary,
+            "page": page,
+            "categories": categories,
+            "lots": lots,
+            "categorie_pk": categorie_pk,
+            "lot_pk": lot_pk,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+        },
+    )
 
 
 # ===========================================================================
 # Lot Consommation Detail (drill-down for a single lot — used from lot page)
 # ===========================================================================
+
 
 @login_required(login_url=LOGIN_URL)
 def rapport_consommation_lot_detail(request, lot_pk):
@@ -1399,16 +1514,21 @@ def rapport_consommation_lot_detail(request, lot_pk):
             f"consommation_{lot.designation.replace(' ', '_')}", headers, rows
         )
 
-    return render(request, "reporting/consommation_lot_detail.html", {
-        "title": f"Consommation — {lot.designation}",
-        "lot": lot,
-        "summary": summary,
-    })
+    return render(
+        request,
+        "reporting/consommation_lot_detail.html",
+        {
+            "title": f"Consommation — {lot.designation}",
+            "lot": lot,
+            "summary": summary,
+        },
+    )
 
 
 # ===========================================================================
 # Mouvement de Stock print view
 # ===========================================================================
+
 
 @login_required(login_url=LOGIN_URL)
 def stock_mouvement_print(request, pk):
@@ -1422,75 +1542,283 @@ def stock_mouvement_print(request, pk):
     mouvement = get_object_or_404(StockMouvement, pk=pk)
     company = CompanyInfo.get_instance()
 
-    return render(request, "reporting/print/stock_mouvement.html", {
-        "mouvement": mouvement,
-        "company": company,
-        "print_mode": True,
-    })
+    return render(
+        request,
+        "reporting/print/stock_mouvement.html",
+        {
+            "mouvement": mouvement,
+            "company": company,
+            "print_mode": True,
+        },
+    )
 
 
 # ===========================================================================
 # AJAX: quick-stats endpoints used by the reporting dashboard widgets
 # ===========================================================================
 
+
 @login_required(login_url=LOGIN_URL)
 def kpi_summary_json(request):
     """
-    Return top-level KPI figures for the reporting dashboard header widget.
+    Return full KPI + chart data for the reporting dashboard.
     Called by the dashboard via fetch() on page load.
 
+    Accepts optional ?date_debut=YYYY-MM-DD and ?date_fin=YYYY-MM-DD query
+    params to filter period-based metrics (cash flow, production).
+    Defaults to the last 12 months when not supplied.
+
     Response keys:
-      dette_fournisseurs_totale   — Decimal (DZD)
-      creances_clients_totale     — Decimal (DZD)
-      nb_lots_ouverts             — int
-      nb_stocks_en_alerte         — int
-      nb_factures_fournisseur_retard — int
-      nb_factures_client_retard   — int
+      dette_fournisseurs_totale         — float (DZD)
+      creances_clients_totale           — float (DZD)
+      nb_lots_ouverts                   — int
+      nb_stocks_en_alerte               — int
+      nb_ruptures_stock                 — int
+      nb_factures_fournisseur_retard    — int
+      nb_factures_client_retard         — int
+      supplier_aging                    — {current, 1_30, 31_60, 61_90, over_90} | null
+      client_aging                      — {current, 1_30, 31_60, 61_90, over_90} | null
+      lots                              — [{designation, batiment, effectif_vivant, taux_mortalite, duree}]
+      production_recent                 — [{lot, nb_oiseaux, poids_kg}]
+      stock_status                      — {normal, alerte, valeur_totale}
+      bl_clients                        — {brouillon, livre, facture, litige, total}
+      cash_flow                         — {encaissements, reglements, depenses, sorties, solde_net}
+      date_debut                        — str ISO
+      date_fin                          — str ISO
     """
-    from achats.models import FactureFournisseur
-    from clients.models import FactureClient
+    from achats.models import FactureFournisseur, ReglementFournisseur
+    from clients.models import BLClient, FactureClient, PaiementClient
+    from depenses.models import Depense
     from elevage.models import LotElevage
+    from production.models import ProductionRecord
     from stock.models import StockIntrant
 
     today = datetime.date.today()
 
-    dette = FactureFournisseur.objects.filter(
+    # ── Date range (default: last 12 months) ──────────────────────────────
+    date_debut, date_fin = _parse_dates(request)
+    if not date_debut:
+        date_debut = today - datetime.timedelta(days=365)
+    if not date_fin:
+        date_fin = today
+
+    # ── Basic scalar KPIs ─────────────────────────────────────────────────
+    dette = (
+        FactureFournisseur.objects.filter(
+            statut__in=[
+                FactureFournisseur.STATUT_NON_PAYE,
+                FactureFournisseur.STATUT_PARTIELLEMENT_PAYE,
+            ]
+        ).aggregate(total=Sum("reste_a_payer"))["total"]
+        or 0
+    )
+
+    creances = (
+        FactureClient.objects.filter(
+            statut__in=[
+                FactureClient.STATUT_NON_PAYEE,
+                FactureClient.STATUT_PARTIELLEMENT_PAYEE,
+            ]
+        ).aggregate(total=Sum("reste_a_payer"))["total"]
+        or 0
+    )
+
+    nb_lots_ouverts = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT).count()
+
+    nb_stocks_alerte = StockIntrant.objects.filter(
+        quantite__lte=F("intrant__seuil_alerte"),
+        quantite__gt=0,
+    ).count()
+
+    nb_ruptures = StockIntrant.objects.filter(quantite__lte=0).count()
+
+    nb_ff_retard = FactureFournisseur.objects.filter(
+        statut__in=[
+            FactureFournisseur.STATUT_NON_PAYE,
+            FactureFournisseur.STATUT_PARTIELLEMENT_PAYE,
+        ],
+        date_echeance__lt=today,
+    ).count()
+
+    nb_fc_retard = FactureClient.objects.filter(
+        statut__in=[
+            FactureClient.STATUT_NON_PAYEE,
+            FactureClient.STATUT_PARTIELLEMENT_PAYEE,
+        ],
+        date_echeance__lt=today,
+    ).count()
+
+    # ── Supplier aging buckets ────────────────────────────────────────────
+    open_ff = FactureFournisseur.objects.filter(
         statut__in=[
             FactureFournisseur.STATUT_NON_PAYE,
             FactureFournisseur.STATUT_PARTIELLEMENT_PAYE,
         ]
-    ).aggregate(total=Sum("reste_a_payer"))["total"] or 0
+    ).values("date_echeance", "reste_a_payer")
 
-    creances = FactureClient.objects.filter(
+    sup_aging = {
+        "current": 0.0,
+        "1_30": 0.0,
+        "31_60": 0.0,
+        "61_90": 0.0,
+        "over_90": 0.0,
+    }
+    for ff in open_ff:
+        amt = float(ff["reste_a_payer"] or 0)
+        if not ff["date_echeance"] or ff["date_echeance"] >= today:
+            sup_aging["current"] += amt
+        else:
+            days = (today - ff["date_echeance"]).days
+            if days <= 30:
+                sup_aging["1_30"] += amt
+            elif days <= 60:
+                sup_aging["31_60"] += amt
+            elif days <= 90:
+                sup_aging["61_90"] += amt
+            else:
+                sup_aging["over_90"] += amt
+    supplier_aging_out = sup_aging if sum(sup_aging.values()) > 0 else None
+
+    # ── Client aging buckets ──────────────────────────────────────────────
+    open_fc = FactureClient.objects.filter(
         statut__in=[
             FactureClient.STATUT_NON_PAYEE,
             FactureClient.STATUT_PARTIELLEMENT_PAYEE,
         ]
-    ).aggregate(total=Sum("reste_a_payer"))["total"] or 0
+    ).values("date_echeance", "reste_a_payer")
 
-    return JsonResponse({
-        "dette_fournisseurs_totale": float(dette),
-        "creances_clients_totale": float(creances),
-        "nb_lots_ouverts": LotElevage.objects.filter(
-            statut=LotElevage.STATUT_OUVERT
-        ).count(),
-        "nb_stocks_en_alerte": StockIntrant.objects.filter(
-            quantite__lte=F("intrant__seuil_alerte"),
-            quantite__gt=0,
-        ).count(),
-        "nb_ruptures_stock": StockIntrant.objects.filter(quantite__lte=0).count(),
-        "nb_factures_fournisseur_retard": FactureFournisseur.objects.filter(
-            statut__in=[
-                FactureFournisseur.STATUT_NON_PAYE,
-                FactureFournisseur.STATUT_PARTIELLEMENT_PAYE,
-            ],
-            date_echeance__lt=today,
-        ).count(),
-        "nb_factures_client_retard": FactureClient.objects.filter(
-            statut__in=[
-                FactureClient.STATUT_NON_PAYEE,
-                FactureClient.STATUT_PARTIELLEMENT_PAYEE,
-            ],
-            date_echeance__lt=today,
-        ).count(),
-    })
+    cli_aging = {
+        "current": 0.0,
+        "1_30": 0.0,
+        "31_60": 0.0,
+        "61_90": 0.0,
+        "over_90": 0.0,
+    }
+    for fc in open_fc:
+        amt = float(fc["reste_a_payer"] or 0)
+        if not fc["date_echeance"] or fc["date_echeance"] >= today:
+            cli_aging["current"] += amt
+        else:
+            days = (today - fc["date_echeance"]).days
+            if days <= 30:
+                cli_aging["1_30"] += amt
+            elif days <= 60:
+                cli_aging["31_60"] += amt
+            elif days <= 90:
+                cli_aging["61_90"] += amt
+            else:
+                cli_aging["over_90"] += amt
+    client_aging_out = cli_aging if sum(cli_aging.values()) > 0 else None
+
+    # ── Open lots summary ─────────────────────────────────────────────────
+    lots_qs = (
+        LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT)
+        .select_related("batiment")
+        .order_by("-date_ouverture")[:10]
+    )
+    lots_data = []
+    for lot in lots_qs:
+        lots_data.append(
+            {
+                "designation": lot.designation,
+                "batiment": lot.batiment.nom,
+                "effectif_vivant": lot.effectif_vivant,
+                "taux_mortalite": float(lot.taux_mortalite),
+                "duree": lot.duree_elevage,
+            }
+        )
+
+    # ── Recent production (within period) ────────────────────────────────
+    prod_qs = (
+        ProductionRecord.objects.filter(
+            statut=ProductionRecord.STATUT_VALIDE,
+            date_production__gte=date_debut,
+            date_production__lte=date_fin,
+        )
+        .select_related("lot")
+        .order_by("-date_production")[:6]
+    )
+    prod_data = [
+        {
+            "lot": r.lot.designation[:22],
+            "nb_oiseaux": r.nombre_oiseaux_abattus,
+            "poids_kg": float(r.poids_total_kg),
+        }
+        for r in prod_qs
+    ]
+
+    # ── Stock status ──────────────────────────────────────────────────────
+    all_si = StockIntrant.objects.select_related("intrant").all()
+    nb_normal_s = nb_alerte_s = 0
+    valeur_totale = 0.0
+    for si in all_si:
+        valeur_totale += float(si.valeur_stock)
+        if si.en_alerte or si.quantite <= 0:
+            nb_alerte_s += 1
+        else:
+            nb_normal_s += 1
+    stock_status = {
+        "normal": nb_normal_s,
+        "alerte": nb_alerte_s,
+        "valeur_totale": round(valeur_totale, 2),
+    }
+
+    # ── BL Clients status distribution ───────────────────────────────────
+    bl_counts = BLClient.objects.values("statut").annotate(nb=Count("pk"))
+    bl_map = {r["statut"]: r["nb"] for r in bl_counts}
+    bl_clients = {
+        "brouillon": bl_map.get("brouillon", 0),
+        "livre": bl_map.get("livre", 0),
+        "facture": bl_map.get("facture", 0),
+        "litige": bl_map.get("litige", 0),
+        "total": sum(bl_map.values()),
+    }
+
+    # ── Cash flow summary (for period) ────────────────────────────────────
+    encaissements = float(
+        PaiementClient.objects.filter(
+            date_paiement__gte=date_debut, date_paiement__lte=date_fin
+        ).aggregate(t=Sum("montant"))["t"]
+        or 0
+    )
+    reglements_total = float(
+        ReglementFournisseur.objects.filter(
+            date_reglement__gte=date_debut, date_reglement__lte=date_fin
+        ).aggregate(t=Sum("montant"))["t"]
+        or 0
+    )
+    depenses_total = float(
+        Depense.objects.filter(date__gte=date_debut, date__lte=date_fin).aggregate(
+            t=Sum("montant")
+        )["t"]
+        or 0
+    )
+    sorties = reglements_total + depenses_total
+    cash_flow = {
+        "encaissements": round(encaissements, 2),
+        "reglements": round(reglements_total, 2),
+        "depenses": round(depenses_total, 2),
+        "sorties": round(sorties, 2),
+        "solde_net": round(encaissements - sorties, 2),
+    }
+
+    return JsonResponse(
+        {
+            "dette_fournisseurs_totale": float(dette),
+            "creances_clients_totale": float(creances),
+            "nb_lots_ouverts": nb_lots_ouverts,
+            "nb_stocks_en_alerte": nb_stocks_alerte,
+            "nb_ruptures_stock": nb_ruptures,
+            "nb_factures_fournisseur_retard": nb_ff_retard,
+            "nb_factures_client_retard": nb_fc_retard,
+            "supplier_aging": supplier_aging_out,
+            "client_aging": client_aging_out,
+            "lots": lots_data,
+            "production_recent": prod_data,
+            "stock_status": stock_status,
+            "bl_clients": bl_clients,
+            "cash_flow": cash_flow,
+            "date_debut": str(date_debut),
+            "date_fin": str(date_fin),
+        }
+    )

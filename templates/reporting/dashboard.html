@@ -4,7 +4,19 @@
 {% block nav_rapports %}active{% endblock %}
 {% block page_title %}Rapports & Tableaux de Bord{% endblock %}
 {% block page_sub_text %}Vue d'ensemble — {{ today|date:"d/m/Y" }}{% endblock %}
-{% block topbar_actions %}{% endblock %}
+{% block topbar_actions %}
+<form method="get" action="" style="display:flex;align-items:center;gap:8px;" id="period-form">
+  <label style="font-size:12px;color:var(--text-muted);font-weight:600;white-space:nowrap;">Période :</label>
+  <input type="date" name="date_debut" id="id_date_debut" value="{{ date_debut_default|date:'Y-m-d' }}"
+    class="form-control" style="font-size:12px;padding:5px 10px;height:34px;width:140px;">
+  <span style="font-size:12px;color:var(--text-muted);">→</span>
+  <input type="date" name="date_fin" id="id_date_fin" value="{{ date_fin_default|date:'Y-m-d' }}"
+    class="form-control" style="font-size:12px;padding:5px 10px;height:34px;width:140px;">
+  <button type="submit" class="btn btn-sm btn-primary" style="height:34px;font-size:12px;">
+    <i class="bx bx-refresh"></i> Actualiser
+  </button>
+</form>
+{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -122,9 +134,9 @@
     <div class="alert-metric__icon ic-green"><i class="bx bxs-grid-alt"></i></div>
     <div class="alert-metric__body">
       <div class="alert-metric__label">Lots ouverts</div>
-      <div class="alert-metric__value" id="kpi-lots-ouverts"><span class="shimmer" style="width:40px;height:28px;"></span></div>
-      <div class="alert-metric__sub" id="kpi-lots-label" style="color:var(--text-muted);">
-        <i class="bx bx-loader-circle bx-spin"></i> Chargement…
+      <div class="alert-metric__value" id="kpi-lots-ouverts">{{ nb_lots_ouverts }}</div>
+      <div class="alert-metric__sub {% if nb_lots_ouverts > 0 %}val-ok{% endif %}" id="kpi-lots-label">
+        {% if nb_lots_ouverts > 0 %}<i class="bx bxs-check-circle"></i> En cours d'élevage{% else %}<i class="bx bx-minus"></i> Aucun lot actif{% endif %}
       </div>
     </div>
   </div>
@@ -133,20 +145,23 @@
 
 {% if is_financial %}
 <!-- ── ROW 2: Financial summary cards + mini cash flow chart ──── -->
+<div class="section-eyebrow" id="period-label">
+  Période : {{ date_debut_default|date:"d/m/Y" }} → {{ date_fin_default|date:"d/m/Y" }}
+</div>
 <div class="dash-grid-3 mb-4">
 
   <div class="fin-card fin-card--red">
     <div class="fin-card__label">Dette Fournisseurs</div>
-    <div class="fin-card__value" id="kpi-dette-total"><span class="shimmer" style="width:110px;height:30px;"></span></div>
-    <div class="fin-card__sub" id="kpi-dette-sub">Chargement…</div>
+    <div class="fin-card__value" id="kpi-dette-total">{{ dette_totale|floatformat:0 }} DZD</div>
+    <div class="fin-card__sub" id="kpi-dette-sub">{% if nb_factures_retard_fournisseur > 0 %}{{ nb_factures_retard_fournisseur }} facture(s) en retard{% else %}Aucune facture en retard{% endif %}</div>
     <a href="{% url 'reporting:dettes_fournisseurs' %}" class="fin-card__link" style="color:#dc2626;">Voir rapport <i class="bx bx-right-arrow-alt"></i></a>
     <div class="fin-card__watermark">🏭</div>
   </div>
 
   <div class="fin-card fin-card--green">
     <div class="fin-card__label">Créances Clients</div>
-    <div class="fin-card__value" id="kpi-creances-total"><span class="shimmer" style="width:110px;height:30px;"></span></div>
-    <div class="fin-card__sub" id="kpi-creances-sub">Chargement…</div>
+    <div class="fin-card__value" id="kpi-creances-total">{{ creances_totale|floatformat:0 }} DZD</div>
+    <div class="fin-card__sub" id="kpi-creances-sub">{% if nb_factures_retard_client > 0 %}{{ nb_factures_retard_client }} facture(s) client en retard{% else %}Aucune créance échue{% endif %}</div>
     <a href="{% url 'reporting:creances_clients' %}" class="fin-card__link" style="color:#15803d;">Voir rapport <i class="bx bx-right-arrow-alt"></i></a>
     <div class="fin-card__watermark">🤝</div>
   </div>
@@ -409,7 +424,14 @@ document.addEventListener('DOMContentLoaded', function () {
   const BCOLORS = ['#22c55e','#f59e0b','#fb923c','#ef4444','#991b1b'];
   const BLABELS = ['Courant','1–30 j','31–60 j','61–90 j','> 90 j'];
 
-  fetch('{% url "reporting:kpi_summary_json" %}')
+  // Build URL with current date range from the period picker
+  const _dd = document.getElementById('id_date_debut');
+  const _df = document.getElementById('id_date_fin');
+  const _kpiUrl = new URL('{% url "reporting:kpi_summary_json" %}', window.location.origin);
+  if (_dd && _dd.value) _kpiUrl.searchParams.set('date_debut', _dd.value);
+  if (_df && _df.value) _kpiUrl.searchParams.set('date_fin', _df.value);
+
+  fetch(_kpiUrl.toString())
     .then(r => r.ok ? r.json() : Promise.reject())
     .then(d => {
 
@@ -444,6 +466,27 @@ document.addEventListener('DOMContentLoaded', function () {
       const fcEl = document.getElementById('kpi-fc-retard');
       if (ffEl) ffEl.textContent = d.nb_factures_fournisseur_retard ?? '—';
       if (fcEl) fcEl.textContent = d.nb_factures_client_retard ?? '—';
+
+      // Update AJAX-computed financial cards with fresh data
+      const detteEl2 = document.getElementById('kpi-dette-total');
+      const detteSub2 = document.getElementById('kpi-dette-sub');
+      const crEl2 = document.getElementById('kpi-creances-total');
+      const crSub2 = document.getElementById('kpi-creances-sub');
+      if (detteEl2) detteEl2.textContent = fmt(d.dette_fournisseurs_totale) + ' DZD';
+      if (detteSub2) detteSub2.textContent = d.nb_factures_fournisseur_retard > 0
+        ? d.nb_factures_fournisseur_retard + ' facture(s) en retard'
+        : 'Aucune facture en retard';
+      if (crEl2) crEl2.textContent = fmt(d.creances_clients_totale) + ' DZD';
+      if (crSub2) crSub2.textContent = d.nb_factures_client_retard > 0
+        ? d.nb_factures_client_retard + ' facture(s) client en retard'
+        : 'Aucune créance échue';
+
+      // Update period label
+      const pLabel = document.getElementById('period-label');
+      if (pLabel && d.date_debut && d.date_fin) {
+        const fmtD = s => { const p = s.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; };
+        pLabel.textContent = 'Période : ' + fmtD(d.date_debut) + ' → ' + fmtD(d.date_fin);
+      }
 
       // ── Mini cash flow chart ─────────────────────────────────
       const miniEl = document.getElementById('miniFlowChart');
