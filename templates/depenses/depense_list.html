@@ -1,132 +1,138 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}Dépenses opérationnelles — Élevage Avicole{% endblock %}
+
 {% block nav_depenses %}active{% endblock %}
 
 {% block page_title %}Dépenses opérationnelles{% endblock %}
-{% block page_sub_text %}Total filtré : {{ total|floatformat:0 }} DZD · {{ page.paginator.count }} enregistrement{{ page.paginator.count|pluralize }}{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} dépense{{ page.paginator.count|pluralize }} — Total filtré : {{ total|floatformat:0 }} DZD{% endblock %}
 
 {% block topbar_actions %}
-{% if not request.user.profile.role == 'viewer' %}
-<a href="{% url 'depenses:depense_create' %}" class="btn-primary">
-  <i class="bx bx-plus"></i> Nouvelle dépense
-</a>
-{% endif %}
+  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'depenses:depense_create' %}" class="btn-primary">
+    <i class="bx bx-plus"></i> Nouvelle dépense
+  </a>
+  {% endif %}
+  <a href="{% url 'depenses:dashboard' %}" class="btn-ghost">
+    <i class="bx bxs-pie-chart-alt-2"></i> Tableau de bord
+  </a>
 {% endblock %}
 
 {% block content %}
+<div class="page-body">
 
-{# ── Filter bar ────────────────────────────────────────────────────────── #}
-<div class="section-card" style="margin-bottom:16px;">
-  <div class="section-card__body">
-    <form method="get" class="filter-bar" id="filter-form">
-      <div class="input-wrapper" style="min-width:180px;">
-        <i class="bx bxs-category input-icon"></i>
-        {{ filter_form.categorie }}
+  <!-- Filters bar -->
+  <div class="filters-bar">
+    <form method="get" action="" class="filters-form" id="filter-form">
+      <!-- Text search -->
+      <div class="search-wrapper">
+        <i class="bx bx-search search-icon"></i>
+        <input type="text" name="q" value="{{ q }}" placeholder="Description, référence, notes…" class="search-input" autocomplete="off">
       </div>
-      <div class="input-wrapper" style="min-width:150px;">
-        <i class="bx bxs-calendar input-icon"></i>
+      <!-- Catégorie -->
+      {{ filter_form.categorie }}
+      <!-- Date début -->
+      <div class="date-field-wrap">
+        <label class="date-field-label">Du</label>
         {{ filter_form.date_debut }}
       </div>
-      <div class="input-wrapper" style="min-width:150px;">
-        <i class="bx bxs-calendar input-icon"></i>
+      <!-- Date fin -->
+      <div class="date-field-wrap">
+        <label class="date-field-label">Au</label>
         {{ filter_form.date_fin }}
       </div>
-      <div class="input-wrapper" style="min-width:180px;">
-        <i class="bx bxs-grid-alt input-icon"></i>
-        {{ filter_form.lot }}
-      </div>
-      <div class="input-wrapper" style="min-width:160px;">
-        <i class="bx bxs-coin input-icon"></i>
-        {{ filter_form.mode_paiement }}
-      </div>
-      <div class="input-wrapper" style="min-width:200px;flex:1;">
-        <i class="bx bx-search input-icon"></i>
-        <input type="text" name="q" class="field-input has-icon" placeholder="Rechercher..." value="{{ q|default:'' }}">
-      </div>
-      <button type="submit" class="btn-primary btn-sm">
-        <i class="bx bx-search"></i> Filtrer
-      </button>
-      <a href="{% url 'depenses:depense_list' %}" class="btn-ghost btn-sm">
-        <i class="bx bx-reset"></i> Réinitialiser
+      <!-- Lot -->
+      {{ filter_form.lot }}
+      <!-- Mode de paiement -->
+      {{ filter_form.mode_paiement }}
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> Filtrer</button>
+      {% if q or request.GET.categorie or request.GET.date_debut or request.GET.date_fin or request.GET.lot or request.GET.mode_paiement %}
+      <a href="{% url 'depenses:depense_list' %}" class="btn-ghost btn-sm" style="color:var(--text-muted);">
+        <i class="bx bx-x"></i> Réinitialiser
       </a>
+      {% endif %}
     </form>
   </div>
-</div>
 
-{# ── Expenses table ────────────────────────────────────────────────────── #}
-<div class="section-card">
-  <div class="section-card__head">
-    <span class="section-card__title">
-      <i class="bx bxs-list-ul" style="color:var(--accent);margin-right:8px;"></i>Liste des dépenses
-    </span>
-    {% if page.paginator.count > 0 %}
-    <span style="font-size:12px;color:var(--text-muted);">
-      Page {{ page.number }} / {{ page.paginator.num_pages }}
-    </span>
-    {% endif %}
-  </div>
-  <div class="section-card__body no-pad">
+  <div class="card">
+    <div class="card-header-row">
+      <div class="section-eyebrow"><i class="bx bxs-wallet"></i> Dépenses</div>
+      <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:14px;color:var(--text-primary);">{{ total|floatformat:0 }} DZD</span>
+    </div>
+
     {% if page.object_list %}
     <div class="table-wrapper">
-      <table class="table-base">
+      <table class="data-table">
         <thead>
           <tr>
             <th>Date</th>
             <th>Catégorie</th>
             <th>Description</th>
             <th style="text-align:right;">Montant</th>
-            <th>Mode de paiement</th>
+            <th>Mode</th>
             <th>Lot</th>
-            <th>PJ</th>
+            <th>Réf. doc.</th>
             <th style="text-align:right;">Actions</th>
           </tr>
         </thead>
         <tbody>
           {% for dep in page.object_list %}
-          <tr class="stagger-row" style="--row-i:{{ forloop.counter0 }};">
-            <td style="white-space:nowrap;color:var(--text-muted);">
-              <a href="{% url 'depenses:depense_detail' dep.pk %}" style="color:var(--text-primary);font-weight:500;">
-                {{ dep.date|date:"d/m/Y" }}
+          <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+            <td style="white-space:nowrap;color:var(--text-muted);font-size:12.5px;">{{ dep.date|date:"d/m/Y" }}</td>
+            <td>
+              <span class="pill-cat">{{ dep.categorie.libelle }}</span>
+            </td>
+            <td>
+              <a href="{% url 'depenses:depense_detail' dep.pk %}" class="row-link">
+                <span style="font-weight:500;color:var(--text-primary);">{{ dep.description|truncatechars:55 }}</span>
               </a>
             </td>
-            <td>
-              <span class="pill-base pill-neutral">{{ dep.categorie.libelle }}</span>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);white-space:nowrap;">
+              {{ dep.montant|floatformat:0 }} DZD
             </td>
             <td>
-              <span class="val-money">{{ dep.description|truncatechars:45 }}</span>
+              <span class="mode-badge">
+                {% if dep.mode_paiement == 'especes' %}<i class="bx bx-money"></i>
+                {% elif dep.mode_paiement == 'cheque' %}<i class="bx bxs-receipt"></i>
+                {% elif dep.mode_paiement == 'virement' %}<i class="bx bx-transfer"></i>
+                {% elif dep.mode_paiement == 'carte' %}<i class="bx bxs-credit-card-alt"></i>
+                {% else %}<i class="bx bx-dots-horizontal-rounded"></i>{% endif %}
+                {{ dep.get_mode_paiement_display }}
+              </span>
             </td>
-            <td style="text-align:right;white-space:nowrap;">
-              <span class="val-money" style="font-weight:700;">{{ dep.montant|floatformat:0 }}</span>
-              <span style="font-size:11px;color:var(--text-muted);">DZD</span>
-            </td>
-            <td>{{ dep.get_mode_paiement_display }}</td>
             <td>
               {% if dep.lot %}
-              <a href="{% url 'elevage:lot_detail' dep.lot.pk %}" style="font-size:12px;">
-                {{ dep.lot.designation|truncatechars:20 }}
-              </a>
+              <span style="font-size:12px;color:var(--text-muted);">{{ dep.lot.designation|truncatechars:25 }}</span>
               {% else %}
-              <span style="color:var(--text-muted);font-size:12px;">—</span>
+              <span style="color:var(--text-muted);font-size:11.5px;">—</span>
               {% endif %}
             </td>
-            <td style="text-align:center;">
-              {% if dep.a_piece_jointe %}
-              <i class="bx bx-paperclip" style="color:var(--accent-text);font-size:15px;"></i>
-              {% else %}
-              <span style="color:var(--border-strong);font-size:13px;">—</span>
-              {% endif %}
+            <td style="font-size:12px;color:var(--text-muted);">
+              {{ dep.reference_document|default:"—" }}
             </td>
             <td>
               <div class="actions-cell">
                 <a href="{% url 'depenses:depense_detail' dep.pk %}" class="action-btn" title="Détail">
                   <i class="bx bx-show"></i>
                 </a>
-                {% if not request.user.profile.role == 'viewer' %}
+                {% if not request.user.userprofile.role == 'viewer' %}
                 <a href="{% url 'depenses:depense_edit' dep.pk %}" class="action-btn" title="Modifier">
                   <i class="bx bxs-pencil"></i>
                 </a>
+                <a href="{% url 'depenses:depense_print' dep.pk %}" class="action-btn" title="Imprimer" target="_blank">
+                  <i class="bx bx-printer"></i>
+                </a>
+                {% if request.user.userprofile.role == 'admin' %}
+                <button type="button"
+                  class="action-btn action-btn--danger"
+                  data-delete-pk="{{ dep.pk }}"
+                  data-delete-desc="{{ dep.description|truncatechars:50|escapejs }}"
+                  data-delete-date="{{ dep.date|date:'d/m/Y' }}"
+                  title="Supprimer">
+                  <i class="bx bxs-trash"></i>
+                </button>
+                {% endif %}
                 {% endif %}
               </div>
             </td>
@@ -136,39 +142,20 @@
       </table>
     </div>
 
-    {# ── Pagination ────────────────────────────────────────────────────── #}
+    <!-- Pagination -->
     {% if page.has_other_pages %}
     <div class="pagination-bar">
-      <span>{{ page.start_index }} – {{ page.end_index }} sur {{ page.paginator.count }}</span>
-      <div class="page-links">
-        {% if page.has_previous %}
-        <a href="?page={{ page.previous_page_number }}{% if request.GET.categorie %}&categorie={{ request.GET.categorie }}{% endif %}{% if request.GET.date_debut %}&date_debut={{ request.GET.date_debut }}{% endif %}{% if request.GET.date_fin %}&date_fin={{ request.GET.date_fin }}{% endif %}{% if request.GET.lot %}&lot={{ request.GET.lot }}{% endif %}{% if request.GET.mode_paiement %}&mode_paiement={{ request.GET.mode_paiement }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}" class="page-link">
-          <i class="bx bx-chevron-left"></i>
-        </a>
-        {% else %}
-        <span class="page-link disabled"><i class="bx bx-chevron-left"></i></span>
-        {% endif %}
-
-        {% for p in page.paginator.page_range %}
-          {% if p == page.number %}
-          <span class="page-link active">{{ p }}</span>
-          {% elif p >= page.number|add:"-2" and p <= page.number|add:"2" %}
-          <a href="?page={{ p }}{% if request.GET.categorie %}&categorie={{ request.GET.categorie }}{% endif %}{% if request.GET.date_debut %}&date_debut={{ request.GET.date_debut }}{% endif %}{% if request.GET.date_fin %}&date_fin={{ request.GET.date_fin }}{% endif %}{% if request.GET.lot %}&lot={{ request.GET.lot }}{% endif %}{% if request.GET.mode_paiement %}&mode_paiement={{ request.GET.mode_paiement }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}" class="page-link">{{ p }}</a>
-          {% elif p == 1 or p == page.paginator.num_pages %}
-          <a href="?page={{ p }}{% if request.GET.categorie %}&categorie={{ request.GET.categorie }}{% endif %}{% if request.GET.date_debut %}&date_debut={{ request.GET.date_debut }}{% endif %}{% if request.GET.date_fin %}&date_fin={{ request.GET.date_fin }}{% endif %}{% if request.GET.lot %}&lot={{ request.GET.lot }}{% endif %}{% if request.GET.mode_paiement %}&mode_paiement={{ request.GET.mode_paiement }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}" class="page-link">{{ p }}</a>
-          {% elif p == page.number|add:"-3" or p == page.number|add:"3" %}
-          <span class="page-link" style="border:none;cursor:default;">…</span>
-          {% endif %}
-        {% endfor %}
-
-        {% if page.has_next %}
-        <a href="?page={{ page.next_page_number }}{% if request.GET.categorie %}&categorie={{ request.GET.categorie }}{% endif %}{% if request.GET.date_debut %}&date_debut={{ request.GET.date_debut }}{% endif %}{% if request.GET.date_fin %}&date_fin={{ request.GET.date_fin }}{% endif %}{% if request.GET.lot %}&lot={{ request.GET.lot }}{% endif %}{% if request.GET.mode_paiement %}&mode_paiement={{ request.GET.mode_paiement }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}" class="page-link">
-          <i class="bx bx-chevron-right"></i>
-        </a>
-        {% else %}
-        <span class="page-link disabled"><i class="bx bx-chevron-right"></i></span>
-        {% endif %}
-      </div>
+      {% if page.has_previous %}
+      <a href="?{% if q %}q={{ q }}&{% endif %}page={{ page.previous_page_number }}" class="page-btn" title="Page précédente"><i class="bx bx-chevron-left"></i></a>
+      {% else %}
+      <span class="page-btn page-btn--disabled"><i class="bx bx-chevron-left"></i></span>
+      {% endif %}
+      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}
+      <a href="?{% if q %}q={{ q }}&{% endif %}page={{ page.next_page_number }}" class="page-btn" title="Page suivante"><i class="bx bx-chevron-right"></i></a>
+      {% else %}
+      <span class="page-btn page-btn--disabled"><i class="bx bx-chevron-right"></i></span>
+      {% endif %}
     </div>
     {% endif %}
 
@@ -176,85 +163,151 @@
     <div class="empty-state">
       <i class="bx bxs-wallet empty-state__icon"></i>
       <div class="empty-state__title">Aucune dépense trouvée</div>
-      <div class="empty-state__text">
-        {% if request.GET %}
-        Aucun résultat pour les filtres sélectionnés.
+      <div class="empty-state__body">
+        {% if q or request.GET.categorie or request.GET.date_debut %}
+          Aucune dépense ne correspond aux filtres sélectionnés.
+          <br><a href="{% url 'depenses:depense_list' %}" style="color:var(--accent-text);">Réinitialiser les filtres</a>
         {% else %}
-        Enregistrez votre première dépense opérationnelle.
+          Aucune dépense enregistrée. Commencez par créer votre première dépense.
+          {% if not request.user.userprofile.role == 'viewer' %}
+          <br><a href="{% url 'depenses:depense_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;"><i class="bx bx-plus"></i> Nouvelle dépense</a>
+          {% endif %}
         {% endif %}
       </div>
-      {% if not request.user.profile.role == 'viewer' %}
-      <a href="{% url 'depenses:depense_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
-        <i class="bx bx-plus"></i> Nouvelle dépense
-      </a>
-      {% endif %}
     </div>
     {% endif %}
   </div>
-</div>
 
+  <!-- Delete confirm panel -->
+  <div id="confirm-delete-panel" style="display:none;" class="confirm-panel">
+    <div class="confirm-panel__inner">
+      <div class="confirm-panel__icon"><i class="bx bxs-trash"></i></div>
+      <div>
+        <div class="confirm-panel__title">Supprimer cette dépense ?</div>
+        <div id="confirm-delete-body" class="confirm-panel__body"></div>
+      </div>
+      <div class="confirm-panel__actions">
+        <button type="button" id="confirm-delete-cancel" class="btn-ghost">Annuler</button>
+        <form id="confirm-delete-form" method="post" action="">
+          {% csrf_token %}
+          <button type="submit" class="btn-danger"><i class="bx bxs-trash"></i> Supprimer définitivement</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-/* Filter bar inputs — inherit base styles, adjust for horizontal layout */
-.filter-bar .field-input,
-.filter-bar select,
-.filter-bar input[type="text"] {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-family: 'Inter', sans-serif;
-  font-size: 13px;
-  padding: 9px 12px;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  width: 100%;
-}
-.filter-bar .field-input.has-icon { padding-left: 34px; }
-.filter-bar .field-input:focus,
-.filter-bar select:focus,
-.filter-bar input[type="text"]:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(34,197,94,.15);
-  outline: none;
-}
-.filter-bar .input-icon {
-  position: absolute;
-  left: 11px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 14px;
-  color: var(--text-muted);
-  pointer-events: none;
-  z-index: 1;
-}
+  .page-body { padding: 28px 32px; }
+  @media (max-width: 768px) { .page-body { padding: 20px 16px; } }
 
-/* Table wrapper for horizontal scroll */
-.table-wrapper { overflow-x: auto; }
+  .filters-bar { margin-bottom: 16px; }
+  .filters-form { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-/* Actions cell */
-.actions-cell {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-}
+  .search-wrapper { position: relative; }
+  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; pointer-events: none; }
+  .search-input { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 9px 12px 9px 36px; width: 220px; transition: border-color .15s; }
+  .search-input:focus { border-color: var(--accent); outline: none; }
+
+  .filters-form select { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text-secondary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 9px 12px; cursor: pointer; transition: border-color .15s; }
+  .filters-form select:focus { border-color: var(--accent); outline: none; }
+  .filters-form input[type="date"] { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text-secondary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 9px 10px; transition: border-color .15s; }
+  .filters-form input[type="date"]:focus { border-color: var(--accent); outline: none; }
+
+  .date-field-wrap { display: flex; align-items: center; gap: 6px; }
+  .date-field-label { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+
+  .btn-sm { padding: 8px 14px; font-size: 12.5px; }
+
+  .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .card-header-row { padding: 14px 20px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th { font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); padding: 11px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; background: var(--bg-surface); }
+  .data-table tbody tr { border-bottom: 1px solid var(--border); animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i, 0) * 30ms); transition: background .12s; }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: var(--bg-hover); }
+  .data-table td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); vertical-align: middle; }
+
+  .row-link { text-decoration: none; }
+  .row-link:hover span { color: var(--accent-text) !important; }
+
+  .pill-cat { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(99,102,241,.12); color: #4338ca; }
+
+  .mode-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-muted); }
+  .mode-badge i { font-size: 13px; }
+
+  .actions-cell { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+  .action-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-size: 14px; cursor: pointer; transition: background .12s, color .12s, border-color .12s; text-decoration: none; }
+  .action-btn:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+  .action-btn--danger { color: #dc2626; border-color: rgba(239,68,68,.2); }
+  .action-btn--danger:hover { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.3); }
+
+  .pagination-bar { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px; border-top: 1px solid var(--border); }
+  .page-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-secondary); font-size: 15px; text-decoration: none; transition: background .12s, color .12s; }
+  .page-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .page-btn--disabled { opacity: .4; pointer-events: none; }
+  .page-info { font-size: 12.5px; color: var(--text-muted); }
+
+  .empty-state { text-align: center; padding: 48px 20px; color: var(--text-muted); }
+  .empty-state__icon { font-size: 32px; display: block; margin-bottom: 12px; color: var(--border-strong); }
+  .empty-state__title { font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; }
+  .empty-state__body { font-size: 13px; }
+
+  .confirm-panel { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 500; display: flex !important; align-items: center; justify-content: center; padding: 20px; animation: fadeIn .2s ease; }
+  .confirm-panel[style*="display:none"] { display: none !important; }
+  .confirm-panel__inner { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px 28px; max-width: 420px; width: 100%; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 8px 32px rgba(0,0,0,.14); }
+  .confirm-panel__icon { width: 44px; height: 44px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 20px; background: rgba(239,68,68,.1); color: #dc2626; }
+  .confirm-panel__title { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 15px; color: var(--text-primary); margin-bottom: 4px; }
+  .confirm-panel__body { font-size: 13px; color: var(--text-secondary); }
+  .confirm-panel__actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .confirm-panel__actions form { margin: 0; }
+
+  .btn-primary { background: var(--accent); color: #fff; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: var(--radius-md); padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: opacity .18s; text-decoration: none; }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px; border-radius: var(--radius-md); padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .12s; text-decoration: none; }
+  .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+  .btn-danger { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.22); color: #dc2626; font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px; border-radius: var(--radius-md); padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .12s; }
+  .btn-danger:hover { background: rgba(239,68,68,.18); }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  /* Auto-submit filter form on select change */
-  var filterForm = document.getElementById('filter-form');
-  if (filterForm) {
-    filterForm.querySelectorAll('select').forEach(function (sel) {
-      sel.addEventListener('change', function () {
-        filterForm.submit();
-      });
+  // Auto-submit selects
+  document.querySelectorAll('.filters-form select').forEach(function (sel) {
+    sel.addEventListener('change', function () {
+      document.getElementById('filter-form').submit();
     });
-  }
+  });
+
+  // Delete confirmation panel
+  const panel     = document.getElementById('confirm-delete-panel');
+  const bodyEl    = document.getElementById('confirm-delete-body');
+  const form      = document.getElementById('confirm-delete-form');
+  const cancelBtn = document.getElementById('confirm-delete-cancel');
+
+  document.querySelectorAll('[data-delete-pk]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const pk   = btn.dataset.deletePk;
+      const desc = btn.dataset.deleteDesc;
+      const date = btn.dataset.deleteDate;
+      form.action = '/depenses/depenses/' + pk + '/supprimer/';
+      bodyEl.innerHTML = 'La dépense <strong>' + desc + '</strong> du <strong>' + date + '</strong> sera supprimée définitivement. Cette action est irréversible.';
+      panel.style.display = '';
+    });
+  });
+
+  cancelBtn.addEventListener('click', function () { panel.style.display = 'none'; });
+  panel.addEventListener('click', function (e) { if (e.target === panel) panel.style.display = 'none'; });
 });
 </script>
 {% endblock %}

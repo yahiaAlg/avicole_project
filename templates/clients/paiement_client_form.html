@@ -2,382 +2,278 @@
 {% load static %}
 
 {% block title %}{{ title }} — Élevage Avicole{% endblock %}
-{% block nav_clients %}active{% endblock %}
+
+{% block nav_paiements_clients %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{% if client_preselect %}{{ client_preselect.nom }} · {% endif %}Saisie d'un paiement client{% endblock %}
+{% block page_sub_text %}{% if client %}Paiement de {{ client.nom }}{% else %}Sélectionnez le client et allouez aux factures{% endif %}{% endblock %}
 
 {% block topbar_actions %}
-  <button type="submit" form="paiement-form" class="btn-primary">
-    <i class="bx bxs-save"></i> Enregistrer le paiement
-  </button>
+  {% if client %}
+  <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Retour à la fiche
+  </a>
+  {% else %}
+  <a href="{% url 'clients:paiement_client_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Retour aux paiements
+  </a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
+<div class="page-body">
+  <form method="post" id="paiement-form">
+    {% csrf_token %}
+    <div class="form-grid">
 
-<form id="paiement-form" method="post" action="{{ action_url }}" novalidate>
-  {% csrf_token %}
+      <!-- Left: paiement header -->
+      <div class="form-col">
 
-  <div class="paiement-form-layout">
+        <div class="form-card">
+          <div class="form-card__header">
+            <div class="section-eyebrow"><i class="bx bxs-wallet"></i> Informations paiement</div>
+          </div>
+          <div class="form-card__body">
 
-    {# ── Left column: Header + Allocations ────────────────────────────── #}
-    <div class="paiement-form-main">
+            {% if not client %}
+            <div class="form-group">
+              <label class="form-label" for="{{ form.client.id_for_label }}">Client <span class="form-required">*</span></label>
+              <div class="input-wrapper">
+                <i class="bx bxs-group input-icon"></i>
+                {{ form.client }}
+              </div>
+              {% for err in form.client.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+            {% else %}
+            {{ form.client }}
+            <div class="form-group">
+              <label class="form-label">Client</label>
+              <div style="padding:10px 14px;background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);font-size:13.5px;font-weight:500;color:var(--text-primary);">{{ client.nom }}</div>
+            </div>
+            {% endif %}
 
-      {# Header card #}
-      <div class="form-card">
-        <div class="form-card__header">
-          <div class="form-card__icon ic-green"><i class="bx bxs-credit-card"></i></div>
-          <div>
-            <div class="form-card__title">Détails du paiement</div>
-            <div class="form-card__sub">Client, montant et mode de paiement</div>
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.date_paiement.id_for_label }}">Date <span class="form-required">*</span></label>
+                <div class="input-wrapper">
+                  <i class="bx bx-calendar input-icon"></i>
+                  {{ form.date_paiement }}
+                </div>
+                {% for err in form.date_paiement.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="{{ form.montant.id_for_label }}">Montant (DZD) <span class="form-required">*</span></label>
+                <div class="input-wrapper">
+                  <i class="bx bxs-coin input-icon"></i>
+                  {{ form.montant }}
+                </div>
+                {% for err in form.montant.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="{{ form.mode_paiement.id_for_label }}">Mode de paiement <span class="form-required">*</span></label>
+              <div class="input-wrapper">
+                <i class="bx bx-credit-card input-icon"></i>
+                {{ form.mode_paiement }}
+              </div>
+              {% for err in form.mode_paiement.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="{{ form.reference_paiement.id_for_label }}">Référence (n° chèque / virement)</label>
+              <div class="input-wrapper">
+                <i class="bx bx-hash input-icon"></i>
+                {{ form.reference_paiement }}
+              </div>
+              {% for err in form.reference_paiement.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" for="{{ form.notes.id_for_label }}">Notes</label>
+              <div class="input-wrapper input-wrapper--textarea">{{ form.notes }}</div>
+              {% for err in form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
           </div>
         </div>
 
-        <div class="form-grid">
-          <!-- Client -->
-          <div class="field-group field-group--full">
-            <label class="field-label" for="{{ form.client.id_for_label }}">Client <span class="required">*</span></label>
-            <div class="input-wrapper">
-              <i class="bx bxs-user input-icon"></i>
-              {{ form.client }}
+        {% if form.non_field_errors %}
+        <div class="field-error" style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:12px 14px;">
+          {% for err in form.non_field_errors %}<div><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+        </div>
+        {% endif %}
+
+      </div>
+
+      <!-- Right: allocation to invoices -->
+      <div class="form-col">
+
+        <div class="form-card">
+          <div class="form-card__header">
+            <div class="section-eyebrow"><i class="bx bx-file"></i> Allocation aux factures</div>
+          </div>
+          <div class="form-card__body">
+            <div class="form-hint" style="margin-bottom:14px;">Répartissez le paiement sur les factures ouvertes. Laissez à 0 pour ne pas allouer à une facture. <strong>(BR-FAC-03)</strong></div>
+
+            {% if alloc_forms %}
+            <div class="alloc-list">
+              {% for alloc_form in alloc_forms %}
+              <div class="alloc-item">
+                {{ alloc_form.facture }}
+                <div class="alloc-header">
+                  <div>
+                    <span class="alloc-ref">{{ alloc_form.facture_instance.reference }}</span>
+                    <span class="alloc-date">{{ alloc_form.facture_instance.date_facture|date:"d/m/Y" }}</span>
+                  </div>
+                  <div class="alloc-statut">
+                    {% if alloc_form.facture_instance.statut == 'non_payee' %}<span class="pill-danger">Non payée</span>
+                    {% elif alloc_form.facture_instance.statut == 'partiellement_payee' %}<span class="pill-warning">Part. payée</span>
+                    {% endif %}
+                  </div>
+                </div>
+                <div class="alloc-body">
+                  <div class="alloc-rap">
+                    <span class="alloc-rap-label">Reste à payer :</span>
+                    <span class="alloc-rap-val">{{ alloc_form.facture_instance.reste_a_payer|floatformat:0 }} DZD</span>
+                  </div>
+                  <div class="alloc-input-group">
+                    <label class="alloc-input-label">Montant alloué (DZD)</label>
+                    <div class="input-wrapper">
+                      <i class="bx bxs-coin input-icon"></i>
+                      {{ alloc_form.montant_alloue }}
+                    </div>
+                    {% for err in alloc_form.montant_alloue.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+                    {% for err in alloc_form.non_field_errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
             </div>
-            {% for err in form.client.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            {% if client_preselect %}
-            <div class="field-hint">Client pré-sélectionné : {{ client_preselect.nom }}</div>
+
+            <!-- Allocation total counter -->
+            <div id="alloc-summary" class="alloc-summary">
+              <span>Total alloué : </span>
+              <strong id="alloc-total">0</strong> DZD
+            </div>
+
+            {% else %}
+            <div style="background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);border-radius:var(--radius-md);padding:12px 14px;display:flex;align-items:center;gap:10px;">
+              <i class="bx bxs-info-circle" style="color:#0284c7;font-size:15px;"></i>
+              <span style="font-size:13px;color:var(--text-secondary);">
+                {% if client %}Aucune facture ouverte pour ce client.{% else %}Sélectionnez un client pour voir ses factures ouvertes.{% endif %}
+              </span>
+            </div>
             {% endif %}
           </div>
-
-          <!-- Montant -->
-          <div class="field-group">
-            <label class="field-label" for="{{ form.montant.id_for_label }}">Montant (DZD) <span class="required">*</span></label>
-            <div class="input-wrapper">
-              <i class="bx bxs-coin input-icon"></i>
-              {{ form.montant }}
-            </div>
-            {% for err in form.montant.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-          </div>
-
-          <!-- Mode -->
-          <div class="field-group">
-            <label class="field-label" for="{{ form.mode_paiement.id_for_label }}">Mode de paiement</label>
-            <div class="input-wrapper">
-              <i class="bx bxs-wallet input-icon"></i>
-              {{ form.mode_paiement }}
-            </div>
-            {% for err in form.mode_paiement.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-          </div>
-
-          <!-- Date -->
-          <div class="field-group">
-            <label class="field-label" for="{{ form.date_paiement.id_for_label }}">Date</label>
-            <div class="input-wrapper">
-              <i class="bx bxs-calendar input-icon"></i>
-              {{ form.date_paiement }}
-            </div>
-          </div>
-
-          <!-- Référence -->
-          <div class="field-group field-group--full">
-            <label class="field-label" for="{{ form.reference_paiement.id_for_label }}">Référence / Numéro de chèque / virement</label>
-            <div class="input-wrapper">
-              <i class="bx bxs-file-txt input-icon"></i>
-              {{ form.reference_paiement }}
-            </div>
-          </div>
-
-          <!-- Notes -->
-          <div class="field-group field-group--full">
-            <label class="field-label" for="{{ form.notes.id_for_label }}">Notes</label>
-            {{ form.notes }}
-          </div>
-        </div>
-      </div>
-
-      {# Invoice allocation card #}
-      <div class="form-card" style="animation-delay:.05s;">
-        <div class="form-card__header" style="justify-content:space-between;">
-          <div style="display:flex;align-items:center;gap:14px;">
-            <div class="form-card__icon ic-amber"><i class="bx bxs-receipt"></i></div>
-            <div>
-              <div class="form-card__title">Imputation sur factures</div>
-              <div class="form-card__sub">Répartition manuelle sur les factures ouvertes</div>
-            </div>
-          </div>
         </div>
 
-        <div class="section-card__body no-pad" style="border:1px solid var(--border);border-radius:var(--radius-md);">
-          {% if factures_ouvertes %}
-          <table class="table-base alloc-table">
-            <thead>
-              <tr>
-                <th>Facture</th>
-                <th>Date</th>
-                <th style="text-align:right;">Reste dû</th>
-                <th style="text-align:right;">Montant imputé</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for fac in factures_ouvertes %}
-              <tr class="stagger-row alloc-row" data-reste="{{ fac.reste_a_payer }}">
-                <td>
-                  <span class="text-mono" style="font-weight:600;">{{ fac.reference }}</span>
-                  {% if fac.est_en_retard %}
-                  <span class="pill-base pill-danger" style="margin-left:6px;font-size:10px;">{{ fac.jours_retard }}j</span>
-                  {% endif %}
-                </td>
-                <td style="color:var(--text-muted);white-space:nowrap;">{{ fac.date_facture|date:"d/m/Y" }}</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
-                  <span class="reste-du">{{ fac.reste_a_payer|floatformat:0 }}</span> DZD
-                </td>
-                <td style="text-align:right;">
-                  <input type="number" name="alloc_{{ fac.pk }}" class="field-input alloc-input"
-                         min="0" max="{{ fac.reste_a_payer }}" step="0.01" value="0"
-                         style="width:130px;text-align:right;font-family:'Nunito',sans-serif;">
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        <div class="form-actions-footer">
+          {% if client %}
+          <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost">Annuler</a>
           {% else %}
-          <div class="empty-state" style="padding:32px 20px;">
-            <i class="bx bxs-receipt empty-state__icon"></i>
-            <div class="empty-state__title">Aucune facture ouverte</div>
-            <div class="empty-state__text">Ce client n'a pas de facture en attente de paiement.</div>
-          </div>
+          <a href="{% url 'clients:paiement_client_list' %}" class="btn-ghost">Annuler</a>
           {% endif %}
+          <button type="submit" class="btn-primary"><i class="bx bx-check"></i> {{ action_label }}</button>
         </div>
-      </div>
 
+      </div>
     </div>
-
-    {# ── Right column: Summary + Balance ───────────────────────────────── #}
-    <div class="paiement-form-side">
-
-      {# Summary card #}
-      <div class="form-card" style="animation-delay:.08s;">
-        <div class="form-card__header">
-          <div class="form-card__icon ic-purple"><i class="bx bxs-calculator"></i></div>
-          <div>
-            <div class="form-card__title">Imputation</div>
-            <div class="form-card__sub">Répartition du montant</div>
-          </div>
-        </div>
-
-        <div class="totals-block">
-          <div class="totals-row">
-            <span class="totals-row__label">Montant du paiement</span>
-            <span class="totals-row__value" id="summary-montant" style="color:#15803d;">0.00 DZD</span>
-          </div>
-          <div class="totals-row">
-            <span class="totals-row__label">Total alloué</span>
-            <span class="totals-row__value" id="summary-alloue">0.00 DZD</span>
-          </div>
-          <div class="totals-row totals-row--grand">
-            <span class="totals-row__label">Non alloué</span>
-            <span class="totals-row__value" id="summary-non-alloue">0.00 DZD</span>
-          </div>
-        </div>
-      </div>
-
-      {# Non-field errors #}
-      {% if form.non_field_errors %}
-      <div class="error-banner">
-        <i class="bx bxs-error-circle"></i>
-        <div>{% for err in form.non_field_errors %}<div>{{ err }}</div>{% endfor %}</div>
-      </div>
-      {% endif %}
-
-      {# Mobile submit #}
-      <div class="form-actions-mobile">
-        <button type="submit" class="btn-primary" style="width:100%;justify-content:center;">
-          <i class="bx bxs-save"></i> Enregistrer le paiement
-        </button>
-      </div>
-
-    </div>
-  </div>
-</form>
-
-{% endblock %}
-
-{% block extra_js %}
-<script>
-{# ── Payment amount tracking + allocation summary ──────────────────────── #}
-const montantInput = document.querySelector('input[name="montant"]');
-const summaryMontant = document.getElementById('summary-montant');
-const summaryAlloue = document.getElementById('summary-alloue');
-const summaryNonAlloue = document.getElementById('summary-non-alloue');
-
-function updateSummary() {
-  const montant = parseFloat(montantInput?.value) || 0;
-  let totalAlloue = 0;
-  document.querySelectorAll('.alloc-input').forEach(input => {
-    totalAlloue += parseFloat(input.value) || 0;
-  });
-  const nonAlloue = montant - totalAlloue;
-
-  summaryMontant.textContent = montant.toLocaleString('fr-FR', {minimumFractionDigits:2}) + ' DZD';
-  summaryAlloue.textContent = totalAlloue.toLocaleString('fr-FR', {minimumFractionDigits:2}) + ' DZD';
-  summaryNonAlloue.textContent = nonAlloue.toLocaleString('fr-FR', {minimumFractionDigits:2}) + ' DZD';
-
-  if (nonAlloue < 0) {
-    summaryNonAlloue.style.color = '#dc2626';
-  } else if (nonAlloue > 0) {
-    summaryNonAlloue.style.color = '#b45309';
-  } else {
-    summaryNonAlloue.style.color = '#15803d';
-  }
-}
-
-// Allocation input change
-montantInput?.addEventListener('input', updateSummary);
-document.querySelectorAll('.alloc-input').forEach(input => {
-  input.addEventListener('input', function() {
-    const row = this.closest('.alloc-row');
-    const reste = parseFloat(row.dataset.reste) || 0;
-    const val = parseFloat(this.value) || 0;
-    if (val > reste) {
-      this.style.borderColor = '#dc2626';
-    } else {
-      this.style.borderColor = '';
-    }
-    updateSummary();
-  });
-});
-
-// Auto-fill allocation on row click
-// Quick-fill: double-click input to fill with remaining balance
-document.querySelectorAll('.alloc-input').forEach(input => {
-  input.addEventListener('dblclick', function() {
-    const row = this.closest('.alloc-row');
-    const reste = parseFloat(row.dataset.reste) || 0;
-    this.value = reste.toFixed(2);
-    this.style.borderColor = '';
-    updateSummary();
-  });
-});
-
-// Init
-document.addEventListener('DOMContentLoaded', updateSummary);
-</script>
+  </form>
+</div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-/* ── Layout ───────────────────────────────────────────────────────────── */
-.paiement-form-layout {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 20px;
-  align-items: start;
-}
-@media (max-width: 1024px) {
-  .paiement-form-layout { grid-template-columns: 1fr; }
-}
-.paiement-form-main { display: flex; flex-direction: column; gap: 18px; }
-.paiement-form-side { display: flex; flex-direction: column; gap: 16px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 860px) { .form-grid { grid-template-columns: 1fr; } }
+  .form-col { display: flex; flex-direction: column; gap: 18px; }
 
-/* ── Form cards ───────────────────────────────────────────────────────── */
-.form-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 22px 24px;
-  animation: fadeIn .3s ease both;
-}
-.form-card__header {
-  display: flex; align-items: center; gap: 14px;
-  margin-bottom: 20px; padding-bottom: 16px;
-  border-bottom: 1px solid var(--border);
-}
-.form-card__icon {
-  width: 40px; height: 40px; border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px; flex-shrink: 0;
-}
-.ic-green  { background: rgba(34,197,94,.14);  color: #15803d; }
-.ic-amber  { background: rgba(245,158,11,.14); color: #b45309; }
-.ic-purple { background: rgba(167,139,250,.14);color: #7c3aed; }
-.form-card__title {
-  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
-  color: var(--text-primary); margin-bottom: 2px;
-}
-.form-card__sub { font-size: 12px; color: var(--text-muted); }
+  .form-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .form-card__header { padding: 14px 20px 12px; border-bottom: 1px solid var(--border); }
+  .form-card__body { padding: 20px; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
 
-/* ── Form grid ────────────────────────────────────────────────────────── */
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-@media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
-.field-group--full { grid-column: 1 / -1; }
+  .form-group { margin-bottom: 16px; }
+  .form-group:last-child { margin-bottom: 0; }
+  .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-label { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .03em; margin-bottom: 6px; }
+  .form-required { color: #dc2626; }
+  .form-hint { font-size: 12px; color: var(--text-muted); }
 
-/* ── Field styling ────────────────────────────────────────────────────── */
-.field-group { display: flex; flex-direction: column; gap: 6px; }
-.field-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .03em; }
-.required { color: #dc2626; }
+  .input-wrapper { position: relative; }
+  .input-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; pointer-events: none; transition: color .15s; }
+  .input-wrapper:focus-within .input-icon { color: var(--accent-text); }
+  .input-wrapper input[type="text"],
+  .input-wrapper input[type="date"],
+  .input-wrapper input[type="number"],
+  .input-wrapper select {
+    width: 100%; background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); color: var(--text-primary);
+    font-family: 'Inter', sans-serif; font-size: 13.5px;
+    padding: 10px 12px 10px 40px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .input-wrapper input:focus, .input-wrapper select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none; }
+  .input-wrapper--textarea textarea {
+    width: 100%; background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); color: var(--text-primary);
+    font-family: 'Inter', sans-serif; font-size: 13.5px;
+    padding: 10px 12px; resize: vertical; min-height: 72px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .input-wrapper--textarea textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none; }
 
-input, select, textarea {
-  width: 100%; background: var(--bg-surface);
-  border: 1px solid var(--border); border-radius: var(--radius-md);
-  color: var(--text-primary); font-family: 'Inter', sans-serif;
-  font-size: 13.5px; padding: 11px 13px;
-  transition: border-color .15s, box-shadow .15s; -webkit-appearance: none;
-}
-input:focus, select:focus, textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none;
-}
-textarea { resize: vertical; min-height: 70px; }
+  /* Allocation rows */
+  .alloc-list { display: flex; flex-direction: column; gap: 12px; }
+  .alloc-item { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+  .alloc-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg-base); border-bottom: 1px solid var(--border); }
+  .alloc-ref { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px; color: var(--text-primary); margin-right: 8px; }
+  .alloc-date { font-size: 11.5px; color: var(--text-muted); }
+  .alloc-body { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px 14px; align-items: end; }
+  .alloc-rap { display: flex; flex-direction: column; gap: 3px; }
+  .alloc-rap-label { font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+  .alloc-rap-val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px; color: #dc2626; }
+  .alloc-input-group { display: flex; flex-direction: column; gap: 4px; }
+  .alloc-input-label { font-size: 11.5px; font-weight: 500; color: var(--text-secondary); }
 
-.input-wrapper { position: relative; }
-.input-icon {
-  position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
-  font-size: 15px; color: var(--text-muted); pointer-events: none; z-index: 1;
-}
-.input-wrapper input,
-.input-wrapper select { padding-left: 40px; }
+  .alloc-summary { display: flex; align-items: center; gap: 6px; padding: 10px 14px; background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 13px; color: var(--text-secondary); margin-top: 14px; }
+  .alloc-summary strong { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px; color: var(--text-primary); }
 
-.field-hint { font-size: 11.5px; color: var(--text-muted); }
-.field-error {
-  display: flex; align-items: center; gap: 5px;
-  font-size: 12px; color: #dc2626;
-}
+  .pill-danger  { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;font-family:'Inter',sans-serif;background:rgba(239,68,68,.10);color:#dc2626; }
+  .pill-warning { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;font-family:'Inter',sans-serif;background:rgba(245,158,11,.14);color:#b45309; }
 
-/* ── Allocation inputs ────────────────────────────────────────────────── */
-.alloc-input {
-  padding: 8px 10px;
-  text-align: right;
-}
-.alloc-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none; }
+  .field-error { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #dc2626; margin-top: 5px; }
 
-/* ── Totals ───────────────────────────────────────────────────────────── */
-.totals-block { display: flex; flex-direction: column; gap: 10px; }
-.totals-row {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
-}
-.totals-row:last-child { border-bottom: none; }
-.totals-row--grand {
-  border-top: 2px solid var(--border);
-  margin-top: 4px; padding-top: 12px;
-}
-.totals-row__label { font-size: 13px; color: var(--text-secondary); }
-.totals-row__value {
-  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
-  color: var(--text-primary);
-}
-.totals-row--grand .totals-row__value { font-size: 18px; }
+  .form-actions-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 16px 20px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
 
-.error-banner {
-  display: flex; align-items: flex-start; gap: 10px;
-  background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2);
-  border-radius: var(--radius-md); padding: 12px 16px;
-  font-size: 13px; color: #dc2626;
-}
-.form-actions-mobile { display: none; }
-@media (max-width: 1024px) { .form-actions-mobile { display: block; } }
+  .btn-primary { background: var(--accent); color: #fff; font-family: 'Nunito',sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: var(--radius-md); padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: opacity .18s; text-decoration: none; }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); font-family: 'Nunito',sans-serif; font-weight: 600; font-size: 13px; border-radius: var(--radius-md); padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .12s; text-decoration: none; }
+  .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var allocInputs = document.querySelectorAll('.alloc-item input[type="number"]');
+  var totalEl = document.getElementById('alloc-total');
+
+  function updateAllocTotal() {
+    var total = 0;
+    allocInputs.forEach(function (inp) {
+      var v = parseFloat(inp.value) || 0;
+      if (v > 0) total += v;
+    });
+    if (totalEl) totalEl.textContent = Math.round(total).toLocaleString('fr-DZ');
+  }
+
+  allocInputs.forEach(function (inp) {
+    inp.addEventListener('input', updateAllocTotal);
+  });
+
+  updateAllocTotal();
+});
+</script>
 {% endblock %}

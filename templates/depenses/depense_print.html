@@ -2,391 +2,578 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pièce Justificative de Dépense — N° {{ depense.pk }} — {{ company.nom|default:"Élevage Avicole" }}</title>
-
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pièce Justificative — Dépense N° {{ depense.pk }} — {{ company.nom }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    /* ── Reset ── */
+    /* ── Reset ──────────────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* ── Screen base ────────────────────────────────────────────────────── */
     body {
-      background: #f0f0f0;
-      color: #1a2219;
+      background: #f4f6f4;
       font-family: 'Inter', sans-serif;
-      font-size: 12px;
-      line-height: 1.5;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    /* ── Print preview (screen) ── */
-    .print-preview {
-      max-width: 720px;
-      margin: 32px auto;
-      background: #ffffff;
-      color: #111;
-      padding: 40px 48px;
-      border-radius: 16px;
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
-    }
-
-    /* ── Print rules ── */
-    @media print {
-      body {
-        background: #fff;
-        color: #111;
-      }
-      .no-print {
-        display: none !important;
-      }
-      .print-preview {
-        margin: 0;
-        padding: 0;
-        border-radius: 0;
-        box-shadow: none;
-        max-width: 100%;
-      }
-    }
-
-    /* ── Document header ── */
-    .doc-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      margin-bottom: 32px;
-      padding-bottom: 20px;
-      border-bottom: 2px solid #22c55e;
-    }
-    .doc-header__left { flex: 1; }
-    .doc-header__company {
-      font-family: 'Nunito', sans-serif;
-      font-weight: 800;
-      font-size: 18px;
-      color: #1a2219;
-      margin-bottom: 4px;
-    }
-    .doc-header__address {
-      font-size: 11px;
-      color: #555;
-      line-height: 1.5;
-    }
-
-    .doc-header__right { text-align: right; }
-    .doc-header__type {
-      font-family: 'Nunito', sans-serif;
-      font-weight: 700;
-      font-size: 14px;
-      color: #22c55e;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .doc-header__number {
-      font-family: 'Inter', monospace;
       font-size: 13px;
-      font-weight: 600;
-      color: #333;
-      margin-top: 4px;
-    }
-
-    /* ── Document title ── */
-    .doc-title {
-      text-align: center;
-      margin-bottom: 28px;
-    }
-    .doc-title h1 {
-      font-family: 'Nunito', sans-serif;
-      font-weight: 800;
-      font-size: 20px;
-      color: #111;
-      margin-bottom: 4px;
-    }
-    .doc-title__sub {
-      font-size: 11px;
-      color: #777;
-    }
-
-    /* ── Info table ── */
-    .info-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 24px;
-    }
-    .info-table th,
-    .info-table td {
-      padding: 10px 12px;
-      text-align: left;
-      border-bottom: 1px solid #e5e7eb;
-      font-size: 12px;
-    }
-    .info-table th {
-      background: #f3f4f6;
-      font-weight: 600;
-      color: #555;
-      width: 35%;
-      white-space: nowrap;
-    }
-    .info-table td {
-      color: #111;
-    }
-    .info-table tr:last-child th,
-    .info-table tr:last-child td {
-      border-bottom: 2px solid #111;
-    }
-
-    /* ── Amount highlight ── */
-    .amount-row th {
-      background: rgba(34, 197, 94, 0.08);
-      color: #15803d;
-      font-size: 13px;
-    }
-    .amount-row td {
-      font-family: 'Nunito', sans-serif;
-      font-weight: 800;
-      font-size: 16px;
       color: #1a2219;
+      min-height: 100vh;
+      padding: 24px 16px 48px;
     }
 
-    /* ── Notes box ── */
-    .notes-box {
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 14px 16px;
-      margin-bottom: 32px;
-    }
-    .notes-box__label {
-      font-size: 10px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      color: #888;
-      margin-bottom: 6px;
-    }
-    .notes-box__content {
-      font-size: 12px;
-      color: #444;
-      line-height: 1.5;
-      white-space: pre-wrap;
-    }
-
-    /* ── Signature block ── */
-    .signature-section {
-      margin-top: 48px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 40px;
-    }
-    .signature-block {
-      text-align: center;
-    }
-    .signature-block__label {
-      font-size: 11px;
-      font-weight: 600;
-      color: #555;
-      margin-bottom: 48px;
-    }
-    .signature-block__line {
-      border-top: 1px solid #ccc;
-      padding-top: 6px;
-      font-size: 10px;
-      color: #888;
-    }
-
-    /* ── Footer ── */
-    .doc-footer {
-      margin-top: 40px;
-      padding-top: 12px;
-      border-top: 1px solid #e5e7eb;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 10px;
-      color: #999;
-    }
-
-    /* ── Attachment indicator ── */
-    .attachment-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 10px;
-      background: rgba(34, 197, 94, 0.08);
-      border: 1px solid rgba(34, 197, 94, 0.2);
-      border-radius: 6px;
-      font-size: 11px;
-      color: #15803d;
-    }
-    .attachment-badge.no-pj {
-      background: rgba(239, 68, 68, 0.06);
-      border-color: rgba(239, 68, 68, 0.18);
-      color: #dc2626;
-    }
-
-    /* ── Print button bar (screen only) ── */
-    .print-btn-bar {
+    /* ── Action bar (screen only) ───────────────────────────────────────── */
+    .action-bar {
       max-width: 720px;
       margin: 0 auto 20px;
       display: flex;
-      justify-content: flex-end;
+      align-items: center;
+      justify-content: space-between;
       gap: 10px;
     }
-    .btn-print {
-      display: inline-flex;
+    .action-bar__left {
+      display: flex;
       align-items: center;
-      gap: 7px;
+      gap: 8px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: #3d5242;
+    }
+    .action-bar__left i { font-size: 18px; color: #7a8c78; }
+    .action-bar__right { display: flex; gap: 8px; }
+
+    .btn-print {
       background: #22c55e;
       color: #fff;
       font-family: 'Nunito', sans-serif;
       font-weight: 700;
       font-size: 13px;
       border: none;
-      border-radius: 10px;
-      padding: 10px 18px;
+      border-radius: 8px;
+      padding: 9px 16px;
       cursor: pointer;
-      text-decoration: none;
-      transition: opacity 0.18s;
-    }
-    .btn-print:hover { opacity: 0.88; }
-    .btn-close {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
+      gap: 6px;
+      transition: opacity .18s;
+    }
+    .btn-print:hover { opacity: .88; }
+
+    .btn-back {
       background: transparent;
       border: 1px solid rgba(0,0,0,.12);
-      color: #555;
+      color: #3d5242;
       font-family: 'Nunito', sans-serif;
       font-weight: 600;
       font-size: 13px;
-      border-radius: 10px;
+      border-radius: 8px;
       padding: 9px 16px;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       text-decoration: none;
-      transition: background 0.15s;
+      transition: background .12s;
     }
-    .btn-close:hover { background: #f3f4f6; }
+    .btn-back:hover { background: #e6ede6; }
+
+    /* ── Print preview card ─────────────────────────────────────────────── */
+    .print-preview {
+      max-width: 720px;
+      margin: 0 auto;
+      background: #fff;
+      color: #111;
+      padding: 40px 48px;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.12);
+    }
+
+    /* ── Document header ─────────────────────────────────────────────────── */
+    .doc-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      padding-bottom: 24px;
+      border-bottom: 2px solid #111;
+      gap: 16px;
+    }
+    .doc-header__company { flex: 1; }
+    .doc-header__company-name {
+      font-family: 'Nunito', sans-serif;
+      font-size: 18px;
+      font-weight: 800;
+      color: #111;
+      margin-bottom: 4px;
+    }
+    .doc-header__company-meta {
+      font-size: 11.5px;
+      color: #555;
+      line-height: 1.65;
+    }
+    .doc-header__title { text-align: right; flex-shrink: 0; }
+    .doc-header__title h1 {
+      font-family: 'Nunito', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      color: #111;
+      margin-bottom: 6px;
+    }
+    .doc-header__voucher-no {
+      display: inline-block;
+      font-family: 'Inter', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .07em;
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 3px 10px;
+      color: #374151;
+    }
+
+    /* ── Amount highlight banner ─────────────────────────────────────────── */
+    .amount-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f8faf8;
+      border: 1.5px solid #22c55e;
+      border-radius: 8px;
+      padding: 16px 22px;
+      margin-bottom: 24px;
+      gap: 12px;
+    }
+    .amount-banner__label {
+      font-size: 11.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #555;
+    }
+    .amount-banner__description {
+      font-family: 'Nunito', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: #111;
+      margin-top: 3px;
+    }
+    .amount-banner__amount {
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .amount-banner__figure {
+      font-family: 'Nunito', sans-serif;
+      font-size: 28px;
+      font-weight: 800;
+      color: #111;
+      line-height: 1;
+    }
+    .amount-banner__currency {
+      font-size: 13px;
+      color: #555;
+      margin-left: 4px;
+    }
+
+    /* ── Info sections ───────────────────────────────────────────────────── */
+    .section-title {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: #888;
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      row-gap: 0;
+      margin-bottom: 22px;
+    }
+    .info-grid dt {
+      font-size: 11.5px;
+      font-weight: 500;
+      color: #666;
+      padding: 9px 0;
+      border-bottom: 1px solid #f3f4f6;
+      display: flex;
+      align-items: center;
+    }
+    .info-grid dd {
+      font-size: 12.5px;
+      color: #111;
+      font-weight: 500;
+      padding: 9px 0 9px 12px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .info-grid dt:last-of-type,
+    .info-grid dd:last-of-type {
+      border-bottom: none;
+    }
+
+    /* ── Category pill (print-safe) ─────────────────────────────────────── */
+    .cat-pill {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      border-radius: 20px;
+      padding: 2px 9px;
+      color: #374151;
+      vertical-align: middle;
+    }
+
+    /* ── Mode badge ─────────────────────────────────────────────────────── */
+    .mode-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 2px 8px;
+      color: #374151;
+    }
+
+    /* ── Lot badge ──────────────────────────────────────────────────────── */
+    .lot-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(34,197,94,.08);
+      border: 1px solid rgba(34,197,94,.22);
+      border-radius: 6px;
+      padding: 2px 8px;
+      color: #15803d;
+    }
+
+    /* ── Notes block ────────────────────────────────────────────────────── */
+    .notes-block {
+      background: #fafafa;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 12px 14px;
+      font-size: 12px;
+      color: #374151;
+      line-height: 1.6;
+      margin-bottom: 22px;
+    }
+
+    /* ── Signature row ──────────────────────────────────────────────────── */
+    .signature-section {
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e7eb;
+    }
+    .signature-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 24px;
+    }
+    .signature-box {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .signature-box__label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #888;
+      margin-bottom: 2px;
+    }
+    .signature-box__name {
+      font-size: 12px;
+      font-weight: 500;
+      color: #111;
+      margin-bottom: 28px;
+    }
+    .signature-box__line {
+      border-top: 1px solid #b0b8b0;
+      width: 100%;
+    }
+    .signature-box__sublabel {
+      font-size: 10px;
+      color: #aaa;
+      margin-top: 4px;
+      text-align: center;
+    }
+
+    /* ── Facture liée notice ─────────────────────────────────────────────── */
+    .service-notice {
+      font-size: 11.5px;
+      color: #374151;
+    }
+    .service-notice strong { font-weight: 600; }
+
+    /* ── Document footer ─────────────────────────────────────────────────── */
+    .doc-footer {
+      margin-top: 32px;
+      padding-top: 14px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 10.5px;
+      color: #999;
+      text-align: center;
+      line-height: 1.55;
+    }
+
+    /* ── BP-DEP-01 warning stripe ────────────────────────────────────────── */
+    .br-notice {
+      font-size: 10px;
+      color: #b45309;
+      background: rgba(245,158,11,.08);
+      border: 1px solid rgba(245,158,11,.2);
+      border-radius: 6px;
+      padding: 6px 10px;
+      margin-top: 6px;
+    }
+
+    /* ── @media print ────────────────────────────────────────────────────── */
+    @media print {
+      body {
+        background: #fff;
+        padding: 0;
+        font-size: 12px;
+      }
+      .no-print { display: none !important; }
+      .print-preview {
+        max-width: 100%;
+        margin: 0;
+        padding: 20mm 18mm;
+        box-shadow: none;
+        border-radius: 0;
+      }
+      .action-bar { display: none !important; }
+      .amount-banner {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .cat-pill, .mode-badge, .lot-badge {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      a { text-decoration: none; color: inherit; }
+      @page {
+        size: A4;
+        margin: 0;
+      }
+    }
   </style>
+
+  {# Boxicons for screen view only #}
+  <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" media="screen">
 </head>
 <body>
 
-<!-- Print button bar (screen only) -->
-<div class="print-btn-bar no-print">
-  <a href="{% url 'depenses:depense_detail' depense.pk %}" class="btn-close">
-    <i class="bx bx-arrow-back"></i> Retour
-  </a>
-  <button class="btn-print" onclick="window.print()">
-    <i class="bx bxs-printer"></i> Imprimer
-  </button>
-</div>
-
-<!-- Document -->
-<div class="print-preview">
-
-  <!-- Header -->
-  <div class="doc-header">
-    <div class="doc-header__left">
-      <div class="doc-header__company">{{ company.nom|default:"Élevage Avicole" }}</div>
-      {% if company.adresse %}<div class="doc-header__address">{{ company.adresse }}</div>{% endif %}
-      {% if company.wilaya %}<div class="doc-header__address">{{ company.wilaya }}</div>{% endif %}
-      {% if company.telephone %}<div class="doc-header__address">Tél : {{ company.telephone }}</div>{% endif %}
+  <!-- ── Screen action bar ──────────────────────────────────────────────── -->
+  <div class="action-bar no-print">
+    <div class="action-bar__left">
+      <i class="bx bxs-receipt"></i>
+      Pièce Justificative de Dépense N°&nbsp;<strong>{{ depense.pk }}</strong>
     </div>
-    <div class="doc-header__right">
-      <div class="doc-header__type">Pièce Justificative</div>
-      <div class="doc-header__number">N° {{ depense.pk }}</div>
+    <div class="action-bar__right">
+      <a href="{% url 'depenses:depense_detail' depense.pk %}" class="btn-back">
+        <i class="bx bx-arrow-back"></i> Retour
+      </a>
+      <button class="btn-print" id="print-btn">
+        <i class="bx bx-printer"></i> Imprimer
+      </button>
     </div>
   </div>
 
-  <!-- Title -->
-  <div class="doc-title">
-    <h1>Pièce Justificative de Dépense</h1>
-    <div class="doc-title__sub">Document interne — Élevage Avicole</div>
-  </div>
+  <!-- ── Voucher document ───────────────────────────────────────────────── -->
+  <div class="print-preview">
 
-  <!-- Info table -->
-  <table class="info-table">
-    <tr>
-      <th>Date de la dépense</th>
-      <td>{{ depense.date|date:"d/m/Y" }}</td>
-    </tr>
-    <tr>
-      <th>Catégorie</th>
-      <td><strong>{{ depense.categorie.libelle }}</strong></td>
-    </tr>
-    <tr>
-      <th>Description</th>
-      <td>{{ depense.description }}</td>
-    </tr>
-    <tr>
-      <th>Mode de paiement</th>
-      <td>{{ depense.get_mode_paiement_display }}</td>
-    </tr>
-    <tr>
-      <th>Référence document</th>
-      <td>{{ depense.reference_document|default:"—" }}</td>
-    </tr>
+    <!-- Header: company + document identity -->
+    <div class="doc-header">
+      <div class="doc-header__company">
+        <div class="doc-header__company-name">{{ company.nom }}</div>
+        <div class="doc-header__company-meta">
+          {% if company.adresse %}{{ company.adresse }}{% if company.wilaya %}, {{ company.wilaya }}{% endif %}<br>{% endif %}
+          {% if company.telephone %}Tél : {{ company.telephone }}{% if company.telephone_2 %} / {{ company.telephone_2 }}{% endif %}<br>{% endif %}
+          {% if company.nif %}NIF : {{ company.nif }}{% if company.rc %} &nbsp;|&nbsp; RC : {{ company.rc }}{% endif %}<br>{% endif %}
+          {% if company.nis %}NIS : {{ company.nis }}{% if company.ai %} &nbsp;|&nbsp; AI : {{ company.ai }}{% endif %}{% endif %}
+        </div>
+      </div>
+      <div class="doc-header__title">
+        <h1>Pièce Justificative<br>de Dépense</h1>
+        <span class="doc-header__voucher-no">N°&nbsp;DEP-{{ depense.pk|stringformat:"05d" }}</span>
+      </div>
+    </div>
+
+    <!-- Amount + description highlight banner -->
+    <div class="amount-banner">
+      <div>
+        <div class="amount-banner__label">{{ depense.categorie.libelle }}</div>
+        <div class="amount-banner__description">{{ depense.description }}</div>
+      </div>
+      <div class="amount-banner__amount">
+        <span class="amount-banner__figure">{{ depense.montant|floatformat:0 }}</span>
+        <span class="amount-banner__currency">DZD</span>
+      </div>
+    </div>
+
+    <!-- Section: Détails de la dépense -->
+    <div class="section-title">Détails de la dépense</div>
+    <dl class="info-grid">
+      <dt>Date</dt>
+      <dd>{{ depense.date|date:"d/m/Y" }}</dd>
+
+      <dt>Catégorie</dt>
+      <dd><span class="cat-pill">{{ depense.categorie.libelle }}</span></dd>
+
+      <dt>Description / Objet</dt>
+      <dd>{{ depense.description }}</dd>
+
+      <dt>Montant</dt>
+      <dd><strong>{{ depense.montant|floatformat:2 }} DZD</strong></dd>
+
+      <dt>Mode de paiement</dt>
+      <dd><span class="mode-badge">{{ depense.get_mode_paiement_display }}</span></dd>
+
+      {% if depense.reference_document %}
+      <dt>Référence document</dt>
+      <dd>{{ depense.reference_document }}</dd>
+      {% endif %}
+
+      <dt>Pièce jointe</dt>
+      <dd>
+        {% if depense.a_piece_jointe %}
+          Oui — {{ depense.piece_jointe.name|default:"fichier joint" }}
+        {% else %}
+          <span style="color:#dc2626;font-size:12px;">Aucune pièce jointe</span>
+        {% endif %}
+      </dd>
+
+      <dt>Enregistré par</dt>
+      <dd>
+        {% if depense.enregistre_par %}
+          {{ depense.enregistre_par.get_full_name|default:depense.enregistre_par.username }}
+        {% else %}
+          <span style="color:#888;">—</span>
+        {% endif %}
+      </dd>
+
+      <dt>Date d'enregistrement</dt>
+      <dd>{{ depense.created_at|date:"d/m/Y" }}</dd>
+    </dl>
+
+    <!-- Section: Lot attribué (BR-DEP-04) — only when set -->
     {% if depense.lot %}
-    <tr>
-      <th>Lot attribué</th>
-      <td>{{ depense.lot.designation }}</td>
-    </tr>
+    <div class="section-title">Attribution — Lot d'élevage</div>
+    <dl class="info-grid">
+      <dt>Lot attribué</dt>
+      <dd>
+        <span class="lot-badge">{{ depense.lot.designation }}</span>
+      </dd>
+      <dt>Date d'ouverture du lot</dt>
+      <dd>{{ depense.lot.date_ouverture|date:"d/m/Y" }}</dd>
+      <dt>Statut du lot</dt>
+      <dd>{% if depense.lot.statut == 'ouvert' %}Ouvert{% else %}Clôturé{% endif %}</dd>
+    </dl>
     {% endif %}
+
+    <!-- Section: Facture fournisseur liée (BR-DEP-03) — only when set -->
     {% if depense.facture_liee %}
-    <tr>
-      <th>Facture fournisseur liée</th>
-      <td>{{ depense.facture_liee.numero_facture|default:depense.facture_liee }} (Service)</td>
-    </tr>
-    {% endif %}
-    <tr class="amount-row">
-      <th>Montant</th>
-      <td>{{ depense.montant|floatformat:2 }} DZD</td>
-    </tr>
-  </table>
-
-  <!-- Pièce jointe indicator -->
-  <div style="margin-bottom:24px;">
-    {% if depense.a_piece_jointe %}
-    <span class="attachment-badge">
-      <i class="bx bx-paperclip"></i> Pièce jointe disponible
-    </span>
-    {% else %}
-    <span class="attachment-badge no-pj">
-      <i class="bx bx-paperclip"></i> Sans pièce jointe
-    </span>
-    {% endif %}
-  </div>
-
-  <!-- Notes -->
-  {% if depense.notes %}
-  <div class="notes-box">
-    <div class="notes-box__label">Notes</div>
-    <div class="notes-box__content">{{ depense.notes }}</div>
-  </div>
-  {% endif %}
-
-  <!-- Signature block -->
-  <div class="signature-section">
-    <div class="signature-block">
-      <div class="signature-block__label">Approuvé par</div>
-      <div class="signature-block__line">Nom, fonction et signature</div>
+    <div class="section-title">Facture fournisseur liée</div>
+    <dl class="info-grid">
+      <dt>Référence facture</dt>
+      <dd class="service-notice">{{ depense.facture_liee.reference }}</dd>
+      <dt>Fournisseur</dt>
+      <dd>{{ depense.facture_liee.fournisseur.nom }}</dd>
+      <dt>Type de facture</dt>
+      <dd>{{ depense.facture_liee.get_type_facture_display }}</dd>
+      <dt>Date de la facture</dt>
+      <dd>{{ depense.facture_liee.date_facture|date:"d/m/Y" }}</dd>
+      <dt>Montant de la facture</dt>
+      <dd>{{ depense.facture_liee.montant_total|floatformat:2 }} DZD</dd>
+    </dl>
+    <div class="br-notice">
+      BR-DEP-03 : seules les factures de type Service peuvent être liées à une dépense opérationnelle.
+      Une facture de marchandises ne génère jamais une dépense.
     </div>
-    <div class="signature-block">
-      <div class="signature-block__label">Contrôlé par</div>
-      <div class="signature-block__line">Nom, fonction et signature</div>
+    <br>
+    {% endif %}
+
+    <!-- Notes -->
+    {% if depense.notes %}
+    <div class="section-title">Notes</div>
+    <div class="notes-block">{{ depense.notes }}</div>
+    {% endif %}
+
+    <!-- Signature section -->
+    <div class="signature-section">
+      <div class="section-title" style="margin-bottom:16px;">Validation &amp; Signatures</div>
+      <div class="signature-grid">
+
+        <div class="signature-box">
+          <div class="signature-box__label">Établi par</div>
+          <div class="signature-box__name">
+            {% if depense.enregistre_par %}
+              {{ depense.enregistre_par.get_full_name|default:depense.enregistre_par.username }}
+            {% endif %}
+          </div>
+          <div class="signature-box__line"></div>
+          <div class="signature-box__sublabel">Signature</div>
+        </div>
+
+        <div class="signature-box">
+          <div class="signature-box__label">Vérifié par</div>
+          <div class="signature-box__name">&nbsp;</div>
+          <div class="signature-box__line"></div>
+          <div class="signature-box__sublabel">Signature</div>
+        </div>
+
+        <div class="signature-box">
+          <div class="signature-box__label">Approuvé par</div>
+          <div class="signature-box__name">&nbsp;</div>
+          <div class="signature-box__line"></div>
+          <div class="signature-box__sublabel">Signature &amp; Cachet</div>
+        </div>
+
+      </div>
     </div>
-  </div>
 
-  <!-- Footer -->
-  <div class="doc-footer">
-    <span>Document généré le {% now "d/m/Y à H:i" %}</span>
-    <span>{{ company.nom|default:"Élevage Avicole" }}</span>
-  </div>
+    <!-- Document footer -->
+    <div class="doc-footer">
+      {% if company.pied_de_page %}
+        {{ company.pied_de_page }}<br>
+      {% endif %}
+      Document généré le {{ depense.created_at|date:"d/m/Y" }} —
+      Dépense N°&nbsp;DEP-{{ depense.pk|stringformat:"05d" }} —
+      {{ company.nom }}
+      {% if company.nif %} — NIF : {{ company.nif }}{% endif %}
+    </div>
 
-</div><!-- /print-preview -->
-
-<!-- Boxicons (for print buttons only) -->
-<link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet" />
+  </div><!-- /.print-preview -->
 
 </body>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var btn = document.getElementById('print-btn');
+  if (btn) {
+    btn.addEventListener('click', function () {
+      window.print();
+    });
+  }
+
+  window.addEventListener('beforeprint', function () {
+    document.querySelectorAll('.no-print').forEach(function (el) {
+      el.style.display = 'none';
+    });
+  });
+
+  window.addEventListener('afterprint', function () {
+    document.querySelectorAll('.no-print').forEach(function (el) {
+      el.style.display = '';
+    });
+  });
+});
+</script>
 </html>

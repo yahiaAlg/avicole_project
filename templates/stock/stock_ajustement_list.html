@@ -1,247 +1,208 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Ajustements de stock — Élevage Avicole{% endblock %}
+{% block title %}Ajustements de Stock — Élevage Avicole{% endblock %}
+
 {% block nav_stock_intrants %}active{% endblock %}
 
-{% block page_title %}Ajustements de stock{% endblock %}
-{% block page_sub_text %}Corrections manuelles · {{ page.paginator.count }} enregistrement{{ page.paginator.count|pluralize }}{% endblock %}
+{% block page_title %}Ajustements de Stock{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} ajustement{{ page.paginator.count|pluralize }} enregistré{{ page.paginator.count|pluralize }}{% endblock %}
 
 {% block topbar_actions %}
-{% if request.user.userprofile %}
-  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'stock:stock_mouvement_list' %}" class="btn-ghost">
+    <i class="bx bx-transfer"></i> Mouvements
+  </a>
+  {% if not request.user.profile.role == 'viewer' %}
   <a href="{% url 'stock:stock_ajustement_create' %}" class="btn-primary">
     <i class="bx bx-plus"></i> Nouvel ajustement
   </a>
   {% endif %}
-{% endif %}
-<a href="{% url 'stock:dashboard' %}" class="btn-ghost">
-  <i class="bx bx-arrow-back"></i> Tableau de bord
-</a>
 {% endblock %}
 
 {% block content %}
+<div class="page-body">
 
-{# ── Filters ─────────────────────────────────────────────────────────────── #}
-<div class="section-card mb-4">
-  <div class="section-card__body">
-    <form method="get" class="filter-row" id="filter-form">
+  <!-- Info banner: adjustments are immutable -->
+  <div class="info-banner">
+    <i class="bx bxs-info-circle"></i>
+    <span>Les ajustements sont <strong>immuables</strong> après création — ils génèrent un mouvement d'audit automatique.</span>
+  </div>
 
-      <div class="filter-field">
-        <div class="input-wrap">
-          <i class="bx bxs-filter-alt input-icon"></i>
-          <select name="segment" class="form-input" id="seg-select">
-            <option value="">Tous les segments</option>
-            {% for val, label in segment_choices %}
-            <option value="{{ val }}" {% if segment == val %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-          </select>
-        </div>
-      </div>
-
-      <div class="filter-field" style="min-width:130px;">
-        <div class="input-wrap">
-          <i class="bx bxs-calendar input-icon"></i>
-          <input type="date" name="date_debut" value="{{ date_debut }}" class="form-input" title="Date début">
-        </div>
-      </div>
-
-      <div class="filter-field" style="min-width:130px;">
-        <div class="input-wrap">
-          <i class="bx bxs-calendar input-icon"></i>
-          <input type="date" name="date_fin" value="{{ date_fin }}" class="form-input" title="Date fin">
-        </div>
-      </div>
-
-      <button type="submit" class="btn-primary" style="flex:0 0 auto;">
-        <i class="bx bxs-filter-alt"></i> Filtrer
-      </button>
+  <!-- Filters -->
+  <div class="filters-bar">
+    <form method="get" action="" class="filters-form" id="filter-form">
+      <select name="segment" class="filter-select" id="filter-segment">
+        <option value="">Tous segments</option>
+        {% for val, label in segment_choices %}
+        <option value="{{ val }}" {% if segment == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <input type="date" name="date_debut" value="{{ date_debut }}" class="filter-date" title="Date début">
+      <input type="date" name="date_fin" value="{{ date_fin }}" class="filter-date" title="Date fin">
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bxs-filter-alt"></i> Filtrer</button>
       {% if segment or date_debut or date_fin %}
-      <a href="{% url 'stock:stock_ajustement_list' %}" class="btn-ghost" style="flex:0 0 auto;">
-        <i class="bx bx-x"></i> Effacer
+      <a href="{% url 'stock:stock_ajustement_list' %}" class="btn-ghost btn-sm" style="color:#dc2626;border-color:rgba(239,68,68,.2);">
+        <i class="bx bx-x"></i> Réinitialiser
       </a>
       {% endif %}
     </form>
   </div>
-</div>
 
-{# ── Table ───────────────────────────────────────────────────────────────── #}
-<div class="section-card">
-  {% if page.object_list %}
-  <div class="table-responsive">
-    <table class="data-table w-100">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Segment</th>
-          <th>Article</th>
-          <th class="text-end">Avant</th>
-          <th class="text-end">Après</th>
-          <th class="text-end">Écart</th>
-          <th>Raison / Justification</th>
-          <th>Effectué par</th>
-          <th>Enregistré le</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for aj in page.object_list %}
-        <tr class="tbl-row" style="--row-i:{{ forloop.counter0 }};">
-          <td style="font-size:12px;white-space:nowrap;color:var(--text-muted);">
-            {{ aj.date_ajustement|date:"d/m/Y" }}
-          </td>
-          <td>
-            {% if aj.segment == 'intrant' %}
-              <span class="pill-info">Intrant</span>
-            {% else %}
-              <span class="pill-neutral">Produit fini</span>
-            {% endif %}
-          </td>
-          <td>
-            {% if aj.intrant %}
-              <a href="{% url 'stock:stock_intrant_detail' aj.intrant.stock.pk %}"
-                 style="font-weight:600;color:var(--text-primary);text-decoration:none;">
-                {{ aj.intrant.designation }}
-              </a>
-              <span style="display:block;font-size:11px;color:var(--text-muted);">
-                {{ aj.intrant.categorie.libelle }}
-              </span>
-            {% elif aj.produit_fini %}
-              <a href="{% url 'stock:stock_produit_fini_detail' aj.produit_fini.stock.pk %}"
-                 style="font-weight:600;color:var(--text-primary);text-decoration:none;">
-                {{ aj.produit_fini.designation }}
-              </a>
-              <span style="display:block;font-size:11px;color:var(--text-muted);">
-                {{ aj.produit_fini.get_type_produit_display }}
-              </span>
-            {% else %}—{% endif %}
-          </td>
-          <td class="text-end" style="color:var(--text-muted);">{{ aj.quantite_avant|floatformat:2 }}</td>
-          <td class="text-end" style="font-weight:700;">{{ aj.quantite_apres|floatformat:2 }}</td>
-          <td class="text-end">
-            {% if aj.quantite_apres > aj.quantite_avant %}
-              <span style="color:#15803d;font-weight:700;">
-                +{{ aj.quantite_apres|floatformat:2 }}
-              </span>
-            {% elif aj.quantite_apres < aj.quantite_avant %}
-              <span style="color:#dc2626;font-weight:700;">
-                -{{ aj.quantite_avant|floatformat:2 }}
-              </span>
-            {% else %}
-              <span style="color:var(--text-muted);">0</span>
-            {% endif %}
-          </td>
-          <td style="font-size:12px;color:var(--text-secondary);max-width:260px;">
-            <span class="raison-text" title="{{ aj.raison }}">{{ aj.raison|truncatechars:80 }}</span>
-          </td>
-          <td style="font-size:12px;color:var(--text-muted);">
-            {{ aj.effectue_par.username|default:"—" }}
-          </td>
-          <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">
-            {{ aj.created_at|date:"d/m/Y H:i" }}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-  {% if page.has_other_pages %}
-  <div class="pagination-bar">
-    {% if page.has_previous %}
-    <a href="?page={{ page.previous_page_number }}{% if segment %}&segment={{ segment }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}"
-       class="page-btn"><i class="bx bx-chevron-left"></i></a>
-    {% endif %}
-    <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
-    {% if page.has_next %}
-    <a href="?page={{ page.next_page_number }}{% if segment %}&segment={{ segment }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}"
-       class="page-btn"><i class="bx bx-chevron-right"></i></a>
-    {% endif %}
-  </div>
-  {% endif %}
-
-  {% else %}
-  <div style="text-align:center;padding:56px 20px;color:var(--text-muted);">
-    <i class="bx bxs-pencil" style="font-size:36px;display:block;margin-bottom:14px;color:var(--border-strong);"></i>
-    <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
-      Aucun ajustement enregistré
+  <div class="card">
+    <div class="card-header-row">
+      <div class="section-eyebrow"><i class="bx bxs-spreadsheet"></i> Historique des ajustements</div>
     </div>
-    <div style="font-size:13px;">
-      {% if segment or date_debut or date_fin %}
-        Modifiez vos critères de filtre.
+
+    {% if page.object_list %}
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Segment</th>
+            <th>Article</th>
+            <th>Avant</th>
+            <th>Après</th>
+            <th>Delta</th>
+            <th>Raison</th>
+            <th>Effectué par</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for aj in page.object_list %}
+          <tr style="--row-i:{{ forloop.counter0 }};">
+            <td style="white-space:nowrap;color:var(--text-muted);font-size:12px;">{{ aj.date_ajustement|date:"d/m/Y" }}</td>
+            <td>
+              {% if aj.segment == 'intrant' %}
+                <span class="pill-cat-intrant">Intrant</span>
+              {% else %}
+                <span class="pill-cat-pf">Prod. Fini</span>
+              {% endif %}
+            </td>
+            <td>
+              <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:var(--text-primary);">
+                {% if aj.intrant %}{{ aj.intrant.designation }}{% elif aj.produit_fini %}{{ aj.produit_fini.designation }}{% endif %}
+              </span>
+            </td>
+            <td style="font-size:12.5px;color:var(--text-secondary);">{{ aj.quantite_avant|floatformat:2 }}</td>
+            <td style="font-size:12.5px;font-weight:600;color:var(--text-primary);">{{ aj.quantite_apres|floatformat:2 }}</td>
+            <td>
+              {% if aj.quantite_apres > aj.quantite_avant %}
+                <span class="delta-up">↑ positif</span>
+              {% elif aj.quantite_apres < aj.quantite_avant %}
+                <span class="delta-down">↓ négatif</span>
+              {% else %}
+                <span style="font-size:12px;color:var(--text-muted);">= nul</span>
+              {% endif %}
+            </td>
+            <td style="font-size:12px;color:var(--text-secondary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ aj.raison }}">
+              {{ aj.raison|truncatechars:60 }}
+            </td>
+            <td style="font-size:11.5px;color:var(--text-muted);white-space:nowrap;">
+              {% if aj.effectue_par %}{{ aj.effectue_par.get_full_name|default:aj.effectue_par.username }}{% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if page.has_other_pages %}
+    <div class="pagination-bar">
+      {% if page.has_previous %}
+      <a href="?page={{ page.previous_page_number }}{% if segment %}&segment={{ segment }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="page-btn">
+        <i class="bx bx-chevron-left"></i>
+      </a>
       {% else %}
-        Les ajustements manuels de stock apparaîtront ici.
+      <span class="page-btn page-btn--disabled"><i class="bx bx-chevron-left"></i></span>
+      {% endif %}
+      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}
+      <a href="?page={{ page.next_page_number }}{% if segment %}&segment={{ segment }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="page-btn">
+        <i class="bx bx-chevron-right"></i>
+      </a>
+      {% else %}
+      <span class="page-btn page-btn--disabled"><i class="bx bx-chevron-right"></i></span>
       {% endif %}
     </div>
-    {% if request.user.userprofile %}
-      {% if not request.user.userprofile.role == 'viewer' %}
-      <a href="{% url 'stock:stock_ajustement_create' %}" class="btn-primary"
-         style="margin-top:16px;display:inline-flex;">
-        <i class="bx bx-plus"></i> Créer un ajustement
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bxs-spreadsheet empty-state__icon"></i>
+      <div class="empty-state__title">Aucun ajustement enregistré</div>
+      <div class="empty-state__body">
+        {% if segment or date_debut or date_fin %}Affinez vos filtres pour voir des résultats.
+        {% else %}Les ajustements manuels de stock seront listés ici.{% endif %}
+      </div>
+      {% if not request.user.profile.role == 'viewer' %}
+      <a href="{% url 'stock:stock_ajustement_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
+        <i class="bx bx-plus"></i> Nouvel ajustement
       </a>
       {% endif %}
+    </div>
     {% endif %}
   </div>
-  {% endif %}
-</div>
 
-{# ── Info note ───────────────────────────────────────────────────────────── #}
-<div style="margin-top:16px;padding:12px 16px;border-radius:var(--radius-md);
-            background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);
-            display:flex;align-items:flex-start;gap:10px;">
-  <i class="bx bxs-info-circle" style="color:#0284c7;font-size:15px;flex-shrink:0;margin-top:1px;"></i>
-  <span style="font-size:12px;color:var(--text-secondary);">
-    Les ajustements de stock sont <strong>immuables</strong> une fois enregistrés.
-    Chaque correction génère automatiquement un mouvement de stock de type <em>Ajustement</em>
-    dans le journal d'audit. Pour consulter l'historique complet,
-    <a href="{% url 'stock:stock_mouvement_list' %}?type_mouvement=ajustement"
-       style="color:var(--accent-text);">voir les mouvements filtrés</a>.
-  </span>
 </div>
-
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.filter-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-.filter-field { flex:1; min-width:150px; }
-.input-wrap { position:relative; }
-.input-icon {
-  position:absolute; left:12px; top:50%; transform:translateY(-50%);
-  color:var(--text-muted); font-size:15px; pointer-events:none;
-}
-.form-input {
-  width:100%; padding:10px 13px 10px 38px;
-  border:1px solid var(--border); border-radius:var(--radius-md);
-  background:var(--bg-surface); color:var(--text-primary);
-  font-family:'Inter',sans-serif; font-size:13.5px;
-  transition:border-color .18s, box-shadow .18s; appearance:none;
-}
-.form-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow); outline:none; }
-.tbl-row { animation:fadeIn 0.3s ease both; animation-delay:calc(var(--row-i) * 35ms); }
-.pagination-bar {
-  display:flex; align-items:center; justify-content:center;
-  gap:10px; padding:16px; border-top:1px solid var(--border);
-}
-.page-btn {
-  display:inline-flex; align-items:center; justify-content:center;
-  width:34px; height:34px; border-radius:var(--radius-sm);
-  border:1px solid var(--border); color:var(--text-secondary);
-  text-decoration:none; font-size:16px;
-}
-.page-btn:hover { border-color:var(--border-strong); background:var(--bg-hover); }
-.page-info { font-size:12px; color:var(--text-muted); }
-.raison-text { cursor:help; }
+  .page-body { padding:28px 32px; }
+  @media(max-width:768px) { .page-body { padding:20px 16px; } }
+
+  .info-banner { background:rgba(56,189,248,.10);border:1px solid rgba(56,189,248,.22);border-radius:var(--radius-md);padding:11px 16px;display:flex;align-items:center;gap:10px;margin-bottom:16px;font-size:13px;color:var(--text-secondary); }
+  .info-banner i { color:#0284c7;font-size:15px;flex-shrink:0; }
+
+  .filters-bar { margin-bottom:16px; }
+  .filters-form { display:flex;align-items:center;gap:10px;flex-wrap:wrap; }
+  .filter-select,.filter-date { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-secondary);font-family:'Inter',sans-serif;font-size:13px;padding:9px 12px;cursor:pointer;transition:border-color .15s; }
+  .filter-select:focus,.filter-date:focus { border-color:var(--accent);outline:none; }
+  .btn-sm { padding:8px 14px;font-size:12.5px; }
+
+  .card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden; }
+  .card-header-row { padding:14px 20px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between; }
+  .section-eyebrow { font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted); }
+
+  .table-wrapper { overflow-x:auto; }
+  .data-table { width:100%;border-collapse:collapse; }
+  .data-table thead th { font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);padding:11px 14px;border-bottom:1px solid var(--border);background:var(--bg-surface);white-space:nowrap; }
+  .data-table tbody tr { border-bottom:1px solid var(--border);animation:fadeIn .3s ease both;animation-delay:calc(var(--row-i,0)*35ms);transition:background .12s; }
+  .data-table tbody tr:last-child { border-bottom:none; }
+  .data-table tbody tr:hover { background:var(--bg-hover); }
+  .data-table td { padding:12px 14px;font-size:13px;color:var(--text-secondary);vertical-align:middle; }
+
+  .pill-cat-intrant { display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(99,102,241,.12);color:#4338ca; }
+  .pill-cat-pf      { display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(56,189,248,.12);color:#0284c7; }
+  .delta-up   { font-family:'Nunito',sans-serif;font-weight:700;font-size:12.5px;color:var(--accent-text); }
+  .delta-down { font-family:'Nunito',sans-serif;font-weight:700;font-size:12.5px;color:#dc2626; }
+
+  .pagination-bar { display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;border-top:1px solid var(--border); }
+  .page-btn { display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-surface);color:var(--text-secondary);font-size:15px;text-decoration:none;transition:background .12s; }
+  .page-btn:hover { background:var(--bg-hover);color:var(--text-primary); }
+  .page-btn--disabled { opacity:.4;pointer-events:none; }
+  .page-info { font-size:12.5px;color:var(--text-muted); }
+
+  .empty-state { text-align:center;padding:48px 20px;color:var(--text-muted); }
+  .empty-state__icon { font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong); }
+  .empty-state__title { font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px; }
+  .empty-state__body { font-size:13px; }
+
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  var segSelect = document.getElementById('seg-select');
-  if (segSelect) {
-    segSelect.addEventListener('change', function () {
-      document.getElementById('filter-form').submit();
-    });
+  var filterForm = document.getElementById('filter-form');
+  var segmentSelect = document.getElementById('filter-segment');
+  if (segmentSelect) {
+    segmentSelect.addEventListener('change', function () { filterForm.submit(); });
   }
 });
 </script>

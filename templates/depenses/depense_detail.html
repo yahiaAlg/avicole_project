@@ -2,323 +2,292 @@
 {% load static %}
 
 {% block title %}{{ title }} — Élevage Avicole{% endblock %}
+
 {% block nav_depenses %}active{% endblock %}
 
-{% block page_title %}Dépense — {{ depense.categorie.libelle }}{% endblock %}
-{% block page_sub_text %}{{ depense.date|date:"d/m/Y" }} · {{ depense.montant|floatformat:0 }} DZD{% endblock %}
+{% block page_title %}Dépense — {{ depense.date|date:"d/m/Y" }}{% endblock %}
+{% block page_sub_text %}{{ depense.categorie.libelle }} — {{ depense.montant|floatformat:0 }} DZD{% endblock %}
 
 {% block topbar_actions %}
-{% if not request.user.profile.role == 'viewer' %}
-<a href="{% url 'depenses:depense_edit' depense.pk %}" class="btn-primary">
-  <i class="bx bxs-pencil"></i> Modifier
-</a>
-{% endif %}
-<a href="{% url 'depenses:depense_print' depense.pk %}" target="_blank" class="btn-ghost">
-  <i class="bx bxs-printer"></i> Imprimer
-</a>
+  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'depenses:depense_edit' depense.pk %}" class="btn-primary">
+    <i class="bx bxs-pencil"></i> Modifier
+  </a>
+  <a href="{% url 'depenses:depense_print' depense.pk %}" class="btn-ghost" target="_blank">
+    <i class="bx bx-printer"></i> Imprimer
+  </a>
+  {% endif %}
+  <a href="{% url 'depenses:depense_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Retour à la liste
+  </a>
 {% endblock %}
 
 {% block content %}
+<div class="page-body">
+  <div class="detail-grid">
 
-<div class="detail-layout">
+    <!-- ── LEFT column ── -->
+    <div class="detail-col detail-col--main">
 
-  <!-- ── Left column: Main details ─────────────────────────────────────── -->
-  <div class="detail-main">
+      <!-- Main info card -->
+      <div class="detail-card">
+        <div class="detail-card__header">
+          <div class="section-eyebrow"><i class="bx bxs-wallet"></i> Informations générales</div>
+          <span class="pill-cat">{{ depense.categorie.libelle }}</span>
+        </div>
+        <div class="detail-card__body">
+          <dl class="info-grid">
+            <dt>Date</dt>
+            <dd>{{ depense.date|date:"l d N Y"|capfirst }}</dd>
 
-    <!-- Header card with key info -->
-    <div class="form-card">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px;">
-        <div>
-          <div class="section-eyebrow" style="margin-bottom:6px;">{{ depense.categorie.libelle }}</div>
-          <h1 style="font-family:'Nunito',sans-serif;font-weight:800;font-size:20px;color:var(--text-primary);letter-spacing:-0.025em;line-height:1.2;margin:0 0 8px;">
-            {{ depense.description }}
-          </h1>
-          <div style="font-size:12px;color:var(--text-muted);">
-            Enregistrée le {{ depense.created_at|date:"d/m/Y H:i" }}
-            {% if depense.enregistre_par %}par {{ depense.enregistre_par.get_full_name|default:depense.enregistre_par.username }}{% endif %}
-          </div>
-        </div>
-        <div style="text-align:right;flex-shrink:0;">
-          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:28px;color:var(--text-primary);white-space:nowrap;">
-            {{ depense.montant|floatformat:0 }} <span style="font-size:14px;color:var(--text-muted);">DZD</span>
-          </div>
-          <div style="margin-top:6px;">
-            <span class="pill-base pill-info">{{ depense.get_mode_paiement_display }}</span>
-          </div>
-        </div>
-      </div>
+            <dt>Description / Objet</dt>
+            <dd style="font-weight:600;color:var(--text-primary);">{{ depense.description }}</dd>
 
-      <!-- Key details grid -->
-      <div class="detail-grid">
-        <div class="detail-item">
-          <div class="detail-item__label">Date</div>
-          <div class="detail-item__value">{{ depense.date|date:"d/m/Y" }}</div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-item__label">Catégorie</div>
-          <div class="detail-item__value">
-            <span class="pill-base pill-neutral">{{ depense.categorie.libelle }}</span>
-          </div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-item__label">Mode de paiement</div>
-          <div class="detail-item__value">{{ depense.get_mode_paiement_display }}</div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-item__label">Référence document</div>
-          <div class="detail-item__value">{{ depense.reference_document|default:"—" }}</div>
-        </div>
-      </div>
-    </div>
+            <dt>Montant</dt>
+            <dd>
+              <span style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--text-primary);">{{ depense.montant|floatformat:0 }}</span>
+              <span style="font-size:14px;color:var(--text-muted);margin-left:4px;">DZD</span>
+            </dd>
 
-    <!-- Attribution section -->
-    <div class="form-card">
-      <div class="form-card__header">
-        <div class="form-card__icon ic-blue"><i class="bx bxs-link"></i></div>
-        <div>
-          <div class="form-card__title">Attribution et liaisons</div>
-        </div>
-      </div>
+            <dt>Mode de paiement</dt>
+            <dd class="mode-cell">
+              {% if depense.mode_paiement == 'especes' %}<i class="bx bx-money mode-icon"></i>
+              {% elif depense.mode_paiement == 'cheque' %}<i class="bx bxs-receipt mode-icon"></i>
+              {% elif depense.mode_paiement == 'virement' %}<i class="bx bx-transfer mode-icon"></i>
+              {% elif depense.mode_paiement == 'carte' %}<i class="bx bxs-credit-card-alt mode-icon"></i>
+              {% else %}<i class="bx bx-dots-horizontal-rounded mode-icon"></i>{% endif %}
+              {{ depense.get_mode_paiement_display }}
+            </dd>
 
-      <div class="detail-grid">
-        <div class="detail-item">
-          <div class="detail-item__label">Lot d'élevage</div>
-          <div class="detail-item__value">
-            {% if depense.lot %}
-            <a href="{% url 'elevage:lot_detail' depense.lot.pk %}" style="display:inline-flex;align-items:center;gap:6px;">
-              <i class="bx bxs-grid-alt" style="color:var(--accent);"></i>
-              {{ depense.lot.designation }}
-            </a>
-            {% else %}
-            <span style="color:var(--text-muted);">Non attribué</span>
+            {% if depense.reference_document %}
+            <dt>Référence document</dt>
+            <dd><code class="code-badge">{{ depense.reference_document }}</code></dd>
             {% endif %}
-          </div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-item__label">Facture fournisseur liée</div>
-          <div class="detail-item__value">
-            {% if depense.facture_liee %}
-            <a href="{% url 'achats:facture_fournisseur_detail' depense.facture_liee.pk %}" style="display:inline-flex;align-items:center;gap:6px;">
-              <i class="bx bxs-file-txt" style="color:#b45309;"></i>
-              {{ depense.facture_liee.numero_facture|default:depense.facture_liee }}
-              <span class="pill-base pill-warning">Service</span>
-            </a>
-            {% else %}
-            <span style="color:var(--text-muted);">Aucune</span>
+
+            {% if depense.notes %}
+            <dt>Notes</dt>
+            <dd style="white-space:pre-line;color:var(--text-secondary);">{{ depense.notes }}</dd>
             {% endif %}
+          </dl>
+        </div>
+      </div>
+
+      <!-- Pièce jointe -->
+      <div class="detail-card">
+        <div class="detail-card__header">
+          <div class="section-eyebrow"><i class="bx bx-paperclip"></i> Pièce jointe</div>
+        </div>
+        <div class="detail-card__body">
+          {% if depense.a_piece_jointe %}
+          <div class="attachment-row">
+            <div class="attachment-icon"><i class="bx bxs-file"></i></div>
+            <div class="attachment-info">
+              <div style="font-size:13px;font-weight:500;color:var(--text-primary);">Document joint</div>
+              <div style="font-size:12px;color:var(--text-muted);">{{ depense.piece_jointe.name|slice:"16:" }}</div>
+            </div>
+            <a href="{{ depense.piece_jointe.url }}" class="btn-ghost btn-sm" target="_blank">
+              <i class="bx bx-download"></i> Télécharger
+            </a>
+          </div>
+          {% else %}
+          <div class="no-attachment">
+            <i class="bx bx-paperclip" style="font-size:15px;"></i>
+            <span>Aucune pièce jointe enregistrée</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── RIGHT column ── -->
+    <div class="detail-col detail-col--side">
+
+      <!-- Lot attribution -->
+      <div class="detail-card">
+        <div class="detail-card__header">
+          <div class="section-eyebrow"><i class="bx bxs-buildings"></i> Lot attribué (BR-DEP-04)</div>
+        </div>
+        <div class="detail-card__body">
+          {% if depense.lot %}
+          <a href="{% url 'elevage:lot_detail' depense.lot.pk %}" class="lot-link">
+            <div class="lot-link__icon ic-green"><i class="bx bxs-leaf"></i></div>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--text-primary);">{{ depense.lot.designation }}</div>
+              <div style="font-size:12px;color:var(--text-muted);">{{ depense.lot.date_ouverture|date:"d/m/Y" }}
+                {% if depense.lot.statut == 'ouvert' %}
+                <span class="pill-success" style="margin-left:6px;"><i class="bx bxs-check-circle"></i> Ouvert</span>
+                {% else %}
+                <span class="pill-neutral" style="margin-left:6px;"><i class="bx bx-lock"></i> Clôturé</span>
+                {% endif %}
+              </div>
+            </div>
+          </a>
+          {% else %}
+          <div style="font-size:13px;color:var(--text-muted);padding:4px 0;">
+            <i class="bx bx-minus-circle" style="margin-right:5px;"></i>
+            Aucun lot attribué — dépense générale de l'exploitation.
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Facture liée (service only — BR-DEP-03) -->
+      {% if depense.facture_liee %}
+      <div class="detail-card detail-card--service">
+        <div class="detail-card__header">
+          <div class="section-eyebrow"><i class="bx bxs-file-doc"></i> Facture fournisseur liée</div>
+          <span class="pill-info">Service</span>
+        </div>
+        <div class="detail-card__body">
+          <div class="service-notice">
+            <i class="bx bxs-info-circle service-notice__icon"></i>
+            <span>BR-DEP-03 : seule une facture fournisseur de type <strong>Service</strong> peut être liée à une dépense.</span>
+          </div>
+          <div style="margin-top:12px;">
+            <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:14px;color:var(--text-primary);">{{ depense.facture_liee.reference }}</div>
+            <div style="font-size:12.5px;color:var(--text-secondary);margin-top:4px;">{{ depense.facture_liee.fournisseur.nom }}</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">{{ depense.facture_liee.date_facture|date:"d/m/Y" }} — {{ depense.facture_liee.montant_total|floatformat:0 }} DZD</div>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Notes -->
-    {% if depense.notes %}
-    <div class="form-card">
-      <div class="form-card__header">
-        <div class="form-card__icon ic-purple"><i class="bx bxs-notepad"></i></div>
-        <div>
-          <div class="form-card__title">Notes</div>
-        </div>
-      </div>
-      <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.6;white-space:pre-wrap;margin:0;">
-        {{ depense.notes }}
-      </p>
-    </div>
-    {% endif %}
-
-  </div>
-
-  <!-- ── Right column: Sidebar actions ─────────────────────────────────── -->
-  <div class="detail-side">
-
-    <!-- Pièce jointe -->
-    <div class="form-card">
-      <div class="form-card__header">
-        <div class="form-card__icon ic-green"><i class="bx bxs-paperclip"></i></div>
-        <div>
-          <div class="form-card__title">Pièce jointe</div>
-        </div>
-      </div>
-      {% if depense.a_piece_jointe %}
-      <div class="pj-preview">
-        <i class="bx bxs-file" style="font-size:32px;color:var(--accent-text);"></i>
-        <span class="pj-preview__name">{{ depense.piece_jointe.name|cut:"depenses/" }}</span>
-        <a href="{{ depense.piece_jointe.url }}" target="_blank" class="btn-primary btn-sm" style="margin-top:8px;">
-          <i class="bx bx-show"></i> Voir le fichier
-        </a>
-      </div>
-      {% else %}
-      <div style="text-align:center;padding:16px;color:var(--text-muted);">
-        <i class="bx bx-paperclip" style="font-size:24px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
-        <span style="font-size:12px;">Aucune pièce jointe</span>
       </div>
       {% endif %}
-    </div>
 
-    <!-- Quick actions -->
-    <div class="form-card">
-      <div class="form-card__header">
-        <div class="form-card__icon ic-amber"><i class="bx bxs-cog"></i></div>
-        <div>
-          <div class="form-card__title">Actions</div>
+      <!-- Metadata -->
+      <div class="detail-card">
+        <div class="detail-card__header">
+          <div class="section-eyebrow"><i class="bx bx-info-circle"></i> Métadonnées</div>
+        </div>
+        <div class="detail-card__body">
+          <dl class="info-grid info-grid--compact">
+            <dt>Enregistré par</dt>
+            <dd>{{ depense.enregistre_par.get_full_name|default:depense.enregistre_par.username|default:"—" }}</dd>
+            <dt>Créé le</dt>
+            <dd>{{ depense.created_at|date:"d/m/Y H:i" }}</dd>
+            <dt>Modifié le</dt>
+            <dd>{{ depense.updated_at|date:"d/m/Y H:i" }}</dd>
+          </dl>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        {% if not request.user.profile.role == 'viewer' %}
-        <a href="{% url 'depenses:depense_edit' depense.pk %}" class="btn-primary" style="width:100%;justify-content:center;">
-          <i class="bx bxs-pencil"></i> Modifier
-        </a>
-        {% endif %}
-        <a href="{% url 'depenses:depense_print' depense.pk %}" target="_blank" class="btn-ghost" style="width:100%;justify-content:center;">
-          <i class="bx bxs-printer"></i> Imprimer la pièce justificative
-        </a>
-        {% if not request.user.profile.role == 'viewer' %}
-        <button type="button" class="btn-danger" style="width:100%;justify-content:center;" id="btn-delete-trigger">
-          <i class="bx bxs-trash"></i> Supprimer
+
+      <!-- Danger zone — admin only -->
+      {% if request.user.userprofile.role == 'admin' %}
+      <div class="danger-zone">
+        <div style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;margin-bottom:4px;">
+          <i class="bx bxs-error"></i> Zone sensible
+        </div>
+        <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px;">
+          La suppression est définitive. Aucune restauration n'est possible.
+        </p>
+        <button type="button" class="btn-danger" id="open-delete-btn">
+          <i class="bx bxs-trash"></i> Supprimer cette dépense
         </button>
-        {% endif %}
       </div>
 
-      <!-- Inline delete confirmation panel -->
-      <div id="confirm-delete-panel" class="confirm-panel" style="margin-top:0;border-radius:var(--radius-sm);">
-        <div class="confirm-panel__text">
-          <i class="bx bxs-error-circle" style="color:#dc2626;font-size:16px;"></i>
-          Supprimer définitivement cette dépense ? Cette action est irréversible.
+      <!-- Delete confirm panel -->
+      <div id="confirm-delete-panel" style="display:none;" class="confirm-panel">
+        <div class="confirm-panel__inner">
+          <div class="confirm-panel__icon"><i class="bx bxs-trash"></i></div>
+          <div>
+            <div class="confirm-panel__title">Supprimer cette dépense ?</div>
+            <div class="confirm-panel__body">
+              La dépense <strong>{{ depense.description|truncatechars:50 }}</strong> du <strong>{{ depense.date|date:"d/m/Y" }}</strong> ({{ depense.montant|floatformat:0 }} DZD) sera supprimée définitivement.
+            </div>
+          </div>
+          <div class="confirm-panel__actions">
+            <button type="button" id="confirm-delete-cancel" class="btn-ghost">Annuler</button>
+            <form method="post" action="{% url 'depenses:depense_delete' depense.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn-danger"><i class="bx bxs-trash"></i> Supprimer définitivement</button>
+            </form>
+          </div>
         </div>
-        <div class="confirm-panel__actions">
-          <button type="button" class="btn-ghost btn-sm" id="btn-delete-cancel">Annuler</button>
-          <form method="post" action="{% url 'depenses:depense_delete' depense.pk %}" style="margin:0;">
-            {% csrf_token %}
-            <button type="submit" class="btn-danger btn-sm">
-              <i class="bx bxs-trash"></i> Confirmer la suppression
-            </button>
-          </form>
-        </div>
       </div>
-    </div>
+      {% endif %}
 
-    <!-- Metadata -->
-    <div style="padding:0 8px;">
-      <div style="font-size:11px;color:var(--text-muted);line-height:1.8;">
-        <div><strong style="color:var(--text-secondary);">ID :</strong> #{{ depense.pk }}</div>
-        <div><strong style="color:var(--text-secondary);">Créé le :</strong> {{ depense.created_at|date:"d/m/Y H:i" }}</div>
-        <div><strong style="color:var(--text-secondary);">Modifié le :</strong> {{ depense.updated_at|date:"d/m/Y H:i" }}</div>
-        {% if depense.enregistre_par %}
-        <div><strong style="color:var(--text-secondary);">Par :</strong> {{ depense.enregistre_par.get_full_name|default:depense.enregistre_par.username }}</div>
-        {% endif %}
-      </div>
     </div>
-
   </div>
 </div>
-
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.detail-layout {
-  display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 20px;
-  align-items: start;
-}
-@media (max-width: 1024px) {
-  .detail-layout { grid-template-columns: 1fr; }
-}
-.detail-main { display: flex; flex-direction: column; gap: 18px; }
-.detail-side { display: flex; flex-direction: column; gap: 16px; }
+  .page-body { padding: 28px 32px; }
+  @media (max-width: 768px) { .page-body { padding: 20px 16px; } }
 
-.detail-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-@media (max-width: 600px) { .detail-grid { grid-template-columns: 1fr; } }
+  .detail-grid { display: grid; grid-template-columns: 1fr 340px; gap: 18px; align-items: start; }
+  @media (max-width: 1000px) { .detail-grid { grid-template-columns: 1fr; } }
+  .detail-col { display: flex; flex-direction: column; gap: 18px; }
 
-.detail-item__label {
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 4px;
-}
-.detail-item__value {
-  font-size: 13.5px;
-  color: var(--text-primary);
-  font-weight: 500;
-}
+  .detail-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .detail-card--service { border-color: rgba(56,189,248,.2); }
+  .detail-card__header { padding: 13px 20px 11px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .detail-card__body { padding: 20px; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
 
-/* Reuse form-card styles */
-.form-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 22px 24px;
-  animation: fadeIn .3s ease both;
-}
-.form-card__header {
-  display: flex; align-items: center; gap: 14px;
-  margin-bottom: 18px; padding-bottom: 14px;
-  border-bottom: 1px solid var(--border);
-}
-.form-card__icon {
-  width: 40px; height: 40px; border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px; flex-shrink: 0;
-}
-.form-card__title {
-  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
-  color: var(--text-primary); margin-bottom: 2px;
-}
+  .info-grid { display: grid; grid-template-columns: 140px 1fr; gap: 12px 16px; margin: 0; }
+  .info-grid dt { font-size: 12px; color: var(--text-muted); font-weight: 500; padding-top: 1px; }
+  .info-grid dd { font-size: 13.5px; color: var(--text-secondary); margin: 0; }
+  .info-grid--compact { gap: 8px 14px; }
+  .info-grid--compact dd { font-size: 13px; }
 
-/* PJ preview */
-.pj-preview {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 14px;
-  background: var(--bg-raised);
-  border-radius: var(--radius-md);
-}
-.pj-preview__name {
-  font-size: 11.5px;
-  color: var(--text-muted);
-  text-align: center;
-  word-break: break-all;
-}
+  .mode-cell { display: flex; align-items: center; gap: 6px; }
+  .mode-icon { font-size: 15px; color: var(--text-muted); }
+  .code-badge { font-family: 'Inter', monospace; font-size: 12px; font-weight: 600; background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px 8px; color: var(--text-secondary); }
 
-/* Confirm panel */
-.confirm-panel {
-  display: none;
-  margin-top: 10px;
-}
-.confirm-panel.visible {
-  display: block;
-  animation: fadeIn .2s ease;
-}
+  .pill-cat   { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(99,102,241,.12); color: #4338ca; }
+  .pill-success { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(34,197,94,.14); color: #15803d; }
+  .pill-neutral { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(0,0,0,.06); color: var(--text-secondary); }
+  .pill-info    { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(56,189,248,.14); color: #0284c7; }
+
+  .attachment-row { display: flex; align-items: center; gap: 12px; }
+  .attachment-icon { width: 40px; height: 40px; border-radius: var(--radius-sm); background: rgba(56,189,248,.1); color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .attachment-info { flex: 1; min-width: 0; }
+  .no-attachment { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); }
+
+  .lot-link { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+  .lot-link:hover .lot-link__icon { opacity: .8; }
+  .lot-link__icon { width: 38px; height: 38px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+  .ic-green { background: rgba(34,197,94,.14); color: #15803d; }
+
+  .service-notice { display: flex; align-items: flex-start; gap: 8px; background: rgba(56,189,248,.07); border: 1px solid rgba(56,189,248,.2); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 12.5px; color: var(--text-secondary); }
+  .service-notice__icon { color: #0284c7; font-size: 15px; margin-top: 1px; flex-shrink: 0; }
+
+  .danger-zone { background: rgba(239,68,68,.06); border: 1px solid rgba(239,68,68,.18); border-radius: var(--radius-md); padding: 16px 18px; }
+
+  .confirm-panel { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 500; display: flex !important; align-items: center; justify-content: center; padding: 20px; animation: fadeIn .2s ease; }
+  .confirm-panel[style*="display:none"] { display: none !important; }
+  .confirm-panel__inner { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px 28px; max-width: 420px; width: 100%; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 8px 32px rgba(0,0,0,.14); }
+  .confirm-panel__icon { width: 44px; height: 44px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 20px; background: rgba(239,68,68,.1); color: #dc2626; }
+  .confirm-panel__title { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 15px; color: var(--text-primary); margin-bottom: 4px; }
+  .confirm-panel__body { font-size: 13px; color: var(--text-secondary); }
+  .confirm-panel__actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .confirm-panel__actions form { margin: 0; }
+
+  .btn-primary { background: var(--accent); color: #fff; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: var(--radius-md); padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: opacity .18s; text-decoration: none; }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px; border-radius: var(--radius-md); padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .12s; text-decoration: none; }
+  .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+  .btn-ghost.btn-sm { padding: 7px 12px; font-size: 12px; }
+  .btn-sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn-danger { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.22); color: #dc2626; font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px; border-radius: var(--radius-md); padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .12s; }
+  .btn-danger:hover { background: rgba(239,68,68,.18); }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  var deleteTrigger = document.getElementById('btn-delete-trigger');
-  var deletePanel   = document.getElementById('confirm-delete-panel');
-  var deleteCancel  = document.getElementById('btn-delete-cancel');
+  const openBtn   = document.getElementById('open-delete-btn');
+  const panel     = document.getElementById('confirm-delete-panel');
+  const cancelBtn = document.getElementById('confirm-delete-cancel');
+  if (!openBtn || !panel) return;
 
-  if (deleteTrigger && deletePanel) {
-    deleteTrigger.addEventListener('click', function () {
-      deletePanel.classList.toggle('visible');
-    });
-  }
-
-  if (deleteCancel && deletePanel) {
-    deleteCancel.addEventListener('click', function () {
-      deletePanel.classList.remove('visible');
-    });
-  }
+  openBtn.addEventListener('click', function () { panel.style.display = ''; });
+  cancelBtn.addEventListener('click', function () { panel.style.display = 'none'; });
+  panel.addEventListener('click', function (e) { if (e.target === panel) panel.style.display = 'none'; });
 });
 </script>
 {% endblock %}

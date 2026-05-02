@@ -1,75 +1,125 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
-{% block nav_clients %}active{% endblock %}
+{% block title %}Paiement — {{ paiement.client.nom }} — Élevage Avicole{% endblock %}
 
-{% block page_title %}
-  <div style="display:flex;align-items:center;gap:14px;">
-    <div class="doc-icon ic-purple"><i class="bx bxs-credit-card"></i></div>
-    <div>
-      Paiement #{{ paiement.pk }}
-      <div style="font-size:13px;font-weight:400;color:var(--text-muted);">
-        {{ paiement.client.nom }} · {{ paiement.date_paiement|date:"d/m/Y" }}
-      </div>
-    </div>
-  </div>
-{% endblock %}
+{% block nav_paiements_clients %}active{% endblock %}
 
-{% block page_sub_text %}
-  {{ paiement.get_mode_paiement_display }} · {{ paiement.montant|floatformat:0 }} DZD
-  {% if paiement.montant_non_alloue > 0 %}· Non alloué : <span style="color:#b45309;">{{ paiement.montant_non_alloue|floatformat:0 }} DZD</span>{% endif %}
-{% endblock %}
+{% block page_title %}Paiement — {{ paiement.client.nom }}{% endblock %}
+{% block page_sub_text %}{{ paiement.date_paiement|date:"d/m/Y" }} · {{ paiement.montant|floatformat:0 }} DZD{% endblock %}
 
 {% block topbar_actions %}
-  <a href="{% url 'clients:paiement_client_print' paiement.pk %}" class="btn-primary" target="_blank">
-    <i class="bx bxs-printer"></i> Imprimer
+  <a href="{% url 'clients:paiement_client_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Retour aux paiements
+  </a>
+  <a href="{% url 'clients:paiement_client_print' paiement.pk %}" class="btn-ghost" target="_blank">
+    <i class="bx bxs-printer"></i> Imprimer le reçu
   </a>
 {% endblock %}
 
 {% block content %}
+<div class="page-body">
+  <div class="detail-grid">
 
-<div class="detail-layout">
+    <!-- Left: paiement info + allocations -->
+    <div class="detail-main">
 
-  {# ── Left column: Allocations ───────────────────────────────────────── #}
-  <div class="detail-main">
-
-    {# Allocations table #}
-    <div class="section-card">
-      <div class="section-card__head">
-        <span class="section-card__title">
-          <i class="bx bxs-receipt" style="color:var(--accent);margin-right:8px;"></i>Imputations sur factures
-        </span>
-        {% if allocations %}
-        <span class="pill-base pill-success">{{ allocations|length }}</span>
-        {% endif %}
+      <!-- Header card -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bxs-wallet"></i> Informations paiement</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            {% if paiement.mode_paiement == 'especes' %}
+              <span class="pill-neutral"><i class="bx bxs-money"></i> Espèces</span>
+            {% elif paiement.mode_paiement == 'cheque' %}
+              <span class="pill-info"><i class="bx bx-file-blank"></i> Chèque</span>
+            {% elif paiement.mode_paiement == 'virement' %}
+              <span class="pill-info"><i class="bx bx-transfer"></i> Virement</span>
+            {% else %}
+              <span class="pill-neutral">{{ paiement.get_mode_paiement_display }}</span>
+            {% endif %}
+            {% if paiement.solde_non_alloue > 0 %}
+              <span class="pill-warning"><i class="bx bxs-info-circle"></i> Solde non alloué</span>
+            {% else %}
+              <span class="pill-success"><i class="bx bxs-check-circle"></i> Entièrement alloué</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="card-body-grid">
+          <div class="info-row">
+            <span class="info-label">Client</span>
+            <span class="info-value">
+              <a href="{% url 'clients:client_detail' paiement.client.pk %}" style="color:var(--accent-text);text-decoration:none;font-weight:500;">{{ paiement.client.nom }}</a>
+            </span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Date du paiement</span>
+            <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ paiement.date_paiement|date:"d/m/Y" }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Mode de paiement</span>
+            <span class="info-value">{{ paiement.get_mode_paiement_display }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Référence</span>
+            <span class="info-value" style="color:var(--text-muted);">{{ paiement.reference_paiement|default:"—" }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Enregistré par</span>
+            <span class="info-value" style="color:var(--text-muted);font-size:12px;">{{ paiement.created_by|default:"—" }} · {{ paiement.created_at|date:"d/m/Y H:i" }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Montant</span>
+            <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;color:var(--text-primary);">{{ paiement.montant|floatformat:0 }} DZD</span>
+          </div>
+          {% if paiement.notes %}
+          <div class="info-row info-row--full">
+            <span class="info-label">Notes</span>
+            <span class="info-value" style="color:var(--text-muted);font-size:12.5px;white-space:pre-line;">{{ paiement.notes }}</span>
+          </div>
+          {% endif %}
+        </div>
       </div>
-      <div class="section-card__body no-pad">
+
+      <!-- Allocations table -->
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bx-file"></i> Allocation aux factures</div>
+          <span style="font-size:12px;color:var(--text-muted);">{{ allocations|length }} allocation{{ allocations|length|pluralize }}</span>
+        </div>
+
         {% if allocations %}
-        <div style="overflow-x:auto;">
-          <table class="table-base">
+        <div class="table-wrapper">
+          <table class="data-table">
             <thead>
               <tr>
                 <th>Facture</th>
                 <th>Date facture</th>
-                <th style="text-align:right;">Reste dû avant</th>
-                <th style="text-align:right;">Montant imputé</th>
+                <th>Statut facture</th>
+                <th style="text-align:right;">Montant alloué</th>
+                <th style="text-align:right;">Actions</th>
               </tr>
             </thead>
             <tbody>
               {% for alloc in allocations %}
-              <tr class="stagger-row">
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
                 <td>
-                  <a href="{% url 'clients:facture_client_detail' alloc.facture.pk %}" class="text-mono" style="font-weight:600;">
-                    {{ alloc.facture.reference }}
-                  </a>
+                  <a href="{% url 'clients:facture_client_detail' alloc.facture.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;">{{ alloc.facture.reference }}</a>
                 </td>
-                <td style="color:var(--text-muted);white-space:nowrap;">{{ alloc.facture.date_facture|date:"d/m/Y" }}</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;">
-                  {{ alloc.facture.reste_a_payer|add:alloc.montant|floatformat:0 }} DZD
+                <td style="font-size:12px;color:var(--text-muted);">{{ alloc.facture.date_facture|date:"d/m/Y" }}</td>
+                <td>
+                  {% if alloc.facture.statut == 'non_payee' %}<span class="pill-danger">Non payée</span>
+                  {% elif alloc.facture.statut == 'partiellement_payee' %}<span class="pill-warning">Part. payée</span>
+                  {% elif alloc.facture.statut == 'payee' %}<span class="pill-success">Payée</span>
+                  {% elif alloc.facture.statut == 'en_litige' %}<span class="pill-danger">En litige</span>
+                  {% endif %}
                 </td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">
-                  {{ alloc.montant|floatformat:0 }} DZD
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">{{ alloc.montant_alloue|floatformat:0 }} DZD</td>
+                <td>
+                  <div class="actions-cell">
+                    <a href="{% url 'clients:facture_client_detail' alloc.facture.pk %}" class="action-btn" title="Voir la facture"><i class="bx bx-show"></i></a>
+                    <a href="{% url 'clients:facture_client_print' alloc.facture.pk %}" class="action-btn" title="Imprimer la facture" target="_blank"><i class="bx bxs-printer"></i></a>
+                  </div>
                 </td>
               </tr>
               {% endfor %}
@@ -77,166 +127,136 @@
           </table>
         </div>
         {% else %}
-        <div class="empty-state">
-          <i class="bx bxs-receipt empty-state__icon"></i>
-          <div class="empty-state__title">Aucune imputation</div>
-          <div class="empty-state__text">
-            Ce paiement n'a pas été imputé sur des factures.
-            <br>Montant non alloué : <strong>{{ paiement.montant_non_alloue|floatformat:0 }} DZD</strong>.
+        <div style="padding:32px 16px;text-align:center;color:var(--text-muted);">
+          <i class="bx bx-file" style="font-size:26px;display:block;margin-bottom:10px;color:var(--border-strong);"></i>
+          <div style="font-size:13px;">Aucune allocation enregistrée pour ce paiement.</div>
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- Right: financial summary -->
+    <div class="detail-side">
+
+      <!-- Amount breakdown -->
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bxs-coin"></i> Récapitulatif</div>
+        </div>
+        <div style="padding:20px;display:flex;flex-direction:column;gap:0;">
+          <div class="total-row">
+            <span class="total-label">Montant reçu</span>
+            <span class="total-val" style="font-size:16px;font-weight:800;color:var(--text-primary);">{{ paiement.montant|floatformat:0 }} DZD</span>
+          </div>
+          <div class="total-row total-row--divider">
+            <span class="total-label">Total alloué</span>
+            <span class="total-val" style="color:#15803d;">{{ paiement.montant_alloue|floatformat:0 }} DZD</span>
+          </div>
+          <div class="total-row total-row--highlight">
+            <span class="total-label" style="font-weight:700;">Solde non alloué</span>
+            <span class="total-val" style="font-size:18px;font-weight:800;color:{% if paiement.solde_non_alloue > 0 %}#b45309{% else %}#15803d{% endif %};">{{ paiement.solde_non_alloue|floatformat:0 }} DZD</span>
           </div>
         </div>
-        {% endif %}
       </div>
+
+      <!-- Client quick info -->
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bxs-group"></i> Client</div>
+        </div>
+        <div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;">
+          <div>
+            <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);margin-bottom:3px;">{{ paiement.client.nom }}</div>
+            {% if paiement.client.wilaya %}
+            <div style="font-size:12px;color:var(--text-muted);">{{ paiement.client.wilaya }}</div>
+            {% endif %}
+            {% if paiement.client.telephone %}
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;"><i class="bx bx-phone" style="font-size:12px;"></i> {{ paiement.client.telephone }}</div>
+            {% endif %}
+          </div>
+          <a href="{% url 'clients:client_detail' paiement.client.pk %}" class="btn-ghost btn-sm btn-full">
+            <i class="bx bx-user"></i> Fiche client
+          </a>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bx-cog"></i> Actions</div>
+        </div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:8px;">
+          <a href="{% url 'clients:paiement_client_print' paiement.pk %}" class="btn-primary btn-full" target="_blank">
+            <i class="bx bxs-printer"></i> Imprimer le reçu
+          </a>
+          {% if not request.user.userprofile.role == 'viewer' %}
+          <a href="{% url 'clients:paiement_client_create_for_client' paiement.client.pk %}" class="btn-ghost btn-full">
+            <i class="bx bx-plus"></i> Nouveau paiement
+          </a>
+          {% endif %}
+        </div>
+      </div>
+
     </div>
-
-    {# Notes #}
-    {% if paiement.notes %}
-    <div class="section-card" style="animation-delay:.05s;">
-      <div class="section-card__head">
-        <span class="section-card__title">
-          <i class="bx bxs-note" style="color:var(--text-muted);margin-right:8px;"></i>Notes
-        </span>
-      </div>
-      <div class="section-card__body">
-        <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">{{ paiement.notes|linebreaks }}</div>
-      </div>
-    </div>
-    {% endif %}
-
-  </div>
-
-  {# ── Right column: Summary ──────────────────────────────────────────── #}
-  <div class="detail-side">
-
-    {# Summary card #}
-    <div class="summary-card">
-      <div class="summary-card__title">Récapitulatif</div>
-      <div class="totals-block">
-        <div class="totals-row">
-          <span class="totals-row__label">Montant du paiement</span>
-          <span class="totals-row__value" style="color:#15803d;">{{ paiement.montant|floatformat:0 }} DZD</span>
-        </div>
-        {% if allocations %}
-        <div class="totals-row">
-          <span class="totals-row__label">Total alloué</span>
-          <span class="totals-row__value">{{ total_alloue|floatformat:0 }} DZD</span>
-        </div>
-        {% endif %}
-        {% if paiement.montant_non_alloue > 0 %}
-        <div class="totals-row">
-          <span class="totals-row__label">Non alloué</span>
-          <span class="totals-row__value" style="color:#b45309;">{{ paiement.montant_non_alloue|floatformat:0 }} DZD</span>
-        </div>
-        {% endif %}
-      </div>
-
-      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
-        <div class="info-row">
-          <span class="info-row__label">Client</span>
-          <a href="{% url 'clients:client_detail' paiement.client.pk %}" class="info-row__value">{{ paiement.client.nom }}</a>
-        </div>
-        <div class="info-row">
-          <span class="info-row__label">Date</span>
-          <span class="info-row__value">{{ paiement.date_paiement|date:"d/m/Y" }}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-row__label">Mode</span>
-          <span class="info-row__value">{{ paiement.get_mode_paiement_display }}</span>
-        </div>
-        {% if paiement.reference_paiement %}
-        <div class="info-row">
-          <span class="info-row__label">Référence</span>
-          <span class="info-row__value text-mono">{{ paiement.reference_paiement }}</span>
-        </div>
-        {% endif %}
-      </div>
-    </div>
-
-    {# Quick actions #}
-    <div class="form-card" style="animation-delay:.05s;">
-      <div class="form-card__title" style="margin-bottom:12px;">Actions rapides</div>
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        <a href="{% url 'clients:paiement_client_print' paiement.pk %}" class="btn-primary btn-sm" target="_blank" style="justify-content:flex-start;">
-          <i class="bx bxs-printer"></i> Imprimer le reçu
-        </a>
-      </div>
-    </div>
-
   </div>
 </div>
-
 {% endblock %}
 
 {% block extra_css %}
 <style>
-/* ── Layout ───────────────────────────────────────────────────────────── */
-.detail-layout {
-  display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 20px;
-  align-items: start;
-}
-@media (max-width: 1024px) {
-  .detail-layout { grid-template-columns: 1fr; }
-}
-.detail-main { display: flex; flex-direction: column; gap: 18px; }
-.detail-side { display: flex; flex-direction: column; gap: 16px; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 288px; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
+  .detail-main { display: flex; flex-direction: column; }
+  .detail-side { display: flex; flex-direction: column; gap: 16px; }
 
-/* ── Doc icon ─────────────────────────────────────────────────────────── */
-.doc-icon {
-  width: 44px; height: 44px; border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px; flex-shrink: 0;
-}
-.doc-icon.ic-purple { background: rgba(167,139,250,.14); color: #7c3aed; }
+  .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .card-header-row { padding: 14px 18px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
 
-/* ── Summary card ─────────────────────────────────────────────────────── */
-.summary-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 22px 24px;
-  animation: fadeIn .3s ease both;
-}
-.summary-card__title {
-  font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px;
-  color: var(--text-primary); margin-bottom: 16px; padding-bottom: 14px;
-  border-bottom: 1px solid var(--border);
-}
+  .card-body-grid { display: grid; grid-template-columns: 1fr 1fr; }
+  .info-row { display: flex; flex-direction: column; gap: 3px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+  .info-row--full { grid-column: 1 / -1; }
+  .info-row:nth-last-child(-n+2):not(.info-row--full) { border-bottom: none; }
+  .info-row--full:last-child { border-bottom: none; }
+  .info-label { font-size: 11px; font-weight: 500; color: var(--text-muted); letter-spacing: .03em; text-transform: uppercase; }
+  .info-value { font-size: 13.5px; color: var(--text-secondary); }
 
-/* ── Totals ───────────────────────────────────────────────────────────── */
-.totals-block { display: flex; flex-direction: column; gap: 10px; }
-.totals-row {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
-}
-.totals-row:last-child { border-bottom: none; }
-.totals-row__label { font-size: 13px; color: var(--text-secondary); }
-.totals-row__value {
-  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
-  color: var(--text-primary);
-}
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th { padding: 10px 14px; font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: left; background: var(--bg-base); }
+  .data-table tbody td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .table-row { animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i) * 35ms); }
+  .table-row:hover td { background: var(--bg-hover); }
 
-/* ── Info rows ────────────────────────────────────────────────────────── */
-.info-row {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 6px 0;
-}
-.info-row__label { font-size: 12px; color: var(--text-muted); }
-.info-row__value { font-size: 12.5px; font-weight: 500; color: var(--text-primary); text-decoration: none; }
+  .total-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .total-row:last-child { border-bottom: none; }
+  .total-row--divider { border-top: 2px solid var(--border-strong); border-bottom: 2px solid var(--border-strong); padding: 12px 0; margin: 4px 0; }
+  .total-row--highlight { background: var(--accent-dim); margin: 0 -20px; padding: 12px 20px; border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+  .total-label { font-size: 13px; color: var(--text-secondary); }
+  .total-val { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px; color: var(--text-primary); }
 
-/* ── Form card ────────────────────────────────────────────────────────── */
-.form-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 22px 24px;
-  animation: fadeIn .3s ease both;
-}
-.form-card__title {
-  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
-  color: var(--text-primary);
-}
+  .actions-cell { display: flex; gap: 4px; justify-content: flex-end; }
+  .action-btn { width: 30px; height: 30px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: transparent; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--text-muted); cursor: pointer; transition: all .15s; text-decoration: none; }
+  .action-btn:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+
+  .pill-success,.pill-danger,.pill-warning,.pill-info,.pill-neutral { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;font-family:'Inter',sans-serif; }
+  .pill-success { background:rgba(34,197,94,.14);color:#15803d; }
+  .pill-danger  { background:rgba(239,68,68,.10);color:#dc2626; }
+  .pill-warning { background:rgba(245,158,11,.14);color:#b45309; }
+  .pill-info    { background:rgba(56,189,248,.14);color:#0284c7; }
+  .pill-neutral { background:rgba(0,0,0,.06);color:var(--text-secondary); }
+
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+  .btn-sm { padding: 7px 13px; font-size: 12.5px; }
+  .btn-full { width: 100%; justify-content: center; }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);} }
 </style>
 {% endblock %}
+
+{% block extra_js %}{% endblock %}

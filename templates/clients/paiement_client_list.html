@@ -1,101 +1,101 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
-{% block nav_clients %}active{% endblock %}
+{% block title %}Paiements Clients — Élevage Avicole{% endblock %}
 
-{% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{{ page.paginator.count }} paiement{{ page.paginator.count|pluralize }} · {% if q %}« {{ q }} »{% else %}Tous{% endif %}{% endblock %}
+{% block nav_paiements_clients %}active{% endblock %}
+
+{% block page_title %}Paiements Clients{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} paiement{{ page.paginator.count|pluralize }}{% endblock %}
 
 {% block topbar_actions %}
-{% if not request.user.profile.role == 'viewer' %}
-<a href="{% url 'clients:paiement_client_create' %}" class="btn-primary">
-  <i class="bx bx-plus"></i> Nouveau paiement
-</a>
-{% endif %}
+  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'clients:paiement_client_create' %}" class="btn-primary">
+    <i class="bx bx-plus"></i> Nouveau paiement
+  </a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
+<div class="page-body">
 
-{# ── Filter bar ────────────────────────────────────────────────────────── #}
-<div class="section-card mb-4">
-  <div class="section-card__body">
-    <form method="get" class="filter-bar" id="filter-form">
-      <div class="input-wrapper" style="flex:1;min-width:200px;">
-        <i class="bx bx-search input-icon"></i>
-        <input type="text" name="q" class="field-input has-icon" placeholder="Référence, note…" value="{{ q }}">
-      </div>
+  <!-- Total banner -->
+  {% if total %}
+  <div class="summary-banner">
+    <div class="summary-item">
+      <div class="summary-label">TOTAL REÇU (FILTRE)</div>
+      <div class="summary-value">{{ total|floatformat:0 }} <small>DZD</small></div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-label">NOMBRE DE PAIEMENTS</div>
+      <div class="summary-value">{{ page.paginator.count }}</div>
+    </div>
+  </div>
+  {% endif %}
 
-      <select name="client" class="field-input" style="width:180px;" onchange="this.form.submit()">
-        <option value="">Tous clients</option>
-        {% for c in clients_actifs %}
+  <!-- Filters -->
+  <div class="filters-bar">
+    <form method="get" class="filters-form" id="filter-form">
+      <select name="client" class="filter-select" id="filter-client">
+        <option value="">Tous les clients</option>
+        {% for c in clients %}
         <option value="{{ c.pk }}" {% if client_filter == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nom }}</option>
         {% endfor %}
       </select>
-
-      <select name="mode" class="field-input" style="width:160px;" onchange="this.form.submit()">
-        <option value="">Tous modes</option>
-        {% for code, label in mode_choices %}
-        <option value="{{ code }}" {% if mode_filter == code %}selected{% endif %}>{{ label }}</option>
+      <select name="mode_paiement" class="filter-select" id="filter-mode">
+        <option value="">Tous les modes</option>
+        {% for val, label in mode_choices %}
+        <option value="{{ val }}" {% if mode_filter == val %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
-
-      <input type="date" name="date_debut" class="field-input" style="width:150px;" value="{{ date_debut }}" onchange="this.form.submit()">
-      <input type="date" name="date_fin" class="field-input" style="width:150px;" value="{{ date_fin }}" onchange="this.form.submit()">
-
-      <button type="submit" class="btn-ghost btn-sm">
-        <i class="bx bx-search"></i> Filtrer
-      </button>
-
-      {% if q or client_filter or mode_filter or date_debut or date_fin %}
-      <a href="{% url 'clients:paiement_client_list' %}" class="btn-danger btn-sm">
-        <i class="bx bx-x"></i> Réinitialiser
-      </a>
-      {% endif %}
+      <input type="date" name="date_debut" value="{% if date_debut %}{{ date_debut|date:'Y-m-d' }}{% endif %}" class="filter-date" placeholder="Du">
+      <input type="date" name="date_fin"   value="{% if date_fin %}{{ date_fin|date:'Y-m-d' }}{% endif %}"   class="filter-date" placeholder="Au">
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> Filtrer</button>
     </form>
   </div>
-</div>
 
-{# ── Payment table ─────────────────────────────────────────────────────── #}
-<div class="section-card">
-  <div class="section-card__body no-pad">
+  <div class="card">
+    <div class="card-header-row">
+      <div class="section-eyebrow"><i class="bx bxs-wallet"></i> Paiements Clients</div>
+    </div>
+
     {% if page.object_list %}
-    <div style="overflow-x:auto;">
-      <table class="table-base">
+    <div class="table-wrapper">
+      <table class="data-table">
         <thead>
           <tr>
             <th>Client</th>
             <th>Date</th>
             <th>Mode</th>
+            <th>Référence</th>
             <th style="text-align:right;">Montant</th>
             <th style="text-align:right;">Non alloué</th>
             <th style="text-align:right;">Actions</th>
           </tr>
         </thead>
         <tbody>
-          {% for p in page.object_list %}
-          <tr class="stagger-row">
+          {% for paiement in page.object_list %}
+          <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
             <td>
-              <a href="{% url 'clients:client_detail' p.client.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
-                {{ p.client.nom }}
-              </a>
+              <a href="{% url 'clients:client_detail' paiement.client.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;">{{ paiement.client.nom }}</a>
             </td>
-            <td style="color:var(--text-muted);white-space:nowrap;">{{ p.date_paiement|date:"d/m/Y" }}</td>
-            <td>{{ p.get_mode_paiement_display }}</td>
-            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">
-              {{ p.montant|floatformat:0 }} DZD
-            </td>
-            <td style="text-align:right;font-family:'Nunito',sans-serif;">
-              {% if p.montant_non_alloue > 0 %}
-              <span style="color:#b45309;">{{ p.montant_non_alloue|floatformat:0 }} DZD</span>
-              {% else %}
-              <span style="color:var(--text-muted);">—</span>
+            <td style="font-size:12px;color:var(--text-muted);">{{ paiement.date_paiement|date:"d/m/Y" }}</td>
+            <td>
+              {% if paiement.mode_paiement == 'especes' %}<span class="pill-neutral"><i class="bx bxs-money"></i> Espèces</span>
+              {% elif paiement.mode_paiement == 'cheque' %}<span class="pill-info">Chèque</span>
+              {% elif paiement.mode_paiement == 'virement' %}<span class="pill-info">Virement</span>
+              {% else %}<span class="pill-neutral">{{ paiement.get_mode_paiement_display }}</span>
               {% endif %}
             </td>
-            <td style="text-align:right;">
-              <div style="display:flex;justify-content:flex-end;gap:4px;">
-                <a href="{% url 'clients:paiement_client_detail' p.pk %}" class="action-btn" title="Détail"><i class="bx bx-show"></i></a>
-                <a href="{% url 'clients:paiement_client_print' p.pk %}" class="action-btn" title="Imprimer" target="_blank"><i class="bx bxs-printer"></i></a>
+            <td style="font-size:12px;color:var(--text-muted);">{{ paiement.reference_paiement|default:"—" }}</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ paiement.montant|floatformat:0 }} DZD</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:{% if paiement.solde_non_alloue > 0 %}#b45309{% else %}#15803d{% endif %};">
+              {{ paiement.solde_non_alloue|floatformat:0 }} DZD
+            </td>
+            <td>
+              <div class="actions-cell">
+                <a href="{% url 'clients:paiement_client_detail' paiement.pk %}" class="action-btn" title="Détail"><i class="bx bx-show"></i></a>
+                <a href="{% url 'clients:paiement_client_print' paiement.pk %}" class="action-btn" title="Reçu" target="_blank"><i class="bx bxs-printer"></i></a>
               </div>
             </td>
           </tr>
@@ -104,49 +104,88 @@
       </table>
     </div>
 
-    {# ── Pagination ─────────────────────────────────────────────────────── #}
     {% if page.has_other_pages %}
     <div class="pagination-bar">
-      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
-      <div class="page-links">
-        {% if page.has_previous %}
-        <a href="?{% if q %}q={{ q }}&{% endif %}{% if client_filter %}client={{ client_filter }}&{% endif %}{% if mode_filter %}mode={{ mode_filter }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ page.previous_page_number }}" class="page-link"><i class='bx bx-chevron-left'></i></a>
-        {% else %}
-        <span class="page-link disabled"><i class='bx bx-chevron-left'></i></span>
-        {% endif %}
-
-        {% for num in page.paginator.page_range %}
-          {% if num == page.number %}
-          <span class="page-link active">{{ num }}</span>
-          {% elif num > page.number|add:"-3" and num < page.number|add:"3" %}
-          <a href="?{% if q %}q={{ q }}&{% endif %}{% if client_filter %}client={{ client_filter }}&{% endif %}{% if mode_filter %}mode={{ mode_filter }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ num }}" class="page-link">{{ num }}</a>
-          {% endif %}
-        {% endfor %}
-
-        {% if page.has_next %}
-        <a href="?{% if q %}q={{ q }}&{% endif %}{% if client_filter %}client={{ client_filter }}&{% endif %}{% if mode_filter %}mode={{ mode_filter }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ page.next_page_number }}" class="page-link"><i class='bx bx-chevron-right'></i></a>
-        {% else %}
-        <span class="page-link disabled"><i class='bx bx-chevron-right'></i></span>
-        {% endif %}
-      </div>
+      {% if page.has_previous %}
+      <a href="?client={{ client_filter }}&mode_paiement={{ mode_filter }}&page={{ page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
+      {% else %}<span class="page-btn page-btn--disabled"><i class="bx bx-chevron-left"></i></span>{% endif %}
+      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}
+      <a href="?client={{ client_filter }}&mode_paiement={{ mode_filter }}&page={{ page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
+      {% else %}<span class="page-btn page-btn--disabled"><i class="bx bx-chevron-right"></i></span>{% endif %}
     </div>
     {% endif %}
 
     {% else %}
-    <div class="empty-state">
-      <i class="bx bxs-credit-card empty-state__icon"></i>
-      <div class="empty-state__title">Aucun paiement trouvé</div>
-      <div class="empty-state__text">
-        {% if q %}Aucun résultat pour « {{ q }} ».{% else %}Saisissez votre premier paiement client.{% endif %}
-      </div>
-      {% if not request.user.profile.role == 'viewer' %}
-      <a href="{% url 'clients:paiement_client_create' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
-        <i class="bx bx-plus"></i> Nouveau paiement
-      </a>
+    <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
+      <i class="bx bxs-wallet" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
+      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">Aucun paiement trouvé</div>
+      <div style="font-size:13px;">Modifiez les filtres ou enregistrez un nouveau paiement.</div>
+      {% if not request.user.userprofile.role == 'viewer' %}
+      <a href="{% url 'clients:paiement_client_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;"><i class="bx bx-plus"></i> Nouveau paiement</a>
       {% endif %}
     </div>
     {% endif %}
   </div>
 </div>
+{% endblock %}
 
+{% block extra_css %}
+<style>
+  .summary-banner { display: flex; gap: 16px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 22px; margin-bottom: 16px; }
+  .summary-item { display: flex; flex-direction: column; gap: 3px; }
+  .summary-label { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+  .summary-value { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 22px; color: var(--text-primary); }
+  .summary-value small { font-size: 12px; font-weight: 600; }
+
+  .filters-bar { margin-bottom: 16px; }
+  .filters-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .filter-select, .filter-date { padding: 9px 12px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 13px; color: var(--text-secondary); font-family: 'Inter',sans-serif; cursor: pointer; }
+  .filter-select:focus, .filter-date:focus { border-color: var(--accent); outline: none; }
+  .filter-date { min-width: 130px; }
+  .btn-sm { padding: 8px 14px; font-size: 13px; }
+
+  .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .card-header-row { padding: 14px 18px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th { padding: 10px 14px; font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: left; background: var(--bg-base); }
+  .data-table tbody td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .table-row { animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i) * 35ms); }
+  .table-row:hover td { background: var(--bg-hover); }
+
+  .actions-cell { display: flex; gap: 4px; justify-content: flex-end; }
+  .action-btn { width: 30px; height: 30px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: transparent; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--text-muted); cursor: pointer; transition: all .15s; text-decoration: none; }
+  .action-btn:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+
+  .pill-success,.pill-danger,.pill-warning,.pill-info,.pill-neutral { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;font-family:'Inter',sans-serif; }
+  .pill-info    { background:rgba(56,189,248,.14);color:#0284c7; }
+  .pill-neutral { background:rgba(0,0,0,.06);color:var(--text-secondary); }
+
+  .pagination-bar { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px; border-top: 1px solid var(--border); }
+  .page-btn { width: 32px; height: 32px; border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--text-secondary); text-decoration: none; transition: all .15s; }
+  .page-btn:hover { background: var(--bg-hover); }
+  .page-btn--disabled { opacity: .4; cursor: default; pointer-events: none; }
+  .page-info { font-size: 12.5px; color: var(--text-muted); }
+
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);} }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('#filter-client, #filter-mode').forEach(function (el) {
+    el.addEventListener('change', function () { document.getElementById('filter-form').submit(); });
+  });
+});
+</script>
 {% endblock %}

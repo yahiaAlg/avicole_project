@@ -2,397 +2,240 @@
 {% load static %}
 
 {% block title %}{{ title }} — Élevage Avicole{% endblock %}
-{% block nav_clients %}active{% endblock %}
+
+{% block nav_facturation %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}
-  {% if client_preselect %}{{ client_preselect.nom }} · {% endif %}
-  Sélectionnez les BL à facturer
-{% endblock %}
+{% block page_sub_text %}{% if client %}Facture pour {{ client.nom }}{% else %}Sélectionnez le client et les BL à facturer{% endif %}{% endblock %}
 
 {% block topbar_actions %}
-  <button type="submit" form="facture-form" class="btn-primary">
-    <i class="bx bxs-receipt"></i> Créer la facture
-  </button>
+  {% if client %}
+  <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Retour à la fiche
+  </a>
+  {% else %}
+  <a href="{% url 'clients:facture_client_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Retour aux factures
+  </a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
+<div class="page-body">
+  <form method="post" id="facture-form">
+    {% csrf_token %}
+    <div class="form-grid">
 
-<form id="facture-form" method="post" action="{{ action_url }}" novalidate>
-  {% csrf_token %}
+      <!-- Left column -->
+      <div class="form-col">
 
-  <div class="facture-form-layout">
+        <!-- Identification -->
+        <div class="form-card">
+          <div class="form-card__header">
+            <div class="section-eyebrow"><i class="bx bx-file"></i> Identification</div>
+          </div>
+          <div class="form-card__body">
 
-    {# ── Left column: Header + BL Selection ───────────────────────────── #}
-    <div class="facture-form-main">
+            <div class="form-group">
+              <label class="form-label" for="{{ form.reference.id_for_label }}">Référence <span class="form-required">*</span></label>
+              <div class="input-wrapper">
+                <i class="bx bx-hash input-icon"></i>
+                {{ form.reference }}
+              </div>
+              {% for err in form.reference.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
 
-      {# Header card #}
-      <div class="form-card">
-        <div class="form-card__header">
-          <div class="form-card__icon ic-green"><i class="bx bxs-receipt"></i></div>
-          <div>
-            <div class="form-card__title">Entête de la facture</div>
-            <div class="form-card__sub">Client et date d'émission</div>
+            {% if not client %}
+            <div class="form-group">
+              <label class="form-label" for="{{ form.client.id_for_label }}">Client <span class="form-required">*</span></label>
+              <div class="input-wrapper">
+                <i class="bx bxs-group input-icon"></i>
+                {{ form.client }}
+              </div>
+              {% for err in form.client.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+            {% else %}
+            {{ form.client }}
+            <div class="form-group">
+              <label class="form-label">Client</label>
+              <div style="padding:10px 14px;background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);font-size:13.5px;font-weight:500;color:var(--text-primary);">{{ client.nom }}</div>
+            </div>
+            {% endif %}
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.date_facture.id_for_label }}">Date de facturation <span class="form-required">*</span></label>
+                <div class="input-wrapper">
+                  <i class="bx bx-calendar input-icon"></i>
+                  {{ form.date_facture }}
+                </div>
+                {% for err in form.date_facture.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="{{ form.date_echeance.id_for_label }}">Date d'échéance</label>
+                <div class="input-wrapper">
+                  <i class="bx bx-calendar-check input-icon"></i>
+                  {{ form.date_echeance }}
+                </div>
+                {% for err in form.date_echeance.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              </div>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.taux_tva.id_for_label }}">Taux TVA (%)</label>
+                <div class="input-wrapper">
+                  <i class="bx bx-percent input-icon"></i>
+                  {{ form.taux_tva }}
+                </div>
+                <div class="form-hint">0 pour exonéré.</div>
+                {% for err in form.taux_tva.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="{{ form.statut.id_for_label }}">Statut <span class="form-required">*</span></label>
+                <div class="input-wrapper">
+                  <i class="bx bx-badge-check input-icon"></i>
+                  {{ form.statut }}
+                </div>
+                {% for err in form.statut.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              </div>
+            </div>
+
           </div>
         </div>
 
-        <div class="form-grid">
-          <!-- Client -->
-          <div class="field-group field-group--full">
-            <label class="field-label" for="{{ form.client.id_for_label }}">Client <span class="required">*</span></label>
-            <div class="input-wrapper">
-              <i class="bx bxs-user input-icon"></i>
-              {{ form.client }}
+        <!-- Notes -->
+        <div class="form-card">
+          <div class="form-card__header">
+            <div class="section-eyebrow"><i class="bx bx-note"></i> Notes</div>
+          </div>
+          <div class="form-card__body">
+            <div class="form-group" style="margin-bottom:0;">
+              <div class="input-wrapper input-wrapper--textarea">{{ form.notes }}</div>
+              {% for err in form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
             </div>
-            {% for err in form.client.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            {% if client_preselect %}
-            <div class="field-hint">Client pré-sélectionné : {{ client_preselect.nom }}</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right column: BL selection -->
+      <div class="form-col">
+
+        <div class="form-card">
+          <div class="form-card__header">
+            <div class="section-eyebrow"><i class="bx bx-link-external"></i> BL Clients à facturer</div>
+          </div>
+          <div class="form-card__body">
+            <div class="form-hint" style="margin-bottom:12px;">Sélectionnez les bons de livraison au statut <strong>Livré</strong> à inclure dans cette facture. Le montant HT sera calculé automatiquement.</div>
+
+            {% if form.bls.field.queryset.count == 0 %}
+            <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-md);padding:12px 14px;display:flex;align-items:center;gap:10px;">
+              <i class="bx bxs-info-circle" style="color:#b45309;font-size:15px;"></i>
+              <span style="font-size:13px;color:var(--text-secondary);">Aucun BL au statut Livré disponible pour ce client.</span>
+            </div>
+            {% else %}
+            <div class="bl-checkbox-list">
+              {% for choice in form.bls %}
+              <label class="bl-checkbox-item">
+                {{ choice.tag }}
+                <div class="bl-checkbox-content">
+                  <span class="bl-checkbox-ref">{{ choice.choice_label }}</span>
+                </div>
+              </label>
+              {% endfor %}
+            </div>
+            {% for err in form.bls.errors %}<div class="field-error" style="margin-top:8px;"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
             {% endif %}
           </div>
-
-          <!-- Date facture -->
-          <div class="field-group">
-            <label class="field-label" for="{{ form.date_facture.id_for_label }}">Date de facture</label>
-            <div class="input-wrapper">
-              <i class="bx bxs-calendar input-icon"></i>
-              {{ form.date_facture }}
-            </div>
-            {% for err in form.date_facture.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-          </div>
-
-          <!-- Échéance -->
-          <div class="field-group">
-            <label class="field-label" for="{{ form.date_echeance.id_for_label }}">Date d'échéance</label>
-            <div class="input-wrapper">
-              <i class="bx bxs-calendar input-icon"></i>
-              {{ form.date_echeance }}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {# BL Selection card #}
-      <div class="form-card" style="animation-delay:.05s;">
-        <div class="form-card__header" style="justify-content:space-between;">
-          <div style="display:flex;align-items:center;gap:14px;">
-            <div class="form-card__icon ic-blue"><i class="bx bx-link-external"></i></div>
-            <div>
-              <div class="form-card__title">Sélection des BL</div>
-              <div class="form-card__sub">Cochez les BL à inclure dans cette facture</div>
-            </div>
-          </div>
-          <span class="pill-base pill-neutral" id="bl-count">0 BL sélectionné</span>
         </div>
 
-        <div class="section-card__body no-pad" style="border:1px solid var(--border);border-radius:var(--radius-md);">
-          {% if bls_disponibles %}
-          <table class="table-base bl-select-table">
-            <thead>
-              <tr>
-                <th style="width:36px;">
-                  <input type="checkbox" id="select-all-bls" title="Tout sélectionner">
-                </th>
-                <th>Référence</th>
-                <th>Date</th>
-                <th style="text-align:right;">Total TTC</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for bl in bls_disponibles %}
-              <tr class="stagger-row bl-select-row" data-total="{{ bl.montant_total }}">
-                <td>
-                  <input type="checkbox" name="bls" value="{{ bl.pk }}" class="bl-checkbox"
-                         {% if bl_preselection and bl.pk in bl_preselection %}checked{% endif %}>
-                </td>
-                <td>
-                  <span class="text-mono" style="font-weight:600;">{{ bl.reference }}</span>
-                </td>
-                <td style="color:var(--text-muted);white-space:nowrap;">{{ bl.date_bl|date:"d/m/Y" }}</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">
-                  {{ bl.montant_total|floatformat:0 }} DZD
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        <!-- Info block -->
+        <div style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.18);border-radius:var(--radius-md);padding:14px 16px;display:flex;align-items:flex-start;gap:10px;">
+          <i class="bx bxs-info-circle" style="color:#15803d;font-size:15px;flex-shrink:0;margin-top:1px;"></i>
+          <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;">
+            <strong style="color:#15803d;">BR-FAC-01</strong> — Le montant HT est calculé automatiquement depuis les lignes des BL sélectionnés. Les BL inclus seront verrouillés au statut <em>Facturé</em>.
+          </div>
+        </div>
+
+        {% if form.non_field_errors %}
+        <div class="field-error" style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:12px 14px;">
+          {% for err in form.non_field_errors %}<div><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="form-actions-footer">
+          {% if client %}
+          <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost">Annuler</a>
           {% else %}
-          <div class="empty-state" style="padding:32px 20px;">
-            <i class="bx bx-link-external empty-state__icon"></i>
-            <div class="empty-state__title">Aucun BL disponible</div>
-            <div class="empty-state__text">Ce client n'a pas de BL livrés non facturés.</div>
-          </div>
+          <a href="{% url 'clients:facture_client_list' %}" class="btn-ghost">Annuler</a>
           {% endif %}
+          <button type="submit" class="btn-primary"><i class="bx bx-check"></i> {{ action_label }}</button>
         </div>
-      </div>
 
-      {# Notes card #}
-      <div class="form-card" style="animation-delay:.1s;">
-        <div class="form-card__header">
-          <div class="form-card__icon ic-purple"><i class="bx bxs-note"></i></div>
-          <div>
-            <div class="form-card__title">Notes</div>
-            <div class="form-card__sub">Observations sur la facture</div>
-          </div>
-        </div>
-        <div class="field-group">
-          {{ form.notes }}
-        </div>
       </div>
-
     </div>
-
-    {# ── Right column: Totals + Summary ───────────────────────────────── #}
-    <div class="facture-form-side">
-
-      {# Totals preview #}
-      <div class="form-card" style="animation-delay:.08s;">
-        <div class="form-card__header">
-          <div class="form-card__icon ic-amber"><i class="bx bxs-calculator"></i></div>
-          <div>
-            <div class="form-card__title">Aperçu</div>
-            <div class="form-card__sub">Totaux estimés</div>
-          </div>
-        </div>
-
-        <div class="totals-block">
-          <div class="totals-row">
-            <span class="totals-row__label">Total HT</span>
-            <span class="totals-row__value" id="preview-ht">0.00 DZD</span>
-          </div>
-          <div class="totals-row">
-            <span class="totals-row__label">TVA ({{ parametre.tva|default:"19" }}%)</span>
-            <span class="totals-row__value" id="preview-tva">0.00 DZD</span>
-          </div>
-          <div class="totals-row totals-row--grand">
-            <span class="totals-row__label">Total TTC</span>
-            <span class="totals-row__value" id="preview-ttc">0.00 DZD</span>
-          </div>
-        </div>
-      </div>
-
-      {# Client summary #}
-      {% if client_preselect %}
-      <div class="summary-card" style="animation-delay:.1s;" id="client-info-card">
-        <div class="summary-card__title">{{ client_preselect.nom }}</div>
-        <div class="info-row">
-          <span class="info-row__label">Téléphone</span>
-          <span class="info-row__value">{{ client_preselect.telephone|default:"—" }}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-row__label">Adresse</span>
-          <span class="info-row__value">{{ client_preselect.adresse|default:"—" }}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-row__label">Créance</span>
-          <span class="info-row__value" style="{% if client_preselect.depasse_plafond %}color:#dc2626;{% endif %}">
-            {{ client_preselect.creance_globale|floatformat:0 }} DZD
-          </span>
-        </div>
-        <div class="info-row">
-          <span class="info-row__label">Plafond</span>
-          <span class="info-row__value">
-            {% if client_preselect.plafond_credit > 0 %}{{ client_preselect.plafond_credit|floatformat:0 }} DZD{% else %}Sans limite{% endif %}
-          </span>
-        </div>
-      </div>
-      {% endif %}
-
-      {# Non-field errors #}
-      {% if form.non_field_errors %}
-      <div class="error-banner">
-        <i class="bx bxs-error-circle"></i>
-        <div>{% for err in form.non_field_errors %}<div>{{ err }}</div>{% endfor %}</div>
-      </div>
-      {% endif %}
-
-      {# Mobile submit #}
-      <div class="form-actions-mobile">
-        <button type="submit" class="btn-primary" style="width:100%;justify-content:center;">
-          <i class="bx bxs-receipt"></i> Créer la facture
-        </button>
-      </div>
-
-    </div>
-  </div>
-</form>
-
-{% endblock %}
-
-{% block extra_js %}
-<script>
-{# ── BL selection with totals preview ──────────────────────────────────── #}
-const tvaRate = parseFloat("{{ parametre.tva|default:'19' }}") / 100;
-
-function updatePreview() {
-  let totalHT = 0;
-  document.querySelectorAll('.bl-checkbox:checked').forEach(cb => {
-    const row = cb.closest('.bl-select-row');
-    const total = parseFloat(row.dataset.total) || 0;
-    totalHT += total;
-  });
-  const tva = totalHT * tvaRate;
-  const ttc = totalHT + tva;
-  document.getElementById('preview-ht').textContent = totalHT.toLocaleString('fr-FR', {minimumFractionDigits:2}) + ' DZD';
-  document.getElementById('preview-tva').textContent = tva.toLocaleString('fr-FR', {minimumFractionDigits:2}) + ' DZD';
-  document.getElementById('preview-ttc').textContent = ttc.toLocaleString('fr-FR', {minimumFractionDigits:2}) + ' DZD';
-
-  const count = document.querySelectorAll('.bl-checkbox:checked').length;
-  document.getElementById('bl-count').textContent = count + ' BL sélectionné' + (count > 1 ? 's' : '');
-}
-
-// Select all
-document.getElementById('select-all-bls')?.addEventListener('change', function() {
-  document.querySelectorAll('.bl-checkbox').forEach(cb => { cb.checked = this.checked; });
-  updatePreview();
-});
-
-// Individual checkboxes
-document.querySelectorAll('.bl-checkbox').forEach(cb => {
-  cb.addEventListener('change', updatePreview);
-});
-
-// Init
-document.addEventListener('DOMContentLoaded', updatePreview);
-</script>
+  </form>
+</div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-/* ── Layout ───────────────────────────────────────────────────────────── */
-.facture-form-layout {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 20px;
-  align-items: start;
-}
-@media (max-width: 1024px) {
-  .facture-form-layout { grid-template-columns: 1fr; }
-}
-.facture-form-main { display: flex; flex-direction: column; gap: 18px; }
-.facture-form-side { display: flex; flex-direction: column; gap: 16px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 860px) { .form-grid { grid-template-columns: 1fr; } }
+  .form-col { display: flex; flex-direction: column; gap: 18px; }
 
-/* ── Form cards ───────────────────────────────────────────────────────── */
-.form-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 22px 24px;
-  animation: fadeIn .3s ease both;
-}
-.form-card__header {
-  display: flex; align-items: center; gap: 14px;
-  margin-bottom: 20px; padding-bottom: 16px;
-  border-bottom: 1px solid var(--border);
-}
-.form-card__icon {
-  width: 40px; height: 40px; border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px; flex-shrink: 0;
-}
-.ic-green  { background: rgba(34,197,94,.14);  color: #15803d; }
-.ic-blue   { background: rgba(56,189,248,.14); color: #0284c7; }
-.ic-purple { background: rgba(167,139,250,.14);color: #7c3aed; }
-.ic-amber  { background: rgba(245,158,11,.14); color: #b45309; }
-.form-card__title {
-  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
-  color: var(--text-primary); margin-bottom: 2px;
-}
-.form-card__sub { font-size: 12px; color: var(--text-muted); }
+  .form-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .form-card__header { padding: 14px 20px 12px; border-bottom: 1px solid var(--border); }
+  .form-card__body { padding: 20px; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
 
-/* ── Form grid ────────────────────────────────────────────────────────── */
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-@media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
-.field-group--full { grid-column: 1 / -1; }
+  .form-group { margin-bottom: 16px; }
+  .form-group:last-child { margin-bottom: 0; }
+  .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-label { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .03em; margin-bottom: 6px; }
+  .form-required { color: #dc2626; }
+  .form-hint { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
 
-/* ── Field styling ────────────────────────────────────────────────────── */
-.field-group { display: flex; flex-direction: column; gap: 6px; }
-.field-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .03em; }
-.required { color: #dc2626; }
+  .input-wrapper { position: relative; }
+  .input-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; pointer-events: none; transition: color .15s; }
+  .input-wrapper:focus-within .input-icon { color: var(--accent-text); }
+  .input-wrapper input[type="text"],
+  .input-wrapper input[type="date"],
+  .input-wrapper input[type="number"],
+  .input-wrapper select {
+    width: 100%; background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); color: var(--text-primary);
+    font-family: 'Inter', sans-serif; font-size: 13.5px;
+    padding: 10px 12px 10px 40px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .input-wrapper input:focus, .input-wrapper select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none; }
+  .input-wrapper--textarea textarea {
+    width: 100%; background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); color: var(--text-primary);
+    font-family: 'Inter', sans-serif; font-size: 13.5px;
+    padding: 10px 12px; resize: vertical; min-height: 80px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .input-wrapper--textarea textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none; }
 
-input, select, textarea {
-  width: 100%; background: var(--bg-surface);
-  border: 1px solid var(--border); border-radius: var(--radius-md);
-  color: var(--text-primary); font-family: 'Inter', sans-serif;
-  font-size: 13.5px; padding: 11px 13px;
-  transition: border-color .15s, box-shadow .15s; -webkit-appearance: none;
-}
-input:focus, select:focus, textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none;
-}
-textarea { resize: vertical; min-height: 70px; }
+  .bl-checkbox-list { display: flex; flex-direction: column; gap: 8px; }
+  .bl-checkbox-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer; transition: background .12s, border-color .12s; }
+  .bl-checkbox-item:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+  .bl-checkbox-item input[type="checkbox"] { margin-top: 2px; accent-color: var(--accent); width: 15px; height: 15px; flex-shrink: 0; }
+  .bl-checkbox-content { display: flex; flex-direction: column; gap: 2px; }
+  .bl-checkbox-ref { font-size: 13.5px; font-weight: 500; color: var(--text-primary); }
 
-.input-wrapper { position: relative; }
-.input-icon {
-  position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
-  font-size: 15px; color: var(--text-muted); pointer-events: none; z-index: 1;
-}
-.input-wrapper input,
-.input-wrapper select { padding-left: 40px; }
+  .field-error { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #dc2626; margin-top: 5px; }
 
-.field-hint { font-size: 11.5px; color: var(--text-muted); }
-.field-error {
-  display: flex; align-items: center; gap: 5px;
-  font-size: 12px; color: #dc2626;
-}
+  .form-actions-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 16px 20px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
 
-/* ── BL select table ──────────────────────────────────────────────────── */
-.bl-select-table th { white-space: nowrap; }
-.bl-select-row:hover { background: var(--bg-raised); cursor: pointer; }
-.bl-select-row input[type="checkbox"] {
-  width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer;
-}
-
-/* ── Totals ───────────────────────────────────────────────────────────── */
-.totals-block { display: flex; flex-direction: column; gap: 10px; }
-.totals-row {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
-}
-.totals-row:last-child { border-bottom: none; }
-.totals-row--grand {
-  border-top: 2px solid var(--border);
-  margin-top: 4px; padding-top: 12px;
-}
-.totals-row__label { font-size: 13px; color: var(--text-secondary); }
-.totals-row__value {
-  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
-  color: var(--text-primary);
-}
-.totals-row--grand .totals-row__value { font-size: 18px; color: var(--accent-text); }
-
-/* ── Summary card ─────────────────────────────────────────────────────── */
-.summary-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 22px 24px;
-  animation: fadeIn .3s ease both;
-}
-.summary-card__title {
-  font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px;
-  color: var(--text-primary); margin-bottom: 14px; padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
-}
-.info-row {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 6px 0;
-}
-.info-row__label { font-size: 12px; color: var(--text-muted); }
-.info-row__value { font-size: 12.5px; font-weight: 500; color: var(--text-primary); }
-
-.error-banner {
-  display: flex; align-items: flex-start; gap: 10px;
-  background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2);
-  border-radius: var(--radius-md); padding: 12px 16px;
-  font-size: 13px; color: #dc2626;
-}
-.form-actions-mobile { display: none; }
-@media (max-width: 1024px) { .form-actions-mobile { display: block; } }
+  .btn-primary { background: var(--accent); color: #fff; font-family: 'Nunito',sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: var(--radius-md); padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: opacity .18s; text-decoration: none; }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); font-family: 'Nunito',sans-serif; font-weight: 600; font-size: 13px; border-radius: var(--radius-md); padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .12s; text-decoration: none; }
+  .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
 </style>
 {% endblock %}
+
+{% block extra_js %}{% endblock %}

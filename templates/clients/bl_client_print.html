@@ -1,259 +1,216 @@
-{% load static %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>BL {{ bl.reference }} — {{ entreprise.nom }}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BL {{ bl.reference }} — {{ bl.client.nom }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --text-primary: #0e1b13;
-      --text-secondary: #3c4f42;
-      --text-muted: #7b8f81;
-      --border: #dce4df;
-      --accent: #22c55e;
-      --accent-text: #16a34a;
-      --bg-raised: #f7faf8;
-      --bg-surface: #ffffff;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Inter', sans-serif;
-      font-size: 12px; line-height: 1.5;
-      color: var(--text-primary);
-      background: #fff;
-      padding: 40px 50px;
-      max-width: 800px;
-      margin: 0 auto;
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #f4f6f4; font-family: 'Inter', sans-serif; font-size: 13px; color: #111; }
+
+    .no-print { display: block; }
+    .print-preview {
+      max-width: 760px; margin: 32px auto; background: #fff; color: #111;
+      padding: 40px 48px; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,.12);
     }
 
-    /* ── Header ─────────────────────────────────────────────────────────── */
-    .print-header {
-      display: flex; justify-content: space-between; align-items: flex-start;
-      margin-bottom: 32px;
-      padding-bottom: 20px;
-      border-bottom: 2px solid var(--accent);
-    }
-    .print-header__company h1 {
-      font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 22px;
-      color: var(--accent-text); margin-bottom: 6px;
-    }
-    .print-header__company p {
-      font-size: 11px; color: var(--text-secondary); line-height: 1.6;
-    }
-    .print-header__doc {
-      text-align: right;
-    }
-    .print-header__doc h2 {
-      font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 20px;
-      color: var(--accent-text); margin-bottom: 8px;
-    }
-    .print-header__doc p {
-      font-size: 11px; color: var(--text-secondary); line-height: 1.6;
-    }
-    .print-header__doc .text-mono {
-      font-family: 'Courier New', monospace; font-weight: 700; font-size: 13px;
-    }
+    /* Header */
+    .doc-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 32px; padding-bottom: 20px; border-bottom: 2px solid #111; }
+    .doc-brand { display: flex; flex-direction: column; gap: 2px; }
+    .doc-brand-name { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 18px; color: #111; }
+    .doc-brand-sub { font-size: 11.5px; color: #555; }
+    .doc-title-block { text-align: right; }
+    .doc-title { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 22px; color: #111; }
+    .doc-ref { font-size: 13px; color: #555; margin-top: 4px; }
 
-    /* ── Client info ────────────────────────────────────────────────────── */
-    .print-section { margin-bottom: 24px; }
-    .print-section__title {
-      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 12px;
-      text-transform: uppercase; letter-spacing: .06em;
-      color: var(--text-muted); margin-bottom: 10px;
-    }
-    .client-info-block {
-      background: var(--bg-raised);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 14px 18px;
-    }
-    .client-info-block strong {
-      font-family: 'Nunito', sans-serif; font-weight: 800;
-      font-size: 14px; display: block; margin-bottom: 6px;
-    }
-    .client-info-block p {
-      font-size: 11px; color: var(--text-secondary); line-height: 1.5;
-    }
+    /* Info grid */
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 28px; }
+    .info-block { }
+    .info-block-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: #888; margin-bottom: 6px; }
+    .info-block p { font-size: 13px; color: #222; line-height: 1.6; }
+    .info-block strong { font-weight: 600; font-size: 14px; color: #111; }
 
-    /* ── Lines table ────────────────────────────────────────────────────── */
-    .print-table {
-      width: 100%; border-collapse: collapse; margin-top: 8px;
-    }
-    .print-table thead th {
-      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 10.5px;
-      text-transform: uppercase; letter-spacing: .04em;
-      color: var(--text-muted);
-      text-align: left; padding: 8px 10px;
-      border-bottom: 2px solid var(--border);
-      background: var(--bg-raised);
-    }
-    .print-table thead th.numeric { text-align: right; }
-    .print-table tbody td {
-      padding: 10px;
-      border-bottom: 1px solid var(--border);
-      font-size: 11.5px; vertical-align: middle;
-    }
-    .print-table tbody td.numeric {
-      text-align: right; font-family: 'Nunito', sans-serif; font-weight: 600;
-    }
-    .print-table tbody tr:last-child td { border-bottom: 2px solid var(--border); }
+    /* Meta row */
+    .meta-row { display: flex; gap: 28px; background: #f8faf8; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 16px; margin-bottom: 28px; }
+    .meta-item { display: flex; flex-direction: column; gap: 2px; }
+    .meta-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: #888; }
+    .meta-val { font-size: 13px; font-weight: 500; color: #111; }
 
-    /* ── Totals ─────────────────────────────────────────────────────────── */
-    .print-totals {
-      width: 280px; margin-left: auto; margin-top: 16px;
-    }
-    .print-total-row {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 6px 0; font-size: 11.5px;
-    }
-    .print-total-row.grand {
-      border-top: 2px solid var(--accent);
-      margin-top: 6px; padding-top: 10px;
-      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 14px;
-      color: var(--accent-text);
-    }
-    .print-total-row .label { color: var(--text-secondary); }
-    .print-total-row .value {
-      font-family: 'Nunito', sans-serif; font-weight: 700; text-align: right;
-    }
-    .print-total-row.grand .value { font-size: 16px; }
+    /* Lines table */
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-bottom: 24px; }
+    thead th { background: #f3f4f6; padding: 9px 11px; text-align: left; font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: #555; }
+    tbody td { padding: 9px 11px; border-bottom: 1px solid #e5e7eb; color: #222; }
+    tbody tr:last-child td { border-bottom: none; }
+    tfoot td { padding: 10px 11px; border-top: 2px solid #111; font-weight: 700; font-size: 13.5px; background: #f8faf8; }
+    .text-right { text-align: right; }
 
-    /* ── Notes + Signature ──────────────────────────────────────────────── */
-    .print-notes {
-      margin-top: 24px;
-      padding: 12px 16px;
-      background: var(--bg-raised);
-      border-radius: 8px;
-      font-size: 11px; color: var(--text-secondary);
-    }
-    .print-signature {
-      display: flex; justify-content: space-between;
-      margin-top: 48px;
-    }
-    .print-signature__block {
-      width: 200px;
-      text-align: center;
-    }
-    .print-signature__line {
-      border-top: 1px solid var(--border);
-      padding-top: 8px;
-      font-size: 10.5px; color: var(--text-muted);
-      text-transform: uppercase; letter-spacing: .04em;
-    }
+    /* Totals block */
+    .totals-block { display: flex; justify-content: flex-end; margin-bottom: 32px; }
+    .totals-table { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; min-width: 260px; }
+    .totals-row { display: flex; justify-content: space-between; padding: 9px 14px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
+    .totals-row:last-child { border-bottom: none; background: #111; color: #fff; border-radius: 0 0 7px 7px; }
+    .totals-row:last-child span { color: #fff; font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px; }
+    .totals-label { color: #555; }
 
-    /* ── Print adjustments ──────────────────────────────────────────────── */
+    /* Signatures */
+    .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; }
+    .sig-block { }
+    .sig-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: #888; margin-bottom: 50px; }
+    .sig-line { border-bottom: 1px solid #bbb; padding-bottom: 4px; font-size: 12px; color: #555; }
+
+    /* Footer */
+    .doc-footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 11px; color: #aaa; }
+
+    /* No-print toolbar */
+    .no-print-bar { max-width: 760px; margin: 0 auto 16px; display: flex; gap: 10px; justify-content: flex-end; }
+    .btn-print { background: #22c55e; color: #fff; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: 8px; padding: 10px 20px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-back { background: transparent; border: 1px solid #ccc; color: #444; font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px; border-radius: 8px; padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+
     @media print {
-      body { padding: 20px 30px; }
+      body { background: #fff; }
       .no-print { display: none !important; }
+      .print-preview { margin: 0; box-shadow: none; border-radius: 0; padding: 20px 28px; }
+      @page { margin: 1cm; }
     }
   </style>
 </head>
 <body>
 
-  {# ── Print controls ──────────────────────────────────────────────────── #}
-  <div class="no-print" style="text-align:center;margin-bottom:24px;">
-    <button onclick="window.print()" style="padding:10px 24px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;cursor:pointer;">
-      <i class="bx bxs-printer" style="margin-right:6px;"></i> Imprimer
-    </button>
-  </div>
+<div class="no-print no-print-bar">
+  <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="btn-back">← Retour</a>
+  <button class="btn-print" onclick="window.print()">🖨 Imprimer</button>
+</div>
 
-  {# ── Header ──────────────────────────────────────────────────────────── #}
-  <div class="print-header">
-    <div class="print-header__company">
-      <h1>{{ entreprise.nom }}</h1>
-      <p>
-        {% if entreprise.adresse %}{{ entreprise.adresse }}<br>{% endif %}
-        {% if entreprise.telephone %}{{ entreprise.telephone }}{% endif %}
-        {% if entreprise.email %} · {{ entreprise.email }}{% endif %}
-        {% if entreprise.nif %}<br>NIF: {{ entreprise.nif }}{% endif %}
-        {% if entreprise.rc %} · RC: {{ entreprise.rc }}{% endif %}
-      </p>
+<div class="print-preview">
+
+  <!-- Header -->
+  <div class="doc-header">
+    <div class="doc-brand">
+      <div class="doc-brand-name">{{ company.nom|default:"Élevage Avicole" }}</div>
+      {% if company.adresse %}<div class="doc-brand-sub">{{ company.adresse }}</div>{% endif %}
+      {% if company.telephone %}<div class="doc-brand-sub">Tél : {{ company.telephone }}</div>{% endif %}
+      {% if company.nif %}<div class="doc-brand-sub">NIF : {{ company.nif }}</div>{% endif %}
     </div>
-    <div class="print-header__doc">
-      <h2>BON DE LIVRAISON</h2>
-      <p class="text-mono">{{ bl.reference }}</p>
-      <p style="margin-top:6px;">Date : {{ bl.date_bl|date:"d/m/Y" }}</p>
+    <div class="doc-title-block">
+      <div class="doc-title">BON DE LIVRAISON</div>
+      <div class="doc-ref">Réf : {{ bl.reference }}</div>
     </div>
   </div>
 
-  {# ── Client ──────────────────────────────────────────────────────────── #}
-  <div class="print-section">
-    <div class="print-section__title">Client</div>
-    <div class="client-info-block">
-      <strong>{{ bl.client.nom }}</strong>
-      <p>
-        {% if bl.client.adresse %}{{ bl.client.adresse }}<br>{% endif %}
-        {% if bl.client.telephone %}Tél: {{ bl.client.telephone }}{% endif %}
-        {% if bl.client.nif %} · NIF: {{ bl.client.nif }}{% endif %}
-      </p>
+  <!-- Info grid -->
+  <div class="info-grid">
+    <div class="info-block">
+      <div class="info-block-title">Livré à</div>
+      <p><strong>{{ bl.client.nom }}</strong></p>
+      {% if bl.client.adresse %}<p>{{ bl.client.adresse }}</p>{% endif %}
+      {% if bl.client.wilaya %}<p>{{ bl.client.wilaya }}</p>{% endif %}
+      {% if bl.client.telephone %}<p>Tél : {{ bl.client.telephone }}</p>{% endif %}
+      {% if bl.client.nif %}<p>NIF : {{ bl.client.nif }}</p>{% endif %}
+    </div>
+    <div class="info-block" style="text-align:right;">
+      <div class="info-block-title">Adresse de livraison</div>
+      {% if bl.adresse_livraison %}
+      <p style="white-space:pre-line;">{{ bl.adresse_livraison }}</p>
+      {% else %}
+      <p style="color:#aaa;">Identique à l'adresse du client</p>
+      {% endif %}
     </div>
   </div>
 
-  {# ── Lines ───────────────────────────────────────────────────────────── #}
-  <div class="print-section">
-    <div class="print-section__title">Lignes de livraison</div>
-    <table class="print-table">
-      <thead>
-        <tr>
-          <th style="width:30px;">#</th>
-          <th>Produit</th>
-          <th class="numeric">Qté</th>
-          <th class="numeric">PU HT (DZD)</th>
-          <th class="numeric">Total HT</th>
-          <th class="numeric">TVA</th>
-          <th class="numeric">Total TTC</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for l in lignes %}
-        <tr>
-          <td style="color:var(--text-muted);">{{ forloop.counter }}</td>
-          <td><strong>{{ l.produit.nom }}</strong></td>
-          <td class="numeric">{{ l.quantite|floatformat:0 }}</td>
-          <td class="numeric">{{ l.prix_unitaire_ht|floatformat:0 }}</td>
-          <td class="numeric">{{ l.total_ligne_ht|floatformat:0 }}</td>
-          <td class="numeric">{{ l.montant_tva_ligne|floatformat:0 }}</td>
-          <td class="numeric" style="font-weight:700;">{{ l.total_ligne_ttc|floatformat:0 }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <!-- Meta row -->
+  <div class="meta-row">
+    <div class="meta-item">
+      <span class="meta-label">Date BL</span>
+      <span class="meta-val">{{ bl.date_bl|date:"d/m/Y" }}</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Statut</span>
+      <span class="meta-val">{{ bl.get_statut_display }}</span>
+    </div>
+    {% if bl.signe_par %}
+    <div class="meta-item">
+      <span class="meta-label">Signé par</span>
+      <span class="meta-val">{{ bl.signe_par }}</span>
+    </div>
+    {% endif %}
   </div>
 
-  {# ── Totals ──────────────────────────────────────────────────────────── #}
-  <div class="print-totals">
-    <div class="print-total-row">
-      <span class="label">Total HT</span>
-      <span class="value">{{ bl.total_ht|floatformat:0 }} DZD</span>
-    </div>
-    <div class="print-total-row">
-      <span class="label">TVA ({{ parametre.tva|default:"19" }}%)</span>
-      <span class="value">{{ bl.total_tva|floatformat:0 }} DZD</span>
-    </div>
-    <div class="print-total-row grand">
-      <span class="label">Total TTC</span>
-      <span class="value">{{ bl.montant_total|floatformat:0 }} DZD</span>
+  <!-- Lines -->
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Désignation</th>
+        <th class="text-right">Qté</th>
+        <th class="text-right">Prix unitaire (DZD)</th>
+        <th class="text-right">Total (DZD)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ligne in lignes %}
+      <tr>
+        <td style="color:#aaa;">{{ forloop.counter }}</td>
+        <td>
+          <strong>{{ ligne.produit_fini.designation }}</strong>
+          <span style="font-size:11px;color:#888;display:block;">{{ ligne.produit_fini.get_type_produit_display }}</span>
+        </td>
+        <td class="text-right">{{ ligne.quantite|floatformat:2 }} {{ ligne.produit_fini.unite_mesure }}</td>
+        <td class="text-right">{{ ligne.prix_unitaire|floatformat:2 }}</td>
+        <td class="text-right"><strong>{{ ligne.montant_total|floatformat:0 }}</strong></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="4" class="text-right">TOTAL</td>
+        <td class="text-right">{{ montant_total|floatformat:0 }} DZD</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <!-- Totals -->
+  <div class="totals-block">
+    <div class="totals-table">
+      <div class="totals-row">
+        <span class="totals-label">Total HT</span>
+        <span>{{ montant_total|floatformat:0 }} DZD</span>
+      </div>
+      <div class="totals-row">
+        <span class="totals-label">TVA</span>
+        <span>0,00 DZD</span>
+      </div>
+      <div class="totals-row">
+        <span class="totals-label">TOTAL TTC</span>
+        <span>{{ montant_total|floatformat:0 }} DZD</span>
+      </div>
     </div>
   </div>
 
-  {# ── Notes ───────────────────────────────────────────────────────────── #}
   {% if bl.notes %}
-  <div class="print-notes">
-    <strong style="display:block;margin-bottom:4px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);">Notes</strong>
-    {{ bl.notes|linebreaksbr }}
+  <div style="background:#f8faf8;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;margin-bottom:24px;">
+    <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:4px;">Notes</div>
+    <p style="font-size:13px;color:#333;white-space:pre-line;">{{ bl.notes }}</p>
   </div>
   {% endif %}
 
-  {# ── Signature blocks ────────────────────────────────────────────────── #}
-  <div class="print-signature">
-    <div class="print-signature__block">
-      <div class="print-signature__line">Signature client</div>
+  <!-- Signatures -->
+  <div class="signatures">
+    <div class="sig-block">
+      <div class="sig-label">Signature du livreur</div>
+      <div class="sig-line">Nom & signature :</div>
     </div>
-    <div class="print-signature__block">
-      <div class="print-signature__line">Signature & cachet</div>
+    <div class="sig-block">
+      <div class="sig-label">Signature du client (réception)</div>
+      <div class="sig-line">{{ bl.signe_par|default:"Nom & signature :" }}</div>
     </div>
   </div>
 
+  <!-- Footer -->
+  <div class="doc-footer">
+    Document généré par {{ company.nom|default:"Élevage Avicole" }} — {{ bl.date_bl|date:"d/m/Y" }}
+  </div>
+
+</div>
 </body>
 </html>

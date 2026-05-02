@@ -2,321 +2,240 @@
 {% load static %}
 
 {% block title %}Stock Intrants — Élevage Avicole{% endblock %}
+
 {% block nav_stock_intrants %}active{% endblock %}
 
 {% block page_title %}Stock Intrants{% endblock %}
 {% block page_sub_text %}
-  {{ page.paginator.count }} référence{{ page.paginator.count|pluralize }}{% if en_alerte %} · <span style="color:#dc2626;font-weight:600;">Filtre : En alerte</span>{% endif %}
+  {% if en_alerte %}
+    <span style="color:#dc2626;"><i class="bx bxs-bell" style="font-size:12px;"></i> Affichage alertes uniquement</span>
+  {% else %}
+    {{ page.paginator.count }} article{{ page.paginator.count|pluralize }}{% if valeur_totale %} — valeur totale : <strong>{{ valeur_totale|floatformat:0 }} DZD</strong>{% endif %}
+  {% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
-{% if request.user.userprofile %}
-  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'stock:stock_mouvement_list' %}" class="btn-ghost">
+    <i class="bx bx-transfer"></i> Mouvements
+  </a>
+  {% if not request.user.profile.role == 'viewer' %}
   <a href="{% url 'stock:stock_ajustement_create' %}?segment=intrant" class="btn-primary">
     <i class="bx bx-plus"></i> Ajustement
   </a>
   {% endif %}
-{% endif %}
-<a href="{% url 'stock:dashboard' %}" class="btn-ghost">
-  <i class="bx bxs-archive"></i> Tableau de bord
-</a>
 {% endblock %}
 
 {% block content %}
+<div class="page-body">
 
-{# ── Filters ─────────────────────────────────────────────────────────────── #}
-<div class="section-card mb-4">
-  <div class="section-card__body">
-    <form method="get" class="filter-row" id="filter-form">
-      <div class="filter-field" style="flex:2;">
-        <div class="input-wrap">
-          <i class="bx bx-search input-icon"></i>
-          <input type="text" name="q" value="{{ q }}" placeholder="Rechercher un intrant…" class="form-input">
-        </div>
+  <!-- Filters bar -->
+  <div class="filters-bar">
+    <form method="get" action="" class="filters-form" id="filter-form">
+      <div class="search-wrapper">
+        <i class="bx bx-search search-icon"></i>
+        <input type="text" name="q" value="{{ q }}" placeholder="Désignation, catégorie…" class="search-input" autocomplete="off">
       </div>
-      <div class="filter-field">
-        <div class="input-wrap">
-          <i class="bx bxs-filter-alt input-icon"></i>
-          <select name="categorie" class="form-input" id="cat-select">
-            <option value="">Toutes les catégories</option>
-            {% for cat in categories %}
-            <option value="{{ cat.pk }}" {% if categorie_pk == cat.pk|stringformat:"s" %}selected{% endif %}>
-              {{ cat.libelle }}
-            </option>
-            {% endfor %}
-          </select>
-        </div>
-      </div>
-      <div class="filter-field" style="flex:0 0 auto;">
-        <label class="alert-toggle {% if en_alerte %}alert-toggle--active{% endif %}">
-          <input type="checkbox" name="alerte" value="1" {% if en_alerte %}checked{% endif %} id="alerte-chk">
-          <i class="bx bxs-error"></i> En alerte seulement
-        </label>
-      </div>
-      <button type="submit" class="btn-primary" style="flex:0 0 auto;">
-        <i class="bx bxs-filter-alt"></i> Filtrer
-      </button>
-      {% if q or categorie_pk or en_alerte %}
-      <a href="{% url 'stock:stock_intrant_list' %}" class="btn-ghost" style="flex:0 0 auto;">
-        <i class="bx bx-x"></i> Effacer
-      </a>
-      {% endif %}
+      <select name="categorie" class="filter-select" id="filter-categorie">
+        <option value="">Toutes catégories</option>
+        {% for cat in categories %}
+        <option value="{{ cat.pk }}" {% if categorie_pk == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.libelle }}</option>
+        {% endfor %}
+      </select>
+      <label class="alerte-toggle {% if en_alerte %}alerte-toggle--on{% endif %}" id="alerte-toggle-label">
+        <input type="checkbox" name="alerte" value="1" {% if en_alerte %}checked{% endif %} id="filter-alerte">
+        <i class="bx bxs-bell"></i> Alertes seulement
+      </label>
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bxs-filter-alt"></i> Filtrer</button>
     </form>
   </div>
-</div>
 
-{# ── Table ───────────────────────────────────────────────────────────────── #}
-<div class="section-card">
-  {% if page.object_list %}
+  <div class="card">
+    <div class="card-header-row">
+      <div class="section-eyebrow"><i class="bx bxs-archive"></i> Stock Intrants</div>
+      {% if en_alerte %}
+      <span class="pill-danger"><i class="bx bxs-bell"></i> Filtre alertes actif</span>
+      {% endif %}
+    </div>
 
-  {# Valeur totale bar #}
-  {% if valeur_totale is not None %}
-  <div style="padding:14px 20px 0;display:flex;align-items:center;justify-content:flex-end;gap:8px;">
-    <span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;">
-      Valeur totale estimée
-    </span>
-    <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);">
-      {{ valeur_totale|floatformat:0 }} DZD
-    </span>
-  </div>
-  {% endif %}
-
-  <div class="table-responsive">
-    <table class="data-table w-100">
-      <thead>
-        <tr>
-          <th>Intrant</th>
-          <th>Catégorie</th>
-          <th>Unité</th>
-          <th class="text-end">Quantité en stock</th>
-          <th class="text-end">PMP</th>
-          <th class="text-end">Valeur estimée</th>
-          <th class="text-center">Statut</th>
-          <th class="text-center">Seuil d'alerte</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for stock in page.object_list %}
-        <tr class="tbl-row" style="--row-i:{{ forloop.counter0 }};">
-          <td>
-            <a href="{% url 'stock:stock_intrant_detail' stock.pk %}"
-               style="font-weight:600;color:var(--text-primary);text-decoration:none;">
-              {{ stock.intrant.designation }}
-            </a>
-          </td>
-          <td style="color:var(--text-muted);font-size:12px;">{{ stock.intrant.categorie.libelle }}</td>
-          <td style="color:var(--text-muted);font-size:12px;">{{ stock.intrant.unite_mesure }}</td>
-          <td class="text-end">
-            <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;
-              color:{% if stock.en_alerte %}#dc2626{% else %}var(--text-primary){% endif %};">
-              {{ stock.quantite|floatformat:2 }}
-            </span>
-          </td>
-          <td class="text-end" style="font-size:12px;color:var(--text-muted);">
-            {{ stock.prix_moyen_pondere|floatformat:2 }} DZD
-          </td>
-          <td class="text-end" style="font-weight:600;">
-            {{ stock.valeur_stock|floatformat:0 }} DZD
-          </td>
-          <td class="text-center">
-            {% if stock.en_alerte %}
-            <span class="pill-danger"><i class="bx bxs-error"></i> Alerte</span>
-            {% else %}
-            <span class="pill-success"><i class="bx bxs-check-circle"></i> Normal</span>
-            {% endif %}
-          </td>
-          <td class="text-center" style="font-size:12px;color:var(--text-muted);">
-            {{ stock.intrant.seuil_alerte|floatformat:2 }}
-          </td>
-          <td class="text-end">
-            <div style="display:flex;gap:6px;justify-content:flex-end;">
-              <a href="{% url 'stock:stock_intrant_detail' stock.pk %}"
-                 class="tbl-action" title="Fiche de stock">
-                <i class="bx bxs-file-txt"></i>
+    {% if page.object_list %}
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Désignation</th>
+            <th>Catégorie</th>
+            <th>Stock actuel</th>
+            <th>Seuil alerte</th>
+            <th>PMP (DZD)</th>
+            <th>Valeur stock</th>
+            <th>Statut</th>
+            <th>Mise à jour</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in page.object_list %}
+          <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+            <td>
+              <a href="{% url 'stock:stock_intrant_detail' s.pk %}" class="row-link">
+                <span style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ s.intrant.designation }}</span>
               </a>
-              {% if request.user.userprofile %}
-                {% if not request.user.userprofile.role == 'viewer' %}
-                <a href="{% url 'stock:stock_ajustement_create' %}?segment=intrant&intrant={{ stock.intrant.pk }}"
-                   class="tbl-action" title="Ajuster">
+            </td>
+            <td>
+              <span class="pill-cat">{{ s.intrant.categorie.libelle }}</span>
+            </td>
+            <td>
+              <div style="display:flex;align-items:center;gap:7px;">
+                {% if s.en_alerte %}<span class="alert-dot"></span>{% endif %}
+                <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;color:{% if s.en_alerte %}#dc2626{% else %}var(--text-primary){% endif %};">
+                  {{ s.quantite|floatformat:2 }}
+                </span>
+                <span style="font-size:11px;color:var(--text-muted);">{{ s.intrant.unite_mesure }}</span>
+              </div>
+            </td>
+            <td style="color:var(--text-muted);font-size:12.5px;">
+              {{ s.intrant.seuil_alerte|floatformat:2 }} {{ s.intrant.unite_mesure }}
+            </td>
+            <td style="font-family:'Nunito',sans-serif;font-weight:600;color:var(--text-secondary);">
+              {{ s.prix_moyen_pondere|floatformat:2 }}
+            </td>
+            <td style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
+              {{ s.valeur_stock|floatformat:0 }} <span style="font-size:11px;color:var(--text-muted);">DZD</span>
+            </td>
+            <td>
+              {% if s.en_alerte %}
+                <span class="pill-danger"><i class="bx bxs-bell"></i> Seuil</span>
+              {% else %}
+                <span class="pill-success"><i class="bx bxs-check-circle"></i> Normal</span>
+              {% endif %}
+            </td>
+            <td style="font-size:11.5px;color:var(--text-muted);white-space:nowrap;">{{ s.derniere_mise_a_jour|date:"d/m/Y" }}</td>
+            <td>
+              <div class="actions-cell">
+                <a href="{% url 'stock:stock_intrant_detail' s.pk %}" class="action-btn" title="Détail stock">
+                  <i class="bx bx-show"></i>
+                </a>
+                {% if not request.user.profile.role == 'viewer' %}
+                <a href="{% url 'stock:stock_ajustement_create' %}?segment=intrant&intrant={{ s.intrant.pk }}" class="action-btn" title="Ajustement">
                   <i class="bx bxs-pencil"></i>
                 </a>
                 {% endif %}
-              {% endif %}
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-  {# Pagination #}
-  {% if page.has_other_pages %}
-  <div class="pagination-bar">
-    {% if page.has_previous %}
-    <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if categorie_pk %}&categorie={{ categorie_pk }}{% endif %}{% if en_alerte %}&alerte=1{% endif %}"
-       class="page-btn">
-      <i class="bx bx-chevron-left"></i>
-    </a>
-    {% endif %}
-    <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
-    {% if page.has_next %}
-    <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if categorie_pk %}&categorie={{ categorie_pk }}{% endif %}{% if en_alerte %}&alerte=1{% endif %}"
-       class="page-btn">
-      <i class="bx bx-chevron-right"></i>
-    </a>
-    {% endif %}
-  </div>
-  {% endif %}
-
-  {% else %}
-  <div style="text-align:center;padding:56px 20px;color:var(--text-muted);">
-    <i class="bx bxs-archive" style="font-size:36px;display:block;margin-bottom:14px;color:var(--border-strong);"></i>
-    <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
-      Aucun intrant trouvé
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-    <div style="font-size:13px;">
-      {% if q or categorie_pk or en_alerte %}
-        Modifiez vos critères de filtre.
+
+    <!-- Pagination -->
+    {% if page.has_other_pages %}
+    <div class="pagination-bar">
+      {% if page.has_previous %}
+      <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if categorie_pk %}&categorie={{ categorie_pk }}{% endif %}{% if en_alerte %}&alerte=1{% endif %}" class="page-btn" title="Précédent">
+        <i class="bx bx-chevron-left"></i>
+      </a>
       {% else %}
-        Les stocks intrants apparaîtront ici une fois les BL fournisseurs validés.
+      <span class="page-btn page-btn--disabled"><i class="bx bx-chevron-left"></i></span>
+      {% endif %}
+      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}
+      <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if categorie_pk %}&categorie={{ categorie_pk }}{% endif %}{% if en_alerte %}&alerte=1{% endif %}" class="page-btn" title="Suivant">
+        <i class="bx bx-chevron-right"></i>
+      </a>
+      {% else %}
+      <span class="page-btn page-btn--disabled"><i class="bx bx-chevron-right"></i></span>
       {% endif %}
     </div>
-    {% if q or categorie_pk or en_alerte %}
-    <a href="{% url 'stock:stock_intrant_list' %}" class="btn-ghost" style="margin-top:16px;display:inline-flex;">
-      <i class="bx bx-x"></i> Effacer les filtres
-    </a>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bxs-archive empty-state__icon"></i>
+      <div class="empty-state__title">
+        {% if en_alerte %}Aucun intrant en dessous du seuil d'alerte{% else %}Aucun intrant en stock{% endif %}
+      </div>
+      <div class="empty-state__body">
+        {% if q or categorie_pk %}Affinez vos filtres pour voir des résultats.{% else %}Les intrants apparaîtront ici dès leur réception en stock.{% endif %}
+      </div>
+    </div>
     {% endif %}
   </div>
-  {% endif %}
-</div>
 
+</div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.filter-row {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.filter-field { flex: 1; min-width: 160px; }
-.input-wrap { position: relative; }
-.input-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-muted);
-  font-size: 15px;
-  pointer-events: none;
-  transition: color 0.18s;
-}
-.form-input {
-  width: 100%;
-  padding: 10px 13px 10px 38px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  font-family: 'Inter', sans-serif;
-  font-size: 13.5px;
-  transition: border-color 0.18s, box-shadow 0.18s;
-  appearance: none;
-}
-.form-input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-glow);
-  outline: none;
-}
-.form-input:focus + .input-icon,
-.input-wrap:focus-within .input-icon { color: var(--accent-text); }
-.alert-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface);
-  font-size: 13px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: border-color 0.18s, background 0.18s;
-}
-.alert-toggle input { display: none; }
-.alert-toggle--active {
-  border-color: rgba(239,68,68,.4);
-  background: rgba(239,68,68,.06);
-  color: #dc2626;
-  font-weight: 600;
-}
-.tbl-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  text-decoration: none;
-  font-size: 14px;
-  transition: border-color 0.18s, color 0.18s, background 0.18s;
-}
-.tbl-action:hover {
-  border-color: var(--border-strong);
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-.tbl-row {
-  animation: fadeIn 0.3s ease both;
-  animation-delay: calc(var(--row-i) * 35ms);
-}
-.pagination-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 16px;
-  border-top: 1px solid var(--border);
-}
-.page-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  text-decoration: none;
-  font-size: 16px;
-  transition: border-color 0.18s, background 0.18s;
-}
-.page-btn:hover { border-color: var(--border-strong); background: var(--bg-hover); }
-.page-info { font-size: 12px; color: var(--text-muted); }
+  .page-body { padding:28px 32px; }
+  @media(max-width:768px) { .page-body { padding:20px 16px; } }
+
+  .filters-bar { margin-bottom:16px; }
+  .filters-form { display:flex;align-items:center;gap:10px;flex-wrap:wrap; }
+  .search-wrapper { position:relative;flex:1;min-width:200px; }
+  .search-icon { position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;transition:color .15s; }
+  .search-input { width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13.5px;padding:10px 13px 10px 38px;transition:border-color .15s; }
+  .search-input:focus { border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.12);outline:none; }
+  .filter-select { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-secondary);font-family:'Inter',sans-serif;font-size:13px;padding:9px 12px;cursor:pointer;transition:border-color .15s; }
+  .filter-select:focus { border-color:var(--accent);outline:none; }
+  .alerte-toggle { display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--bg-surface);color:var(--text-muted);font-family:'Inter',sans-serif;font-size:13px;cursor:pointer;transition:all .15s;user-select:none; }
+  .alerte-toggle input { display:none; }
+  .alerte-toggle--on { background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.28);color:#dc2626; }
+  .btn-sm { padding:8px 14px;font-size:12.5px; }
+
+  .card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden; }
+  .card-header-row { padding:14px 20px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between; }
+  .section-eyebrow { font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted); }
+
+  .table-wrapper { overflow-x:auto; }
+  .data-table { width:100%;border-collapse:collapse; }
+  .data-table thead th { font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);padding:11px 14px;border-bottom:1px solid var(--border);background:var(--bg-surface);white-space:nowrap; }
+  .data-table tbody tr { border-bottom:1px solid var(--border);animation:fadeIn .3s ease both;animation-delay:calc(var(--row-i,0)*35ms);transition:background .12s; }
+  .data-table tbody tr:last-child { border-bottom:none; }
+  .data-table tbody tr:hover { background:var(--bg-hover); }
+  .data-table td { padding:13px 14px;font-size:13px;color:var(--text-secondary);vertical-align:middle; }
+  .row-link { text-decoration:none; }
+  .row-link:hover span { color:var(--accent-text) !important; }
+
+  .pill-cat    { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(99,102,241,.12);color:#4338ca; }
+  .pill-success{ display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(34,197,94,.14);color:#15803d; }
+  .pill-danger { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(239,68,68,.10);color:#dc2626; }
+  .alert-dot { display:inline-block;width:7px;height:7px;border-radius:50%;background:#dc2626;flex-shrink:0;box-shadow:0 0 0 2px rgba(239,68,68,.2); }
+
+  .actions-cell { display:flex;align-items:center;justify-content:flex-end;gap:4px; }
+  .action-btn { display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:14px;cursor:pointer;transition:background .12s,color .12s;text-decoration:none; }
+  .action-btn:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+
+  .pagination-bar { display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;border-top:1px solid var(--border); }
+  .page-btn { display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-surface);color:var(--text-secondary);font-size:15px;text-decoration:none;transition:background .12s,color .12s; }
+  .page-btn:hover { background:var(--bg-hover);color:var(--text-primary); }
+  .page-btn--disabled { opacity:.4;pointer-events:none; }
+  .page-info { font-size:12.5px;color:var(--text-muted); }
+
+  .empty-state { text-align:center;padding:48px 20px;color:var(--text-muted); }
+  .empty-state__icon { font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong); }
+  .empty-state__title { font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px; }
+  .empty-state__body { font-size:13px; }
+
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  /* Category select auto-submit */
-  var catSelect = document.getElementById('cat-select');
-  if (catSelect) {
-    catSelect.addEventListener('change', function () {
-      document.getElementById('filter-form').submit();
-    });
+  var filterForm = document.getElementById('filter-form');
+  var categorieSelect = document.getElementById('filter-categorie');
+  if (categorieSelect) {
+    categorieSelect.addEventListener('change', function () { filterForm.submit(); });
   }
-  /* Alert toggle checkbox auto-submit */
-  var alertChk = document.getElementById('alerte-chk');
-  if (alertChk) {
-    alertChk.addEventListener('change', function () {
-      document.getElementById('filter-form').submit();
+  var alerteLabel = document.getElementById('alerte-toggle-label');
+  if (alerteLabel) {
+    alerteLabel.addEventListener('click', function () {
+      setTimeout(function () { filterForm.submit(); }, 10);
     });
   }
 });

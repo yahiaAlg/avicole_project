@@ -1,390 +1,402 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}Tableau de bord — Clients — Élevage Avicole{% endblock %}
+
 {% block nav_clients %}active{% endblock %}
 
-{% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{{ nb_clients_actifs }} client{{ nb_clients_actifs|pluralize:"s" }} actif{{ nb_clients_actifs|pluralize:"s" }} · {% now "d/m/Y" %}{% endblock %}
+{% block page_title %}Tableau de bord Clients{% endblock %}
+{% block page_sub_text %}{{ nb_clients_actifs }} client{{ nb_clients_actifs|pluralize }} actif{{ nb_clients_actifs|pluralize }}{% endblock %}
 
 {% block topbar_actions %}
-{% if not request.user.profile.role == 'viewer' %}
-<a href="{% url 'clients:client_create' %}" class="btn-primary">
-  <i class="bx bx-plus"></i> Nouveau client
-</a>
-{% endif %}
-<a href="{% url 'clients:bl_client_create' %}" class="btn-ghost">
-  <i class="bx bx-link-external"></i> Nouveau BL
-</a>
+  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'clients:client_create' %}" class="btn-primary">
+    <i class="bx bx-plus"></i> Nouveau client
+  </a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
+<div class="page-body">
 
-{# ── KPI Metric Cards ──────────────────────────────────────────────────── #}
-<div class="row g-3 mb-4">
-
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-blue"><i class="bx bxs-receipt"></i></div>
-      <div class="metric-label">Créances clients</div>
-      <div class="metric-value sm">{{ total_creances|floatformat:0 }} DZD</div>
-      {% if nb_factures_retard > 0 %}
-      <span class="metric-delta down">
-        <i class="bx bxs-error"></i> {{ nb_factures_retard }} facture{{ nb_factures_retard|pluralize:"s"}} en retard
-      </span>
-      {% else %}
-      <span class="metric-delta up">
-        <i class="bx bxs-check-circle"></i> Aucun retard
-      </span>
-      {% endif %}
+  <!-- KPI Row -->
+  <div class="kpi-row">
+    <div class="kpi-card {% if total_creances > 0 %}kpi-card--warn{% endif %}">
+      <div class="kpi-icon ic-amber"><i class="bx bx-hourglass"></i></div>
+      <div class="kpi-card__label">Créances totales</div>
+      <div class="kpi-card__value">{{ total_creances|floatformat:0 }} <span class="kpi-currency">DZD</span></div>
+      <div class="kpi-card__sub">Factures non réglées</div>
+    </div>
+    <div class="kpi-card {% if nb_factures_retard > 0 %}kpi-card--danger{% endif %}">
+      <div class="kpi-icon ic-red"><i class="bx bxs-error"></i></div>
+      <div class="kpi-card__label">Factures en retard</div>
+      <div class="kpi-card__value">{{ nb_factures_retard }}</div>
+      <div class="kpi-card__sub">Échéance dépassée</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon ic-blue"><i class="bx bx-link-external"></i></div>
+      <div class="kpi-card__label">BLs non facturés</div>
+      <div class="kpi-card__value">{{ bls_non_factures|length }}</div>
+      <div class="kpi-card__sub">En attente de facturation</div>
+    </div>
+    <div class="kpi-card {% if clients_hors_plafond %}kpi-card--warn{% endif %}">
+      <div class="kpi-icon ic-purple"><i class="bx bxs-group"></i></div>
+      <div class="kpi-card__label">Hors plafond</div>
+      <div class="kpi-card__value">{{ clients_hors_plafond|length }}</div>
+      <div class="kpi-card__sub">Client{{ clients_hors_plafond|length|pluralize }} avec crédit dépassé</div>
     </div>
   </div>
 
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-green"><i class="bx bxs-group"></i></div>
-      <div class="metric-label">Clients actifs</div>
-      <div class="metric-value">{{ nb_clients_actifs }}</div>
-      {% if clients_hors_plafond %}
-      <span class="metric-delta warn">
-        <i class="bx bxs-error"></i> {{ clients_hors_plafond|length }} plafond dépassé
-      </span>
-      {% else %}
-      <span class="metric-delta neutral">
-        <i class="bx bx-minus"></i> Plafonds OK
-      </span>
-      {% endif %}
-    </div>
-  </div>
+  <div class="dash-grid">
 
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-amber"><i class="bx bx-link-external"></i></div>
-      <div class="metric-label">BLs non facturés</div>
-      <div class="metric-value">{{ bls_non_factures|length }}</div>
-      <span class="metric-delta warn">
-        <i class="bx bxs-error"></i> En attente de facturation
-      </span>
-    </div>
-  </div>
+    <!-- Left column -->
+    <div class="dash-col">
 
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-purple"><i class="bx bxs-credit-card"></i></div>
-      <div class="metric-label">Paiements récents</div>
-      <div class="metric-value">{{ paiements_recents|length }}</div>
-      <span class="metric-delta neutral">
-        <i class="bx bxs-calendar"></i> Derniers 10 enregistrés
-      </span>
-    </div>
-  </div>
-
-</div>
-
-{# ── Main row: Aging chart + BLs non facturés ──────────────────────────── #}
-<div class="row g-3 mb-4">
-
-  {# Aging bucket chart #}
-  <div class="col-xl-8">
-    <div class="section-card h-100">
-      <div class="section-card__head">
-        <span class="section-card__title">
-          <i class="bx bxs-bar-chart-alt-2" style="color:var(--accent);margin-right:8px;"></i>Ancienneté des créances
-        </span>
-        <span style="font-size:11px;color:var(--text-muted);">Par client · en DZD</span>
-      </div>
-      <div class="section-card__body">
-        {% if aging_buckets %}
-        <div style="overflow-x:auto;">
-          <table class="table-base aging-table">
+      <!-- BLs non facturés alert -->
+      {% if bls_non_factures %}
+      <div class="dash-card">
+        <div class="dash-card__header">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span class="section-eyebrow"><i class="bx bx-link-external"></i> BLs Livrés — En attente de facturation</span>
+            <a href="{% url 'clients:bl_client_list' %}?statut=livre" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">Voir tous <i class="bx bx-right-arrow-alt"></i></a>
+          </div>
+        </div>
+        <div class="table-wrapper" style="max-height:260px;overflow-y:auto;">
+          <table class="data-table">
             <thead>
               <tr>
+                <th>Référence</th>
                 <th>Client</th>
-                <th style="text-align:right;color:#15803d;">À jour</th>
-                <th style="text-align:right;color:#b45309;">1-30j</th>
-                <th style="text-align:right;color:#b45309;">31-60j</th>
-                <th style="text-align:right;color:#dc2626;">61-90j</th>
-                <th style="text-align:right;color:#dc2626;">>90j</th>
+                <th>Date</th>
                 <th style="text-align:right;">Total</th>
               </tr>
             </thead>
             <tbody>
-              {% for bucket in aging_buckets %}
-              <tr class="stagger-row">
+              {% for bl in bls_non_factures %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td><a href="{% url 'clients:bl_client_detail' bl.pk %}" class="row-link" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ bl.reference }}</a></td>
+                <td><a href="{% url 'clients:client_detail' bl.client.pk %}" style="color:var(--text-secondary);text-decoration:none;">{{ bl.client.nom }}</a></td>
+                <td style="color:var(--text-muted);font-size:12px;">{{ bl.date_bl|date:"d/m/Y" }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ bl.montant_total|floatformat:0 }} DZD</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if not request.user.userprofile.role == 'viewer' %}
+        <div style="padding:12px 16px;border-top:1px solid var(--border);">
+          <a href="{% url 'clients:facture_client_create' %}" class="btn-primary" style="font-size:13px;padding:8px 14px;">
+            <i class="bx bxs-receipt"></i> Créer une facture
+          </a>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <!-- Récents BLs -->
+      <div class="dash-card">
+        <div class="dash-card__header">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span class="section-eyebrow"><i class="bx bx-link-external"></i> BL Clients récents</span>
+            <a href="{% url 'clients:bl_client_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">Voir tout <i class="bx bx-right-arrow-alt"></i></a>
+          </div>
+        </div>
+        {% if bls_recents %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Référence</th>
+                <th>Client</th>
+                <th>Date</th>
+                <th>Statut</th>
+                <th style="text-align:right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for bl in bls_recents %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td><a href="{% url 'clients:bl_client_detail' bl.pk %}" class="row-link" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ bl.reference }}</a></td>
+                <td style="color:var(--text-secondary);">{{ bl.client.nom }}</td>
+                <td style="color:var(--text-muted);font-size:12px;">{{ bl.date_bl|date:"d/m/Y" }}</td>
                 <td>
-                  <a href="{% url 'clients:client_detail' bucket.client.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
-                    {{ bucket.client.nom }}
-                  </a>
+                  {% if bl.statut == 'brouillon' %}<span class="pill-warning">Brouillon</span>
+                  {% elif bl.statut == 'livre' %}<span class="pill-info">Livré</span>
+                  {% elif bl.statut == 'facture' %}<span class="pill-success">Facturé</span>
+                  {% elif bl.statut == 'litige' %}<span class="pill-danger">Litige</span>
+                  {% endif %}
                 </td>
-                <td style="text-align:right;">{{ bucket.current|floatformat:0 }}</td>
-                <td style="text-align:right;">{{ bucket.1_30|floatformat:0 }}</td>
-                <td style="text-align:right;">{{ bucket.31_60|floatformat:0 }}</td>
-                <td style="text-align:right;">{{ bucket.61_90|floatformat:0 }}</td>
-                <td style="text-align:right;">{{ bucket.over_90|floatformat:0 }}</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ bucket.total|floatformat:0 }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ bl.montant_total|floatformat:0 }} DZD</td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
         {% else %}
-        <div class="empty-state">
-          <i class="bx bxs-check-circle empty-state__icon" style="color:var(--accent);"></i>
-          <div class="empty-state__title">Aucune créance en cours</div>
-          <div class="empty-state__text">Toutes les factures clients sont soldées.</div>
+        <div style="text-align:center;padding:32px 20px;color:var(--text-muted);">
+          <i class="bx bx-link-external" style="font-size:28px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
+          <div style="font-size:13px;">Aucun BL client enregistré.</div>
         </div>
         {% endif %}
       </div>
-    </div>
-  </div>
 
-  {# Clients hors plafond + alertes #}
-  <div class="col-xl-4">
-    <div class="section-card h-100">
-      <div class="section-card__head">
-        <span class="section-card__title">
-          <i class="bx bxs-error" style="color:#b45309;margin-right:8px;"></i>Alertes crédit
-        </span>
-        {% if clients_hors_plafond %}
-        <span class="pill-base pill-danger">{{ clients_hors_plafond|length }}</span>
-        {% endif %}
+      <!-- Clients hors plafond -->
+      {% if clients_hors_plafond %}
+      <div class="dash-card dash-card--warn">
+        <div class="dash-card__header">
+          <span class="section-eyebrow" style="color:#b45309;"><i class="bx bxs-error"></i> Clients — Plafond de crédit dépassé</span>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th style="text-align:right;">Créance</th>
+                <th style="text-align:right;">Plafond</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in clients_hors_plafond %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td><a href="{% url 'clients:client_detail' c.pk %}" class="row-link" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ c.nom }}</a></td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;">{{ c.creance_globale|floatformat:0 }} DZD</td>
+                <td style="text-align:right;color:var(--text-muted);font-size:12px;">{{ c.plafond_credit|floatformat:0 }} DZD</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div class="section-card__body no-pad">
-        {% if clients_hors_plafond %}
-        {% for cli in clients_hors_plafond %}
-        <a href="{% url 'clients:client_detail' cli.pk %}" class="alert-item-row">
-          <div class="alert-item-icon ic-red"><i class="bx bxs-error"></i></div>
-          <div class="alert-item-text">
-            <div class="alert-item-label">{{ cli.nom }}</div>
-            <div class="alert-item-sub">Plafond {{ cli.plafond_credit|floatformat:0 }} DZD dépassé</div>
-          </div>
-          <span class="pill-base pill-danger">{{ cli.creance_globale|floatformat:0 }} DZD</span>
-        </a>
-        {% endfor %}
+      {% endif %}
+
+    </div>
+
+    <!-- Right column -->
+    <div class="dash-col">
+
+      <!-- Aging buckets -->
+      <div class="dash-card">
+        <div class="dash-card__header">
+          <span class="section-eyebrow"><i class="bx bx-hourglass"></i> Ancienneté des créances</span>
+        </div>
+        {% if aging_buckets %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th style="text-align:right;">Courant</th>
+                <th style="text-align:right;">1–30j</th>
+                <th style="text-align:right;">31–60j</th>
+                <th style="text-align:right;">&gt;60j</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for b in aging_buckets %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td><a href="{% url 'clients:client_detail' b.client.pk %}" class="row-link" style="font-weight:600;color:var(--text-primary);">{{ b.client.nom }}</a></td>
+                <td style="text-align:right;font-size:12.5px;">{% if b.current > 0 %}{{ b.current|floatformat:0 }}{% else %}—{% endif %}</td>
+                <td style="text-align:right;font-size:12.5px;{% if b.1_30 > 0 %}color:#b45309;{% endif %}">{% if b.1_30 > 0 %}{{ b.1_30|floatformat:0 }}{% else %}—{% endif %}</td>
+                <td style="text-align:right;font-size:12.5px;{% if b.31_60 > 0 %}color:#dc2626;{% endif %}">{% if b.31_60 > 0 %}{{ b.31_60|floatformat:0 }}{% else %}—{% endif %}</td>
+                <td style="text-align:right;font-size:12.5px;{% if b.over_90 > 0 or b.61_90 > 0 %}color:#dc2626;font-weight:700;{% endif %}">
+                  {% with over=b.over_90|add:b.61_90 %}{% if over > 0 %}{{ b.61_90|floatformat:0 }}{% else %}—{% endif %}{% endwith %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
         {% else %}
-        <div class="empty-state" style="padding:36px 20px;">
-          <i class="bx bxs-check-circle empty-state__icon" style="color:var(--accent);"></i>
-          <div class="empty-state__title">Plafonds respectés</div>
-          <div class="empty-state__text">Aucun client ne dépasse son plafond de crédit.</div>
+        <div style="text-align:center;padding:32px 20px;color:var(--text-muted);">
+          <i class="bx bxs-check-circle" style="font-size:28px;display:block;margin-bottom:8px;color:var(--accent);"></i>
+          <div style="font-size:13px;">Aucune créance en cours — Excellent !</div>
         </div>
         {% endif %}
       </div>
+
+      <!-- Paiements récents -->
+      <div class="dash-card">
+        <div class="dash-card__header">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span class="section-eyebrow"><i class="bx bxs-credit-card"></i> Paiements récents</span>
+            <a href="{% url 'clients:paiement_client_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">Voir tout <i class="bx bx-right-arrow-alt"></i></a>
+          </div>
+        </div>
+        {% if paiements_recents %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Date</th>
+                <th>Mode</th>
+                <th style="text-align:right;">Montant</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in paiements_recents %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td><a href="{% url 'clients:paiement_client_detail' p.pk %}" class="row-link" style="font-weight:600;color:var(--text-primary);">{{ p.client.nom }}</a></td>
+                <td style="color:var(--text-muted);font-size:12px;">{{ p.date_paiement|date:"d/m/Y" }}</td>
+                <td style="font-size:12px;color:var(--text-secondary);">{{ p.get_mode_paiement_display }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">+{{ p.montant|floatformat:0 }} DZD</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:32px 20px;color:var(--text-muted);">
+          <div style="font-size:13px;">Aucun paiement enregistré.</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Quick links -->
+      <div class="dash-card">
+        <div class="dash-card__header">
+          <span class="section-eyebrow">Accès rapide</span>
+        </div>
+        <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <a href="{% url 'clients:client_list' %}" class="quick-link">
+            <i class="bx bxs-group"></i> Clients
+          </a>
+          <a href="{% url 'clients:bl_client_list' %}" class="quick-link">
+            <i class="bx bx-link-external"></i> BL Clients
+          </a>
+          <a href="{% url 'clients:facture_client_list' %}" class="quick-link">
+            <i class="bx bxs-receipt"></i> Factures
+          </a>
+          <a href="{% url 'clients:paiement_client_list' %}" class="quick-link">
+            <i class="bx bxs-credit-card"></i> Paiements
+          </a>
+        </div>
+      </div>
+
     </div>
   </div>
 
 </div>
-
-{# ── BL Clients récents ────────────────────────────────────────────────── #}
-<div class="section-card mb-4">
-  <div class="section-card__head">
-    <span class="section-card__title">
-      <i class="bx bx-link-external" style="color:var(--text-muted);margin-right:8px;"></i>BL Clients récents
-    </span>
-    <a href="{% url 'clients:bl_client_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
-      Voir tout <i class="bx bx-right-arrow-alt"></i>
-    </a>
-  </div>
-  <div class="section-card__body no-pad">
-    {% if bls_recents %}
-    <table class="table-base">
-      <thead>
-        <tr>
-          <th>Référence</th>
-          <th>Client</th>
-          <th>Date</th>
-          <th>Statut</th>
-          <th style="text-align:right;">Montant</th>
-          <th style="text-align:right;">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for bl in bls_recents %}
-        <tr class="stagger-row">
-          <td>
-            <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="text-mono" style="font-weight:600;color:var(--text-primary);">
-              {{ bl.reference }}
-            </a>
-          </td>
-          <td>{{ bl.client.nom }}</td>
-          <td style="color:var(--text-muted);white-space:nowrap;">{{ bl.date_bl|date:"d/m/Y" }}</td>
-          <td>
-            {% if bl.statut == 'brouillon' %}
-            <span class="pill-base pill-warning">Brouillon</span>
-            {% elif bl.statut == 'livre' %}
-            <span class="pill-base pill-info">Livré</span>
-            {% elif bl.statut == 'facture' %}
-            <span class="pill-base pill-success">Facturé</span>
-            {% else %}
-            <span class="pill-base pill-danger">En Litige</span>
-            {% endif %}
-          </td>
-          <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ bl.montant_total|floatformat:0 }} DZD</td>
-          <td style="text-align:right;">
-            <div style="display:flex;justify-content:flex-end;gap:4px;">
-              <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="action-btn" title="Détail">
-                <i class="bx bx-show"></i>
-              </a>
-              {% if bl.statut == 'livre' or bl.statut == 'facture' %}
-              <a href="{% url 'clients:bl_client_print' bl.pk %}" class="action-btn" title="Imprimer" target="_blank">
-                <i class="bx bxs-printer"></i>
-              </a>
-              {% endif %}
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <div class="empty-state">
-      <i class="bx bx-link-external empty-state__icon"></i>
-      <div class="empty-state__title">Aucun BL enregistré</div>
-      <div class="empty-state__text">Les BL clients apparaîtront ici.</div>
-    </div>
-    {% endif %}
-  </div>
-</div>
-
-{# ── BLs non facturés (alert panel) ────────────────────────────────────── #}
-{% if bls_non_factures %}
-<div class="section-card mb-4">
-  <div class="section-card__head" style="background:rgba(245,158,11,.06);">
-    <span class="section-card__title">
-      <i class="bx bxs-error" style="color:#b45309;margin-right:8px;"></i>BLs en attente de facturation
-    </span>
-    <a href="{% url 'clients:facture_client_create' %}" class="btn-primary btn-sm">
-      <i class="bx bxs-receipt"></i> Facturer
-    </a>
-  </div>
-  <div class="section-card__body no-pad">
-    <table class="table-base">
-      <thead>
-        <tr>
-          <th>Référence</th>
-          <th>Client</th>
-          <th>Date</th>
-          <th style="text-align:right;">Montant</th>
-          <th style="text-align:right;">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for bl in bls_non_factures %}
-        <tr class="stagger-row">
-          <td>
-            <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="text-mono" style="font-weight:600;color:var(--text-primary);">
-              {{ bl.reference }}
-            </a>
-          </td>
-          <td>{{ bl.client.nom }}</td>
-          <td style="color:var(--text-muted);white-space:nowrap;">{{ bl.date_bl|date:"d/m/Y" }}</td>
-          <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ bl.montant_total|floatformat:0 }} DZD</td>
-          <td style="text-align:right;">
-            <a href="{% url 'clients:facture_client_create_for_client' bl.client.pk %}" class="action-btn success" title="Facturer ce client">
-              <i class="bx bxs-receipt"></i>
-            </a>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-{% endif %}
-
-{# ── Paiements récents ─────────────────────────────────────────────────── #}
-<div class="section-card">
-  <div class="section-card__head">
-    <span class="section-card__title">
-      <i class="bx bxs-credit-card" style="color:var(--text-muted);margin-right:8px;"></i>Paiements récents
-    </span>
-    <a href="{% url 'clients:paiement_client_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
-      Voir tout <i class="bx bx-right-arrow-alt"></i>
-    </a>
-  </div>
-  <div class="section-card__body no-pad">
-    {% if paiements_recents %}
-    <table class="table-base">
-      <thead>
-        <tr>
-          <th>Client</th>
-          <th>Date</th>
-          <th>Mode</th>
-          <th style="text-align:right;">Montant</th>
-          <th style="text-align:right;">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for p in paiements_recents %}
-        <tr class="stagger-row">
-          <td>
-            <a href="{% url 'clients:client_detail' p.client.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
-              {{ p.client.nom }}
-            </a>
-          </td>
-          <td style="color:var(--text-muted);white-space:nowrap;">{{ p.date_paiement|date:"d/m/Y" }}</td>
-          <td>{{ p.get_mode_paiement_display }}</td>
-          <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">{{ p.montant|floatformat:0 }} DZD</td>
-          <td style="text-align:right;">
-            <div style="display:flex;justify-content:flex-end;gap:4px;">
-              <a href="{% url 'clients:paiement_client_detail' p.pk %}" class="action-btn" title="Détail">
-                <i class="bx bx-show"></i>
-              </a>
-              <a href="{% url 'clients:paiement_client_print' p.pk %}" class="action-btn" title="Imprimer" target="_blank">
-                <i class="bx bxs-printer"></i>
-              </a>
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <div class="empty-state">
-      <i class="bx bxs-credit-card empty-state__icon"></i>
-      <div class="empty-state__title">Aucun paiement enregistré</div>
-      <div class="empty-state__text">Les paiements clients apparaîtront ici.</div>
-    </div>
-    {% endif %}
-  </div>
-</div>
-
 {% endblock %}
 
 {% block extra_css %}
 <style>
-/* ── Aging table enhancements ─────────────────────────────────────────── */
-.agering-table th { white-space: nowrap; }
-.agering-table td { font-size: 12.5px; }
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 1100px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 640px) { .kpi-row { grid-template-columns: 1fr; } }
 
-/* ── Alert item rows (shared with dashboard pattern) ──────────────────── */
-.alert-item-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 13px 18px;
-  border-bottom: 1px solid var(--border);
-  text-decoration: none; color: inherit;
-  transition: background 0.12s;
-}
-.alert-item-row:last-child { border-bottom: none; }
-.alert-item-row:hover { background: var(--bg-raised); }
-.alert-item-icon {
-  width: 36px; height: 36px; border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px; flex-shrink: 0;
-}
-.alert-item-text { flex: 1; min-width: 0; }
-.alert-item-label {
-  font-size: 12.5px; font-weight: 500;
-  color: var(--text-secondary);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.alert-item-sub {
-  font-size: 11px; color: var(--text-muted); margin-top: 2px;
-}
+  .kpi-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    animation: fadeIn .3s ease both;
+  }
+  .kpi-card--danger { border-color: rgba(239,68,68,.25); background: rgba(239,68,68,.03); }
+  .kpi-card--warn  { border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.03); }
+  .kpi-icon {
+    width: 40px; height: 40px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; margin-bottom: 4px;
+  }
+  .ic-amber { background: rgba(245,158,11,.14); color: #b45309; }
+  .ic-red   { background: rgba(239,68,68,.12);  color: #dc2626; }
+  .ic-blue  { background: rgba(56,189,248,.14); color: #0284c7; }
+  .ic-purple{ background: rgba(167,139,250,.14);color: #7c3aed; }
+  .kpi-card__label { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+  .kpi-card__value { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 24px; color: var(--text-primary); line-height: 1; }
+  .kpi-currency    { font-size: 14px; font-weight: 600; color: var(--text-muted); }
+  .kpi-card__sub   { font-size: 11.5px; color: var(--text-muted); }
 
-/* ── Action button variants ───────────────────────────────────────────── */
-.action-btn.success:hover { background: var(--success-bg); border-color: rgba(34,197,94,.3); color: #15803d; }
+  .dash-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    align-items: start;
+  }
+  @media (max-width: 960px) { .dash-grid { grid-template-columns: 1fr; } }
+  .dash-col { display: flex; flex-direction: column; gap: 18px; }
 
-/* ── Section card full height utility ─────────────────────────────────── */
-.h-100 { height: 100%; }
+  .dash-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    animation: fadeIn .3s ease both;
+  }
+  .dash-card--warn { border-color: rgba(245,158,11,.25); }
+  .dash-card__header { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+
+  .section-eyebrow {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text-muted);
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .quick-link {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg-base); border: 1px solid var(--border);
+    border-radius: var(--radius-md); padding: 10px 14px;
+    font-size: 13px; font-weight: 600; color: var(--text-secondary);
+    text-decoration: none; transition: all .15s;
+  }
+  .quick-link:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--accent-text); }
+  .quick-link i { font-size: 15px; }
+
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th {
+    padding: 10px 14px; font-size: 10.5px; font-weight: 600;
+    letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted);
+    border-bottom: 1px solid var(--border); text-align: left;
+  }
+  .data-table tbody td { padding: 11px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .table-row { animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i) * 35ms); }
+  .table-row:hover td { background: var(--bg-hover); }
+  .row-link { text-decoration: none; }
+  .row-link:hover { text-decoration: underline; }
+
+  .pill-success, .pill-warning, .pill-danger, .pill-info, .pill-neutral {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 9px; border-radius: 20px;
+    font-size: 11px; font-weight: 500; font-family: 'Inter', sans-serif;
+  }
+  .pill-success { background: rgba(34,197,94,.14);  color: #15803d; }
+  .pill-danger  { background: rgba(239,68,68,.10);  color: #dc2626; }
+  .pill-warning { background: rgba(245,158,11,.14); color: #b45309; }
+  .pill-info    { background: rgba(56,189,248,.14); color: #0284c7; }
+  .pill-neutral { background: rgba(0,0,0,.06);      color: var(--text-secondary); }
+
+  .btn-primary {
+    background: var(--accent); color: #fff; font-family: 'Nunito', sans-serif;
+    font-weight: 700; font-size: 13.5px; border: none; border-radius: var(--radius-md);
+    padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center;
+    gap: 6px; transition: opacity .18s; text-decoration: none;
+  }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+    font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px;
+    border-radius: var(--radius-md); padding: 9px 16px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s, border-color .12s; text-decoration: none;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
 </style>
 {% endblock %}
+
+{% block extra_js %}{% endblock %}

@@ -1,319 +1,236 @@
-{% load static %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Reçu Paiement #{{ paiement.pk }} — {{ entreprise.nom }}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reçu de paiement — {{ paiement.client.nom }} — {{ paiement.date_paiement|date:"d/m/Y" }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --text-primary: #0e1b13;
-      --text-secondary: #3c4f42;
-      --text-muted: #7b8f81;
-      --border: #dce4df;
-      --accent: #22c55e;
-      --accent-text: #16a34a;
-      --bg-raised: #f7faf8;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Inter', sans-serif;
-      font-size: 12px; line-height: 1.5;
-      color: var(--text-primary);
-      background: #fff;
-      padding: 40px 50px;
-      max-width: 800px;
-      margin: 0 auto;
-    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #f4f6f4; font-family: 'Inter', sans-serif; font-size: 13px; color: #111; }
 
-    /* ── Header ─────────────────────────────────────────────────────────── */
-    .print-header {
-      display: flex; justify-content: space-between; align-items: flex-start;
-      margin-bottom: 32px;
-      padding-bottom: 20px;
-      border-bottom: 2px solid var(--accent);
-    }
-    .print-header__company h1 {
-      font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 22px;
-      color: var(--accent-text); margin-bottom: 6px;
-    }
-    .print-header__company p {
-      font-size: 11px; color: var(--text-secondary); line-height: 1.6;
-    }
-    .print-header__doc { text-align: right; }
-    .print-header__doc h2 {
-      font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 20px;
-      color: var(--accent-text); margin-bottom: 8px;
-    }
-    .print-header__doc p {
-      font-size: 11px; color: var(--text-secondary); line-height: 1.6;
-    }
+    .no-print-bar { max-width: 680px; margin: 0 auto 16px; display: flex; gap: 10px; justify-content: flex-end; padding-top: 24px; }
+    .btn-print { background: #22c55e; color: #fff; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: 8px; padding: 10px 20px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-back { background: transparent; border: 1px solid #ccc; color: #444; font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px; border-radius: 8px; padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
 
-    /* ── Payment banner ─────────────────────────────────────────────────── */
-    .payment-banner {
-      background: var(--bg-raised);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 24px 28px;
-      margin-bottom: 28px;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .payment-banner__label {
-      font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px;
-      text-transform: uppercase; letter-spacing: .06em;
-      color: var(--text-muted); margin-bottom: 4px;
-    }
-    .payment-banner__amount {
-      font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 32px;
-      color: var(--accent-text);
-    }
-    .payment-banner__currency {
-      font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
-      color: var(--text-secondary); margin-left: 4px;
-    }
-    .payment-banner__meta {
-      text-align: right;
-    }
-    .payment-banner__meta p {
-      font-size: 12px; color: var(--text-secondary); line-height: 1.8;
-    }
+    .print-preview { max-width: 680px; margin: 0 auto 40px; background: #fff; padding: 40px 48px; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,.12); }
 
-    /* ── Client info ────────────────────────────────────────────────────── */
-    .print-section { margin-bottom: 24px; }
-    .print-section__title {
-      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 12px;
-      text-transform: uppercase; letter-spacing: .06em;
-      color: var(--text-muted); margin-bottom: 10px;
-    }
-    .client-info-block {
-      background: var(--bg-raised);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 14px 18px;
-    }
-    .client-info-block strong {
-      font-family: 'Nunito', sans-serif; font-weight: 800;
-      font-size: 14px; display: block; margin-bottom: 6px;
-    }
-    .client-info-block p {
-      font-size: 11px; color: var(--text-secondary); line-height: 1.5;
-    }
+    /* Header */
+    .doc-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 2px solid #111; }
+    .doc-brand-name { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 18px; }
+    .doc-brand-sub { font-size: 11.5px; color: #555; margin-top: 2px; }
+    .doc-title { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 22px; text-align: right; color: #111; }
+    .doc-sub { font-size: 12px; color: #777; text-align: right; margin-top: 4px; }
 
-    /* ── Allocations table ──────────────────────────────────────────────── */
-    .print-table {
-      width: 100%; border-collapse: collapse; margin-top: 8px;
-    }
-    .print-table thead th {
-      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 10.5px;
-      text-transform: uppercase; letter-spacing: .04em;
-      color: var(--text-muted);
-      text-align: left; padding: 8px 10px;
-      border-bottom: 2px solid var(--border);
-      background: var(--bg-raised);
-    }
-    .print-table thead th.numeric { text-align: right; }
-    .print-table tbody td {
-      padding: 10px;
-      border-bottom: 1px solid var(--border);
-      font-size: 11.5px; vertical-align: middle;
-    }
-    .print-table tbody td.numeric {
-      text-align: right; font-family: 'Nunito', sans-serif; font-weight: 600;
-    }
-    .print-table tbody tr:last-child td { border-bottom: 2px solid var(--border); }
+    /* Info grid */
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+    .info-block-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: #888; margin-bottom: 6px; }
+    .info-block p { font-size: 13px; color: #222; line-height: 1.7; }
+    .info-block strong { font-weight: 700; font-size: 14px; }
 
-    /* ── Unallocated notice ─────────────────────────────────────────────── */
-    .unallocated-notice {
-      background: rgba(245,158,11,.06);
-      border: 1px solid rgba(245,158,11,.2);
-      border-radius: 8px;
-      padding: 12px 16px;
-      margin-top: 12px;
-      font-size: 11.5px; color: #b45309;
-    }
+    /* Meta row */
+    .meta-row { display: flex; gap: 24px; background: #f8faf8; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 16px; margin-bottom: 28px; flex-wrap: wrap; }
+    .meta-item { display: flex; flex-direction: column; gap: 2px; }
+    .meta-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: #888; }
+    .meta-val { font-size: 13px; font-weight: 600; color: #111; }
 
-    /* ── Totals ─────────────────────────────────────────────────────────── */
-    .print-totals {
-      width: 280px; margin-left: auto; margin-top: 16px;
-    }
-    .print-total-row {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 6px 0; font-size: 11.5px;
-    }
-    .print-total-row.grand {
-      border-top: 2px solid var(--accent);
-      margin-top: 6px; padding-top: 10px;
-      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 14px;
-      color: var(--accent-text);
-    }
-    .print-total-row .label { color: var(--text-secondary); }
-    .print-total-row .value {
-      font-family: 'Nunito', sans-serif; font-weight: 700; text-align: right;
-    }
+    /* Amount hero */
+    .amount-hero { background: #111; color: #fff; border-radius: 10px; padding: 20px 24px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; }
+    .amount-hero-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: #aaa; margin-bottom: 4px; }
+    .amount-hero-val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 28px; color: #fff; }
+    .amount-hero-mode { font-size: 12.5px; color: #aaa; margin-top: 2px; }
+    .amount-hero-ref { text-align: right; }
+    .amount-hero-ref-label { font-size: 10.5px; color: #aaa; margin-bottom: 3px; }
+    .amount-hero-ref-val { font-size: 13px; color: #ddd; }
 
-    /* ── Notes + Signature ──────────────────────────────────────────────── */
-    .print-notes {
-      margin-top: 24px;
-      padding: 12px 16px;
-      background: var(--bg-raised);
-      border-radius: 8px;
-      font-size: 11px; color: var(--text-secondary);
-    }
-    .print-signature {
-      display: flex; justify-content: space-between;
-      margin-top: 48px;
-    }
-    .print-signature__block {
-      width: 200px;
-      text-align: center;
-    }
-    .print-signature__line {
-      border-top: 1px solid var(--border);
-      padding-top: 8px;
-      font-size: 10.5px; color: var(--text-muted);
-      text-transform: uppercase; letter-spacing: .04em;
-    }
+    /* Allocations table */
+    .alloc-section-title { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: #888; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-bottom: 20px; }
+    thead th { background: #e8ede8; padding: 8px 11px; text-align: left; font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: #555; }
+    tbody td { padding: 9px 11px; border-bottom: 1px solid #e5e7eb; color: #222; }
+    tbody tr:last-child td { border-bottom: none; }
+    .text-right { text-align: right; }
 
-    /* ── Print adjustments ──────────────────────────────────────────────── */
+    /* Summary block */
+    .summary-block { display: flex; justify-content: flex-end; margin-bottom: 28px; }
+    .summary-table { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; min-width: 260px; }
+    .summary-row { display: flex; justify-content: space-between; padding: 9px 14px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-row--total { background: #f0fdf4; }
+    .summary-label { color: #555; }
+    .summary-val-green { color: #15803d; font-family: 'Nunito', sans-serif; font-weight: 800; }
+    .summary-val-amber { color: #b45309; font-family: 'Nunito', sans-serif; font-weight: 800; }
+
+    /* No allocation notice */
+    .no-alloc { background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 14px; font-size: 12.5px; color: #92400e; margin-bottom: 20px; }
+
+    /* Notes */
+    .notes-block { background: #f8faf8; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 14px; margin-bottom: 24px; }
+    .notes-block p { font-size: 12.5px; color: #444; white-space: pre-line; margin-top: 4px; }
+
+    /* Footer */
+    .footer-note { margin-top: 24px; padding-top: 12px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 11px; color: #aaa; }
+
     @media print {
-      body { padding: 20px 30px; }
-      .no-print { display: none !important; }
+      body { background: #fff; }
+      .no-print-bar { display: none !important; }
+      .print-preview { margin: 0; box-shadow: none; border-radius: 0; padding: 16px 24px; }
+      @page { margin: 1cm; size: A4; }
     }
   </style>
 </head>
 <body>
 
-  {# ── Print controls ──────────────────────────────────────────────────── #}
-  <div class="no-print" style="text-align:center;margin-bottom:24px;">
-    <button onclick="window.print()" style="padding:10px 24px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;cursor:pointer;">
-      <i class="bx bxs-printer" style="margin-right:6px;"></i> Imprimer
-    </button>
-  </div>
+<div class="no-print-bar">
+  <a href="{% url 'clients:paiement_client_detail' paiement.pk %}" class="btn-back">← Retour</a>
+  <button class="btn-print" onclick="window.print()">🖨 Imprimer</button>
+</div>
 
-  {# ── Header ──────────────────────────────────────────────────────────── #}
-  <div class="print-header">
-    <div class="print-header__company">
-      <h1>{{ entreprise.nom }}</h1>
-      <p>
-        {% if entreprise.adresse %}{{ entreprise.adresse }}<br>{% endif %}
-        {% if entreprise.telephone %}{{ entreprise.telephone }}{% endif %}
-        {% if entreprise.email %} · {{ entreprise.email }}{% endif %}
-        {% if entreprise.nif %}<br>NIF: {{ entreprise.nif }}{% endif %}
-        {% if entreprise.rc %} · RC: {{ entreprise.rc }}{% endif %}
-      </p>
-    </div>
-    <div class="print-header__doc">
-      <h2>REÇU DE PAIEMENT</h2>
-      <p>N° <span class="text-mono">{{ paiement.pk }}</span></p>
-      <p style="margin-top:6px;">Date : {{ paiement.date_paiement|date:"d/m/Y" }}</p>
-    </div>
-  </div>
+<div class="print-preview">
 
-  {# ── Payment amount banner ───────────────────────────────────────────── #}
-  <div class="payment-banner">
+  <!-- Document header -->
+  <div class="doc-header">
     <div>
-      <div class="payment-banner__label">Montant payé</div>
-      <div class="payment-banner__amount">
-        {{ paiement.montant|floatformat:0 }}
-        <span class="payment-banner__currency">DZD</span>
+      <div class="doc-brand-name">{{ company.nom|default:"Élevage Avicole" }}</div>
+      {% if company.adresse %}<div class="doc-brand-sub">{{ company.adresse }}</div>{% endif %}
+      {% if company.telephone %}<div class="doc-brand-sub">Tél : {{ company.telephone }}</div>{% endif %}
+      {% if company.nif %}<div class="doc-brand-sub">NIF : {{ company.nif }}</div>{% endif %}
+    </div>
+    <div>
+      <div class="doc-title">REÇU DE PAIEMENT</div>
+      <div class="doc-sub">Date : {{ paiement.date_paiement|date:"d/m/Y" }}</div>
+    </div>
+  </div>
+
+  <!-- Info grid: client + payment details -->
+  <div class="info-grid">
+    <div class="info-block">
+      <div class="info-block-title">Reçu de</div>
+      <p><strong>{{ paiement.client.nom }}</strong></p>
+      {% if paiement.client.adresse %}<p>{{ paiement.client.adresse }}</p>{% endif %}
+      {% if paiement.client.wilaya %}<p>{{ paiement.client.wilaya }}</p>{% endif %}
+      {% if paiement.client.telephone %}<p>Tél : {{ paiement.client.telephone }}</p>{% endif %}
+      {% if paiement.client.nif %}<p>NIF : {{ paiement.client.nif }}</p>{% endif %}
+      {% if paiement.client.rc %}<p>RC : {{ paiement.client.rc }}</p>{% endif %}
+    </div>
+    <div class="info-block" style="text-align:right;">
+      <div class="info-block-title">Informations</div>
+      <p>Date : <strong>{{ paiement.date_paiement|date:"d/m/Y" }}</strong></p>
+      <p>Mode : <strong>{{ paiement.get_mode_paiement_display }}</strong></p>
+      {% if paiement.reference_paiement %}
+      <p>Réf. : <strong>{{ paiement.reference_paiement }}</strong></p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Meta row -->
+  <div class="meta-row">
+    <div class="meta-item">
+      <span class="meta-label">Client</span>
+      <span class="meta-val">{{ paiement.client.nom }}</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Date</span>
+      <span class="meta-val">{{ paiement.date_paiement|date:"d/m/Y" }}</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Mode</span>
+      <span class="meta-val">{{ paiement.get_mode_paiement_display }}</span>
+    </div>
+    {% if paiement.reference_paiement %}
+    <div class="meta-item">
+      <span class="meta-label">Référence</span>
+      <span class="meta-val">{{ paiement.reference_paiement }}</span>
+    </div>
+    {% endif %}
+    <div class="meta-item">
+      <span class="meta-label">Factures réglées</span>
+      <span class="meta-val">{{ allocations|length }}</span>
+    </div>
+  </div>
+
+  <!-- Amount hero -->
+  <div class="amount-hero">
+    <div>
+      <div class="amount-hero-label">Montant reçu</div>
+      <div class="amount-hero-val">{{ paiement.montant|floatformat:0 }} DZD</div>
+      <div class="amount-hero-mode">{{ paiement.get_mode_paiement_display }}{% if paiement.reference_paiement %} · {{ paiement.reference_paiement }}{% endif %}</div>
+    </div>
+    <div class="amount-hero-ref">
+      <div class="amount-hero-ref-label">Enregistré par</div>
+      <div class="amount-hero-ref-val">{{ paiement.created_by|default:"—" }}</div>
+      <div class="amount-hero-ref-label" style="margin-top:6px;">Le</div>
+      <div class="amount-hero-ref-val">{{ paiement.created_at|date:"d/m/Y H:i" }}</div>
+    </div>
+  </div>
+
+  <!-- Allocation detail -->
+  {% if allocations %}
+  <div class="alloc-section-title">Détail des allocations aux factures</div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Référence facture</th>
+        <th>Date facture</th>
+        <th class="text-right">Montant alloué (DZD)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for alloc in allocations %}
+      <tr>
+        <td style="color:#aaa;">{{ forloop.counter }}</td>
+        <td><strong>{{ alloc.facture.reference }}</strong></td>
+        <td style="color:#666;">{{ alloc.facture.date_facture|date:"d/m/Y" }}</td>
+        <td class="text-right"><strong>{{ alloc.montant_alloue|floatformat:0 }}</strong></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="no-alloc">
+    Aucune facture n'a été allouée à ce paiement. Le montant est disponible en solde non alloué.
+  </div>
+  {% endif %}
+
+  <!-- Summary -->
+  <div class="summary-block">
+    <div class="summary-table">
+      <div class="summary-row">
+        <span class="summary-label">Montant total reçu</span>
+        <span style="font-family:'Nunito',sans-serif;font-weight:700;">{{ paiement.montant|floatformat:0 }} DZD</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">Total alloué aux factures</span>
+        <span class="summary-val-green">{{ paiement.montant_alloue|floatformat:0 }} DZD</span>
+      </div>
+      <div class="summary-row summary-row--total">
+        <span class="summary-label" style="font-weight:700;">Solde non alloué</span>
+        <span class="{% if paiement.solde_non_alloue > 0 %}summary-val-amber{% else %}summary-val-green{% endif %}">{{ paiement.solde_non_alloue|floatformat:0 }} DZD</span>
       </div>
     </div>
-    <div class="payment-banner__meta">
-      <p><strong>Mode :</strong> {{ paiement.get_mode_paiement_display }}</p>
-      {% if paiement.reference_paiement %}<p><strong>Référence :</strong> {{ paiement.reference_paiement }}</p>{% endif %}
-    </div>
   </div>
 
-  {# ── Client ──────────────────────────────────────────────────────────── #}
-  <div class="print-section">
-    <div class="print-section__title">Client</div>
-    <div class="client-info-block">
-      <strong>{{ paiement.client.nom }}</strong>
-      <p>
-        {% if paiement.client.adresse %}{{ paiement.client.adresse }}<br>{% endif %}
-        {% if paiement.client.telephone %}Tél: {{ paiement.client.telephone }}{% endif %}
-        {% if paiement.client.nif %} · NIF: {{ paiement.client.nif }}{% endif %}
-        {% if paiement.client.rc %} · RC: {{ paiement.client.rc }}{% endif %}
-      </p>
-    </div>
-  </div>
-
-  {# ── Allocations ─────────────────────────────────────────────────────── #}
-  {% if allocations %}
-  <div class="print-section">
-    <div class="print-section__title">Imputations sur factures</div>
-    <table class="print-table">
-      <thead>
-        <tr>
-          <th>Facture</th>
-          <th>Date</th>
-          <th class="numeric">Montant imputé</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for alloc in allocations %}
-        <tr>
-          <td class="text-mono" style="font-weight:600;">{{ alloc.facture.reference }}</td>
-          <td style="color:var(--text-muted);">{{ alloc.facture.date_facture|date:"d/m/Y" }}</td>
-          <td class="numeric" style="font-weight:700;color:#15803d;">{{ alloc.montant|floatformat:0 }} DZD</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-
-    {% if paiement.montant_non_alloue > 0 %}
-    <div class="unallocated-notice">
-      <strong>Montant non alloué :</strong> {{ paiement.montant_non_alloue|floatformat:0 }} DZD — Ce montant reste en crédit sur le compte client.
-    </div>
-    {% endif %}
-  </div>
-  {% else %}
-  <div class="print-section">
-    <div class="print-section__title">Imputations</div>
-    <div class="unallocated-notice">
-      <strong>Aucune imputation sur facture.</strong><br>
-      Montant intégralement non alloué : {{ paiement.montant_non_alloue|floatformat:0 }} DZD — Ce montant reste en crédit sur le compte client.
-    </div>
-  </div>
-  {% endif %}
-
-  {# ── Totals ──────────────────────────────────────────────────────────── #}
-  {% if allocations %}
-  <div class="print-totals">
-    <div class="print-total-row">
-      <span class="label">Total alloué</span>
-      <span class="value">{{ total_alloue|floatformat:0 }} DZD</span>
-    </div>
-    {% if paiement.montant_non_alloue > 0 %}
-    <div class="print-total-row">
-      <span class="label">Non alloué</span>
-      <span class="value" style="color:#b45309;">{{ paiement.montant_non_alloue|floatformat:0 }} DZD</span>
-    </div>
-    {% endif %}
-    <div class="print-total-row grand">
-      <span class="label">Total paiement</span>
-      <span class="value">{{ paiement.montant|floatformat:0 }} DZD</span>
-    </div>
-  </div>
-  {% endif %}
-
-  {# ── Notes ───────────────────────────────────────────────────────────── #}
   {% if paiement.notes %}
-  <div class="print-notes">
-    <strong style="display:block;margin-bottom:4px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);">Notes</strong>
-    {{ paiement.notes|linebreaksbr }}
+  <div class="notes-block">
+    <div class="info-block-title">Notes</div>
+    <p>{{ paiement.notes }}</p>
   </div>
   {% endif %}
 
-  {# ── Signature blocks ────────────────────────────────────────────────── #}
-  <div class="print-signature">
-    <div class="print-signature__block">
-      <div class="print-signature__line">Pour {{ entreprise.nom }}</div>
-    </div>
-    <div class="print-signature__block">
-      <div class="print-signature__line">Signature client</div>
-    </div>
+  <div class="footer-note">
+    Reçu généré par {{ company.nom|default:"Élevage Avicole" }} — {{ paiement.date_paiement|date:"d/m/Y" }}
   </div>
 
+</div>
+
+<script>
+  window.addEventListener('beforeprint', function () {
+    document.querySelectorAll('.no-print-bar').forEach(function (el) { el.style.display = 'none'; });
+  });
+  window.addEventListener('afterprint', function () {
+    document.querySelectorAll('.no-print-bar').forEach(function (el) { el.style.display = ''; });
+  });
+</script>
 </body>
 </html>

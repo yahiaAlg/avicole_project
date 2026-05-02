@@ -2,235 +2,122 @@
 {% load static %}
 
 {% block title %}Stock — {{ intrant.designation }} — Élevage Avicole{% endblock %}
+
 {% block nav_stock_intrants %}active{% endblock %}
 
 {% block page_title %}{{ intrant.designation }}{% endblock %}
 {% block page_sub_text %}
-  Fiche de stock · {{ intrant.categorie.libelle }}
-  {% if stock.en_alerte %}
-    · <span style="color:#dc2626;font-weight:600;">⚠ En alerte</span>
-  {% endif %}
+  {{ intrant.categorie.libelle }} —
+  {% if stock.en_alerte %}<span style="color:#dc2626;"><i class="bx bxs-bell" style="font-size:12px;"></i> Sous le seuil d'alerte</span>
+  {% else %}<span style="color:var(--accent-text);">Stock normal</span>{% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
-{% if request.user.userprofile %}
-  {% if not request.user.userprofile.role == 'viewer' %}
-  <a href="{% url 'stock:stock_ajustement_create' %}?segment=intrant&intrant={{ intrant.pk }}"
-     class="btn-primary">
-    <i class="bx bxs-pencil"></i> Ajuster le stock
+  <a href="{% url 'stock:stock_intrant_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Stock Intrants
+  </a>
+  {% if not request.user.profile.role == 'viewer' %}
+  <a href="{% url 'stock:stock_ajustement_create' %}?segment=intrant&intrant={{ intrant.pk }}" class="btn-primary">
+    <i class="bx bxs-pencil"></i> Ajustement manuel
   </a>
   {% endif %}
-{% endif %}
-<a href="{% url 'stock:stock_intrant_list' %}" class="btn-ghost">
-  <i class="bx bx-arrow-back"></i> Retour
-</a>
 {% endblock %}
 
 {% block content %}
+<div class="page-body">
 
-{# ── KPI Strip ───────────────────────────────────────────────────────────── #}
-<div class="row g-3 mb-4">
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon {% if stock.en_alerte %}ic-red{% else %}ic-green{% endif %}">
-        <i class="bx bxs-archive"></i>
-      </div>
-      <div class="metric-label">Quantité en stock</div>
-      <div class="metric-value">
+  <!-- KPI row -->
+  <div class="kpi-row">
+    <div class="kpi-card {% if stock.en_alerte %}kpi-card--danger{% endif %}">
+      <div class="kpi-label">STOCK ACTUEL</div>
+      <div class="kpi-value">
         {{ stock.quantite|floatformat:2 }}
-        <span style="font-size:14px;font-weight:400;color:var(--text-muted);">{{ intrant.unite_mesure }}</span>
+        <span class="kpi-unit">{{ intrant.unite_mesure }}</span>
       </div>
-      {% if stock.en_alerte %}
-      <span class="metric-delta down"><i class="bx bxs-error"></i> Sous le seuil</span>
-      {% else %}
-      <span class="metric-delta up"><i class="bx bxs-check-circle"></i> Stock normal</span>
-      {% endif %}
+      <div class="kpi-sub">
+        {% if stock.en_alerte %}<span style="color:#dc2626;"><i class="bx bxs-bell"></i> Sous le seuil</span>
+        {% else %}Solde en stock{% endif %}
+      </div>
     </div>
-  </div>
-
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-amber"><i class="bx bxs-coin"></i></div>
-      <div class="metric-label">Prix Moyen Pondéré</div>
-      <div class="metric-value sm">{{ stock.prix_moyen_pondere|floatformat:2 }} DZD</div>
+    <div class="kpi-card">
+      <div class="kpi-label">PRIX MOYEN PONDÉRÉ</div>
+      <div class="kpi-value">
+        {{ stock.prix_moyen_pondere|floatformat:2 }}
+        <span class="kpi-unit">DZD / {{ intrant.unite_mesure }}</span>
+      </div>
+      <div class="kpi-sub">Coût d'acquisition moyen</div>
     </div>
-  </div>
-
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-blue"><i class="bx bxs-coin"></i></div>
-      <div class="metric-label">Valeur estimée</div>
-      <div class="metric-value sm">{{ stock.valeur_stock|floatformat:0 }} DZD</div>
+    <div class="kpi-card">
+      <div class="kpi-label">VALEUR EN STOCK</div>
+      <div class="kpi-value">
+        {{ stock.valeur_stock|floatformat:0 }}
+        <span class="kpi-unit">DZD</span>
+      </div>
+      <div class="kpi-sub">Qté × PMP</div>
     </div>
-  </div>
-
-  <div class="col-xl-3 col-md-6">
-    <div class="metric-card">
-      <div class="metric-icon ic-amber"><i class="bx bxs-error"></i></div>
-      <div class="metric-label">Seuil d'alerte</div>
-      <div class="metric-value">
+    <div class="kpi-card">
+      <div class="kpi-label">SEUIL D'ALERTE</div>
+      <div class="kpi-value">
         {{ intrant.seuil_alerte|floatformat:2 }}
-        <span style="font-size:14px;font-weight:400;color:var(--text-muted);">{{ intrant.unite_mesure }}</span>
+        <span class="kpi-unit">{{ intrant.unite_mesure }}</span>
       </div>
+      <div class="kpi-sub">Déclenchement alerte</div>
     </div>
   </div>
-</div>
 
-<div class="row g-3">
+  <div class="detail-grid">
 
-  {# ── Info fiche ─────────────────────────────────────────────────────── #}
-  <div class="col-xl-4">
-    <div class="section-card h-100">
-      <div class="section-card__head">
-        <span class="section-card__title">
-          <i class="bx bxs-cube-alt" style="color:var(--accent);margin-right:8px;"></i>Informations intrant
-        </span>
-      </div>
-      <div class="section-card__body">
-        <dl class="info-dl">
-          <div class="info-dl__row">
-            <dt>Désignation</dt>
-            <dd>{{ intrant.designation }}</dd>
-          </div>
-          <div class="info-dl__row">
-            <dt>Catégorie</dt>
-            <dd>{{ intrant.categorie.libelle }}</dd>
-          </div>
-          <div class="info-dl__row">
-            <dt>Unité de mesure</dt>
-            <dd>{{ intrant.unite_mesure }}</dd>
-          </div>
-          <div class="info-dl__row">
-            <dt>Statut</dt>
-            <dd>
-              {% if intrant.actif %}
-              <span class="pill-success">Actif</span>
-              {% else %}
-              <span class="pill-neutral">Inactif</span>
-              {% endif %}
-            </dd>
-          </div>
-          <div class="info-dl__row">
-            <dt>Dernière MAJ stock</dt>
-            <dd style="font-size:12px;">{{ stock.derniere_mise_a_jour|date:"d/m/Y H:i" }}</dd>
-          </div>
-          {% if intrant.notes %}
-          <div class="info-dl__row">
-            <dt>Notes</dt>
-            <dd style="font-size:12px;color:var(--text-muted);">{{ intrant.notes }}</dd>
-          </div>
-          {% endif %}
-        </dl>
-
-        {# Alert strip when below threshold #}
-        {% if stock.en_alerte %}
-        <div style="margin-top:16px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);
-                    border-radius:var(--radius-md);padding:12px 14px;display:flex;align-items:flex-start;gap:10px;">
-          <i class="bx bxs-error" style="color:#dc2626;font-size:16px;flex-shrink:0;margin-top:1px;"></i>
-          <div>
-            <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:3px;">Stock sous le seuil d'alerte</div>
-            <div style="font-size:12px;color:var(--text-secondary);">
-              Stock actuel : <strong>{{ stock.quantite|floatformat:2 }} {{ intrant.unite_mesure }}</strong>
-              &mdash; Seuil : {{ intrant.seuil_alerte|floatformat:2 }} {{ intrant.unite_mesure }}
-            </div>
-          </div>
-        </div>
-        {% endif %}
-
-        {# Recent adjustments #}
-        {% if ajustements %}
-        <div style="margin-top:20px;">
-          <div class="section-eyebrow" style="margin-bottom:10px;">Ajustements récents</div>
-          {% for aj in ajustements %}
-          <div style="padding:9px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;font-size:12px;">
-            <span style="color:var(--text-muted);min-width:70px;">{{ aj.date_ajustement|date:"d/m/Y" }}</span>
-            {% with delta=aj.quantite_apres|add:"-"|add:aj.quantite_avant %}
-            <span style="font-weight:700;flex:1;">
-              {% if aj.quantite_apres > aj.quantite_avant %}
-                <span style="color:#15803d;">+{{ aj.quantite_apres|floatformat:2 }}</span>
-              {% else %}
-                <span style="color:#dc2626;">{{ aj.quantite_apres|floatformat:2 }}</span>
-              {% endif %}
-              → {{ aj.quantite_apres|floatformat:2 }}
-            </span>
-            {% endwith %}
-            <span style="color:var(--text-muted);">{{ aj.effectue_par.username|default:"—" }}</span>
-          </div>
-          {% endfor %}
-          <a href="{% url 'stock:stock_ajustement_list' %}?segment=intrant"
-             style="font-size:12px;color:var(--accent-text);display:inline-flex;align-items:center;gap:4px;margin-top:8px;">
-            Tous les ajustements <i class="bx bx-right-arrow-alt"></i>
+    <!-- Left: movements -->
+    <div class="detail-main">
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bx-transfer"></i> Historique des mouvements</div>
+          <a href="{% url 'stock:stock_mouvement_list' %}?q={{ intrant.designation }}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;text-decoration:none;">
+            Voir tout <i class="bx bx-right-arrow-alt"></i>
           </a>
         </div>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-
-  {# ── Mouvements ──────────────────────────────────────────────────────── #}
-  <div class="col-xl-8">
-    <div class="section-card">
-      <div class="section-card__head">
-        <span class="section-card__title">
-          <i class="bx bx-transfer" style="color:var(--accent);margin-right:8px;"></i>Historique des mouvements
-        </span>
-        <a href="{% url 'stock:stock_mouvement_list' %}?q={{ intrant.designation }}"
-           style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
-          Journal complet <i class="bx bx-right-arrow-alt"></i>
-        </a>
-      </div>
-      <div class="section-card__body" style="padding-top:0;">
         {% if mouvements %}
-        <div class="table-responsive">
-          <table class="data-table w-100">
+        <div class="table-wrapper">
+          <table class="data-table">
             <thead>
               <tr>
                 <th>Date</th>
                 <th>Type</th>
                 <th>Source</th>
+                <th>Quantité</th>
+                <th>Avant</th>
+                <th>Après</th>
                 <th>Référence</th>
-                <th class="text-end">Quantité</th>
-                <th class="text-end">Avant</th>
-                <th class="text-end">Après</th>
+                <th>Par</th>
               </tr>
             </thead>
             <tbody>
               {% for m in mouvements %}
-              <tr class="tbl-row" style="--row-i:{{ forloop.counter0 }};">
-                <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">
-                  {{ m.date_mouvement|date:"d/m/Y" }}
-                </td>
+              <tr style="--row-i:{{ forloop.counter0 }};">
+                <td style="white-space:nowrap;color:var(--text-muted);font-size:12px;">{{ m.date_mouvement|date:"d/m/Y" }}</td>
                 <td>
                   {% if m.type_mouvement == 'entree' %}
-                    <span class="pill-success"><i class="bx bx-up-arrow-alt"></i> Entrée</span>
+                    <span class="pill-success"><i class="bx bx-trending-up"></i> Entrée</span>
                   {% elif m.type_mouvement == 'sortie' %}
-                    <span class="pill-danger"><i class="bx bx-down-arrow-alt"></i> Sortie</span>
+                    <span class="pill-danger"><i class="bx bx-trending-down"></i> Sortie</span>
                   {% else %}
-                    <span class="pill-warning"><i class="bx bxs-pencil"></i> Ajust.</span>
+                    <span class="pill-warning"><i class="bx bx-transfer"></i> Ajust.</span>
                   {% endif %}
                 </td>
                 <td style="font-size:12px;color:var(--text-muted);">{{ m.get_source_display }}</td>
-                <td style="font-size:12px;">
-                  {% if m.reference_label %}
-                    <span style="font-family:'Inter',monospace;color:var(--text-secondary);">
-                      {{ m.reference_label }}
-                    </span>
-                  {% else %}—{% endif %}
+                <td>
+                  <span style="font-family:'Nunito',sans-serif;font-weight:800;{% if m.type_mouvement == 'entree' %}color:var(--accent-text);{% elif m.type_mouvement == 'sortie' %}color:#dc2626;{% else %}color:#b45309;{% endif %}">
+                    {% if m.type_mouvement == 'entree' %}+{% elif m.type_mouvement == 'sortie' %}−{% endif %}{{ m.quantite|floatformat:2 }}
+                  </span>
+                  <span style="font-size:11px;color:var(--text-muted);">{{ intrant.unite_mesure }}</span>
                 </td>
-                <td class="text-end" style="font-weight:700;">
-                  {% if m.type_mouvement == 'entree' %}
-                    <span style="color:#15803d;">+{{ m.quantite|floatformat:2 }}</span>
-                  {% elif m.type_mouvement == 'sortie' %}
-                    <span style="color:#dc2626;">-{{ m.quantite|floatformat:2 }}</span>
-                  {% else %}
-                    <span style="color:#b45309;">{{ m.quantite|floatformat:2 }}</span>
-                  {% endif %}
+                <td style="font-size:12.5px;color:var(--text-secondary);">{{ m.quantite_avant|floatformat:2 }}</td>
+                <td style="font-size:12.5px;font-weight:600;color:var(--text-primary);">{{ m.quantite_apres|floatformat:2 }}</td>
+                <td style="font-size:11.5px;color:var(--text-muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                  {{ m.reference_label|default:"—" }}
                 </td>
-                <td class="text-end" style="font-size:12px;color:var(--text-muted);">
-                  {{ m.quantite_avant|floatformat:2 }}
-                </td>
-                <td class="text-end" style="font-size:12px;font-weight:600;">
-                  {{ m.quantite_apres|floatformat:2 }}
+                <td style="font-size:11.5px;color:var(--text-muted);">
+                  {% if m.created_by %}{{ m.created_by.get_full_name|default:m.created_by.username }}{% else %}—{% endif %}
                 </td>
               </tr>
               {% endfor %}
@@ -238,12 +125,113 @@
           </table>
         </div>
         {% else %}
-        <div style="text-align:center;padding:40px 20px;color:var(--text-muted);">
-          <i class="bx bx-transfer" style="font-size:28px;display:block;margin-bottom:10px;color:var(--border-strong);"></i>
-          <div style="font-size:13px;">Aucun mouvement enregistré pour cet intrant.</div>
+        <div class="empty-state">
+          <i class="bx bx-transfer empty-state__icon"></i>
+          <div class="empty-state__title">Aucun mouvement enregistré</div>
+          <div class="empty-state__body">Les mouvements de stock apparaîtront ici dès le premier approvisionnement.</div>
         </div>
         {% endif %}
       </div>
+    </div>
+
+    <!-- Right: info + adjustments -->
+    <div class="detail-aside">
+
+      <!-- Fiche intrant -->
+      <div class="card mb-3">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bxs-cube-alt"></i> Fiche intrant</div>
+        </div>
+        <div class="info-list">
+          <div class="info-row">
+            <span class="info-label">Désignation</span>
+            <span class="info-value" style="font-weight:700;">{{ intrant.designation }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Catégorie</span>
+            <span class="info-value"><span class="pill-cat">{{ intrant.categorie.libelle }}</span></span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Unité de mesure</span>
+            <span class="info-value"><span class="unit-badge">{{ intrant.get_unite_mesure_display }}</span></span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Consommable en lot</span>
+            <span class="info-value">
+              {% if intrant.categorie.consommable_en_lot %}
+                <span class="pill-success"><i class="bx bxs-check-circle"></i> Oui</span>
+              {% else %}
+                <span class="pill-neutral">Non</span>
+              {% endif %}
+            </span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Statut</span>
+            <span class="info-value">
+              {% if intrant.actif %}<span class="pill-success"><i class="bx bxs-check-circle"></i> Actif</span>
+              {% else %}<span class="pill-neutral"><i class="bx bx-block"></i> Inactif</span>{% endif %}
+            </span>
+          </div>
+          {% if intrant.notes %}
+          <div class="info-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+            <span class="info-label">Notes</span>
+            <span class="info-value" style="font-size:12.5px;color:var(--text-muted);">{{ intrant.notes }}</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Ajustements récents -->
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bxs-spreadsheet"></i> Ajustements récents</div>
+          {% if not request.user.profile.role == 'viewer' %}
+          <a href="{% url 'stock:stock_ajustement_create' %}?segment=intrant&intrant={{ intrant.pk }}" class="btn-ghost btn-sm">
+            <i class="bx bx-plus"></i> Nouveau
+          </a>
+          {% endif %}
+        </div>
+        {% if ajustements %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Avant</th>
+                <th>Après</th>
+                <th>Δ</th>
+                <th>Par</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for aj in ajustements %}
+              <tr style="--row-i:{{ forloop.counter0 }};">
+                <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">{{ aj.date_ajustement|date:"d/m/Y" }}</td>
+                <td style="font-size:12.5px;">{{ aj.quantite_avant|floatformat:2 }}</td>
+                <td style="font-size:12.5px;font-weight:600;color:var(--text-primary);">{{ aj.quantite_apres|floatformat:2 }}</td>
+                <td>
+                  {% with delta=aj.quantite_apres|add:"-999999" %}
+                  <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;{% if aj.quantite_apres > aj.quantite_avant %}color:var(--accent-text);{% elif aj.quantite_apres < aj.quantite_avant %}color:#dc2626;{% else %}color:var(--text-muted);{% endif %}">
+                    {% if aj.quantite_apres > aj.quantite_avant %}↑{% elif aj.quantite_apres < aj.quantite_avant %}↓{% else %}={% endif %}
+                  </span>
+                  {% endwith %}
+                </td>
+                <td style="font-size:11.5px;color:var(--text-muted);">
+                  {% if aj.effectue_par %}{{ aj.effectue_par.get_full_name|default:aj.effectue_par.username }}{% else %}—{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding:24px 20px;">
+          <i class="bx bxs-spreadsheet empty-state__icon" style="font-size:24px;margin-bottom:8px;"></i>
+          <div class="empty-state__title" style="font-size:13px;">Aucun ajustement</div>
+        </div>
+        {% endif %}
+      </div>
+
     </div>
   </div>
 
@@ -252,33 +240,62 @@
 
 {% block extra_css %}
 <style>
-.info-dl { margin: 0; }
-.info-dl__row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: 9px 0;
-  border-bottom: 1px solid var(--border);
-  gap: 16px;
-}
-.info-dl__row:last-child { border-bottom: none; }
-.info-dl__row dt {
-  font-size: 11.5px;
-  color: var(--text-muted);
-  font-weight: 500;
-  flex-shrink: 0;
-}
-.info-dl__row dd {
-  font-size: 13px;
-  color: var(--text-primary);
-  font-weight: 600;
-  margin: 0;
-  text-align: right;
-}
-.tbl-row {
-  animation: fadeIn 0.3s ease both;
-  animation-delay: calc(var(--row-i) * 35ms);
-}
+  .page-body { padding:28px 32px; }
+  @media(max-width:768px) { .page-body { padding:20px 16px; } }
+
+  .kpi-row { display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px; }
+  @media(max-width:900px) { .kpi-row { grid-template-columns:repeat(2,1fr); } }
+  @media(max-width:480px) { .kpi-row { grid-template-columns:1fr; } }
+
+  .kpi-card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;animation:fadeIn .3s ease both;transition:border-color .15s; }
+  .kpi-card--danger { border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.03); }
+  .kpi-label { font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px; }
+  .kpi-value { font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;color:var(--text-primary);line-height:1.1;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap; }
+  .kpi-unit { font-size:12px;font-weight:600;color:var(--text-muted); }
+  .kpi-sub { font-size:12px;color:var(--text-muted);margin-top:5px; }
+
+  .detail-grid { display:grid;grid-template-columns:1fr 300px;gap:16px; }
+  @media(max-width:1100px) { .detail-grid { grid-template-columns:1fr; } }
+
+  .detail-main { min-width:0; }
+  .detail-aside { display:flex;flex-direction:column;gap:0; }
+
+  .card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden; }
+  .card.mb-3 { margin-bottom:14px; }
+  .card-header-row { padding:14px 20px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between; }
+  .section-eyebrow { font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted); }
+
+  .info-list { padding:4px 0; }
+  .info-row { display:flex;align-items:center;justify-content:space-between;padding:11px 20px;border-bottom:1px solid var(--border);gap:12px; }
+  .info-row:last-child { border-bottom:none; }
+  .info-label { font-size:12px;color:var(--text-muted);flex-shrink:0; }
+  .info-value { font-size:13px;color:var(--text-secondary);text-align:right; }
+
+  .table-wrapper { overflow-x:auto; }
+  .data-table { width:100%;border-collapse:collapse; }
+  .data-table thead th { font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg-surface);white-space:nowrap; }
+  .data-table tbody tr { border-bottom:1px solid var(--border);animation:fadeIn .3s ease both;animation-delay:calc(var(--row-i,0)*35ms);transition:background .12s; }
+  .data-table tbody tr:last-child { border-bottom:none; }
+  .data-table tbody tr:hover { background:var(--bg-hover); }
+  .data-table td { padding:11px 14px;font-size:13px;color:var(--text-secondary);vertical-align:middle; }
+
+  .pill-cat    { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(99,102,241,.12);color:#4338ca; }
+  .pill-success{ display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(34,197,94,.14);color:#15803d; }
+  .pill-danger { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(239,68,68,.10);color:#dc2626; }
+  .pill-warning{ display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(245,158,11,.14);color:#b45309; }
+  .pill-neutral{ display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(0,0,0,.06);color:var(--text-secondary); }
+  .unit-badge  { font-size:11px;font-weight:500;background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-sm);padding:2px 8px;color:var(--text-muted); }
+
+  .empty-state { text-align:center;padding:40px 20px;color:var(--text-muted); }
+  .empty-state__icon { font-size:28px;display:block;margin-bottom:10px;color:var(--border-strong); }
+  .empty-state__title { font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;color:var(--text-secondary);margin-bottom:4px; }
+  .empty-state__body { font-size:12.5px; }
+
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+  .btn-sm { padding:6px 12px;font-size:12px; }
 </style>
 {% endblock %}
 

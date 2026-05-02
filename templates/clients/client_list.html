@@ -1,130 +1,111 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}Clients — Élevage Avicole{% endblock %}
+
 {% block nav_clients %}active{% endblock %}
 
-{% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{{ page.paginator.count }} client{{ page.paginator.count|pluralize }} · Filtres actifs : {% if q %}Recherche « {{ q }} »{% else %}Tous{% endif %}{% endblock %}
+{% block page_title %}Clients{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} client{{ page.paginator.count|pluralize }}{% endblock %}
 
 {% block topbar_actions %}
-{% if not request.user.profile.role == 'viewer' %}
-<a href="{% url 'clients:client_create' %}" class="btn-primary">
-  <i class="bx bx-plus"></i> Nouveau client
-</a>
-{% endif %}
+  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'clients:client_create' %}" class="btn-primary">
+    <i class="bx bx-plus"></i> Nouveau client
+  </a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
+<div class="page-body">
 
-{# ── Filter bar ────────────────────────────────────────────────────────── #}
-<div class="section-card mb-4">
-  <div class="section-card__body">
-    <form method="get" class="filter-bar" id="filter-form">
-      <div class="input-wrapper" style="flex:1;min-width:200px;">
-        <i class="bx bx-search input-icon"></i>
-        <input type="text" name="q" class="field-input has-icon" placeholder="Rechercher par nom, téléphone, wilaya, contact…" value="{{ q }}">
+  <!-- Filters -->
+  <div class="filters-bar">
+    <form method="get" class="filters-form" id="filter-form">
+      <div class="search-wrapper">
+        <i class="bx bx-search search-icon"></i>
+        <input type="text" name="q" value="{{ q }}" placeholder="Nom, téléphone, wilaya…" class="search-input" autocomplete="off">
       </div>
-
-      <select name="type_client" class="field-input" style="width:160px;" onchange="this.form.submit()">
+      <select name="type_client" class="filter-select" id="filter-type">
         <option value="">Tous les types</option>
-        {% for code, label in type_choices %}
-        <option value="{{ code }}" {% if type_client_filter == code %}selected{% endif %}>{{ label }}</option>
+        {% for val, label in type_choices %}
+        <option value="{{ val }}" {% if type_client_filter == val %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
-
-      <select name="actif" class="field-input" style="width:140px;" onchange="this.form.submit()">
-        <option value="1" {% if actif_param != "0" %}selected{% endif %}>Actifs</option>
-        <option value="0" {% if actif_param == "0" %}selected{% endif %}>Tous (inclus inactifs)</option>
+      <select name="actif" class="filter-select" id="filter-actif">
+        <option value="1" {% if actif_param == '1' %}selected{% endif %}>Actifs</option>
+        <option value="0" {% if actif_param == '0' %}selected{% endif %}>Tous</option>
       </select>
-
-      <button type="submit" class="btn-ghost btn-sm">
-        <i class="bx bx-search"></i> Filtrer
-      </button>
-
-      {% if q or type_client_filter %}
-      <a href="{% url 'clients:client_list' %}" class="btn-danger btn-sm">
-        <i class="bx bx-x"></i> Réinitialiser
-      </a>
-      {% endif %}
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> Filtrer</button>
     </form>
   </div>
-</div>
 
-{# ── Client table ──────────────────────────────────────────────────────── #}
-<div class="section-card">
-  <div class="section-card__body no-pad">
+  <div class="card">
+    <div class="card-header-row">
+      <div class="section-eyebrow"><i class="bx bxs-group"></i> Clients</div>
+    </div>
+
     {% if page.object_list %}
-    <div style="overflow-x:auto;">
-      <table class="table-base">
+    <div class="table-wrapper">
+      <table class="data-table">
         <thead>
           <tr>
-            <th>Client</th>
+            <th>Nom</th>
             <th>Type</th>
-            <th>Contact</th>
             <th>Wilaya</th>
-            <th style="text-align:right;">Créance</th>
+            <th>Téléphone</th>
+            <th>Créance</th>
             <th>Statut</th>
             <th style="text-align:right;">Actions</th>
           </tr>
         </thead>
         <tbody>
           {% for client in page.object_list %}
-          <tr class="stagger-row {% if not client.actif %}row-inactive{% endif %}">
+          <tr class="table-row{% if not client.actif %} row-inactive{% endif %}" style="--row-i:{{ forloop.counter0 }};">
             <td>
-              <div style="display:flex;align-items:center;gap:10px;">
-                <div class="client-avatar-sm">
-                  {{ client.nom|first|upper }}
-                </div>
-                <div>
-                  <div style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
-                    <a href="{% url 'clients:client_detail' client.pk %}" style="color:inherit;">{{ client.nom }}</a>
-                  </div>
-                  {% if client.nif %}
-                  <div style="font-size:11px;color:var(--text-muted);" class="text-mono">NIF: {{ client.nif }}</div>
-                  {% endif %}
-                </div>
-              </div>
-            </td>
-            <td>
-              <span class="pill-base pill-neutral">{{ client.get_type_client_display }}</span>
-            </td>
-            <td>
-              {% if client.telephone %}
-              <div style="font-size:12.5px;"><i class='bx bxs-phone' style="color:var(--text-muted);margin-right:4px;"></i>{{ client.telephone }}</div>
-              {% endif %}
+              <a href="{% url 'clients:client_detail' client.pk %}" class="row-link">
+                <span style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ client.nom }}</span>
+              </a>
               {% if client.contact_nom %}
-              <div style="font-size:11px;color:var(--text-muted);">{{ client.contact_nom }}</div>
+              <div style="font-size:11.5px;color:var(--text-muted);margin-top:1px;">{{ client.contact_nom }}</div>
               {% endif %}
             </td>
-            <td style="color:var(--text-muted);font-size:12.5px;">{{ client.wilaya|default:"—" }}</td>
-            <td style="text-align:right;">
-              <span style="font-family:'Nunito',sans-serif;font-weight:700;{% if client.depasse_plafond %}color:#dc2626;{% endif %}">
+            <td><span class="pill-neutral">{{ client.get_type_client_display }}</span></td>
+            <td style="color:var(--text-secondary);font-size:12.5px;">{{ client.wilaya|default:"—" }}</td>
+            <td style="font-size:12.5px;color:var(--text-secondary);">{{ client.telephone|default:"—" }}</td>
+            <td>
+              {% if client.creance_globale > 0 %}
+              <span style="font-family:'Nunito',sans-serif;font-weight:700;color:{% if client.depasse_plafond %}#dc2626{% else %}#b45309{% endif %};">
                 {{ client.creance_globale|floatformat:0 }} DZD
               </span>
               {% if client.depasse_plafond %}
-              <i class="bx bxs-error" style="color:#dc2626;font-size:12px;margin-left:4px;" title="Plafond dépassé"></i>
+              <span class="pill-danger" style="margin-left:4px;"><i class="bx bxs-error"></i> Plafond</span>
+              {% endif %}
+              {% else %}
+              <span style="color:var(--text-muted);font-size:12px;">—</span>
               {% endif %}
             </td>
             <td>
               {% if client.actif %}
-              <span class="pill-base pill-success"><i class="bx bxs-check-circle"></i> Actif</span>
+              <span class="pill-success"><i class="bx bxs-check-circle"></i> Actif</span>
               {% else %}
-              <span class="pill-base pill-neutral"><i class="bx bx-block"></i> Inactif</span>
+              <span class="pill-neutral"><i class="bx bx-block"></i> Inactif</span>
               {% endif %}
             </td>
-            <td style="text-align:right;">
-              <div style="display:flex;justify-content:flex-end;gap:4px;">
-                <a href="{% url 'clients:client_detail' client.pk %}" class="action-btn" title="Détail">
-                  <i class="bx bx-show"></i>
-                </a>
-                {% if not request.user.profile.role == 'viewer' %}
-                <a href="{% url 'clients:client_edit' client.pk %}" class="action-btn" title="Modifier">
-                  <i class="bx bxs-pencil"></i>
-                </a>
-                <a href="{% url 'clients:bl_client_create_for_client' client.pk %}" class="action-btn success" title="Nouveau BL">
-                  <i class="bx bx-link-external"></i>
-                </a>
+            <td>
+              <div class="actions-cell">
+                <a href="{% url 'clients:client_detail' client.pk %}" class="action-btn" title="Fiche client"><i class="bx bx-show"></i></a>
+                {% if not request.user.userprofile.role == 'viewer' %}
+                <a href="{% url 'clients:client_edit' client.pk %}" class="action-btn" title="Modifier"><i class="bx bxs-pencil"></i></a>
+                {% if not request.user.userprofile.role == 'viewer' %}
+                <button type="button" class="action-btn {% if client.actif %}action-btn--danger{% endif %}"
+                  data-toggle-target="{{ client.pk }}"
+                  data-libelle="{{ client.nom }}"
+                  data-active="{{ client.actif|yesno:'true,false' }}"
+                  title="{% if client.actif %}Désactiver{% else %}Activer{% endif %}">
+                  <i class="bx {% if client.actif %}bx-block{% else %}bxs-check-circle{% endif %}"></i>
+                </button>
+                {% endif %}
                 {% endif %}
               </div>
             </td>
@@ -134,44 +115,29 @@
       </table>
     </div>
 
-    {# ── Pagination ─────────────────────────────────────────────────────── #}
     {% if page.has_other_pages %}
     <div class="pagination-bar">
-      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
-      <div class="page-links">
-        {% if page.has_previous %}
-        <a href="?{% if q %}q={{ q }}&{% endif %}{% if type_client_filter %}type_client={{ type_client_filter }}&{% endif %}{% if actif_param == "0" %}actif=0&{% endif %}page={{ page.previous_page_number }}" class="page-link"><i class='bx bx-chevron-left'></i></a>
-        {% else %}
-        <span class="page-link disabled"><i class='bx bx-chevron-left'></i></span>
-        {% endif %}
-
-        {% for num in page.paginator.page_range %}
-          {% if num == page.number %}
-          <span class="page-link active">{{ num }}</span>
-          {% elif num > page.number|add:"-3" and num < page.number|add:"3" %}
-          <a href="?{% if q %}q={{ q }}&{% endif %}{% if type_client_filter %}type_client={{ type_client_filter }}&{% endif %}{% if actif_param == "0" %}actif=0&{% endif %}page={{ num }}" class="page-link">{{ num }}</a>
-          {% endif %}
-        {% endfor %}
-
-        {% if page.has_next %}
-        <a href="?{% if q %}q={{ q }}&{% endif %}{% if type_client_filter %}type_client={{ type_client_filter }}&{% endif %}{% if actif_param == "0" %}actif=0&{% endif %}page={{ page.next_page_number }}" class="page-link"><i class='bx bx-chevron-right'></i></a>
-        {% else %}
-        <span class="page-link disabled"><i class='bx bx-chevron-right'></i></span>
-        {% endif %}
-      </div>
+      {% if page.has_previous %}
+      <a href="?q={{ q }}&type_client={{ type_client_filter }}&actif={{ actif_param }}&page={{ page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
+      {% else %}
+      <span class="page-btn page-btn--disabled"><i class="bx bx-chevron-left"></i></span>
+      {% endif %}
+      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}
+      <a href="?q={{ q }}&type_client={{ type_client_filter }}&actif={{ actif_param }}&page={{ page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
+      {% else %}
+      <span class="page-btn page-btn--disabled"><i class="bx bx-chevron-right"></i></span>
+      {% endif %}
     </div>
     {% endif %}
 
     {% else %}
-    {# ── Empty state ────────────────────────────────────────────────────── #}
-    <div class="empty-state">
-      <i class="bx bxs-group empty-state__icon"></i>
-      <div class="empty-state__title">Aucun client trouvé</div>
-      <div class="empty-state__text">
-        {% if q %}Aucun résultat pour « {{ q }} ».{% else %}Créez votre premier client pour commencer.{% endif %}
-      </div>
-      {% if not request.user.profile.role == 'viewer' %}
-      <a href="{% url 'clients:client_create' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
+    <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
+      <i class="bx bxs-group" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
+      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">Aucun client trouvé</div>
+      <div style="font-size:13px;">Modifiez vos filtres ou créez un nouveau client.</div>
+      {% if not request.user.userprofile.role == 'viewer' %}
+      <a href="{% url 'clients:client_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
         <i class="bx bx-plus"></i> Nouveau client
       </a>
       {% endif %}
@@ -180,26 +146,132 @@
   </div>
 </div>
 
+<!-- Toggle confirm panel -->
+<div id="toggle-confirm-panel" class="confirm-overlay" style="display:none;">
+  <div class="confirm-box">
+    <div class="confirm-box__icon"><i class="bx bxs-error" style="color:#b45309;font-size:22px;"></i></div>
+    <div class="confirm-box__title" id="toggle-confirm-title">Désactiver ce client ?</div>
+    <div class="confirm-box__text" id="toggle-confirm-text">Cette action est réversible.</div>
+    <div class="confirm-box__actions">
+      <button type="button" id="toggle-cancel-btn" class="btn-ghost">Annuler</button>
+      <form id="toggle-form" method="post" action="">
+        {% csrf_token %}
+        <button type="submit" class="btn-danger">Confirmer</button>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-/* ── Client avatar ────────────────────────────────────────────────────── */
-.client-avatar-sm {
-  width: 34px; height: 34px;
-  border-radius: var(--radius-sm);
-  background: var(--accent-dim);
-  color: var(--accent-text);
-  font-family: 'Nunito', sans-serif;
-  font-weight: 800; font-size: 13px;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
+  .filters-bar { margin-bottom: 16px; }
+  .filters-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .search-wrapper { position: relative; flex: 1; min-width: 200px; }
+  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; }
+  .search-input {
+    width: 100%; padding: 9px 12px 9px 36px; background: var(--bg-surface);
+    border: 1px solid var(--border); border-radius: var(--radius-md);
+    font-size: 13.5px; color: var(--text-primary); font-family: 'Inter', sans-serif;
+  }
+  .search-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px rgba(34,197,94,.15); }
+  .filter-select {
+    padding: 9px 12px; background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); font-size: 13px; color: var(--text-secondary);
+    font-family: 'Inter', sans-serif; cursor: pointer;
+  }
+  .filter-select:focus { border-color: var(--accent); outline: none; }
+  .btn-sm { padding: 8px 14px; font-size: 13px; }
 
-/* ── Inactive row ─────────────────────────────────────────────────────── */
-.row-inactive { opacity: .55; }
+  .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .card-header-row { padding: 14px 18px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
 
-/* ── Action button variant ────────────────────────────────────────────── */
-.action-btn.success:hover { background: var(--success-bg); border-color: rgba(34,197,94,.3); color: #15803d; }
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th { padding: 10px 14px; font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: left; background: var(--bg-base); }
+  .data-table tbody td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .table-row { animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i) * 35ms); }
+  .table-row:hover td { background: var(--bg-hover); }
+  .row-inactive { opacity: .65; }
+  .row-link { text-decoration: none; }
+  .row-link:hover span { text-decoration: underline; }
+
+  .actions-cell { display: flex; gap: 4px; justify-content: flex-end; }
+  .action-btn {
+    width: 30px; height: 30px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: transparent;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: var(--text-muted); cursor: pointer;
+    transition: all .15s; text-decoration: none;
+  }
+  .action-btn:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+  .action-btn--danger:hover { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.3); color: #dc2626; }
+
+  .pagination-bar { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px; border-top: 1px solid var(--border); }
+  .page-btn { width: 32px; height: 32px; border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--text-secondary); text-decoration: none; transition: all .15s; }
+  .page-btn:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+  .page-btn--disabled { opacity: .4; cursor: default; }
+  .page-info { font-size: 12.5px; color: var(--text-muted); }
+
+  .pill-success, .pill-danger, .pill-warning, .pill-info, .pill-neutral {
+    display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px;
+    border-radius: 20px; font-size: 11px; font-weight: 500; font-family: 'Inter', sans-serif;
+  }
+  .pill-success { background: rgba(34,197,94,.14);  color: #15803d; }
+  .pill-danger  { background: rgba(239,68,68,.10);  color: #dc2626; }
+  .pill-warning { background: rgba(245,158,11,.14); color: #b45309; }
+  .pill-neutral { background: rgba(0,0,0,.06);      color: var(--text-secondary); }
+
+  .btn-primary { background: var(--accent); color: #fff; font-family: 'Nunito',sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: var(--radius-md); padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: opacity .18s; text-decoration: none; }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); font-family: 'Nunito',sans-serif; font-weight: 600; font-size: 13px; border-radius: var(--radius-md); padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .12s; text-decoration: none; }
+  .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+  .btn-danger { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.22); color: #dc2626; font-family: 'Nunito',sans-serif; font-weight: 700; font-size: 13.5px; border-radius: var(--radius-md); padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: opacity .18s; }
+  .btn-danger:hover { opacity: .85; }
+
+  .confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 999; display: flex; align-items: center; justify-content: center; }
+  .confirm-box { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; width: 360px; max-width: 90vw; box-shadow: 0 8px 32px rgba(0,0,0,.15); text-align: center; }
+  .confirm-box__icon { margin-bottom: 12px; }
+  .confirm-box__title { font-family: 'Nunito',sans-serif; font-weight: 800; font-size: 16px; color: var(--text-primary); margin-bottom: 8px; }
+  .confirm-box__text { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; }
+  .confirm-box__actions { display: flex; gap: 10px; justify-content: center; }
+
+  @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // Auto-submit select filters
+  document.querySelectorAll('#filter-type, #filter-actif').forEach(function (el) {
+    el.addEventListener('change', function () { document.getElementById('filter-form').submit(); });
+  });
+
+  // Toggle confirm panel
+  const panel = document.getElementById('toggle-confirm-panel');
+  const titleEl = document.getElementById('toggle-confirm-title');
+  const textEl = document.getElementById('toggle-confirm-text');
+  const form = document.getElementById('toggle-form');
+
+  document.querySelectorAll('[data-toggle-target]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const pk = btn.dataset.toggleTarget;
+      const libelle = btn.dataset.libelle;
+      const active = btn.dataset.active === 'true';
+      titleEl.textContent = active ? 'Désactiver « ' + libelle + ' » ?' : 'Activer « ' + libelle + ' » ?';
+      textEl.textContent = active ? 'Le client n\'apparaîtra plus dans les saisies.' : 'Le client sera de nouveau disponible.';
+      form.action = '/api/clients/clients/' + pk + '/toggle-actif/';
+      panel.style.display = 'flex';
+    });
+  });
+
+  document.getElementById('toggle-cancel-btn').addEventListener('click', function () {
+    panel.style.display = 'none';
+  });
+  panel.addEventListener('click', function (e) { if (e.target === panel) panel.style.display = 'none'; });
+});
+</script>
 {% endblock %}

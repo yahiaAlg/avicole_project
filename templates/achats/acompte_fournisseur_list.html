@@ -2,167 +2,256 @@
 {% load static %}
 
 {% block title %}Acomptes Fournisseurs — Élevage Avicole{% endblock %}
-{% block nav_reglements_fournisseurs %}active{% endblock %}
+
+{% block nav_reglements %}active{% endblock %}
 
 {% block page_title %}Acomptes Fournisseurs{% endblock %}
-{% block page_sub_text %}{{ page.paginator.count }} acompte{{ page.paginator.count|pluralize }} enregistré{{ page.paginator.count|pluralize }} — Soldes créditeurs fournisseurs{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} acompte{{ page.paginator.count|pluralize }}{% endblock %}
 
 {% block topbar_actions %}
-  <span style="font-size:12.5px;color:var(--text-muted);padding:6px 12px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border);">
-    <i class="bx bxs-info-circle"></i> Les acomptes sont générés automatiquement lors des règlements excédentaires
-  </span>
+  <a href="{% url 'achats:reglement_fournisseur_create' %}" class="btn-primary">
+    <i class="bx bxs-coin"></i> Nouveau règlement
+  </a>
 {% endblock %}
 
 {% block content %}
+<!-- Info banner -->
+<div class="info-banner">
+  <i class="bx bxs-piggy-bank" style="flex-shrink:0;color:var(--accent-text);font-size:16px;"></i>
+  <span>Les acomptes sont générés <strong>automatiquement</strong> lorsqu'un règlement dépasse la dette totale d'un fournisseur (BR-REG-04). Ils seront déduits des prochaines factures.</span>
+</div>
 
 <!-- Filter bar -->
 <div class="filter-bar">
-  <div class="input-wrapper" style="flex:1;max-width:280px;">
-    <i class="bx bx-search input-icon"></i>
-    <input type="text" name="q" form="filter-form" value="{{ q }}" placeholder="Fournisseur, référence règlement..." class="field-input has-icon">
+  <form method="get" class="filter-form" id="filter-form">
+    <div class="filter-group">
+      <div class="input-icon-wrap">
+        <i class="bx bxs-building"></i>
+        <select name="fournisseur" class="filter-select filter-select--icon" id="filter-fournisseur">
+          <option value="">Tous les fournisseurs</option>
+          {% for f in fournisseurs %}
+          <option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.nom }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="filter-group">
+      <div class="input-icon-wrap">
+        <i class="bx bxs-filter-alt"></i>
+        <select name="utilise" class="filter-select filter-select--icon" id="filter-utilise">
+          <option value="">Tous les statuts</option>
+          <option value="0" {% if utilise == "0" %}selected{% endif %}>En attente</option>
+          <option value="1" {% if utilise == "1" %}selected{% endif %}>Utilisés</option>
+        </select>
+      </div>
+    </div>
+    <button type="submit" class="btn-ghost"><i class="bx bx-search"></i> Filtrer</button>
+    {% if fournisseur_pk or utilise %}
+    <a href="{% url 'achats:acompte_fournisseur_list' %}" class="btn-ghost"><i class="bx bx-x"></i> Réinitialiser</a>
+    {% endif %}
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-header-row">
+    <div class="section-eyebrow">Acomptes fournisseurs</div>
   </div>
 
-  <select name="statut" form="filter-form" class="field-input" onchange="document.getElementById('filter-form').submit();">
-    <option value="">Tous les statuts</option>
-    {% for val, label in statut_choices %}
-    <option value="{{ val }}" {% if statut == val %}selected{% endif %}>{{ label }}</option>
-    {% endfor %}
-  </select>
+  {% if page.object_list %}
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Fournisseur</th>
+          <th>Règlement source</th>
+          <th style="text-align:right;">Montant</th>
+          <th>Statut</th>
+          <th>Notes</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for acompte in page.object_list %}
+        <tr style="--row-i:{{ forloop.counter0 }};" class="{% if not acompte.utilise %}row-pending{% endif %}">
+          <td style="color:var(--text-muted);">{{ acompte.date|date:"d/m/Y" }}</td>
+          <td>
+            <a href="{% url 'achats:fournisseur_tableau_de_bord' acompte.fournisseur.pk %}" class="supplier-link">
+              {{ acompte.fournisseur.nom }}
+            </a>
+          </td>
+          <td>
+            {% if acompte.reglement %}
+            <a href="{% url 'achats:reglement_fournisseur_detail' acompte.reglement.pk %}" class="ref-link">
+              Règlement #{{ acompte.reglement.pk }}
+            </a>
+            <span style="font-size:11px;color:var(--text-muted);margin-left:4px;">· {{ acompte.reglement.date_reglement|date:"d/m/Y" }}</span>
+            {% else %}
+            <span style="color:var(--text-muted);">—</span>
+            {% endif %}
+          </td>
+          <td style="text-align:right;">
+            <span class="amount-val {% if not acompte.utilise %}amount-val--pending{% endif %}">
+              {{ acompte.montant|floatformat:0 }} DZD
+            </span>
+          </td>
+          <td>
+            {% if acompte.utilise %}
+              <span class="pill-neutral"><i class="bx bxs-check-circle"></i> Utilisé</span>
+            {% else %}
+              <span class="pill-warning"><i class="bx bxs-piggy-bank"></i> En attente</span>
+            {% endif %}
+          </td>
+          <td style="color:var(--text-muted);font-size:12px;max-width:180px;">
+            {% if acompte.notes %}
+            <span style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ acompte.notes }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            <div class="actions-cell">
+              <a href="{% url 'achats:acompte_fournisseur_detail' acompte.pk %}" class="action-btn" title="Voir">
+                <i class="bx bxs-show"></i>
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
-  <select name="fournisseur" form="filter-form" class="field-input" onchange="document.getElementById('filter-form').submit();">
-    <option value="">Tous les fournisseurs</option>
-    {% for f in fournisseurs %}
-    <option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.nom }}</option>
-    {% endfor %}
-  </select>
-
-  {% if q or statut or fournisseur_pk %}
-  <a href="{% url 'achats:acompte_fournisseur_list' %}" class="btn-ghost btn-sm">
-    <i class="bx bx-x"></i> Réinitialiser
-  </a>
+  {% if page.has_other_pages %}
+  <div class="pagination-bar">
+    {% if page.has_previous %}
+    <a href="?page={{ page.previous_page_number }}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}{% if utilise %}&utilise={{ utilise }}{% endif %}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
+    {% endif %}
+    <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}
+    <a href="?page={{ page.next_page_number }}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}{% if utilise %}&utilise={{ utilise }}{% endif %}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
+    {% endif %}
+  </div>
   {% endif %}
 
-  <form id="filter-form" method="get" style="display:none;"></form>
-</div>
-
-<!-- Acompte table -->
-<div class="section-card">
-  <div class="section-card__body no-pad">
-    {% if page.object_list %}
-    <div class="table-wrap">
-      <table class="table-base">
-        <thead>
-          <tr>
-            <th>Fournisseur</th>
-            <th>Règlement source</th>
-            <th style="text-align:right;">Montant</th>
-            <th style="text-align:right;">Utilisé</th>
-            <th style="text-align:right;">Reste</th>
-            <th>Statut</th>
-            <th style="text-align:right;">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for ac in page.object_list %}
-          <tr class="stagger-row">
-            <td>
-              <a href="{% url 'achats:fournisseur_tableau_de_bord' ac.fournisseur.pk %}" style="color:var(--text-primary);font-weight:600;">
-                {{ ac.fournisseur.nom }}
-              </a>
-            </td>
-            <td style="white-space:nowrap;">
-              <a href="{% url 'achats:reglement_fournisseur_detail' ac.reglement.pk %}" style="color:var(--accent-text);font-size:12px;">
-                <i class="bx bxs-coin"></i> {{ ac.reglement.date_reglement|date:"d/m/Y" }}
-              </a>
-            </td>
-            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;white-space:nowrap;">
-              {{ ac.montant|floatformat:0 }} DZD
-            </td>
-            <td style="text-align:right;color:#15803d;font-family:'Nunito',sans-serif;font-weight:600;white-space:nowrap;">
-              {{ ac.montant_utilise|floatformat:0 }} DZD
-            </td>
-            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;white-space:nowrap;">
-              {% if ac.reste > 0 %}
-              <span style="color:#b45309;">{{ ac.reste|floatformat:0 }} DZD</span>
-              {% else %}
-              <span style="color:#15803d;">0 DZD</span>
-              {% endif %}
-            </td>
-            <td>
-              {% if ac.statut == 'disponible' %}
-              <span class="pill-base pill-success">Disponible</span>
-              {% elif ac.statut == 'partiellement_utilise' %}
-              <span class="pill-base pill-warning">Part. utilisé</span>
-              {% elif ac.statut == 'epuise' %}
-              <span class="pill-base pill-neutral">Épuisé</span>
-              {% endif %}
-            </td>
-            <td>
-              <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;">
-                <a href="{% url 'achats:acompte_fournisseur_detail' ac.pk %}" class="action-btn" title="Détail">
-                  <i class="bx bx-show"></i>
-                </a>
-              </div>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+  {% else %}
+  <div style="text-align:center;padding:56px 20px;color:var(--text-muted);">
+    <i class="bx bxs-piggy-bank" style="font-size:36px;display:block;margin-bottom:14px;color:var(--border-strong);"></i>
+    <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">Aucun acompte trouvé</div>
+    <div style="font-size:13px;">
+      {% if fournisseur_pk or utilise %}
+        <a href="{% url 'achats:acompte_fournisseur_list' %}" style="color:var(--accent-text);">Réinitialiser les filtres</a>
+      {% else %}
+        Les acomptes apparaissent automatiquement lorsqu'un règlement dépasse la dette d'un fournisseur.
+      {% endif %}
     </div>
-
-    <!-- Pagination -->
-    {% if page.has_other_pages %}
-    <div class="pagination-bar">
-      <span>{{ page.start_index }}–{{ page.end_index }} sur {{ page.paginator.count }}</span>
-      <div class="page-links">
-        {% if page.has_previous %}
-        <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>
-        {% else %}
-        <span class="page-link disabled"><i class="bx bx-chevron-left"></i></span>
-        {% endif %}
-
-        {% for num in page.paginator.page_range %}
-          {% if num == page.number %}
-          <span class="page-link active">{{ num }}</span>
-          {% elif num > page.number|add:-3 and num < page.number|add:3 %}
-          <a href="?page={{ num }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}" class="page-link">{{ num }}</a>
-          {% endif %}
-        {% endfor %}
-
-        {% if page.has_next %}
-        <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}" class="page-link"><i class="bx bx-chevron-right"></i></a>
-        {% else %}
-        <span class="page-link disabled"><i class="bx bx-chevron-right"></i></span>
-        {% endif %}
-      </div>
-    </div>
-    {% endif %}
-
-    {% else %}
-    <div class="empty-state">
-      <i class="bx bxs-wallet empty-state__icon"></i>
-      <div class="empty-state__title">Aucun acompte</div>
-      <div class="empty-state__text">
-        {% if q or statut or fournisseur_pk %}
-        Aucun résultat pour les filtres sélectionnés.
-        {% else %}
-        Les acomptes sont créés automatiquement quand un règlement excède le solde des factures d'un fournisseur.
-      </div>
-      <a href="{% url 'achats:reglement_fournisseur_create' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
-        <i class="bx bx-plus"></i> Nouveau règlement
-      </a>
-        {% endif %}
-    </div>
-    {% endif %}
   </div>
+  {% endif %}
 </div>
-
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.table-wrap { overflow-x: auto; }
+  .info-banner {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: var(--accent-dim); border: 1px solid rgba(34,197,94,.22);
+    border-radius: var(--radius-md); padding: 12px 16px;
+    font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;
+    animation: fadeIn .3s ease;
+  }
+
+  .filter-bar { margin-bottom: 16px; }
+  .filter-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .filter-group { display: flex; align-items: center; }
+  .input-icon-wrap { position: relative; display: flex; align-items: center; }
+  .input-icon-wrap > i { position: absolute; left: 12px; font-size: 15px; color: var(--text-muted); pointer-events: none; z-index: 1; }
+  .filter-select {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); color: var(--text-primary);
+    font-family: 'Inter', sans-serif; font-size: 13px; padding: 9px 13px;
+    outline: none; transition: border-color .15s;
+  }
+  .filter-select--icon { padding-left: 36px; padding-right: 28px; appearance: none; min-width: 170px; }
+  .filter-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+  .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .card-header-row { padding: 16px 20px 12px; border-bottom: 1px solid var(--border); }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--text-muted); padding: 11px 14px; border-bottom: 1px solid var(--border);
+    white-space: nowrap; background: var(--bg-surface);
+  }
+  .data-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn .3s ease both;
+    animation-delay: calc(var(--row-i,0)*35ms);
+    transition: background .12s;
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: var(--bg-hover); }
+  .data-table tbody tr.row-pending { background: rgba(245,158,11,.03); }
+  .data-table td { padding: 13px 14px; font-size: 13px; color: var(--text-secondary); vertical-align: middle; }
+
+  .supplier-link { font-family: 'Nunito', sans-serif; font-weight: 700; color: var(--accent-text); text-decoration: none; }
+  .supplier-link:hover { color: var(--accent); }
+  .ref-link { font-family: 'Nunito', sans-serif; font-weight: 700; color: var(--accent-text); text-decoration: none; font-size: 12.5px; }
+  .ref-link:hover { color: var(--accent); }
+
+  .amount-val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 14px; color: var(--text-primary); }
+  .amount-val--pending { color: #b45309; }
+
+  .pill-warning { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(245,158,11,.14); color: #b45309; }
+  .pill-neutral { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(0,0,0,.06); color: var(--text-secondary); }
+
+  .actions-cell { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+  .action-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: transparent; color: var(--text-muted);
+    font-size: 14px; text-decoration: none; transition: background .12s;
+  }
+  .action-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-strong); }
+
+  .pagination-bar {
+    display: flex; align-items: center; justify-content: center;
+    gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border);
+  }
+  .page-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: var(--bg-surface);
+    color: var(--text-secondary); font-size: 16px; text-decoration: none;
+  }
+  .page-btn:hover { background: var(--bg-hover); }
+  .page-info { font-size: 12px; color: var(--text-muted); }
+
+  .btn-primary {
+    background: var(--accent); color: #fff; font-family: 'Nunito', sans-serif;
+    font-weight: 700; font-size: 13.5px; border: none; border-radius: var(--radius-md);
+    padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: opacity .18s; text-decoration: none;
+  }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+    font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px;
+    border-radius: var(--radius-md); padding: 9px 16px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s; text-decoration: none;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
 </style>
 {% endblock %}
 
-{% block extra_js %}{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  ['filter-fournisseur', 'filter-utilise'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('change', function () { document.getElementById('filter-form').submit(); });
+  });
+});
+</script>
+{% endblock %}

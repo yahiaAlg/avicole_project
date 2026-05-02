@@ -1,330 +1,324 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
-{% block nav_clients %}active{% endblock %}
+{% block title %}BL Client {{ bl.reference }} — Élevage Avicole{% endblock %}
 
-{% block page_title %}
-  <div style="display:flex;align-items:center;gap:14px;">
-    <div class="doc-icon ic-blue"><i class="bx bx-link-external"></i></div>
-    <div>
-      {{ bl_client.reference }}
-      <div style="font-size:13px;font-weight:400;color:var(--text-muted);">
-        {{ bl_client.client.nom }} · {{ bl_client.date_bl|date:"d/m/Y" }}
-      </div>
-    </div>
-  </div>
-{% endblock %}
+{% block nav_bl_clients %}active{% endblock %}
 
-{% block page_sub_text %}
-  {% if bl_client.statut == 'brouillon' %}
-  <span class="pill-base pill-warning">Brouillon</span>
-  {% elif bl_client.statut == 'livre' %}
-  <span class="pill-base pill-info">Livré</span>
-  {% elif bl_client.statut == 'facture' %}
-  <span class="pill-base pill-success">Facturé</span>
-  {% else %}
-  <span class="pill-base pill-danger">En Litige</span>
-  {% endif %}
-  · {{ lignes|length }} ligne{{ lignes|pluralize }} · Total : {{ bl_client.montant_total|floatformat:0 }} DZD
-{% endblock %}
+{% block page_title %}BL Client — {{ bl.reference }}{% endblock %}
+{% block page_sub_text %}{{ bl.client.nom }} · {{ bl.date_bl|date:"d/m/Y" }}{% endblock %}
 
 {% block topbar_actions %}
-  {% if not request.user.profile.role == 'viewer' and bl_client.statut == 'brouillon' %}
-  <a href="{% url 'clients:bl_client_edit' bl_client.pk %}" class="btn-ghost">
+  <a href="{% url 'clients:bl_client_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Retour aux BL
+  </a>
+  {% if not request.user.userprofile.role == 'viewer' and not bl.est_verrouille %}
+  <a href="{% url 'clients:bl_client_edit' bl.pk %}" class="btn-ghost">
     <i class="bx bxs-pencil"></i> Modifier
   </a>
-  <a href="{% url 'clients:bl_client_valider' bl_client.pk %}" class="btn-primary">
-    <i class="bx bx-check"></i> Valider
-  </a>
-  {% elif bl_client.statut == 'livre' or bl_client.statut == 'facture' %}
-  <a href="{% url 'clients:bl_client_print' bl_client.pk %}" class="btn-primary" target="_blank">
+  {% endif %}
+  {% if bl.statut != 'brouillon' %}
+  <a href="{% url 'clients:bl_client_print' bl.pk %}" class="btn-ghost" target="_blank">
     <i class="bx bxs-printer"></i> Imprimer
   </a>
   {% endif %}
 {% endblock %}
 
 {% block content %}
+<div class="page-body">
 
-<div class="detail-layout">
+  {% if bl.est_verrouille %}
+  <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+    <i class="bx bxs-lock-alt" style="color:#15803d;font-size:15px;"></i>
+    <span style="font-size:13px;color:var(--text-secondary);">Ce BL est <strong style="color:#15803d;">verrouillé</strong> — il est inclus dans une facture et ne peut plus être modifié.</span>
+  </div>
+  {% endif %}
 
-  {# ── Left column: Lines + Factures ──────────────────────────────────── #}
-  <div class="detail-main">
+  <div class="detail-grid">
 
-    {# Lines table #}
-    <div class="section-card">
-      <div class="section-card__head">
-        <span class="section-card__title">
-          <i class="bx bxs-box" style="color:var(--text-muted);margin-right:8px;"></i>Lignes de livraison
-        </span>
-        <span class="pill-base pill-neutral">{{ lignes|length }}</span>
+    <!-- Left: header info + lines -->
+    <div class="detail-main">
+
+      <!-- Header card -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bx-link-external"></i> Informations BL</div>
+          <div>
+            {% if bl.statut == 'brouillon' %}<span class="pill-warning">Brouillon</span>
+            {% elif bl.statut == 'livre' %}<span class="pill-info">Livré</span>
+            {% elif bl.statut == 'facture' %}<span class="pill-success">Facturé</span>
+            {% elif bl.statut == 'litige' %}<span class="pill-danger">En litige</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="card-body-grid">
+          <div class="info-row">
+            <span class="info-label">Référence</span>
+            <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ bl.reference }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Client</span>
+            <span class="info-value"><a href="{% url 'clients:client_detail' bl.client.pk %}" style="color:var(--accent-text);text-decoration:none;font-weight:500;">{{ bl.client.nom }}</a></span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Date BL</span>
+            <span class="info-value">{{ bl.date_bl|date:"d/m/Y" }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Signé par</span>
+            <span class="info-value">{{ bl.signe_par|default:"—" }}</span>
+          </div>
+          {% if bl.adresse_livraison %}
+          <div class="info-row info-row--full">
+            <span class="info-label">Adresse de livraison</span>
+            <span class="info-value" style="white-space:pre-line;">{{ bl.adresse_livraison }}</span>
+          </div>
+          {% endif %}
+          {% if bl.notes %}
+          <div class="info-row info-row--full">
+            <span class="info-label">Notes</span>
+            <span class="info-value" style="color:var(--text-muted);font-size:12.5px;">{{ bl.notes }}</span>
+          </div>
+          {% endif %}
+          <div class="info-row">
+            <span class="info-label">Créé par</span>
+            <span class="info-value" style="color:var(--text-muted);font-size:12px;">{{ bl.created_by|default:"—" }} · {{ bl.created_at|date:"d/m/Y H:i" }}</span>
+          </div>
+        </div>
       </div>
-      <div class="section-card__body no-pad">
-        <div style="overflow-x:auto;">
-          <table class="table-base">
+
+      <!-- Lines table -->
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bx-list-ul"></i> Lignes produits</div>
+          <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:15px;color:var(--text-primary);">{{ montant_total|floatformat:0 }} DZD</span>
+        </div>
+        {% if lignes %}
+        <div class="table-wrapper">
+          <table class="data-table">
             <thead>
               <tr>
-                <th>#</th>
-                <th>Produit</th>
-                <th style="text-align:right;">Qté</th>
-                <th style="text-align:right;">PU HT</th>
-                <th style="text-align:right;">Total HT</th>
-                <th style="text-align:right;">TVA</th>
-                <th style="text-align:right;">Total TTC</th>
+                <th>Produit fini</th>
+                <th style="text-align:right;">Quantité</th>
+                <th style="text-align:right;">Prix unitaire</th>
+                <th style="text-align:right;">Total</th>
+                <th>Notes</th>
               </tr>
             </thead>
             <tbody>
-              {% for l in lignes %}
-              <tr class="stagger-row">
-                <td style="color:var(--text-muted);" class="text-mono">{{ forloop.counter }}</td>
-                <td style="font-weight:500;">{{ l.produit.nom }}</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;">{{ l.quantite|floatformat:0 }}</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;">{{ l.prix_unitaire_ht|floatformat:0 }} DZD</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;">{{ l.total_ligne_ht|floatformat:0 }} DZD</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;">{{ l.montant_tva_ligne|floatformat:0 }} DZD</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ l.total_ligne_ttc|floatformat:0 }} DZD</td>
+              {% for ligne in lignes %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td>
+                  <span style="font-weight:500;color:var(--text-primary);">{{ ligne.produit_fini.designation }}</span>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">{{ ligne.produit_fini.get_type_produit_display }}</div>
+                </td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ ligne.quantite|floatformat:2 }} {{ ligne.produit_fini.unite_mesure }}</td>
+                <td style="text-align:right;color:var(--text-secondary);">{{ ligne.prix_unitaire|floatformat:2 }} DZD</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ ligne.montant_total|floatformat:0 }} DZD</td>
+                <td style="color:var(--text-muted);font-size:12px;">{{ ligne.notes|default:"—" }}</td>
               </tr>
               {% endfor %}
             </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3" style="text-align:right;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);padding:12px 14px;">Total</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);padding:12px 14px;">{{ montant_total|floatformat:0 }} DZD</td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
-      </div>
-    </div>
-
-    {# Linked factures #}
-    {% if factures_linked %}
-    <div class="section-card" style="animation-delay:.05s;">
-      <div class="section-card__head">
-        <span class="section-card__title">
-          <i class="bx bxs-receipt" style="color:var(--accent);margin-right:8px;"></i>Factures liées
-        </span>
-        <span class="pill-base pill-success">{{ factures_linked|length }}</span>
-      </div>
-      <div class="section-card__body no-pad">
-        <table class="table-base">
-          <thead>
-            <tr>
-              <th>Référence</th>
-              <th>Date</th>
-              <th>Statut</th>
-              <th style="text-align:right;">Montant TTC</th>
-              <th style="text-align:right;">Reste dû</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for fac in factures_linked %}
-            <tr class="stagger-row">
-              <td>
-                <a href="{% url 'clients:facture_client_detail' fac.pk %}" class="text-mono" style="font-weight:600;">{{ fac.reference }}</a>
-              </td>
-              <td style="color:var(--text-muted);white-space:nowrap;">{{ fac.date_facture|date:"d/m/Y" }}</td>
-              <td>
-                {% if fac.statut == 'payee' %}
-                <span class="pill-base pill-success">Payée</span>
-                {% elif fac.est_en_retard %}
-                <span class="pill-base pill-danger">Retard</span>
-                {% else %}
-                <span class="pill-base pill-warning">Non payée</span>
-                {% endif %}
-              </td>
-              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ fac.montant_ttc|floatformat:0 }} DZD</td>
-              <td style="text-align:right;">
-                {% if fac.reste_a_payer > 0 %}
-                <span style="color:#dc2626;font-family:'Nunito',sans-serif;font-weight:700;">{{ fac.reste_a_payer|floatformat:0 }} DZD</span>
-                {% else %}
-                <span style="color:#15803d;font-family:'Nunito',sans-serif;font-weight:700;">—</span>
-                {% endif %}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-    {% endif %}
-
-    {# Notes #}
-    {% if bl_client.notes %}
-    <div class="section-card" style="animation-delay:.1s;">
-      <div class="section-card__head">
-        <span class="section-card__title">
-          <i class="bx bxs-note" style="color:var(--text-muted);margin-right:8px;"></i>Notes
-        </span>
-      </div>
-      <div class="section-card__body">
-        <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">{{ bl_client.notes|linebreaks }}</div>
-      </div>
-    </div>
-    {% endif %}
-
-  </div>
-
-  {# ── Right column: Summary + Actions ────────────────────────────────── #}
-  <div class="detail-side">
-
-    {# Summary card #}
-    <div class="summary-card">
-      <div class="summary-card__title">Récapitulatif</div>
-      <div class="totals-block">
-        <div class="totals-row">
-          <span class="totals-row__label">Total HT</span>
-          <span class="totals-row__value">{{ bl_client.total_ht|floatformat:0 }} DZD</span>
-        </div>
-        <div class="totals-row">
-          <span class="totals-row__label">TVA</span>
-          <span class="totals-row__value">{{ bl_client.total_tva|floatformat:0 }} DZD</span>
-        </div>
-        <div class="totals-row totals-row--grand">
-          <span class="totals-row__label">Total TTC</span>
-          <span class="totals-row__value">{{ bl_client.montant_total|floatformat:0 }} DZD</span>
-        </div>
-      </div>
-
-      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
-        <div class="info-row">
-          <span class="info-row__label">Client</span>
-          <a href="{% url 'clients:client_detail' bl_client.client.pk %}" class="info-row__value">{{ bl_client.client.nom }}</a>
-        </div>
-        <div class="info-row">
-          <span class="info-row__label">Date BL</span>
-          <span class="info-row__value">{{ bl_client.date_bl|date:"d/m/Y" }}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-row__label">Statut</span>
-          <span class="info-row__value">
-            {% if bl_client.statut == 'brouillon' %}
-            <span class="pill-base pill-warning">Brouillon</span>
-            {% elif bl_client.statut == 'livre' %}
-            <span class="pill-base pill-info">Livré</span>
-            {% elif bl_client.statut == 'facture' %}
-            <span class="pill-base pill-success">Facturé</span>
-            {% else %}
-            <span class="pill-base pill-danger">En Litige</span>
-            {% endif %}
-          </span>
-        </div>
-        {% if bl_client.factures.exists %}
-        <div class="info-row">
-          <span class="info-row__label">Facturé</span>
-          <span class="info-row__value"><span class="pill-base pill-success"><i class="bx bxs-check-circle" style="margin-right:3px;"></i>Oui</span></span>
+        {% else %}
+        <div style="text-align:center;padding:36px 20px;color:var(--text-muted);">
+          <i class="bx bx-list-ul" style="font-size:28px;display:block;margin-bottom:10px;color:var(--border-strong);"></i>
+          <div style="font-size:13px;">Aucune ligne enregistrée.</div>
         </div>
         {% endif %}
       </div>
+
     </div>
 
-    {# Quick actions #}
-    <div class="form-card" style="animation-delay:.05s;">
-      <div class="form-card__title" style="margin-bottom:12px;">Actions rapides</div>
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        <a href="{% url 'clients:bl_client_print' bl_client.pk %}" class="btn-ghost btn-sm" target="_blank" style="justify-content:flex-start;">
-          <i class="bx bxs-printer"></i> Imprimer le BL
-        </a>
-        {% if bl_client.statut == 'livre' and not bl_client.factures.exists %}
-        <a href="{% url 'clients:facture_client_create_for_client' bl_client.client.pk %}" class="btn-primary btn-sm" style="justify-content:flex-start;">
-          <i class="bx bxs-receipt"></i> Facturer ce BL
-        </a>
-        {% endif %}
-        {% if not request.user.profile.role == 'viewer' and bl_client.statut == 'brouillon' %}
-        <a href="{% url 'clients:bl_client_edit' bl_client.pk %}" class="btn-ghost btn-sm" style="justify-content:flex-start;">
-          <i class="bx bxs-pencil"></i> Modifier
-        </a>
-        <form method="post" action="{% url 'clients:bl_client_valider' bl_client.pk %}" style="display:inline;">
-          {% csrf_token %}
-          <button type="submit" class="btn-primary btn-sm" style="width:100%;justify-content:flex-start;">
-            <i class="bx bx-check"></i> Valider le BL
+    <!-- Right: actions + related factures -->
+    <div class="detail-side">
+
+      <!-- Actions -->
+      {% if not request.user.userprofile.role == 'viewer' %}
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bx-cog"></i> Actions</div>
+        </div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:8px;">
+          {% if bl.statut == 'brouillon' %}
+          <button type="button" class="btn-primary btn-full" id="btn-valider-bl">
+            <i class="bx bxs-check-circle"></i> Valider (Livré)
           </button>
-        </form>
-        <form method="post" action="{% url 'clients:bl_client_delete' bl_client.pk %}" style="display:inline;"
-              onsubmit="return confirm('Confirmer la suppression de ce BL ?');">
-          {% csrf_token %}
-          <button type="submit" class="btn-danger btn-sm" style="width:100%;justify-content:flex-start;">
+          <a href="{% url 'clients:bl_client_edit' bl.pk %}" class="btn-ghost btn-full">
+            <i class="bx bxs-pencil"></i> Modifier le BL
+          </a>
+          <button type="button" class="btn-danger btn-full" id="btn-supprimer-bl">
             <i class="bx bxs-trash"></i> Supprimer
           </button>
-        </form>
+          {% elif bl.statut == 'livre' %}
+          <a href="{% url 'clients:facture_client_create_for_client' bl.client.pk %}" class="btn-primary btn-full">
+            <i class="bx bx-file"></i> Créer une facture
+          </a>
+          <a href="{% url 'clients:bl_client_print' bl.pk %}" class="btn-ghost btn-full" target="_blank">
+            <i class="bx bxs-printer"></i> Imprimer le BL
+          </a>
+          {% elif bl.statut == 'facture' %}
+          <a href="{% url 'clients:bl_client_print' bl.pk %}" class="btn-ghost btn-full" target="_blank">
+            <i class="bx bxs-printer"></i> Imprimer le BL
+          </a>
+          {% elif bl.statut == 'litige' %}
+          <a href="{% url 'clients:bl_client_edit' bl.pk %}" class="btn-ghost btn-full">
+            <i class="bx bxs-pencil"></i> Modifier le BL
+          </a>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Linked factures -->
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bx-file"></i> Factures liées</div>
+        </div>
+        {% if factures %}
+        <div style="padding:0 4px;">
+          {% for facture in factures %}
+          <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <a href="{% url 'clients:facture_client_detail' facture.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;font-size:13.5px;">{{ facture.reference }}</a>
+              <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">{{ facture.date_facture|date:"d/m/Y" }}</div>
+            </div>
+            <div style="text-align:right;">
+              {% if facture.statut == 'non_payee' %}<span class="pill-danger">Non payée</span>
+              {% elif facture.statut == 'partiellement_payee' %}<span class="pill-warning">Part. payée</span>
+              {% elif facture.statut == 'payee' %}<span class="pill-success">Payée</span>
+              {% elif facture.statut == 'en_litige' %}<span class="pill-danger">Litige</span>
+              {% endif %}
+              <div style="font-size:12px;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);margin-top:3px;">{{ facture.montant_ttc|floatformat:0 }} DZD</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div style="padding:24px 16px;text-align:center;color:var(--text-muted);font-size:13px;">
+          <i class="bx bx-file" style="font-size:22px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
+          Aucune facture liée.
+        </div>
         {% endif %}
       </div>
-    </div>
 
+    </div>
   </div>
 </div>
 
+<!-- Validate confirm panel -->
+<div id="validate-confirm-panel" class="confirm-overlay" style="display:none;">
+  <div class="confirm-box">
+    <div class="confirm-box__icon"><i class="bx bxs-check-circle" style="color:#15803d;font-size:22px;"></i></div>
+    <div class="confirm-box__title">Valider ce BL ?</div>
+    <div class="confirm-box__text">Le stock produits finis sera déduit. Cette action est irréversible.</div>
+    <div class="confirm-box__actions">
+      <button type="button" id="validate-cancel-btn" class="btn-ghost">Annuler</button>
+      <form method="post" action="{% url 'clients:bl_client_valider' bl.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn-primary"><i class="bx bxs-check-circle"></i> Confirmer</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirm panel -->
+<div id="delete-confirm-panel" class="confirm-overlay" style="display:none;">
+  <div class="confirm-box">
+    <div class="confirm-box__icon"><i class="bx bxs-error" style="color:#dc2626;font-size:22px;"></i></div>
+    <div class="confirm-box__title">Supprimer ce BL ?</div>
+    <div class="confirm-box__text">Cette action est irréversible. Le BL « {{ bl.reference }} » sera définitivement supprimé.</div>
+    <div class="confirm-box__actions">
+      <button type="button" id="delete-cancel-btn" class="btn-ghost">Annuler</button>
+      <form method="post" action="{% url 'clients:bl_client_delete' bl.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn-danger">Supprimer</button>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-/* ── Layout ───────────────────────────────────────────────────────────── */
-.detail-layout {
-  display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 20px;
-  align-items: start;
-}
-@media (max-width: 1024px) {
-  .detail-layout { grid-template-columns: 1fr; }
-}
-.detail-main { display: flex; flex-direction: column; gap: 18px; }
-.detail-side { display: flex; flex-direction: column; gap: 16px; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 320px; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
+  .detail-main { display: flex; flex-direction: column; }
+  .detail-side { display: flex; flex-direction: column; gap: 16px; }
 
-/* ── Doc icon ─────────────────────────────────────────────────────────── */
-.doc-icon {
-  width: 44px; height: 44px; border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px; flex-shrink: 0;
-}
-.doc-icon.ic-blue { background: rgba(56,189,248,.14); color: #0284c7; }
+  .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .card-header-row { padding: 14px 18px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
 
-/* ── Summary card ─────────────────────────────────────────────────────── */
-.summary-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 22px 24px;
-  animation: fadeIn .3s ease both;
-}
-.summary-card__title {
-  font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px;
-  color: var(--text-primary); margin-bottom: 16px; padding-bottom: 14px;
-  border-bottom: 1px solid var(--border);
-}
+  .card-body-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; padding: 0; }
+  .info-row { display: flex; flex-direction: column; gap: 3px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+  .info-row--full { grid-column: 1 / -1; }
+  .info-row:nth-last-child(-n+2):not(.info-row--full) { border-bottom: none; }
+  .info-row--full:last-child { border-bottom: none; }
+  .info-label { font-size: 11px; font-weight: 500; color: var(--text-muted); letter-spacing: .03em; text-transform: uppercase; }
+  .info-value { font-size: 13.5px; color: var(--text-secondary); }
 
-/* ── Totals ───────────────────────────────────────────────────────────── */
-.totals-block { display: flex; flex-direction: column; gap: 10px; }
-.totals-row {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
-}
-.totals-row:last-child { border-bottom: none; }
-.totals-row--grand {
-  border-top: 2px solid var(--border);
-  margin-top: 4px; padding-top: 12px;
-}
-.totals-row__label { font-size: 13px; color: var(--text-secondary); }
-.totals-row__value {
-  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
-  color: var(--text-primary);
-}
-.totals-row--grand .totals-row__value { font-size: 16px; color: var(--accent-text); }
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th { padding: 10px 14px; font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: left; background: var(--bg-base); }
+  .data-table tbody td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .data-table tfoot td { background: var(--bg-base); border-top: 1px solid var(--border); }
+  .table-row { animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i) * 35ms); }
+  .table-row:hover td { background: var(--bg-hover); }
 
-/* ── Info rows ────────────────────────────────────────────────────────── */
-.info-row {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 6px 0;
-}
-.info-row__label { font-size: 12px; color: var(--text-muted); }
-.info-row__value { font-size: 12.5px; font-weight: 500; color: var(--text-primary); text-decoration: none; }
+  .pill-success,.pill-danger,.pill-warning,.pill-info,.pill-neutral { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;font-family:'Inter',sans-serif; }
+  .pill-success { background:rgba(34,197,94,.14);color:#15803d; }
+  .pill-danger  { background:rgba(239,68,68,.10);color:#dc2626; }
+  .pill-warning { background:rgba(245,158,11,.14);color:#b45309; }
+  .pill-info    { background:rgba(56,189,248,.14);color:#0284c7; }
 
-/* ── Form card (reused for actions) ───────────────────────────────────── */
-.form-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 22px 24px;
-  animation: fadeIn .3s ease both;
-}
-.form-card__title {
-  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
-  color: var(--text-primary);
-}
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+  .btn-danger { background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.22);color:#dc2626;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s; }
+  .btn-danger:hover { opacity:.85; }
+  .btn-full { width:100%;justify-content:center; }
+
+  .confirm-overlay { position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:999;display:flex;align-items:center;justify-content:center; }
+  .confirm-box { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;width:380px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.15);text-align:center; }
+  .confirm-box__icon { margin-bottom:12px; }
+  .confirm-box__title { font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;color:var(--text-primary);margin-bottom:8px; }
+  .confirm-box__text { font-size:13px;color:var(--text-secondary);margin-bottom:20px; }
+  .confirm-box__actions { display:flex;gap:10px;justify-content:center; }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);} }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var validatePanel = document.getElementById('validate-confirm-panel');
+  var deletePanel = document.getElementById('delete-confirm-panel');
+
+  var btnValider = document.getElementById('btn-valider-bl');
+  if (btnValider) {
+    btnValider.addEventListener('click', function () { validatePanel.style.display = 'flex'; });
+  }
+  document.getElementById('validate-cancel-btn') && document.getElementById('validate-cancel-btn').addEventListener('click', function () { validatePanel.style.display = 'none'; });
+  validatePanel && validatePanel.addEventListener('click', function (e) { if (e.target === validatePanel) validatePanel.style.display = 'none'; });
+
+  var btnSupprimer = document.getElementById('btn-supprimer-bl');
+  if (btnSupprimer) {
+    btnSupprimer.addEventListener('click', function () { deletePanel.style.display = 'flex'; });
+  }
+  document.getElementById('delete-cancel-btn') && document.getElementById('delete-cancel-btn').addEventListener('click', function () { deletePanel.style.display = 'none'; });
+  deletePanel && deletePanel.addEventListener('click', function (e) { if (e.target === deletePanel) deletePanel.style.display = 'none'; });
+});
+</script>
 {% endblock %}

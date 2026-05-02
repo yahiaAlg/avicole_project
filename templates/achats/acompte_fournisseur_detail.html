@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
-{% block nav_reglements_fournisseurs %}active{% endblock %}
+{% block title %}Acompte — {{ acompte.fournisseur.nom }} — Élevage Avicole{% endblock %}
 
-{% block page_title %}Acompte {{ acompte.pk|default:"#" }}{% endblock %}
-{% block page_sub_text %}{{ acompte.fournisseur.nom }} — Généré automatiquement{% endblock %}
+{% block nav_reglements %}active{% endblock %}
+
+{% block page_title %}Acompte Fournisseur{% endblock %}
+{% block page_sub_text %}{{ acompte.fournisseur.nom }} · {{ acompte.date|date:"d/m/Y" }}{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'achats:acompte_fournisseur_list' %}" class="btn-ghost">
@@ -14,276 +15,329 @@
 {% endblock %}
 
 {% block content %}
-
 <div class="detail-layout">
 
-  <!-- Left column -->
+  <!-- ── Main ── -->
   <div class="detail-main">
 
-    <!-- Status banner -->
-    <div class="status-banner" style="margin-bottom:18px;">
-      {% if acompte.statut == 'disponible' %}
-      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius-md);">
-        <i class="bx bxs-check-circle" style="color:#15803d;font-size:16px;"></i>
-        <span style="font-size:13px;color:var(--text-secondary);">
-          <strong style="color:#15803d;">Disponible</strong> — Ce montant sera automatiquement utilisé pour les prochaines factures du fournisseur.
-        </span>
-      </div>
-      {% elif acompte.statut == 'partiellement_utilise' %}
-      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-md);">
-        <i class="bx bxs-hourglass" style="color:#b45309;font-size:16px;"></i>
-        <span style="font-size:13px;color:var(--text-secondary);">
-          <strong style="color:#b45309;">Partiellement utilisé</strong> — Une partie a déjà été consommée par des règlements automatiques.
-        </span>
-      </div>
-      {% elif acompte.statut == 'epuise' %}
-      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(107,114,128,.08);border:1px solid rgba(107,114,128,.2);border-radius:var(--radius-md);">
-        <i class="bx bxs-x-circle" style="color:#6b7280;font-size:16px;"></i>
-        <span style="font-size:13px;color:var(--text-secondary);">
-          <strong style="color:#6b7280;">Épuisé</strong> — L'acompte a été entièrement consommé.
-        </span>
-      </div>
-      {% endif %}
-    </div>
-
-    <!-- Info card -->
-    <div class="section-card" style="margin-bottom:18px;">
-      <div class="section-card__head">
-        <span class="section-card__title">Informations de l'acompte</span>
-      </div>
-      <div class="section-card__body">
-        <div class="detail-grid">
-          <div>
-            <div class="detail-label">Fournisseur</div>
-            <div class="detail-value">
-              <a href="{% url 'achats:fournisseur_tableau_de_bord' acompte.fournisseur.pk %}" style="color:var(--accent-text);">{{ acompte.fournisseur.nom }}</a>
-            </div>
-          </div>
-          <div>
-            <div class="detail-label">Règlement source</div>
-            <div class="detail-value">
-              <a href="{% url 'achats:reglement_fournisseur_detail' acompte.reglement.pk %}" style="color:var(--accent-text);">
-                <i class="bx bxs-coin"></i> {{ acompte.reglement.date_reglement|date:"d/m/Y" }}
-              </a>
-            </div>
-          </div>
-          <div>
-            <div class="detail-label">Montant initial</div>
-            <div class="detail-value val-money" style="font-size:16px;">{{ acompte.montant|floatformat:0 }} DZD</div>
-          </div>
-          <div>
-            <div class="detail-label">Montant utilisé</div>
-            <div class="detail-value" style="color:#15803d;font-weight:700;">{{ acompte.montant_utilise|floatformat:0 }} DZD</div>
-          </div>
-          <div>
-            <div class="detail-label">Reste</div>
-            <div class="detail-value" style="{% if acompte.reste > 0 %}color:#b45309;{% else %}color:#15803d;{% endif %}font-weight:700;">
-              {% if acompte.reste > 0 %}{{ acompte.reste|floatformat:0 }} DZD{% else %}0 DZD{% endif %}
-            </div>
-          </div>
-          <div>
-            <div class="detail-label">Statut</div>
-            <div class="detail-value">
-              {% if acompte.statut == 'disponible' %}
-              <span class="pill-base pill-success">Disponible</span>
-              {% elif acompte.statut == 'partiellement_utilise' %}
-              <span class="pill-base pill-warning">Part. utilisé</span>
-              {% elif acompte.statut == 'epuise' %}
-              <span class="pill-base pill-neutral">Épuisé</span>
-              {% endif %}
-            </div>
-          </div>
-          <div>
-            <div class="detail-label">Date de création</div>
-            <div class="detail-value">{{ acompte.created_at|date:"d/m/Y H:i" }}</div>
-          </div>
+    <!-- Header card -->
+    <div class="detail-card detail-card--header {% if not acompte.utilise %}detail-card--pending{% endif %}">
+      <div class="header-badge-row">
+        <div class="piggy-icon-wrap">
+          <i class="bx bxs-piggy-bank"></i>
+        </div>
+        <div class="header-meta">
+          <div class="header-label">Acompte fournisseur</div>
+          <div class="header-amount">{{ acompte.montant|floatformat:0 }} DZD</div>
+          <div class="header-date">Généré le {{ acompte.date|date:"d/m/Y" }}</div>
+        </div>
+        <div class="header-status">
+          {% if acompte.utilise %}
+            <span class="pill-neutral pill-lg"><i class="bx bxs-check-circle"></i> Utilisé</span>
+          {% else %}
+            <span class="pill-warning pill-lg"><i class="bx bxs-piggy-bank"></i> En attente</span>
+          {% endif %}
         </div>
       </div>
     </div>
 
-    <!-- Usage history (future feature) -->
-    {% if utilisations %}
-    <div class="section-card">
-      <div class="section-card__head">
-        <span class="section-card__title"><i class="bx bxs-coin" style="color:var(--accent);margin-right:8px;"></i>Historique d'utilisation</span>
-      </div>
-      <div class="section-card__body no-pad">
-        <div class="table-wrap">
-          <table class="table-base">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Facture</th>
-                <th style="text-align:right;">Montant utilisé</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for u in utilisations %}
-              <tr class="stagger-row">
-                <td style="color:var(--text-muted);white-space:nowrap;">{{ u.date_utilisation|date:"d/m/Y H:i" }}</td>
-                <td>
-                  <a href="{% url 'achats:facture_fournisseur_detail' u.facture.pk %}" class="text-mono" style="color:var(--text-primary);font-weight:600;">
-                    {{ u.facture.reference }}
-                  </a>
-                </td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">
-                  {{ u.montant|floatformat:2 }} DZD
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+    <!-- Explanation banner -->
+    <div class="explain-banner">
+      <i class="bx bxs-info-circle" style="flex-shrink:0;color:var(--accent-text);font-size:16px;"></i>
+      <div>
+        Cet acompte a été généré <strong>automatiquement</strong> par le moteur FIFO car le règlement
+        {% if acompte.reglement %}du {{ acompte.reglement.date_reglement|date:"d/m/Y" }}{% endif %}
+        dépassait la dette totale du fournisseur (BR-REG-04).
+        Il sera automatiquement déduit lors des prochaines allocations de règlement.
       </div>
     </div>
-    {% endif %}
 
-  </div>
-
-  <!-- Right column -->
-  <div class="detail-side">
-
-    <!-- Balance card -->
-    <div class="section-card" style="margin-bottom:16px;">
-      <div class="section-card__head">
-        <span class="section-card__title">Solde acompte</span>
-      </div>
-      <div class="section-card__body">
-
-        <!-- Initial -->
-        <div style="margin-bottom:14px;">
-          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Montant initial</div>
-          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;color:var(--text-primary);">
+    <!-- Detail grid -->
+    <div class="detail-card">
+      <div class="form-card__title"><i class="bx bxs-file-txt"></i> Informations</div>
+      <div class="info-grid">
+        <div class="info-cell">
+          <div class="info-cell__label">Fournisseur</div>
+          <div class="info-cell__val">
+            <a href="{% url 'achats:fournisseur_tableau_de_bord' acompte.fournisseur.pk %}" class="link-accent">
+              {{ acompte.fournisseur.nom }}
+            </a>
+          </div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell__label">Montant</div>
+          <div class="info-cell__val info-cell__val--big {% if not acompte.utilise %}info-cell__val--amber{% endif %}">
             {{ acompte.montant|floatformat:0 }} DZD
           </div>
         </div>
-
-        <!-- Used -->
-        <div style="margin-bottom:14px;">
-          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Utilisé</div>
-          <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:18px;color:#15803d;">
-            {{ acompte.montant_utilise|floatformat:0 }} DZD
-          </div>
+        <div class="info-cell">
+          <div class="info-cell__label">Date</div>
+          <div class="info-cell__val">{{ acompte.date|date:"d/m/Y" }}</div>
         </div>
-
-        <!-- Remaining -->
-        <div style="padding-top:14px;border-top:2px solid var(--border);">
-          <div style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Reste disponible</div>
-          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:24px;{% if acompte.reste > 0 %}color:#22c55e;{% else %}color:#6b7280;{% endif %}">
-            {% if acompte.reste > 0 %}
-            {{ acompte.reste|floatformat:0 }} DZD
+        <div class="info-cell">
+          <div class="info-cell__label">Statut</div>
+          <div class="info-cell__val">
+            {% if acompte.utilise %}
+              <span class="pill-neutral"><i class="bx bxs-check-circle"></i> Utilisé</span>
             {% else %}
-            0 DZD
+              <span class="pill-warning"><i class="bx bxs-piggy-bank"></i> En attente d'utilisation</span>
             {% endif %}
           </div>
         </div>
 
-        <!-- Progress bar -->
-        {% if acompte.montant > 0 %}
-        <div class="debt-bar" style="margin-top:14px;margin-bottom:4px;">
-          <div class="debt-bar__track">
-            <div class="debt-bar__fill" style="width:{{ acompte.montant_utilise|default:0|div:acompte.montant|mul:100|floatformat:0 }}%;background:{% if acompte.statut == 'epuise' %}#6b7280{% else %}var(--accent){% endif %};"></div>
+        {% if acompte.reglement %}
+        <div class="info-cell info-cell--full">
+          <div class="info-cell__label">Règlement source</div>
+          <div class="info-cell__val">
+            <a href="{% url 'achats:reglement_fournisseur_detail' acompte.reglement.pk %}" class="ref-link">
+              Règlement #{{ acompte.reglement.pk }}
+            </a>
+            <span style="color:var(--text-muted);font-size:12px;margin-left:8px;">
+              {{ acompte.reglement.date_reglement|date:"d/m/Y" }}
+              · {{ acompte.reglement.get_mode_paiement_display }}
+              · {{ acompte.reglement.montant|floatformat:0 }} DZD total
+            </span>
           </div>
-        </div>
-        <div style="font-size:11px;color:var(--text-muted);text-align:right;">
-          {{ acompte.montant_utilise|floatformat:0 }} / {{ acompte.montant|floatformat:0 }} DZD
         </div>
         {% endif %}
 
+        {% if acompte.notes %}
+        <div class="info-cell info-cell--full">
+          <div class="info-cell__label">Notes</div>
+          <div class="info-cell__val" style="font-size:13px;color:var(--text-muted);line-height:1.6;">{{ acompte.notes }}</div>
+        </div>
+        {% endif %}
       </div>
     </div>
 
-    <!-- Quick links -->
-    <div class="section-card">
-      <div class="section-card__head">
-        <span class="section-card__title">Liens rapides</span>
-      </div>
-      <div class="section-card__body no-pad">
-        <a href="{% url 'achats:reglement_fournisseur_detail' acompte.reglement.pk %}" class="side-link-row">
-          <i class="bx bxs-coin" style="color:var(--accent-text);"></i>
-          <span>Voir le règlement source</span>
-          <i class="bx bx-chevron-right" style="color:var(--text-muted);margin-left:auto;"></i>
-        </a>
-        <a href="{% url 'achats:fournisseur_tableau_de_bord' acompte.fournisseur.pk %}" class="side-link-row">
-          <i class="bx bxs-building" style="color:var(--text-muted);"></i>
-          <span>Tableau de bord fournisseur</span>
-          <i class="bx bx-chevron-right" style="color:var(--text-muted);margin-left:auto;"></i>
-        </a>
-        <a href="{% url 'achats:acompte_fournisseur_list' %}?fournisseur={{ acompte.fournisseur.pk }}" class="side-link-row">
-          <i class="bx bxs-wallet" style="color:var(--text-muted);"></i>
-          <span>Tous les acomptes de {{ acompte.fournisseur.nom }}</span>
-          <i class="bx bx-chevron-right" style="color:var(--text-muted);margin-left:auto;"></i>
-        </a>
+    <!-- Timeline / audit trail -->
+    <div class="detail-card">
+      <div class="form-card__title"><i class="bx bx-history"></i> Traçabilité</div>
+      <div class="timeline">
+        <!-- Step 1: reglement created -->
+        {% if acompte.reglement %}
+        <div class="timeline-item timeline-item--done">
+          <div class="timeline-dot timeline-dot--green"></div>
+          <div class="timeline-body">
+            <div class="timeline-title">Règlement enregistré</div>
+            <div class="timeline-meta">
+              {{ acompte.reglement.date_reglement|date:"d/m/Y" }}
+              · {{ acompte.reglement.montant|floatformat:0 }} DZD
+              · {{ acompte.reglement.get_mode_paiement_display }}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        <!-- Step 2: FIFO run, surplus detected -->
+        <div class="timeline-item timeline-item--done">
+          <div class="timeline-dot timeline-dot--green"></div>
+          <div class="timeline-body">
+            <div class="timeline-title">Surplus détecté — Acompte créé (BR-REG-04)</div>
+            <div class="timeline-meta">{{ acompte.date|date:"d/m/Y" }} · {{ acompte.montant|floatformat:0 }} DZD crédité</div>
+          </div>
+        </div>
+        <!-- Step 3: utilisation -->
+        <div class="timeline-item {% if acompte.utilise %}timeline-item--done{% else %}timeline-item--pending{% endif %}">
+          <div class="timeline-dot {% if acompte.utilise %}timeline-dot--green{% else %}timeline-dot--amber{% endif %}"></div>
+          <div class="timeline-body">
+            <div class="timeline-title">
+              {% if acompte.utilise %}Acompte utilisé{% else %}En attente d'utilisation{% endif %}
+            </div>
+            <div class="timeline-meta">
+              {% if acompte.utilise %}
+                Déduit lors d'un règlement ultérieur.
+              {% else %}
+                Sera automatiquement alloué lors du prochain règlement FIFO pour ce fournisseur.
+              {% endif %}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
   </div>
 
-</div>
+  <!-- ── Aside ── -->
+  <div class="detail-aside">
 
+    <div class="aside-metric-card {% if not acompte.utilise %}aside-metric-card--active{% endif %}">
+      <div class="aside-metric-card__icon">
+        <i class="bx bxs-piggy-bank"></i>
+      </div>
+      <div class="aside-metric-card__label">Montant acompte</div>
+      <div class="aside-metric-card__val">{{ acompte.montant|floatformat:0 }}<span class="aside-metric-card__currency">DZD</span></div>
+      <div class="aside-metric-card__status">
+        {% if acompte.utilise %}
+          <span class="pill-neutral">Utilisé</span>
+        {% else %}
+          <span class="pill-warning">Disponible</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="aside-info-card">
+      <div class="aside-info-card__title">Actions rapides</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <a href="{% url 'achats:fournisseur_tableau_de_bord' acompte.fournisseur.pk %}" class="aside-action-btn aside-action-btn--primary">
+          <i class="bx bxs-dashboard"></i> Tableau de bord fournisseur
+        </a>
+        <a href="{% url 'achats:acompte_fournisseur_list' %}?fournisseur={{ acompte.fournisseur.pk }}" class="aside-action-btn">
+          <i class="bx bxs-piggy-bank"></i> Acomptes de {{ acompte.fournisseur.nom }}
+        </a>
+        {% if acompte.reglement %}
+        <a href="{% url 'achats:reglement_fournisseur_detail' acompte.reglement.pk %}" class="aside-action-btn">
+          <i class="bx bxs-coin"></i> Voir le règlement source
+        </a>
+        {% endif %}
+        <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ acompte.fournisseur.pk }}" class="aside-action-btn">
+          <i class="bx bxs-coin"></i> Nouveau règlement
+        </a>
+      </div>
+    </div>
+
+    <div class="aside-info-card">
+      <div class="aside-info-card__title">Informations système</div>
+      <div class="aside-info-row">
+        <span class="aside-info-label">Créé le</span>
+        <span class="aside-info-val">{{ acompte.created_at|date:"d/m/Y" }}</span>
+      </div>
+      <div class="aside-info-row">
+        <span class="aside-info-label">Statut</span>
+        <span class="aside-info-val">{% if acompte.utilise %}Utilisé{% else %}Disponible{% endif %}</span>
+      </div>
+    </div>
+
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.detail-layout {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 20px;
-  align-items: start;
-}
-@media (max-width: 1024px) { .detail-layout { grid-template-columns: 1fr; } }
+  .detail-layout { display: grid; grid-template-columns: 1fr 260px; gap: 18px; align-items: start; }
+  @media (max-width: 900px) { .detail-layout { grid-template-columns: 1fr; } }
 
-.detail-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px 20px;
-}
-@media (max-width: 600px) { .detail-grid { grid-template-columns: 1fr; } }
+  .detail-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 20px 22px; margin-bottom: 14px;
+    animation: fadeIn .3s ease;
+  }
+  .detail-card--header { border-top: 3px solid var(--accent); }
+  .detail-card--pending { border-top-color: #f59e0b; }
 
-.detail-label {
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: .07em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 3px;
-}
-.detail-value {
-  font-size: 13.5px;
-  color: var(--text-primary);
-  font-weight: 500;
-}
+  .header-badge-row { display: flex; align-items: center; gap: 18px; }
+  .piggy-icon-wrap {
+    width: 52px; height: 52px; border-radius: var(--radius-md);
+    background: rgba(245,158,11,.14); color: #b45309;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; flex-shrink: 0;
+  }
+  .header-meta { flex: 1; }
+  .header-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--text-muted); margin-bottom: 4px; font-weight: 600; }
+  .header-amount { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 26px; color: var(--text-primary); line-height: 1.1; }
+  .header-date { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+  .header-status { flex-shrink: 0; }
 
-.side-link-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  text-decoration: none;
-  color: inherit;
-  font-size: 13px;
-  transition: background 0.12s;
-}
-.side-link-row:last-child { border-bottom: none; }
-.side-link-row:hover { background: var(--bg-raised); }
+  .pill-lg { font-size: 12px !important; padding: 5px 12px !important; }
 
-.table-wrap { overflow-x: auto; }
+  .explain-banner {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: var(--accent-dim); border: 1px solid rgba(34,197,94,.22);
+    border-radius: var(--radius-md); padding: 12px 16px;
+    font-size: 13px; color: var(--text-secondary); margin-bottom: 14px;
+    line-height: 1.6; animation: fadeIn .3s ease;
+  }
 
-.debt-bar { margin: 8px 0 0; }
-.debt-bar__track {
-  height: 6px;
-  background: var(--border);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.debt-bar__fill {
-  height: 6px;
-  background: var(--accent);
-  border-radius: 3px;
-  transition: width 0.3s;
-}
+  .form-card__title {
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px;
+    color: var(--text-primary); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 7px;
+  }
+
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .info-cell--full { grid-column: 1 / -1; }
+  .info-cell__label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .09em; color: var(--text-muted); font-weight: 600; margin-bottom: 5px; }
+  .info-cell__val { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px; color: var(--text-primary); }
+  .info-cell__val--big { font-size: 20px; font-weight: 800; }
+  .info-cell__val--amber { color: #b45309; }
+
+  .link-accent { color: var(--accent-text); text-decoration: none; }
+  .link-accent:hover { color: var(--accent); }
+  .ref-link { font-family: 'Nunito', sans-serif; font-weight: 700; color: var(--accent-text); text-decoration: none; }
+  .ref-link:hover { color: var(--accent); }
+
+  /* Timeline */
+  .timeline { display: flex; flex-direction: column; gap: 0; }
+  .timeline-item {
+    display: flex; gap: 14px; padding-bottom: 20px;
+    position: relative;
+  }
+  .timeline-item:not(:last-child)::after {
+    content: ''; position: absolute;
+    left: 9px; top: 20px; bottom: 0;
+    width: 2px; background: var(--border);
+  }
+  .timeline-item--done::after { background: var(--accent); }
+  .timeline-dot {
+    width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--border); background: var(--bg-surface); margin-top: 2px;
+  }
+  .timeline-dot--green { background: var(--accent); border-color: var(--accent); }
+  .timeline-dot--amber { background: #f59e0b; border-color: #f59e0b; }
+  .timeline-body { flex: 1; }
+  .timeline-title { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px; color: var(--text-primary); margin-bottom: 3px; }
+  .timeline-meta { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+  /* Pills */
+  .pill-warning { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(245,158,11,.14); color: #b45309; }
+  .pill-neutral { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(0,0,0,.06); color: var(--text-secondary); }
+
+  /* Aside */
+  .aside-metric-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 20px 18px; margin-bottom: 12px;
+    text-align: center;
+  }
+  .aside-metric-card--active { border-top: 3px solid #f59e0b; }
+  .aside-metric-card__icon {
+    width: 44px; height: 44px; border-radius: var(--radius-md);
+    background: rgba(245,158,11,.14); color: #b45309;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; margin: 0 auto 10px;
+  }
+  .aside-metric-card__label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--text-muted); font-weight: 600; margin-bottom: 6px; }
+  .aside-metric-card__val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 28px; color: var(--text-primary); line-height: 1; }
+  .aside-metric-card__currency { font-size: 14px; font-weight: 600; color: var(--text-muted); margin-left: 4px; }
+  .aside-metric-card__status { margin-top: 10px; }
+
+  .aside-info-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 16px 18px; margin-bottom: 12px;
+  }
+  .aside-info-card__title { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
+  .aside-info-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--border); }
+  .aside-info-row:last-child { border-bottom: none; }
+  .aside-info-label { font-size: 11.5px; color: var(--text-muted); }
+  .aside-info-val { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+
+  .aside-action-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 12px; border-radius: var(--radius-md);
+    border: 1px solid var(--border); background: var(--bg-surface);
+    color: var(--text-secondary); font-size: 13px; text-decoration: none;
+    transition: background .12s, border-color .12s;
+  }
+  .aside-action-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-strong); }
+  .aside-action-btn--primary { background: var(--accent-dim); border-color: rgba(34,197,94,.3); color: var(--accent-text); font-weight: 600; }
+  .aside-action-btn--primary:hover { background: rgba(34,197,94,.2); }
+
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+    font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px;
+    border-radius: var(--radius-md); padding: 9px 16px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s; text-decoration: none;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
 </style>
 {% endblock %}
-
-{% block extra_js %}{% endblock %}

@@ -1,523 +1,384 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}{{ client.nom }} — Élevage Avicole{% endblock %}
+
 {% block nav_clients %}active{% endblock %}
 
-{% block page_title %}
-  <div style="display:flex;align-items:center;gap:14px;">
-    <div class="client-avatar-lg">{{ client.nom|first|upper }}</div>
-    <div>
-      {{ client.nom }}
-      <div style="font-size:13px;font-weight:400;color:var(--text-muted);">
-        {{ client.get_type_client_display }}
-        {% if not client.actif %}<span class="pill-base pill-neutral" style="margin-left:8px;">Inactif</span>{% endif %}
-      </div>
-    </div>
-  </div>
-{% endblock %}
-
+{% block page_title %}{{ client.nom }}{% endblock %}
 {% block page_sub_text %}
-  Créance : <strong style="{% if client.depasse_plafond %}color:#dc2626;{% endif %}">{{ client.creance_globale|floatformat:0 }} DZD</strong>
-  {% if client.depasse_plafond %}<i class="bx bxs-error" style="color:#dc2626;"></i>{% endif %}
-  &nbsp;|&nbsp; Plafond : {{ client.plafond_credit|floatformat:0 }} DZD
+  {{ client.get_type_client_display }} —
+  {% if client.actif %}<span style="color:var(--accent-text);">Actif</span>{% else %}<span style="color:#dc2626;">Inactif</span>{% endif %}
+  {% if client.wilaya %} — {{ client.wilaya }}{% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
-{% if not request.user.profile.role == 'viewer' %}
-<a href="{% url 'clients:client_edit' client.pk %}" class="btn-ghost">
-  <i class="bx bxs-pencil"></i> Modifier
-</a>
-<a href="{% url 'clients:bl_client_create_for_client' client.pk %}" class="btn-ghost">
-  <i class="bx bx-link-external"></i> BL
-</a>
-{% endif %}
+  <a href="{% url 'clients:client_list' %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> Clients</a>
+  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'clients:client_edit' client.pk %}" class="btn-ghost"><i class="bx bxs-pencil"></i> Modifier</a>
+  <a href="{% url 'clients:bl_client_create_for_client' client.pk %}" class="btn-primary"><i class="bx bx-plus"></i> Nouveau BL</a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
+<div class="page-body">
 
-{# ── Tab bar ───────────────────────────────────────────────────────────── #}
-<div class="tab-bar" role="tablist">
-  <button class="tab-bar__tab active" data-tab="bls" role="tab" aria-selected="true">BL Clients</button>
-  <button class="tab-bar__tab" data-tab="factures" role="tab" aria-selected="false">Factures</button>
-  <button class="tab-bar__tab" data-tab="paiements" role="tab" aria-selected="false">Paiements</button>
-  <button class="tab-bar__tab" data-tab="aging" role="tab" aria-selected="false">Aging</button>
-  <button class="tab-bar__tab" data-tab="info" role="tab" aria-selected="false">Informations</button>
-</div>
-
-{# ── Tab content containers ────────────────────────────────────────────── #}
-<div class="tab-content" id="tab-bls">
-
-  {# BL Clients tab #}
-  <div class="section-card">
-    <div class="section-card__head">
-      <span class="section-card__title">
-        <i class="bx bx-link-external" style="color:var(--text-muted);margin-right:8px;"></i>BL Clients
-      </span>
-      {% if bls_client %}
-      <span class="pill-base pill-neutral">{{ bls_client|length }}</span>
-      {% endif %}
+  <!-- KPI row -->
+  <div class="kpi-row">
+    <div class="kpi-card {% if solde.creance_globale > 0 %}kpi-card--warn{% endif %}">
+      <div class="kpi-icon ic-amber"><i class="bx bx-hourglass"></i></div>
+      <div class="kpi-card__label">Créance globale</div>
+      <div class="kpi-card__value">{{ solde.creance_globale|floatformat:0 }} <span class="kpi-currency">DZD</span></div>
+      <div class="kpi-card__sub">Reste à payer (toutes factures)</div>
     </div>
-    <div class="section-card__body no-pad">
-      {% if bls_client %}
-      <div style="overflow-x:auto;">
-        <table class="table-base">
-          <thead>
-            <tr>
-              <th>Référence</th>
-              <th>Date</th>
-              <th>Statut</th>
-              <th style="text-align:right;">Montant</th>
-              <th style="text-align:right;">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for bl in bls_client %}
-            <tr class="stagger-row">
-              <td>
-                <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="text-mono" style="font-weight:600;">{{ bl.reference }}</a>
-              </td>
-              <td style="color:var(--text-muted);white-space:nowrap;">{{ bl.date_bl|date:"d/m/Y" }}</td>
-              <td>
-                {% if bl.statut == 'brouillon' %}
-                <span class="pill-base pill-warning">Brouillon</span>
-                {% elif bl.statut == 'livre' %}
-                <span class="pill-base pill-info">Livré</span>
-                {% elif bl.statut == 'facture' %}
-                <span class="pill-base pill-success">Facturé</span>
-                {% else %}
-                <span class="pill-base pill-danger">En Litige</span>
-                {% endif %}
-              </td>
-              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ bl.montant_total|floatformat:0 }} DZD</td>
-              <td style="text-align:right;">
-                <div style="display:flex;justify-content:flex-end;gap:4px;">
-                  <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="action-btn" title="Détail"><i class="bx bx-show"></i></a>
-                  {% if bl.statut == 'livre' or bl.statut == 'facture' %}
-                  <a href="{% url 'clients:bl_client_print' bl.pk %}" class="action-btn" title="Imprimer" target="_blank"><i class="bx bxs-printer"></i></a>
+    <div class="kpi-card {% if solde.nb_factures_retard > 0 %}kpi-card--danger{% endif %}">
+      <div class="kpi-icon ic-red"><i class="bx bxs-error"></i></div>
+      <div class="kpi-card__label">Factures en retard</div>
+      <div class="kpi-card__value">{{ solde.nb_factures_retard }}</div>
+      <div class="kpi-card__sub">Échéance dépassée</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon ic-green"><i class="bx bxs-credit-card"></i></div>
+      <div class="kpi-card__label">Total encaissé</div>
+      <div class="kpi-card__value">{{ solde.total_paiements|floatformat:0 }} <span class="kpi-currency">DZD</span></div>
+      <div class="kpi-card__sub">Historique paiements</div>
+    </div>
+    <div class="kpi-card {% if solde.depasse_plafond %}kpi-card--danger{% endif %}">
+      <div class="kpi-icon ic-purple"><i class="bx bxs-coin"></i></div>
+      <div class="kpi-card__label">Plafond crédit</div>
+      <div class="kpi-card__value">
+        {% if client.plafond_credit > 0 %}{{ client.plafond_credit|floatformat:0 }} <span class="kpi-currency">DZD</span>
+        {% else %}<span style="font-size:16px;color:var(--text-muted);">Illimité</span>{% endif %}
+      </div>
+      <div class="kpi-card__sub">
+        {% if solde.depasse_plafond %}<span style="color:#dc2626;"><i class="bx bxs-error" style="font-size:11px;"></i> Plafond dépassé</span>
+        {% else %}Limite configurée{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="detail-grid">
+
+    <!-- Left: info + open invoices -->
+    <div class="detail-col">
+
+      <!-- Coordonnées -->
+      <div class="detail-card">
+        <div class="detail-card__header">
+          <span class="section-eyebrow"><i class="bx bxs-group"></i> Fiche client</span>
+          {% if not request.user.userprofile.role == 'viewer' %}
+          <a href="{% url 'clients:client_edit' client.pk %}" class="link-edit"><i class="bx bxs-pencil"></i> Modifier</a>
+          {% endif %}
+        </div>
+        <div class="detail-card__body info-grid">
+          <div class="info-row">
+            <span class="info-label">Type</span>
+            <span class="info-value">{{ client.get_type_client_display }}</span>
+          </div>
+          {% if client.nif %}
+          <div class="info-row">
+            <span class="info-label">NIF</span>
+            <span class="info-value">{{ client.nif }}</span>
+          </div>
+          {% endif %}
+          {% if client.rc %}
+          <div class="info-row">
+            <span class="info-label">RC</span>
+            <span class="info-value">{{ client.rc }}</span>
+          </div>
+          {% endif %}
+          {% if client.contact_nom %}
+          <div class="info-row">
+            <span class="info-label">Contact</span>
+            <span class="info-value">{{ client.contact_nom }}</span>
+          </div>
+          {% endif %}
+          {% if client.telephone %}
+          <div class="info-row">
+            <span class="info-label">Téléphone</span>
+            <span class="info-value">{{ client.telephone }}{% if client.telephone_2 %} / {{ client.telephone_2 }}{% endif %}</span>
+          </div>
+          {% endif %}
+          {% if client.email %}
+          <div class="info-row">
+            <span class="info-label">Email</span>
+            <span class="info-value"><a href="mailto:{{ client.email }}" style="color:var(--accent-text);">{{ client.email }}</a></span>
+          </div>
+          {% endif %}
+          {% if client.adresse %}
+          <div class="info-row">
+            <span class="info-label">Adresse</span>
+            <span class="info-value">{{ client.adresse }}{% if client.wilaya %}, {{ client.wilaya }}{% endif %}</span>
+          </div>
+          {% endif %}
+          {% if client.notes %}
+          <div class="info-row" style="flex-direction:column;gap:4px;">
+            <span class="info-label">Notes</span>
+            <span class="info-value" style="font-size:12.5px;color:var(--text-muted);">{{ client.notes }}</span>
+          </div>
+          {% endif %}
+        </div>
+        {% if not request.user.userprofile.role == 'viewer' %}
+        <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;">
+          <a href="{% url 'clients:bl_client_create_for_client' client.pk %}" class="btn-primary" style="font-size:12.5px;padding:8px 14px;">
+            <i class="bx bx-plus"></i> Nouveau BL
+          </a>
+          <a href="{% url 'clients:facture_client_create_for_client' client.pk %}" class="btn-ghost" style="font-size:12.5px;padding:7px 12px;">
+            <i class="bx bxs-receipt"></i> Facturer
+          </a>
+          <a href="{% url 'clients:paiement_client_create_for_client' client.pk %}" class="btn-ghost" style="font-size:12.5px;padding:7px 12px;">
+            <i class="bx bxs-credit-card"></i> Paiement
+          </a>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Factures ouvertes -->
+      <div class="detail-card">
+        <div class="detail-card__header">
+          <span class="section-eyebrow"><i class="bx bxs-receipt"></i> Factures ouvertes</span>
+          <a href="{% url 'clients:facture_client_list' %}?client={{ client.pk }}" class="link-see-all">Voir toutes <i class="bx bx-right-arrow-alt"></i></a>
+        </div>
+        {% if factures_ouvertes %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Référence</th>
+                <th>Date</th>
+                <th>Échéance</th>
+                <th>Statut</th>
+                <th style="text-align:right;">Reste à payer</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for f in factures_ouvertes %}
+              <tr class="table-row{% if f.est_en_retard %} row-retard{% endif %}" style="--row-i:{{ forloop.counter0 }};">
+                <td><a href="{% url 'clients:facture_client_detail' f.pk %}" class="row-link" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ f.reference }}</a></td>
+                <td style="font-size:12px;color:var(--text-muted);">{{ f.date_facture|date:"d/m/Y" }}</td>
+                <td style="font-size:12px;{% if f.est_en_retard %}color:#dc2626;font-weight:600;{% else %}color:var(--text-muted);{% endif %}">
+                  {{ f.date_echeance|date:"d/m/Y"|default:"—" }}
+                  {% if f.est_en_retard %}<i class="bx bxs-error" style="font-size:11px;margin-left:3px;"></i>{% endif %}
+                </td>
+                <td>
+                  {% if f.statut == 'non_payee' %}<span class="pill-danger">Non payée</span>
+                  {% elif f.statut == 'partiellement_payee' %}<span class="pill-warning">Part. payée</span>
+                  {% elif f.statut == 'en_litige' %}<span class="pill-danger">Litige</span>
                   {% endif %}
-                </div>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+                </td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;">{{ f.reste_a_payer|floatformat:0 }} DZD</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:28px;color:var(--text-muted);font-size:13px;">
+          <i class="bx bxs-check-circle" style="font-size:24px;color:var(--accent);display:block;margin-bottom:8px;"></i>
+          Aucune facture ouverte.
+        </div>
+        {% endif %}
       </div>
-      {% else %}
-      <div class="empty-state">
-        <i class="bx bx-link-external empty-state__icon"></i>
-        <div class="empty-state__title">Aucun BL</div>
-        <div class="empty-state__text">Ce client n'a pas encore de BL enregistré.</div>
+
+    </div>
+
+    <!-- Right: BLs + paiements -->
+    <div class="detail-col">
+
+      <!-- BLs récents -->
+      <div class="detail-card">
+        <div class="detail-card__header">
+          <span class="section-eyebrow"><i class="bx bx-link-external"></i> BL Clients récents</span>
+          <a href="{% url 'clients:bl_client_list' %}?client={{ client.pk }}" class="link-see-all">Voir tous <i class="bx bx-right-arrow-alt"></i></a>
+        </div>
+        {% if bls_recents %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Référence</th>
+                <th>Date</th>
+                <th>Statut</th>
+                <th style="text-align:right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for bl in bls_recents %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td><a href="{% url 'clients:bl_client_detail' bl.pk %}" class="row-link" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ bl.reference }}</a></td>
+                <td style="font-size:12px;color:var(--text-muted);">{{ bl.date_bl|date:"d/m/Y" }}</td>
+                <td>
+                  {% if bl.statut == 'brouillon' %}<span class="pill-warning">Brouillon</span>
+                  {% elif bl.statut == 'livre' %}<span class="pill-info">Livré</span>
+                  {% elif bl.statut == 'facture' %}<span class="pill-success">Facturé</span>
+                  {% elif bl.statut == 'litige' %}<span class="pill-danger">Litige</span>
+                  {% endif %}
+                </td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ bl.montant_total|floatformat:0 }} DZD</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:28px;color:var(--text-muted);font-size:13px;">Aucun BL enregistré.</div>
+        {% endif %}
+      </div>
+
+      <!-- Paiements récents -->
+      <div class="detail-card">
+        <div class="detail-card__header">
+          <span class="section-eyebrow"><i class="bx bxs-credit-card"></i> Paiements récents</span>
+          <a href="{% url 'clients:paiement_client_list' %}?client={{ client.pk }}" class="link-see-all">Voir tous <i class="bx bx-right-arrow-alt"></i></a>
+        </div>
+        {% if paiements_recents %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Mode</th>
+                <th>Réf.</th>
+                <th style="text-align:right;">Montant</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in paiements_recents %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td><a href="{% url 'clients:paiement_client_detail' p.pk %}" class="row-link" style="font-size:12px;color:var(--text-secondary);">{{ p.date_paiement|date:"d/m/Y" }}</a></td>
+                <td style="font-size:12px;color:var(--text-muted);">{{ p.get_mode_paiement_display }}</td>
+                <td style="font-size:12px;color:var(--text-muted);">{{ p.reference_paiement|default:"—" }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">+{{ p.montant|floatformat:0 }} DZD</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:28px;color:var(--text-muted);font-size:13px;">Aucun paiement enregistré.</div>
+        {% endif %}
+      </div>
+
+      <!-- Danger zone -->
+      {% if request.user.userprofile.is_admin %}
+      <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:16px 18px;">
+        <div style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;margin-bottom:4px;font-size:13px;">
+          <i class="bx bxs-error me-1"></i> Zone sensible
+        </div>
+        <p style="font-size:12.5px;color:var(--text-secondary);margin:0 0 12px;">
+          Désactiver ce client le masquera de toutes les saisies. Cette action est réversible.
+        </p>
+        <button type="button" id="toggle-active-btn" class="btn-{% if client.actif %}danger{% else %}success{% endif %}" data-active="{{ client.actif|yesno:'true,false' }}">
+          {% if client.actif %}<i class="bx bx-block"></i> Désactiver{% else %}<i class="bx bxs-check-circle"></i> Réactiver{% endif %}
+        </button>
       </div>
       {% endif %}
+
     </div>
   </div>
-
 </div>
 
-<div class="tab-content hidden" id="tab-factures">
-
-  {# Factures tab #}
-  <div class="section-card">
-    <div class="section-card__head">
-      <span class="section-card__title">
-        <i class="bx bxs-receipt" style="color:var(--text-muted);margin-right:8px;"></i>Factures clients
-      </span>
-      {% if factures_client %}
-      <span class="pill-base pill-neutral">{{ factures_client|length }}</span>
-      {% endif %}
-    </div>
-    <div class="section-card__body no-pad">
-      {% if factures_client %}
-      <div style="overflow-x:auto;">
-        <table class="table-base">
-          <thead>
-            <tr>
-              <th>Référence</th>
-              <th>Date</th>
-              <th>Statut</th>
-              <th style="text-align:right;">Total TTC</th>
-              <th style="text-align:right;">Reste dû</th>
-              <th style="text-align:right;">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for fac in factures_client %}
-            <tr class="stagger-row">
-              <td>
-                <a href="{% url 'clients:facture_client_detail' fac.pk %}" class="text-mono" style="font-weight:600;">{{ fac.reference }}</a>
-              </td>
-              <td style="color:var(--text-muted);white-space:nowrap;">{{ fac.date_facture|date:"d/m/Y" }}</td>
-              <td>
-                {% if fac.statut == 'payee' %}
-                <span class="pill-base pill-success">Payée</span>
-                {% elif fac.est_en_retard %}
-                <span class="pill-base pill-danger">{{ fac.jours_retard }}j retard</span>
-                {% elif fac.reste_a_payer == 0 %}
-                <span class="pill-base pill-info">Équilibrée</span>
-                {% else %}
-                <span class="pill-base pill-warning">Non payée</span>
-                {% endif %}
-              </td>
-              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ fac.montant_ttc|floatformat:0 }} DZD</td>
-              <td style="text-align:right;">
-                {% if fac.reste_a_payer > 0 %}
-                <span style="color:#dc2626;font-family:'Nunito',sans-serif;font-weight:700;">{{ fac.reste_a_payer|floatformat:0 }} DZD</span>
-                {% else %}
-                <span style="color:#15803d;font-family:'Nunito',sans-serif;font-weight:700;">—</span>
-                {% endif %}
-              </td>
-              <td style="text-align:right;">
-                <div style="display:flex;justify-content:flex-end;gap:4px;">
-                  <a href="{% url 'clients:facture_client_detail' fac.pk %}" class="action-btn" title="Détail"><i class="bx bx-show"></i></a>
-                  <a href="{% url 'clients:facture_client_print' fac.pk %}" class="action-btn" title="Imprimer" target="_blank"><i class="bx bxs-printer"></i></a>
-                </div>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% else %}
-      <div class="empty-state">
-        <i class="bx bxs-receipt empty-state__icon"></i>
-        <div class="empty-state__title">Aucune facture</div>
-        <div class="empty-state__text">Ce client n'a pas encore de facture émise.</div>
-      </div>
-      {% endif %}
+<!-- Toggle confirm panel -->
+<div id="toggle-panel" class="confirm-overlay" style="display:none;">
+  <div class="confirm-box">
+    <div class="confirm-box__icon"><i class="bx bxs-error" style="color:#b45309;font-size:22px;"></i></div>
+    <div class="confirm-box__title">{% if client.actif %}Désactiver « {{ client.nom }} » ?{% else %}Réactiver « {{ client.nom }} » ?{% endif %}</div>
+    <div class="confirm-box__text" style="margin-bottom:20px;">Cette action est réversible depuis la liste des clients.</div>
+    <div class="confirm-box__actions">
+      <button type="button" id="toggle-cancel" class="btn-ghost">Annuler</button>
+      <form method="post" action="{% url 'clients:client_toggle_active' client.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn-danger">Confirmer</button>
+      </form>
     </div>
   </div>
-
 </div>
-
-<div class="tab-content hidden" id="tab-paiements">
-
-  {# Paiements tab #}
-  <div class="section-card">
-    <div class="section-card__head">
-      <span class="section-card__title">
-        <i class="bx bxs-credit-card" style="color:var(--text-muted);margin-right:8px;"></i>Paiements
-      </span>
-      {% if paiements_client %}
-      <span class="pill-base pill-neutral">{{ paiements_client|length }}</span>
-      {% endif %}
-    </div>
-    <div class="section-card__body no-pad">
-      {% if paiements_client %}
-      <div style="overflow-x:auto;">
-        <table class="table-base">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Mode</th>
-              <th style="text-align:right;">Montant</th>
-              <th style="text-align:right;">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for p in paiements_client %}
-            <tr class="stagger-row">
-              <td style="color:var(--text-muted);white-space:nowrap;">{{ p.date_paiement|date:"d/m/Y" }}</td>
-              <td>{{ p.get_mode_paiement_display }}</td>
-              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">{{ p.montant|floatformat:0 }} DZD</td>
-              <td style="text-align:right;">
-                <div style="display:flex;justify-content:flex-end;gap:4px;">
-                  <a href="{% url 'clients:paiement_client_detail' p.pk %}" class="action-btn" title="Détail"><i class="bx bx-show"></i></a>
-                  <a href="{% url 'clients:paiement_client_print' p.pk %}" class="action-btn" title="Imprimer" target="_blank"><i class="bx bxs-printer"></i></a>
-                </div>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% else %}
-      <div class="empty-state">
-        <i class="bx bxs-credit-card empty-state__icon"></i>
-        <div class="empty-state__title">Aucun paiement</div>
-        <div class="empty-state__text">Ce client n'a pas encore de paiement enregistré.</div>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-
-</div>
-
-<div class="tab-content hidden" id="tab-aging">
-
-  {# Aging tab #}
-  <div class="section-card">
-    <div class="section-card__head">
-      <span class="section-card__title">
-        <i class="bx bxs-bar-chart-alt-2" style="color:var(--accent);margin-right:8px;"></i>Grille d'ancienneté
-      </span>
-      <span style="font-size:11px;color:var(--text-muted);">En DZD · Basé sur les échéances</span>
-    </div>
-    <div class="section-card__body">
-      {% if aging_data %}
-      <div class="aging-grid">
-        <div class="aging-bucket aging-current">
-          <div class="aging-bucket__value">{{ aging_data.current|floatformat:0 }}</div>
-          <div class="aging-bucket__label">À jour</div>
-        </div>
-        <div class="aging-bucket aging-1-30">
-          <div class="aging-bucket__value">{{ aging_data.1_30|floatformat:0 }}</div>
-          <div class="aging-bucket__label">1-30 jours</div>
-        </div>
-        <div class="aging-bucket aging-31-60">
-          <div class="aging-bucket__value">{{ aging_data.31_60|floatformat:0 }}</div>
-          <div class="aging-bucket__label">31-60 jours</div>
-        </div>
-        <div class="aging-bucket aging-61-90">
-          <div class="aging-bucket__value">{{ aging_data.61_90|floatformat:0 }}</div>
-          <div class="aging-bucket__label">61-90 jours</div>
-        </div>
-        <div class="aging-bucket aging-90plus">
-          <div class="aging-bucket__value">{{ aging_data.over_90|floatformat:0 }}</div>
-          <div class="aging-bucket__label">+90 jours</div>
-        </div>
-      </div>
-      <div class="aging-total">
-        <span>Total créances</span>
-        <span style="font-family:'Nunito',sans-serif;font-weight:800;">{{ aging_data.total|floatformat:0 }} DZD</span>
-      </div>
-      {% else %}
-      <div class="empty-state">
-        <i class="bx bxs-check-circle empty-state__icon" style="color:var(--accent);"></i>
-        <div class="empty-state__title">Aucune créance en cours</div>
-        <div class="empty-state__text">Toutes les factures sont payées.</div>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-
-</div>
-
-<div class="tab-content hidden" id="tab-info">
-
-  {# Informations tab #}
-  <div class="section-card">
-    <div class="section-card__head">
-      <span class="section-card__title">
-        <i class="bx bxs-building" style="color:var(--text-muted);margin-right:8px;"></i>Informations client
-      </span>
-    </div>
-    <div class="section-card__body">
-      <div class="info-grid">
-        <div class="info-item">
-          <div class="info-item__label">Nom</div>
-          <div class="info-item__value">{{ client.nom }}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-item__label">Type</div>
-          <div class="info-item__value">{{ client.get_type_client_display }}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-item__label">Contact</div>
-          <div class="info-item__value">{{ client.contact_nom|default:"—" }}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-item__label">Téléphone</div>
-          <div class="info-item__value">
-            {% if client.telephone %}{{ client.telephone }}{% else %}—{% endif %}
-          </div>
-        </div>
-        <div class="info-item">
-          <div class="info-item__label">Téléphone 2</div>
-          <div class="info-item__value">{{ client.telephone_2|default:"—" }}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-item__label">Email</div>
-          <div class="info-item__value">{{ client.email|default:"—" }}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-item__label">Adresse</div>
-          <div class="info-item__value">{{ client.adresse|default:"—" }}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-item__label">Wilaya</div>
-          <div class="info-item__value">{{ client.wilaya|default:"—" }}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-item__label">NIF</div>
-          <div class="info-item__value">{{ client.nif|default:"—" }}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-item__label">RC</div>
-          <div class="info-item__value">{{ client.rc|default:"—" }}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-item__label">Plafond de crédit</div>
-          <div class="info-item__value">
-            {% if client.plafond_credit > 0 %}
-            {{ client.plafond_credit|floatformat:0 }} DZD
-            {% if client.depasse_plafond %}<span class="pill-base pill-danger" style="margin-left:8px;">Dépassé</span>{% endif %}
-            {% else %}Sans limite{% endif %}
-          </div>
-        </div>
-        <div class="info-item">
-          <div class="info-item__label">Statut</div>
-          <div class="info-item__value">
-            {% if client.actif %}
-            <span class="pill-base pill-success">Actif</span>
-            {% else %}
-            <span class="pill-base pill-neutral">Inactif</span>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-
-      {% if client.notes %}
-      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
-        <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:8px;">Notes</div>
-        <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;background:var(--bg-raised);padding:12px 16px;border-radius:var(--radius-md);">{{ client.notes|linebreaks }}</div>
-      </div>
-      {% endif %}
-
-      {% if not request.user.profile.role == 'viewer' %}
-      <div style="margin-top:20px;display:flex;gap:10px;">
-        <form method="post" action="{% url 'clients:client_toggle_active' client.pk %}" style="display:inline;">
-          {% csrf_token %}
-          <button type="submit" class="btn-ghost">
-            {% if client.actif %}<i class="bx bx-block"></i> Désactiver{% else %}<i class="bx bx-check"></i> Activer{% endif %}
-          </button>
-        </form>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-
-</div>
-
-{% endblock %}
-
-{% block extra_js %}
-<script>
-{# ── Tab switching ─────────────────────────────────────────────────────── #}
-document.querySelectorAll('.tab-bar__tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab-bar__tab').forEach(t => {
-      t.classList.remove('active');
-      t.setAttribute('aria-selected', 'false');
-    });
-    tab.classList.add('active');
-    tab.setAttribute('aria-selected', 'true');
-
-    const target = tab.dataset.tab;
-    document.querySelectorAll('.tab-content').forEach(p => {
-      p.classList.toggle('hidden', p.id !== 'tab-' + target);
-    });
-  });
-});
-</script>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-/* ── Client avatar large ──────────────────────────────────────────────── */
-.client-avatar-lg {
-  width: 48px; height: 48px;
-  border-radius: var(--radius-sm);
-  background: var(--accent-dim);
-  color: var(--accent-text);
-  font-family: 'Nunito', sans-serif;
-  font-weight: 800; font-size: 18px;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  @media (max-width: 1100px) { .kpi-row { grid-template-columns: repeat(2,1fr); } }
+  .kpi-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; animation: fadeIn .3s ease both; }
+  .kpi-card--danger { border-color: rgba(239,68,68,.25); background: rgba(239,68,68,.03); }
+  .kpi-card--warn   { border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.03); }
+  .kpi-icon { width: 40px; height: 40px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 4px; }
+  .ic-amber  { background: rgba(245,158,11,.14); color: #b45309; }
+  .ic-red    { background: rgba(239,68,68,.12);  color: #dc2626; }
+  .ic-green  { background: rgba(34,197,94,.14);  color: #15803d; }
+  .ic-purple { background: rgba(167,139,250,.14);color: #7c3aed; }
+  .kpi-card__label { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+  .kpi-card__value { font-family: 'Nunito',sans-serif; font-weight: 800; font-size: 22px; color: var(--text-primary); line-height: 1.1; }
+  .kpi-currency { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+  .kpi-card__sub { font-size: 11.5px; color: var(--text-muted); }
 
-/* ── Tab bar ──────────────────────────────────────────────────────────── */
-.tab-bar {
-  display: flex; gap: 2px;
-  background: var(--bg-raised);
-  border-radius: var(--radius-md);
-  padding: 4px;
-  margin-bottom: 20px;
-  overflow-x: auto;
-}
-.tab-bar__tab {
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: 8px 18px;
-  font-family: 'Nunito', sans-serif;
-  font-size: 13px; font-weight: 700;
-  color: var(--text-muted);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all .15s;
-}
-.tab-bar__tab:hover { color: var(--text-primary); background: rgba(34,197,94,.06); }
-.tab-bar__tab.active {
-  background: var(--bg-surface);
-  color: var(--accent-text);
-  box-shadow: 0 1px 3px rgba(0,0,0,.08);
-}
-.tab-content.hidden { display: none; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 960px) { .detail-grid { grid-template-columns: 1fr; } }
+  .detail-col { display: flex; flex-direction: column; gap: 18px; }
 
-/* ── Aging grid ───────────────────────────────────────────────────────── */
-.aging-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 12px;
-  margin-bottom: 20px;
-}
-@media (max-width: 768px) {
-  .aging-grid { grid-template-columns: repeat(3, 1fr); }
-}
-@media (max-width: 480px) {
-  .aging-grid { grid-template-columns: repeat(2, 1fr); }
-}
-.aging-bucket {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 16px 12px;
-  text-align: center;
-}
-.aging-bucket__value {
-  font-family: 'Nunito', sans-serif;
-  font-weight: 800; font-size: 18px;
-  margin-bottom: 4px;
-}
-.aging-bucket__label { font-size: 11px; color: var(--text-muted); }
+  .detail-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; animation: fadeIn .3s ease both; }
+  .detail-card__header { padding: 14px 18px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .detail-card__body { padding: 18px; }
 
-.aging-current  { border-color: rgba(34,197,94,.3);  background: var(--success-bg); }
-.aging-current  .aging-bucket__value { color: #15803d; }
-.aging-1-30,
-.aging-31-60    { border-color: rgba(245,158,11,.3); background: rgba(245,158,11,.06); }
-.aging-1-30 .aging-bucket__value,
-.aging-31-60 .aging-bucket__value   { color: #b45309; }
-.aging-61-90,
-.aging-90plus   { border-color: rgba(239,68,68,.3);  background: rgba(239,68,68,.04); }
-.aging-61-90 .aging-bucket__value,
-.aging-90plus .aging-bucket__value  { color: #dc2626; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+  .link-edit { font-size: 12px; color: var(--accent-text); display: flex; align-items: center; gap: 4px; text-decoration: none; }
+  .link-see-all { font-size: 12px; color: var(--accent-text); display: flex; align-items: center; gap: 4px; text-decoration: none; }
 
-.aging-total {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 14px 18px;
-  background: var(--bg-raised);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  font-size: 13.5px; font-weight: 500;
-  color: var(--text-secondary);
-}
+  .info-grid { display: flex; flex-direction: column; gap: 0; }
+  .info-row { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
+  .info-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .info-label { font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); min-width: 90px; padding-top: 1px; }
+  .info-value { font-size: 13px; color: var(--text-secondary); flex: 1; }
 
-/* ── Info grid ────────────────────────────────────────────────────────── */
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
-}
-@media (max-width: 600px) { .info-grid { grid-template-columns: 1fr; } }
-.info-item__label {
-  font-size: 11px; color: var(--text-muted);
-  text-transform: uppercase; letter-spacing: .04em;
-  margin-bottom: 4px;
-}
-.info-item__value {
-  font-family: 'Nunito', sans-serif;
-  font-size: 13.5px; font-weight: 700;
-  color: var(--text-primary);
-}
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th { padding: 10px 14px; font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: left; background: var(--bg-base); }
+  .data-table tbody td { padding: 11px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .table-row { animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i) * 35ms); }
+  .table-row:hover td { background: var(--bg-hover); }
+  .row-retard td { background: rgba(239,68,68,.03); }
+  .row-link { text-decoration: none; }
+
+  .pill-success,.pill-danger,.pill-warning,.pill-info,.pill-neutral { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;font-family:'Inter',sans-serif; }
+  .pill-success { background:rgba(34,197,94,.14);color:#15803d; }
+  .pill-danger  { background:rgba(239,68,68,.10);color:#dc2626; }
+  .pill-warning { background:rgba(245,158,11,.14);color:#b45309; }
+  .pill-info    { background:rgba(56,189,248,.14);color:#0284c7; }
+  .pill-neutral { background:rgba(0,0,0,.06);color:var(--text-secondary); }
+
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+  .btn-danger { background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.22);color:#dc2626;font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s; }
+  .btn-danger:hover { opacity:.85; }
+  .btn-success { background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.25);color:#15803d;font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s; }
+
+  .confirm-overlay { position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:999;display:flex;align-items:center;justify-content:center; }
+  .confirm-box { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;width:360px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.15);text-align:center; }
+  .confirm-box__title { font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;color:var(--text-primary);margin-bottom:8px; }
+  .confirm-box__actions { display:flex;gap:10px;justify-content:center; }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);} }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const btn = document.getElementById('toggle-active-btn');
+  const panel = document.getElementById('toggle-panel');
+  if (btn) {
+    btn.addEventListener('click', function () { panel.style.display = 'flex'; });
+  }
+  const cancelBtn = document.getElementById('toggle-cancel');
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', function () { panel.style.display = 'none'; });
+  }
+  if (panel) {
+    panel.addEventListener('click', function (e) { if (e.target === panel) panel.style.display = 'none'; });
+  }
+});
+</script>
 {% endblock %}

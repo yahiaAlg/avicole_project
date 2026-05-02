@@ -2,348 +2,265 @@
 {% load static %}
 
 {% block title %}{{ title }} — Élevage Avicole{% endblock %}
+
 {% block nav_clients %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{% if client %}{{ client.nom }}{% else %}Nouveau client dans le système{% endif %}{% endblock %}
+{% block page_sub_text %}{% if client %}Modification de la fiche client{% else %}Nouvel enregistrement client{% endif %}{% endblock %}
 
 {% block topbar_actions %}
-  <button type="submit" form="client-form" class="btn-primary">
-    <i class="bx bxs-save"></i> {% if action_label %}{{ action_label }}{% else %}Enregistrer{% endif %}
-  </button>
+  {% if client %}
+  <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Retour à la fiche
+  </a>
+  {% else %}
+  <a href="{% url 'clients:client_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> Retour aux clients
+  </a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
+<div class="page-body">
+  <form method="post" id="client-form">
+    {% csrf_token %}
+    <div class="form-grid">
 
-<form id="client-form" method="post" action="{% if client %}{% url 'clients:client_edit' client.pk %}{% else %}{% url 'clients:client_create' %}{% endif %}" novalidate>
-  {% csrf_token %}
+      <!-- Left column -->
+      <div class="form-col">
 
-  <div class="client-form-layout">
+        <!-- Identification -->
+        <div class="form-card">
+          <div class="form-card__header">
+            <div class="section-eyebrow"><i class="bx bxs-group"></i> Identification</div>
+          </div>
+          <div class="form-card__body">
 
-    {# ── Left column: Identity + Contact ───────────────────────────────── #}
-    <div class="client-form-main">
+            <div class="form-group">
+              <label class="form-label" for="{{ form.nom.id_for_label }}">Nom du client <span class="form-required">*</span></label>
+              <div class="input-wrapper">
+                <i class="bx bxs-group input-icon"></i>
+                {{ form.nom }}
+              </div>
+              {% for err in form.nom.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
 
-      {# Identity card #}
-      <div class="form-card">
-        <div class="form-card__header">
-          <div class="form-card__icon ic-green"><i class="bx bxs-building"></i></div>
-          <div>
-            <div class="form-card__title">Identité</div>
-            <div class="form-card__sub">Nom, type et coordonnées du client</div>
+            <div class="form-group">
+              <label class="form-label" for="{{ form.type_client.id_for_label }}">Type de client <span class="form-required">*</span></label>
+              <div class="input-wrapper">
+                <i class="bx bxs-category input-icon"></i>
+                {{ form.type_client }}
+              </div>
+              {% for err in form.type_client.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.nif.id_for_label }}">NIF</label>
+                <div class="input-wrapper">
+                  <i class="bx bx-id-card input-icon"></i>
+                  {{ form.nif }}
+                </div>
+                {% for err in form.nif.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="{{ form.rc.id_for_label }}">RC</label>
+                <div class="input-wrapper">
+                  <i class="bx bx-file input-icon"></i>
+                  {{ form.rc }}
+                </div>
+                {% for err in form.rc.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="{{ form.contact_nom.id_for_label }}">Nom du contact</label>
+              <div class="input-wrapper">
+                <i class="bx bxs-user input-icon"></i>
+                {{ form.contact_nom }}
+              </div>
+              {% for err in form.contact_nom.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
           </div>
         </div>
 
-        <div class="form-grid">
-          <!-- Nom -->
-          <div class="field-group field-group--full">
-            <label class="field-label" for="{{ form.nom.id_for_label }}">Nom du client <span class="required">*</span></label>
-            <div class="input-wrapper">
-              <i class="bx bxs-user input-icon"></i>
-              {{ form.nom }}
-            </div>
-            {% for err in form.nom.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+        <!-- Coordonnées -->
+        <div class="form-card">
+          <div class="form-card__header">
+            <div class="section-eyebrow"><i class="bx bxs-map"></i> Coordonnées</div>
           </div>
+          <div class="form-card__body">
 
-          <!-- Type -->
-          <div class="field-group">
-            <label class="field-label" for="{{ form.type_client.id_for_label }}">Type de client</label>
-            <div class="input-wrapper">
-              <i class="bx bxs-category input-icon"></i>
-              {{ form.type_client }}
+            <div class="form-group">
+              <label class="form-label" for="{{ form.adresse.id_for_label }}">Adresse</label>
+              <div class="input-wrapper input-wrapper--textarea">{{ form.adresse }}</div>
+              {% for err in form.adresse.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
             </div>
-            {% for err in form.type_client.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-          </div>
 
-          <!-- Contact -->
-          <div class="field-group">
-            <label class="field-label" for="{{ form.contact_nom.id_for_label }}">Nom du contact</label>
-            <div class="input-wrapper">
-              <i class="bx bxs-user-detail input-icon"></i>
-              {{ form.contact_nom }}
+            <div class="form-group">
+              <label class="form-label" for="{{ form.wilaya.id_for_label }}">Wilaya</label>
+              <div class="input-wrapper">
+                <i class="bx bxs-map-pin input-icon"></i>
+                {{ form.wilaya }}
+              </div>
+              {% for err in form.wilaya.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
             </div>
-          </div>
 
-          <!-- Adresse -->
-          <div class="field-group field-group--full">
-            <label class="field-label" for="{{ form.adresse.id_for_label }}">Adresse</label>
-            {{ form.adresse }}
-          </div>
-
-          <!-- Wilaya -->
-          <div class="field-group">
-            <label class="field-label" for="{{ form.wilaya.id_for_label }}">Wilaya</label>
-            <div class="input-wrapper">
-              <i class="bx bxs-map input-icon"></i>
-              {{ form.wilaya }}
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.telephone.id_for_label }}">Téléphone</label>
+                <div class="input-wrapper">
+                  <i class="bx bxs-phone input-icon"></i>
+                  {{ form.telephone }}
+                </div>
+                {% for err in form.telephone.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="{{ form.telephone_2.id_for_label }}">Téléphone 2</label>
+                <div class="input-wrapper">
+                  <i class="bx bxs-phone input-icon"></i>
+                  {{ form.telephone_2 }}
+                </div>
+                {% for err in form.telephone_2.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              </div>
             </div>
-          </div>
 
-          <!-- Téléphone -->
-          <div class="field-group">
-            <label class="field-label" for="{{ form.telephone.id_for_label }}">Téléphone</label>
-            <div class="input-wrapper">
-              <i class="bx bxs-phone input-icon"></i>
-              {{ form.telephone }}
+            <div class="form-group">
+              <label class="form-label" for="{{ form.email.id_for_label }}">Email</label>
+              <div class="input-wrapper">
+                <i class="bx bx-envelope input-icon"></i>
+                {{ form.email }}
+              </div>
+              {% for err in form.email.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
             </div>
-            {% for err in form.telephone.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-          </div>
 
-          <!-- Téléphone 2 -->
-          <div class="field-group">
-            <label class="field-label" for="{{ form.telephone_2.id_for_label }}">Téléphone 2</label>
-            <div class="input-wrapper">
-              <i class="bx bxs-phone input-icon"></i>
-              {{ form.telephone_2 }}
-            </div>
-          </div>
-
-          <!-- Email -->
-          <div class="field-group">
-            <label class="field-label" for="{{ form.email.id_for_label }}">Email</label>
-            <div class="input-wrapper">
-              <i class="bx bxs-envelope input-icon"></i>
-              {{ form.email }}
-            </div>
-            {% for err in form.email.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
           </div>
         </div>
+
       </div>
 
-      {# Fiscal info card #}
-      <div class="form-card" style="animation-delay:.05s;">
-        <div class="form-card__header">
-          <div class="form-card__icon ic-amber"><i class="bx bxs-receipt"></i></div>
-          <div>
-            <div class="form-card__title">Informations fiscales</div>
-            <div class="form-card__sub">NIF et registre de commerce</div>
-          </div>
-        </div>
+      <!-- Right column -->
+      <div class="form-col">
 
-        <div class="form-grid">
-          <div class="field-group">
-            <label class="field-label" for="{{ form.nif.id_for_label }}">NIF</label>
-            <div class="input-wrapper">
-              <i class="bx bxs-file-txt input-icon"></i>
-              {{ form.nif }}
+        <!-- Crédit & paramètres -->
+        <div class="form-card">
+          <div class="form-card__header">
+            <div class="section-eyebrow"><i class="bx bxs-credit-card"></i> Crédit & paramètres</div>
+          </div>
+          <div class="form-card__body">
+
+            <div class="form-group">
+              <label class="form-label" for="{{ form.plafond_credit.id_for_label }}">Plafond de crédit (DZD)</label>
+              <div class="input-wrapper">
+                <i class="bx bxs-coin input-icon"></i>
+                {{ form.plafond_credit }}
+              </div>
+              <div class="form-hint">Laissez à 0 pour ne pas imposer de limite.</div>
+              {% for err in form.plafond_credit.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
             </div>
-          </div>
-          <div class="field-group">
-            <label class="field-label" for="{{ form.rc.id_for_label }}">RC</label>
-            <div class="input-wrapper">
-              <i class="bx bxs-file-txt input-icon"></i>
-              {{ form.rc }}
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {# Notes card #}
-      <div class="form-card" style="animation-delay:.1s;">
-        <div class="form-card__header">
-          <div class="form-card__icon ic-purple"><i class="bx bxs-note"></i></div>
-          <div>
-            <div class="form-card__title">Notes</div>
-            <div class="form-card__sub">Observations internes</div>
-          </div>
-        </div>
-
-        <div class="field-group">
-          {{ form.notes }}
-        </div>
-      </div>
-
-    </div>
-
-    {# ── Right column: Credit + Status ─────────────────────────────────── #}
-    <div class="client-form-side">
-
-      {# Credit settings #}
-      <div class="form-card" style="animation-delay:.08s;">
-        <div class="form-card__header">
-          <div class="form-card__icon ic-blue"><i class="bx bxs-credit-card"></i></div>
-          <div>
-            <div class="form-card__title">Crédit</div>
-            <div class="form-card__sub">Plafond et statut</div>
-          </div>
-        </div>
-
-        <div class="form-fields">
-          <div class="field-group">
-            <label class="field-label" for="{{ form.plafond_credit.id_for_label }}">Plafond de crédit (DZD)</label>
-            <div class="input-wrapper">
-              <i class="bx bxs-coin input-icon"></i>
-              {{ form.plafond_credit }}
-            </div>
-            <div class="field-hint">0 = pas de limite</div>
-          </div>
-
-          <div class="field-group">
-            <div class="checkbox-row">
-              {{ form.actif }}
-              <label for="{{ form.actif.id_for_label }}" style="font-size:13px;color:var(--text-secondary);cursor:pointer;">
-                Client actif
+            <div class="form-group form-group--checkbox" style="margin-bottom:0;">
+              <label class="checkbox-label">
+                {{ form.actif }}
+                <span>Client actif</span>
               </label>
+              <div class="form-hint" style="margin-top:4px;">Un client inactif n'apparaît plus dans les saisies.</div>
             </div>
-          </div>
 
-          {% if client %}
-          <div style="margin-top:8px;padding-top:12px;border-top:1px solid var(--border);">
-            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Créance actuelle</div>
-            <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:18px;{% if client.depasse_plafond %}color:#dc2626;{% else %}color:var(--text-primary);{% endif %}">
-              {{ client.creance_globale|floatformat:0 }} DZD
-            </div>
-            {% if client.depasse_plafond %}
-            <div style="font-size:11px;color:#dc2626;margin-top:4px;">
-              <i class="bx bxs-error"></i> Plafond {{ client.plafond_credit|floatformat:0 }} DZD dépassé
-            </div>
-            {% endif %}
           </div>
-          {% endif %}
         </div>
-      </div>
 
-      {# Non-field errors #}
-      {% if form.non_field_errors %}
-      <div class="error-banner">
-        <i class="bx bxs-error-circle"></i>
-        <div>{% for err in form.non_field_errors %}<div>{{ err }}</div>{% endfor %}</div>
-      </div>
-      {% endif %}
+        <!-- Notes -->
+        <div class="form-card">
+          <div class="form-card__header">
+            <div class="section-eyebrow"><i class="bx bx-note"></i> Notes</div>
+          </div>
+          <div class="form-card__body">
+            <div class="form-group" style="margin-bottom:0;">
+              <div class="input-wrapper input-wrapper--textarea">{{ form.notes }}</div>
+              {% for err in form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+          </div>
+        </div>
 
-      {# Mobile submit #}
-      <div class="form-actions-mobile">
-        <button type="submit" class="btn-primary" style="width:100%;justify-content:center;">
-          <i class="bx bxs-save"></i> {% if action_label %}{{ action_label }}{% else %}Enregistrer{% endif %}
-        </button>
-      </div>
+        {% if form.non_field_errors %}
+        <div class="field-error" style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:12px 14px;">
+          {% for err in form.non_field_errors %}<div><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+        </div>
+        {% endif %}
 
+        <div class="form-actions-footer">
+          {% if client %}
+          <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost">Annuler</a>
+          {% else %}
+          <a href="{% url 'clients:client_list' %}" class="btn-ghost">Annuler</a>
+          {% endif %}
+          <button type="submit" class="btn-primary"><i class="bx bx-check"></i> {{ action_label }}</button>
+        </div>
+
+      </div>
     </div>
-  </div>
-</form>
-
+  </form>
+</div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-/* ── Two-column layout ────────────────────────────────────────────────── */
-.client-form-layout {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 20px;
-  align-items: start;
-}
-@media (max-width: 1024px) {
-  .client-form-layout { grid-template-columns: 1fr; }
-}
-.client-form-main { display: flex; flex-direction: column; gap: 18px; }
-.client-form-side { display: flex; flex-direction: column; gap: 16px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 860px) { .form-grid { grid-template-columns: 1fr; } }
+  .form-col { display: flex; flex-direction: column; gap: 18px; }
 
-/* ── Form cards ───────────────────────────────────────────────────────── */
-.form-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 22px 24px;
-  animation: fadeIn .3s ease both;
-}
-.form-card__header {
-  display: flex; align-items: center; gap: 14px;
-  margin-bottom: 20px; padding-bottom: 16px;
-  border-bottom: 1px solid var(--border);
-}
-.form-card__icon {
-  width: 40px; height: 40px; border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px; flex-shrink: 0;
-}
-.ic-green  { background: rgba(34,197,94,.14);  color: #15803d; }
-.ic-amber  { background: rgba(245,158,11,.14); color: #b45309; }
-.ic-blue   { background: rgba(56,189,248,.14); color: #0284c7; }
-.ic-purple { background: rgba(167,139,250,.14);color: #7c3aed; }
+  .form-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .form-card__header { padding: 14px 20px 12px; border-bottom: 1px solid var(--border); }
+  .form-card__body { padding: 20px; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+  .section-eyebrow i { font-size: 13px; }
 
-.form-card__title {
-  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
-  color: var(--text-primary); margin-bottom: 2px;
-}
-.form-card__sub { font-size: 12px; color: var(--text-muted); }
+  .form-group { margin-bottom: 16px; }
+  .form-group:last-child { margin-bottom: 0; }
+  .form-group--checkbox { display: flex; flex-direction: column; gap: 4px; }
+  .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-label { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .03em; margin-bottom: 6px; }
+  .form-required { color: #dc2626; }
+  .form-hint { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
 
-/* ── Form grid ────────────────────────────────────────────────────────── */
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-@media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
-.field-group--full { grid-column: 1 / -1; }
-.form-fields { display: flex; flex-direction: column; gap: 14px; }
+  .input-wrapper { position: relative; }
+  .input-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; pointer-events: none; transition: color .15s; }
+  .input-wrapper:focus-within .input-icon { color: var(--accent-text); }
+  .input-wrapper input[type="text"],
+  .input-wrapper input[type="email"],
+  .input-wrapper input[type="number"],
+  .input-wrapper select {
+    width: 100%; background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); color: var(--text-primary);
+    font-family: 'Inter', sans-serif; font-size: 13.5px;
+    padding: 10px 12px 10px 40px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .input-wrapper input:focus, .input-wrapper select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none; }
+  .input-wrapper input::placeholder { color: var(--text-muted); }
+  .input-wrapper--textarea textarea {
+    width: 100%; background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); color: var(--text-primary);
+    font-family: 'Inter', sans-serif; font-size: 13.5px;
+    padding: 10px 12px; resize: vertical; min-height: 72px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .input-wrapper--textarea textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none; }
 
-/* ── Field styling ────────────────────────────────────────────────────── */
-.field-group { display: flex; flex-direction: column; gap: 6px; }
-.field-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .03em; }
-.required { color: #dc2626; }
+  .checkbox-label { display: flex; align-items: center; gap: 9px; font-size: 13.5px; color: var(--text-secondary); cursor: pointer; }
+  .checkbox-label input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
 
-.input-wrapper { position: relative; }
-.input-icon {
-  position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
-  font-size: 15px; color: var(--text-muted); pointer-events: none;
-  transition: color .15s; z-index: 1;
-}
-.input-wrapper input,
-.input-wrapper select {
-  width: 100%; background: var(--bg-surface);
-  border: 1px solid var(--border); border-radius: var(--radius-md);
-  color: var(--text-primary); font-family: 'Inter', sans-serif;
-  font-size: 13.5px; padding: 11px 13px 11px 40px;
-  transition: border-color .15s, box-shadow .15s; -webkit-appearance: none;
-}
-.input-wrapper input:focus,
-.input-wrapper select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none;
-}
-.input-wrapper input::placeholder { color: var(--text-muted); }
+  .field-error { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #dc2626; margin-top: 5px; }
 
-textarea {
-  width: 100%; background: var(--bg-surface);
-  border: 1px solid var(--border); border-radius: var(--radius-md);
-  color: var(--text-primary); font-family: 'Inter', sans-serif;
-  font-size: 13.5px; padding: 11px 13px;
-  resize: vertical; min-height: 70px;
-  transition: border-color .15s, box-shadow .15s;
-}
-textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none;
-}
+  .form-actions-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 16px 20px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
 
-.field-hint { font-size: 11.5px; color: var(--text-muted); line-height: 1.5; }
-.field-error {
-  display: flex; align-items: center; gap: 5px;
-  font-size: 12px; color: #dc2626;
-}
-.field-error i { font-size: 13px; flex-shrink: 0; }
-
-.checkbox-row {
-  display: flex; align-items: center; gap: 8px;
-  padding: 11px 13px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  min-height: 44px;
-}
-.checkbox-row input[type="checkbox"] {
-  width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer;
-}
-
-.error-banner {
-  display: flex; align-items: flex-start; gap: 10px;
-  background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2);
-  border-radius: var(--radius-md); padding: 12px 16px;
-  font-size: 13px; color: #dc2626;
-}
-.error-banner i { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
-
-.form-actions-mobile { display: none; }
-@media (max-width: 1024px) { .form-actions-mobile { display: block; } }
+  .btn-primary { background: var(--accent); color: #fff; font-family: 'Nunito',sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: var(--radius-md); padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: opacity .18s; text-decoration: none; }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); font-family: 'Nunito',sans-serif; font-weight: 600; font-size: 13px; border-radius: var(--radius-md); padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .12s; text-decoration: none; }
+  .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
 </style>
 {% endblock %}
+
+{% block extra_js %}{% endblock %}

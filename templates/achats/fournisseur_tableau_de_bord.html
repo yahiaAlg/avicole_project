@@ -1,485 +1,585 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ fournisseur.nom }} — Tableau de Bord — Élevage Avicole{% endblock %}
-{% block nav_tableaux_de_bord %}active{% endblock %}
+{% block title %}Tableau de bord — {{ fournisseur.nom }} — Élevage Avicole{% endblock %}
+
+{% block nav_fournisseurs %}active{% endblock %}
 
 {% block page_title %}{{ fournisseur.nom }}{% endblock %}
-{% block page_sub_text %}Tableau de bord fournisseur — {{ fournisseur.adresse|default:"" }} {{ fournisseur.wilaya|default:"" }}{% endblock %}
+{% block page_sub_text %}
+  Tableau de bord financier
+  {% if fournisseur.type_principal %} · {{ fournisseur.type_principal.libelle }}{% endif %}
+  {% if not fournisseur.actif %} · <span style="color:#dc2626;">Inactif</span>{% endif %}
+{% endblock %}
 
 {% block topbar_actions %}
-  <a href="{% url 'achats:fournisseur_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour aux fournisseurs
+  {% if solde.dette_globale > 0 %}
+  <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ fournisseur.pk }}" class="btn-primary">
+    <i class="bx bxs-coin"></i> Enregistrer un règlement
+  </a>
+  {% endif %}
+  <a href="{% url 'achats:facture_fournisseur_create' %}?fournisseur={{ fournisseur.pk }}" class="btn-ghost">
+    <i class="bx bxs-file-txt"></i> Nouvelle facture
   </a>
 {% endblock %}
 
 {% block content %}
 
-<!-- ── KPI row ────────────────────────────────────────── -->
-<div class="kpi-row" style="margin-bottom:24px;">
+<!-- ── KPI metric row ── -->
+<div class="kpi-row">
 
-  <!-- Solde du -->
-  <div class="metric-card">
-    <div class="metric-card__label">
-      <span class="metric-card__dot" style="background:#dc2626;"></span>
-      Solde fournisseur (dû)
+  <!-- Dette globale -->
+  <div class="metric-card {% if solde.dette_globale > 0 %}metric-card--danger{% endif %}">
+    <div class="metric-icon {% if solde.dette_globale > 0 %}ic-red{% else %}ic-green{% endif %}">
+      <i class="bx bx-hourglass"></i>
     </div>
-    <div class="metric-card__value" style="color:#dc2626;">
-      {{ solde_du|floatformat:0 }} DZD
+    <div class="metric-label">DETTE GLOBALE</div>
+    <div class="metric-value {% if solde.dette_globale > 0 %}metric-value--red{% endif %}">
+      {{ solde.dette_globale|floatformat:0 }}
+      <span class="metric-currency">DZD</span>
     </div>
-    {% if factures_impayees_count > 0 %}
-    <div class="metric-card__trend trend-down">
-      <i class='bx bxs-file'></i> {{ factures_impayees_count }} facture{{ factures_impayees_count|pluralize }} impayée{{ factures_impayees_count|pluralize }}
+    {% if solde.nb_factures_retard > 0 %}
+    <div class="metric-delta metric-delta--danger">
+      <i class="bx bxs-error"></i>
+      {{ solde.nb_factures_retard }} facture{{ solde.nb_factures_retard|pluralize }} en retard
+    </div>
+    {% else %}
+    <div class="metric-delta metric-delta--neutral">
+      <i class="bx bxs-check-circle"></i> À jour
     </div>
     {% endif %}
   </div>
 
-  <!-- Crédit fournisseur -->
+  <!-- Acompte disponible -->
   <div class="metric-card">
-    <div class="metric-card__label">
-      <span class="metric-card__dot" style="background:#22c55e;"></span>
-      Crédit fournisseur (acompte)
+    <div class="metric-icon ic-amber">
+      <i class="bx bxs-piggy-bank"></i>
     </div>
-    <div class="metric-card__value" style="color:#22c55e;">
-      {{ solde_credit|floatformat:0 }} DZD
+    <div class="metric-label">ACOMPTE DISPONIBLE</div>
+    <div class="metric-value {% if solde.acompte_disponible > 0 %}metric-value--amber{% endif %}">
+      {{ solde.acompte_disponible|floatformat:0 }}
+      <span class="metric-currency">DZD</span>
     </div>
-    {% if solde_credit > 0 %}
-    <div class="metric-card__trend trend-up">
-      <i class='bx bxs-wallet'></i> Disponible pour futures factures
-    </div>
-    {% endif %}
-  </div>
-
-  <!-- Total BL année -->
-  <div class="metric-card">
-    <div class="metric-card__label">
-      <span class="metric-card__dot" style="background:#22c55e;"></span>
-      BL reçus (année)
-    </div>
-    <div class="metric-card__value">{{ total_bl_annee|floatformat:0 }} DZD</div>
-    <div class="metric-card__trend trend-up">
-      <i class='bx bxs-truck'></i> {{ nb_bl_annee }} bon{{ nb_bl_annee|pluralize }} de livraison
+    <div class="metric-delta metric-delta--neutral">
+      <i class="bx bxs-piggy-bank"></i>
+      {% if solde.acompte_disponible > 0 %}Surplus disponible{% else %}Aucun acompte{% endif %}
     </div>
   </div>
 
-  <!-- Total factures année -->
+  <!-- Total réglé -->
   <div class="metric-card">
-    <div class="metric-card__label">
-      <span class="metric-card__dot" style="background:#f59e0b;"></span>
-      Factures (année)
+    <div class="metric-icon ic-green">
+      <i class="bx bxs-coin"></i>
     </div>
-    <div class="metric-card__value">{{ total_factures_annee|floatformat:0 }} DZD</div>
-    <div class="metric-card__trend trend-down">
-      <i class='bx bxs-file-txt'></i> {{ nb_factures_annee }} facture{{ nb_factures_annee|pluralize }}
+    <div class="metric-label">TOTAL RÉGLÉ (HISTORIQUE)</div>
+    <div class="metric-value">
+      {{ solde.total_reglements|floatformat:0 }}
+      <span class="metric-currency">DZD</span>
+    </div>
+    <div class="metric-delta metric-delta--neutral">
+      <i class="bx bxs-calendar"></i> Tous règlements confondus
+    </div>
+  </div>
+
+  <!-- Factures ouvertes -->
+  <div class="metric-card">
+    <div class="metric-icon ic-blue">
+      <i class="bx bxs-file-txt"></i>
+    </div>
+    <div class="metric-label">FACTURES OUVERTES</div>
+    <div class="metric-value">
+      {{ solde.factures_ouvertes.count }}
+      <span class="metric-currency" style="font-size:14px;">facture{{ solde.factures_ouvertes.count|pluralize }}</span>
+    </div>
+    <div class="metric-delta metric-delta--neutral">
+      <i class="bx bxs-truck"></i>
+      {{ bls_ouverts.count }} BL{{ bls_ouverts.count|pluralize }} reçu{{ bls_ouverts.count|pluralize }}
     </div>
   </div>
 
 </div>
 
-<div class="dashboard-layout">
-
-  <!-- Left column: Invoices + Timeline -->
-  <div class="dashboard-main">
-
-    <!-- Open invoices -->
-    <div class="section-card" style="margin-bottom:20px;">
-      <div class="section-card__head">
-        <span class="section-card__title">
-          <i class="bx bxs-file-txt" style="color:var(--accent);margin-right:8px;"></i>Factures ouvertes
-        </span>
-        <span style="font-size:12px;color:var(--text-muted);">{{ factures_impayees|length }} en cours</span>
+<!-- ── Debt bar visual ── -->
+{% if solde.dette_globale > 0 or solde.acompte_disponible > 0 %}
+<div class="debt-visual-card">
+  <div class="debt-visual-card__header">
+    <div class="section-eyebrow"><i class="bx bx-hourglass"></i> Situation financière</div>
+    {% if solde.dette_globale > 0 %}
+    <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ fournisseur.pk %}" class="btn-primary btn-sm">
+      <i class="bx bxs-coin"></i> Régler
+    </a>
+    {% endif %}
+  </div>
+  <div class="debt-bar">
+    <div class="debt-bar__label">
+      <span>Dette — {{ fournisseur.nom }}</span>
+      <span class="debt-bar__amount {% if solde.dette_globale > 0 %}debt-bar__amount--red{% endif %}">
+        {{ solde.dette_globale|floatformat:0 }} DZD
+      </span>
+    </div>
+    <div class="debt-bar__track">
+      {% if solde.dette_globale > 0 and solde.total_reglements > 0 %}
+      <div class="debt-bar__fill"
+           data-pct="{% widthratio solde.dette_globale solde.total_reglements 100 %}"
+           style="width:{% widthratio solde.dette_globale solde.total_reglements 100 %}%;">
       </div>
-      <div class="section-card__body no-pad">
-        {% if factures_impayees %}
-        <div class="table-wrap">
-          <table class="table-base">
-            <thead>
-              <tr>
-                <th>Référence</th>
-                <th>Date</th>
-                <th style="text-align:right;">Montant</th>
-                <th style="text-align:right;">Réglé</th>
-                <th style="text-align:right;">Reste</th>
-                <th>Échéance</th>
-                <th style="text-align:right;">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for fac in factures_impayees %}
-              <tr class="stagger-row">
-                <td>
-                  <a href="{% url 'achats:facture_fournisseur_detail' fac.pk %}" class="text-mono val-money" style="color:var(--text-primary);">
-                    {{ fac.reference }}
-                  </a>
-                </td>
-                <td style="color:var(--text-muted);white-space:nowrap;">{{ fac.date_facture|date:"d/m/Y" }}</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:600;white-space:nowrap;">
-                  {{ fac.montant_total|floatformat:0 }} DZD
-                </td>
-                <td style="text-align:right;color:#15803d;font-family:'Nunito',sans-serif;font-weight:600;white-space:nowrap;">
-                  {{ fac.montant_regle|floatformat:0 }} DZD
-                </td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;white-space:nowrap;">
-                  {% if fac.est_en_retard %}
-                  <span style="color:#dc2626;">{{ fac.reste_a_payer|floatformat:0 }} DZD</span>
-                  {% else %}
-                  <span style="color:var(--text-primary);">{{ fac.reste_a_payer|floatformat:0 }} DZD</span>
-                  {% endif %}
-                </td>
-                <td style="white-space:nowrap;">
-                  {% if fac.date_echeance %}
-                    {% if fac.est_en_retard %}
-                    <span style="color:#dc2626;font-size:12px;"><i class="bx bxs-error"></i> {{ fac.date_echeance|date:"d/m/Y" }}</span>
-                    {% else %}
-                    <span style="color:var(--text-muted);">{{ fac.date_echeance|date:"d/m/Y" }}</span>
-                    {% endif %}
-                  {% else %}
-                  <span style="color:var(--text-muted);">—</span>
-                  {% endif %}
-                </td>
-                <td>
-                  <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;">
-                    <a href="{% url 'achats:facture_fournisseur_detail' fac.pk %}" class="action-btn" title="Détail">
-                      <i class="bx bx-show"></i>
-                    </a>
-                    <a href="{% url 'achats:facture_fournisseur_print' fac.pk %}" class="action-btn" title="Imprimer" target="_blank">
-                      <i class="bx bxs-printer"></i>
-                    </a>
-                  </div>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+      {% elif solde.dette_globale > 0 %}
+      <div class="debt-bar__fill" style="width:100%;"></div>
+      {% else %}
+      <div class="debt-bar__fill" style="width:0%;"></div>
+      {% endif %}
+    </div>
+    <div class="debt-bar__sub">
+      <span style="color:var(--accent-text);">{{ solde.total_reglements|floatformat:0 }} DZD réglés</span>
+      {% if solde.acompte_disponible > 0 %}
+      <span style="color:#b45309;margin-left:12px;"><i class="bx bxs-piggy-bank"></i> {{ solde.acompte_disponible|floatformat:0 }} DZD d'acompte disponible</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Aged debt breakdown ── -->
+{% if aging %}
+<div class="section-card">
+  <div class="section-card__header">
+    <div class="section-eyebrow"><i class="bx bxs-bar-chart-alt-2"></i> Ancienneté de la dette</div>
+    <span style="font-size:12px;color:var(--text-muted);">Total : {{ aging.total|floatformat:0 }} DZD</span>
+  </div>
+  <div class="aging-grid">
+    <div class="aging-bucket aging-bucket--ok">
+      <div class="aging-bucket__label">À échoir</div>
+      <div class="aging-bucket__val">{{ aging.current|floatformat:0 }} DZD</div>
+      <div class="aging-bucket__bar">
+        <div class="aging-bucket__fill aging-bucket__fill--ok"
+          {% if aging.total > 0 %}style="width:{% widthratio aging.current aging.total 100 %}%;"{% else %}style="width:0%;"{% endif %}>
         </div>
-        {% else %}
-        <div style="padding:24px 20px;text-align:center;color:var(--text-muted);font-size:13px;">
-          <i class="bx bxs-check-circle" style="display:block;font-size:28px;margin-bottom:8px;color:#15803d;"></i>
-          Aucune facture impayée. Toutes les factures sont réglées.
-        </div>
-        {% endif %}
       </div>
     </div>
-
-    <!-- 12-month timeline -->
-    <div class="section-card" style="margin-bottom:20px;">
-      <div class="section-card__head">
-        <span class="section-card__title">
-          <i class="bx bxs-bar-chart-alt-2" style="color:var(--accent);margin-right:8px;"></i>Activité des 12 derniers mois
-        </span>
-        <div style="display:flex;gap:12px;font-size:11px;color:var(--text-muted);">
-          <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;"></span> BL</span>
-          <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span> Factures</span>
-          <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span> Règlements</span>
+    <div class="aging-bucket aging-bucket--warn">
+      <div class="aging-bucket__label">1–30 jours</div>
+      <div class="aging-bucket__val">{{ aging.1_30|floatformat:0 }} DZD</div>
+      <div class="aging-bucket__bar">
+        <div class="aging-bucket__fill aging-bucket__fill--warn"
+          {% if aging.total > 0 %}style="width:{% widthratio aging.1_30 aging.total 100 %}%;"{% else %}style="width:0%;"{% endif %}>
         </div>
-      </div>
-      <div class="section-card__body">
-        {% if historique_mensuel %}
-        <div class="timeline-chart" id="timeline-chart"></div>
-        {% else %}
-        <div class="empty-state" style="padding:32px 20px;">
-          <i class="bx bxs-bar-chart-alt-2 empty-state__icon"></i>
-          <div class="empty-state__title">Aucune donnée</div>
-          <div class="empty-state__text">Aucune activité enregistrée sur les 12 derniers mois.</div>
-        </div>
-        {% endif %}
       </div>
     </div>
+    <div class="aging-bucket aging-bucket--warn2">
+      <div class="aging-bucket__label">31–60 jours</div>
+      <div class="aging-bucket__val">{{ aging.31_60|floatformat:0 }} DZD</div>
+      <div class="aging-bucket__bar">
+        <div class="aging-bucket__fill aging-bucket__fill--warn2"
+          {% if aging.total > 0 %}style="width:{% widthratio aging.31_60 aging.total 100 %}%;"{% else %}style="width:0%;"{% endif %}>
+        </div>
+      </div>
+    </div>
+    <div class="aging-bucket aging-bucket--danger">
+      <div class="aging-bucket__label">61–90 jours</div>
+      <div class="aging-bucket__val">{{ aging.61_90|floatformat:0 }} DZD</div>
+      <div class="aging-bucket__bar">
+        <div class="aging-bucket__fill aging-bucket__fill--danger"
+          {% if aging.total > 0 %}style="width:{% widthratio aging.61_90 aging.total 100 %}%;"{% else %}style="width:0%;"{% endif %}>
+        </div>
+      </div>
+    </div>
+    <div class="aging-bucket aging-bucket--crit">
+      <div class="aging-bucket__label">&gt; 90 jours</div>
+      <div class="aging-bucket__val">{{ aging.over_90|floatformat:0 }} DZD</div>
+      <div class="aging-bucket__bar">
+        <div class="aging-bucket__fill aging-bucket__fill--crit"
+          {% if aging.total > 0 %}style="width:{% widthratio aging.over_90 aging.total 100 %}%;"{% else %}style="width:0%;"{% endif %}>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 
+<!-- ── Two column: open invoices + recent payments ── -->
+<div class="two-col-grid">
+
+  <!-- Open invoices (FIFO order) -->
+  <div class="section-card">
+    <div class="section-card__header">
+      <div class="section-eyebrow"><i class="bx bxs-file-txt"></i> Factures ouvertes (ordre FIFO)</div>
+      <a href="{% url 'achats:facture_fournisseur_list' %}?fournisseur={{ fournisseur.pk }}&statut=non_paye" style="font-size:12px;color:var(--accent-text);text-decoration:none;">
+        Voir tout <i class="bx bx-right-arrow-alt"></i>
+      </a>
+    </div>
+    {% if solde.factures_ouvertes %}
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Référence</th>
+            <th>Date</th>
+            <th>Échéance</th>
+            <th style="text-align:right;">Reste à payer</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in solde.factures_ouvertes %}
+          <tr style="--row-i:{{ forloop.counter0 }};" class="{% if f.est_en_retard %}row-overdue{% endif %}">
+            <td>
+              <a href="{% url 'achats:facture_fournisseur_detail' f.pk %}" class="ref-link">{{ f.reference }}</a>
+            </td>
+            <td style="color:var(--text-muted);">{{ f.date_facture|date:"d/m/Y" }}</td>
+            <td>
+              {% if f.date_echeance %}
+              <span {% if f.est_en_retard %}style="color:#dc2626;"{% else %}style="color:var(--text-muted);"{% endif %}>
+                {% if f.est_en_retard %}<i class="bx bx-hourglass"></i> {% endif %}
+                {{ f.date_echeance|date:"d/m/Y" }}
+              </span>
+              {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+            </td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;{% if f.est_en_retard %}color:#dc2626;{% else %}color:#b45309;{% endif %}">
+              {{ f.reste_a_payer|floatformat:0 }} DZD
+            </td>
+            <td>
+              {% if f.statut == "non_paye" %}<span class="pill-danger">Non payée</span>
+              {% elif f.statut == "partiellement_paye" %}<span class="pill-warning">Part. payée</span>
+              {% elif f.statut == "en_litige" %}<span class="pill-danger"><i class="bx bxs-error"></i> Litige</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:36px 16px;color:var(--text-muted);">
+      <i class="bx bxs-check-circle" style="font-size:28px;display:block;margin-bottom:10px;color:var(--accent);"></i>
+      <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;color:var(--text-secondary);">Aucune facture ouverte</div>
+      <div style="font-size:12.5px;margin-top:4px;">Ce fournisseur est à jour.</div>
+    </div>
+    {% endif %}
   </div>
 
-  <!-- Right column: Supplier info + Acomptes + Links -->
-  <div class="dashboard-side">
-
-    <!-- Supplier details -->
-    <div class="section-card" style="margin-bottom:16px;">
-      <div class="section-card__head">
-        <span class="section-card__title">Coordonnées</span>
-        <span class="pill-base pill-success">Actif</span>
-      </div>
-      <div class="section-card__body">
-        <div class="detail-grid" style="gap:10px;">
-          {% if fournisseur.telephone %}
-          <div>
-            <div class="detail-label"><i class="bx bxs-phone" style="margin-right:4px;"></i>Téléphone</div>
-            <div class="detail-value">{{ fournisseur.telephone }}</div>
-          </div>
-          {% endif %}
-          {% if fournisseur.email %}
-          <div>
-            <div class="detail-label"><i class="bx bxs-envelope" style="margin-right:4px;"></i>Email</div>
-            <div class="detail-value">{{ fournisseur.email }}</div>
-          </div>
-          {% endif %}
-          {% if fournisseur.adresse %}
-          <div>
-            <div class="detail-label"><i class="bx bxs-map" style="margin-right:4px;"></i>Adresse</div>
-            <div class="detail-value">{{ fournisseur.adresse }}</div>
-          </div>
-          {% endif %}
-          {% if fournisseur.wilaya %}
-          <div>
-            <div class="detail-label"><i class="bx bxs-map-pin" style="margin-right:4px;"></i>Wilaya</div>
-            <div class="detail-value">{{ fournisseur.wilaya }}</div>
-          </div>
-          {% endif %}
-          {% if fournisseur.rc %}
-          <div>
-            <div class="detail-label">RC</div>
-            <div class="detail-value text-mono">{{ fournisseur.rc }}</div>
-          </div>
-          {% endif %}
-          {% if fournisseur.nif %}
-          <div>
-            <div class="detail-label">NIF</div>
-            <div class="detail-value text-mono">{{ fournisseur.nif }}</div>
-          </div>
-          {% endif %}
-          {% if fournisseur.ai %}
-          <div>
-            <div class="detail-label">AI</div>
-            <div class="detail-value text-mono">{{ fournisseur.ai }}</div>
-          </div>
-          {% endif %}
-        </div>
-        {% if fournisseur.notes %}
-        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
-          <div class="detail-label">Notes</div>
-          <div style="font-size:12px;color:var(--text-secondary);white-space:pre-wrap;">{{ fournisseur.notes }}</div>
-        </div>
-        {% endif %}
-      </div>
+  <!-- Recent payments -->
+  <div class="section-card">
+    <div class="section-card__header">
+      <div class="section-eyebrow"><i class="bx bxs-coin"></i> Règlements récents</div>
+      <a href="{% url 'achats:reglement_fournisseur_list' %}?fournisseur={{ fournisseur.pk }}" style="font-size:12px;color:var(--accent-text);text-decoration:none;">
+        Voir tout <i class="bx bx-right-arrow-alt"></i>
+      </a>
     </div>
-
-    <!-- Acomptes summary -->
-    <div class="section-card" style="margin-bottom:16px;">
-      <div class="section-card__head">
-        <span class="section-card__title">Acomptes disponibles</span>
-        <a href="{% url 'achats:acompte_fournisseur_list' %}?fournisseur={{ fournisseur.pk }}" style="font-size:12px;color:var(--accent-text);">Voir tout</a>
-      </div>
-      <div class="section-card__body no-pad">
-        {% if acomptes_disponibles %}
-        {% for ac in acomptes_disponibles %}
-        <a href="{% url 'achats:acompte_fournisseur_detail' ac.pk %}" class="side-link-row">
-          <div style="flex:1;">
-            <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:var(--text-primary);">
-              {{ ac.reste|floatformat:0 }} DZD
-            </div>
-            <div style="font-size:11px;color:var(--text-muted);">
-              {{ ac.montant|floatformat:0 }} DZD initial — {{ ac.montant_utilise|floatformat:0 }} DZD utilisé
-            </div>
+    {% if reglements_recents %}
+    <div class="payments-list">
+      {% for reg in reglements_recents %}
+      <a href="{% url 'achats:reglement_fournisseur_detail' reg.pk %}" class="payment-item">
+        <div class="payment-item__icon mode-icon-{{ reg.mode_paiement }}">
+          {% if reg.mode_paiement == "especes" %}<i class="bx bxs-coin"></i>
+          {% elif reg.mode_paiement == "cheque" %}<i class="bx bxs-check-square"></i>
+          {% elif reg.mode_paiement == "virement" %}<i class="bx bxs-bank"></i>
+          {% else %}<i class="bx bxs-wallet"></i>{% endif %}
+        </div>
+        <div class="payment-item__info">
+          <div class="payment-item__mode">{{ reg.get_mode_paiement_display }}</div>
+          <div class="payment-item__date">{{ reg.date_reglement|date:"d/m/Y" }}
+            {% if reg.reference_paiement %} · {{ reg.reference_paiement }}{% endif %}
           </div>
-          <i class="bx bx-chevron-right" style="color:var(--text-muted);"></i>
-        </a>
+          <div class="payment-item__allocs" style="font-size:11px;color:var(--text-muted);margin-top:1px;">
+            {{ reg.allocations.count }} facture{{ reg.allocations.count|pluralize }} allouée{{ reg.allocations.count|pluralize }}
+            {% if reg.acompte %} · <span style="color:#b45309;">Acompte généré</span>{% endif %}
+          </div>
+        </div>
+        <div class="payment-item__amount">{{ reg.montant|floatformat:0 }} DZD</div>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:36px 16px;color:var(--text-muted);">
+      <i class="bx bxs-coin" style="font-size:28px;display:block;margin-bottom:10px;color:var(--border-strong);"></i>
+      <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;color:var(--text-secondary);">Aucun règlement</div>
+      <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ fournisseur.pk %}" class="btn-primary" style="display:inline-flex;margin-top:12px;">
+        <i class="bx bxs-coin"></i> Premier règlement
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ── BLs reçus (not yet invoiced) ── -->
+{% if bls_ouverts %}
+<div class="section-card">
+  <div class="section-card__header">
+    <div class="section-eyebrow"><i class="bx bxs-truck"></i> BLs reçus — non encore facturés</div>
+    <a href="{% url 'achats:facture_fournisseur_create' %}?fournisseur={{ fournisseur.pk %}"
+       class="btn-primary btn-sm">
+      <i class="bx bxs-file-txt"></i> Créer une facture
+    </a>
+  </div>
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Référence BL</th>
+          <th>Date</th>
+          <th>Réf. fournisseur</th>
+          <th>Lignes</th>
+          <th style="text-align:right;">Montant total</th>
+          <th>Pièce jointe</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for bl in bls_ouverts %}
+        <tr style="--row-i:{{ forloop.counter0 }};">
+          <td>
+            <a href="{% url 'achats:bl_fournisseur_detail' bl.pk %}" class="ref-link">{{ bl.reference }}</a>
+          </td>
+          <td style="color:var(--text-muted);">{{ bl.date_bl|date:"d/m/Y" }}</td>
+          <td style="color:var(--text-muted);font-size:12px;">{{ bl.reference_fournisseur|default:"—" }}</td>
+          <td style="color:var(--text-muted);">{{ bl.lignes.count }}</td>
+          <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
+            {{ bl.montant_total|floatformat:0 }} DZD
+          </td>
+          <td>
+            {% if bl.a_piece_jointe %}
+              <a href="{{ bl.piece_jointe.url }}" target="_blank" class="pj-link"><i class="bx bx-paperclip"></i> Voir</a>
+            {% else %}
+              <span class="sans-pj"><i class="bx bx-paperclip"></i> Absent</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="actions-cell">
+              <a href="{% url 'achats:bl_fournisseur_detail' bl.pk %}" class="action-btn" title="Voir"><i class="bx bxs-show"></i></a>
+              <a href="{% url 'achats:bl_fournisseur_print' bl.pk %}" class="action-btn" title="Imprimer" target="_blank"><i class="bx bxs-printer"></i></a>
+            </div>
+          </td>
+        </tr>
         {% endfor %}
-        {% else %}
-        <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">
-          <i class="bx bxs-wallet" style="display:block;font-size:24px;margin-bottom:8px;color:var(--border-strong);"></i>
-          Aucun acompte disponible
-        </div>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- Quick actions -->
-    <div class="section-card" style="margin-bottom:16px;">
-      <div class="section-card__head">
-        <span class="section-card__title">Actions rapides</span>
-      </div>
-      <div class="section-card__body no-pad">
-        <a href="{% url 'achats:bl_fournisseur_create' %}?fournisseur={{ fournisseur.pk }}" class="side-link-row">
-          <i class="bx bxs-truck" style="color:var(--accent-text);"></i>
-          <span>Créer un BL</span>
-          <i class="bx bx-chevron-right" style="color:var(--text-muted);margin-left:auto;"></i>
-        </a>
-        <a href="{% url 'achats:facture_fournisseur_create' %}?fournisseur={{ fournisseur.pk }}" class="side-link-row">
-          <i class="bx bxs-file-txt" style="color:var(--accent-text);"></i>
-          <span>Créer une facture</span>
-          <i class="bx bx-chevron-right" style="color:var(--text-muted);margin-left:auto;"></i>
-        </a>
-        <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ fournisseur.pk }}" class="side-link-row">
-          <i class="bx bxs-coin" style="color:var(--accent-text);"></i>
-          <span>Enregistrer un règlement</span>
-          <i class="bx bx-chevron-right" style="color:var(--text-muted);margin-left:auto;"></i>
-        </a>
-      </div>
-    </div>
-
-    <!-- Shortcuts to lists -->
-    <div class="section-card">
-      <div class="section-card__head">
-        <span class="section-card__title">Liens</span>
-      </div>
-      <div class="section-card__body no-pad">
-        <a href="{% url 'achats:bl_fournisseur_list' %}?fournisseur={{ fournisseur.pk }}" class="side-link-row">
-          <i class="bx bxs-truck" style="color:var(--text-muted);"></i>
-          <span>Tous les BL</span>
-          <i class="bx bx-chevron-right" style="color:var(--text-muted);margin-left:auto;"></i>
-        </a>
-        <a href="{% url 'achats:facture_fournisseur_list' %}?fournisseur={{ fournisseur.pk }}" class="side-link-row">
-          <i class="bx bxs-file-txt" style="color:var(--text-muted);"></i>
-          <span>Toutes les factures</span>
-          <i class="bx bx-chevron-right" style="color:var(--text-muted);margin-left:auto;"></i>
-        </a>
-        <a href="{% url 'achats:reglement_fournisseur_list' %}?fournisseur={{ fournisseur.pk }}" class="side-link-row">
-          <i class="bx bxs-coin" style="color:var(--text-muted);"></i>
-          <span>Tous les règlements</span>
-          <i class="bx bx-chevron-right" style="color:var(--text-muted);margin-left:auto;"></i>
-        </a>
-      </div>
-    </div>
-
+      </tbody>
+    </table>
   </div>
+</div>
+{% endif %}
 
+<!-- ── Quick links strip ── -->
+<div class="quick-links-strip">
+  <a href="{% url 'achats:bl_fournisseur_list' %}?fournisseur={{ fournisseur.pk %}" class="quick-link">
+    <i class="bx bxs-truck"></i> BLs fournisseur
+  </a>
+  <a href="{% url 'achats:facture_fournisseur_list' %}?fournisseur={{ fournisseur.pk %}" class="quick-link">
+    <i class="bx bxs-file-txt"></i> Factures
+  </a>
+  <a href="{% url 'achats:reglement_fournisseur_list' %}?fournisseur={{ fournisseur.pk %}" class="quick-link">
+    <i class="bx bxs-coin"></i> Règlements
+  </a>
+  <a href="{% url 'achats:acompte_fournisseur_list' %}?fournisseur={{ fournisseur.pk %}" class="quick-link">
+    <i class="bx bxs-piggy-bank"></i> Acomptes
+  </a>
+  <a href="{% url 'intrants:fournisseur_detail' fournisseur.pk %}" class="quick-link">
+    <i class="bx bxs-building"></i> Fiche fournisseur
+  </a>
 </div>
 
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.dashboard-layout {
-  display: grid;
-  grid-template-columns: 1fr 340px;
-  gap: 20px;
-  align-items: start;
-}
-@media (max-width: 1024px) { .dashboard-layout { grid-template-columns: 1fr; } }
+  /* ── KPI row ── */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 1100px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px)  { .kpi-row { grid-template-columns: 1fr; } }
 
-.detail-label {
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: .07em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 3px;
-}
-.detail-value {
-  font-size: 13px;
-  color: var(--text-primary);
-  font-weight: 500;
-}
+  .metric-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 18px 20px;
+    animation: fadeIn .3s ease both;
+    transition: border-color .15s, transform .15s;
+    position: relative; overflow: hidden;
+  }
+  .metric-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+  .metric-card--danger { border-top: 3px solid #ef4444; }
 
-.side-link-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  text-decoration: none;
-  color: inherit;
-  font-size: 13px;
-  transition: background 0.12s;
-}
-.side-link-row:last-child { border-bottom: none; }
-.side-link-row:hover { background: var(--bg-raised); }
+  .metric-icon {
+    width: 40px; height: 40px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px; margin-bottom: 12px;
+  }
+  .ic-green  { background: rgba(34,197,94,.14);  color: #15803d; }
+  .ic-blue   { background: rgba(56,189,248,.14); color: #0284c7; }
+  .ic-amber  { background: rgba(245,158,11,.14); color: #b45309; }
+  .ic-red    { background: rgba(239,68,68,.12);  color: #dc2626; }
 
-.table-wrap { overflow-x: auto; }
+  .metric-label { font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+  .metric-value { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 22px; color: var(--text-primary); line-height: 1.1; }
+  .metric-value--red   { color: #dc2626; }
+  .metric-value--amber { color: #b45309; }
+  .metric-currency { font-size: 13px; font-weight: 600; color: var(--text-muted); margin-left: 3px; }
 
-/* Timeline chart */
-.timeline-chart {
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
-  height: 180px;
-  padding: 10px 0;
-}
-.timeline-bar-group {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  min-width: 0;
-}
-.timeline-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 1px;
-  width: 100%;
-  height: 140px;
-}
-.timeline-bar {
-  flex: 1;
-  border-radius: 2px 2px 0 0;
-  min-height: 2px;
-  transition: opacity 0.2s;
-}
-.timeline-bar:hover { opacity: 0.8; }
-.timeline-bar.bl { background: #22c55e; }
-.timeline-bar.fac { background: #f59e0b; }
-.timeline-bar.reg { background: #3b82f6; }
-.timeline-month {
-  font-size: 9px;
-  color: var(--text-muted);
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: 100%;
-}
+  .metric-delta {
+    display: inline-flex; align-items: center; gap: 4px;
+    margin-top: 8px; font-size: 11.5px; font-weight: 500; padding: 3px 8px;
+    border-radius: 20px;
+  }
+  .metric-delta--danger  { background: rgba(239,68,68,.10); color: #dc2626; }
+  .metric-delta--neutral { background: rgba(0,0,0,.05); color: var(--text-muted); }
+
+  /* ── Debt visual card ── */
+  .debt-visual-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 18px 22px; margin-bottom: 18px;
+    animation: fadeIn .3s ease;
+  }
+  .debt-visual-card__header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
+  }
+  .debt-bar__label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; color: var(--text-secondary); }
+  .debt-bar__amount { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px; color: var(--text-primary); }
+  .debt-bar__amount--red { color: #dc2626; }
+  .debt-bar__track { height: 8px; background: var(--bg-hover); border-radius: 4px; overflow: hidden; }
+  .debt-bar__fill { height: 100%; border-radius: 4px; background: var(--accent); transition: width .5s ease; min-width: 2px; }
+  .debt-bar__fill.warn { background: #f59e0b; }
+  .debt-bar__fill.crit { background: #ef4444; }
+  .debt-bar__sub { display: flex; align-items: center; margin-top: 8px; font-size: 12px; }
+
+  /* ── Aging grid ── */
+  .aging-grid {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;
+    padding: 16px 18px;
+  }
+  @media (max-width: 800px) { .aging-grid { grid-template-columns: repeat(2, 1fr); } }
+  .aging-bucket {
+    background: var(--bg-raised); border-radius: var(--radius-md);
+    padding: 12px 14px;
+  }
+  .aging-bucket__label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); font-weight: 600; margin-bottom: 6px; }
+  .aging-bucket__val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 14px; color: var(--text-primary); margin-bottom: 8px; }
+  .aging-bucket__bar { height: 4px; background: var(--bg-hover); border-radius: 4px; overflow: hidden; }
+  .aging-bucket__fill { height: 100%; border-radius: 4px; min-width: 2px; transition: width .4s ease; }
+  .aging-bucket--ok   .aging-bucket__val { color: #15803d; }
+  .aging-bucket__fill--ok   { background: #22c55e; }
+  .aging-bucket__fill--warn  { background: #f59e0b; }
+  .aging-bucket__fill--warn2 { background: #fb923c; }
+  .aging-bucket__fill--danger{ background: #ef4444; }
+  .aging-bucket__fill--crit  { background: #dc2626; }
+  .aging-bucket--crit .aging-bucket__val { color: #dc2626; }
+  .aging-bucket--danger .aging-bucket__val { color: #dc2626; }
+
+  /* ── Two col grid ── */
+  .two-col-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+  @media (max-width: 800px) { .two-col-grid { grid-template-columns: 1fr; } }
+
+  /* ── Section card ── */
+  .section-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 18px; animation: fadeIn .3s ease; }
+  .section-card__header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 12px; border-bottom: 1px solid var(--border); }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 5px; }
+
+  /* ── Open invoices table ── */
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--text-muted); padding: 10px 14px; border-bottom: 1px solid var(--border);
+    white-space: nowrap; background: var(--bg-surface);
+  }
+  .data-table tbody tr {
+    border-bottom: 1px solid var(--border); transition: background .12s;
+    animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i,0)*35ms);
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: var(--bg-hover); }
+  .data-table tbody tr.row-overdue { background: rgba(239,68,68,.03); }
+  .data-table td { padding: 11px 14px; font-size: 13px; color: var(--text-secondary); vertical-align: middle; }
+
+  .ref-link { font-family: 'Nunito', sans-serif; font-weight: 700; color: var(--accent-text); text-decoration: none; }
+  .ref-link:hover { color: var(--accent); }
+
+  /* ── Payment list ── */
+  .payments-list { display: flex; flex-direction: column; }
+  .payment-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 18px; border-bottom: 1px solid var(--border);
+    text-decoration: none; color: inherit; transition: background .12s;
+  }
+  .payment-item:last-child { border-bottom: none; }
+  .payment-item:hover { background: var(--bg-hover); }
+  .payment-item__icon {
+    width: 34px; height: 34px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+  .mode-icon-especes  { background: rgba(34,197,94,.12);  color: #15803d; }
+  .mode-icon-cheque   { background: rgba(56,189,248,.12); color: #0284c7; }
+  .mode-icon-virement { background: rgba(99,102,241,.12); color: #4338ca; }
+  .mode-icon-autre    { background: rgba(0,0,0,.06);      color: var(--text-secondary); }
+  .payment-item__info { flex: 1; }
+  .payment-item__mode { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 12.5px; color: var(--text-primary); }
+  .payment-item__date { font-size: 11.5px; color: var(--text-muted); margin-top: 1px; }
+  .payment-item__amount { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 14px; color: var(--accent-text); white-space: nowrap; }
+
+  /* ── BL table extras ── */
+  .pj-link { font-size: 11.5px; color: var(--accent-text); text-decoration: none; display: inline-flex; align-items: center; gap: 3px; }
+  .pj-link:hover { color: var(--accent); }
+  .sans-pj { font-size: 11.5px; color: #dc2626; display: inline-flex; align-items: center; gap: 3px; }
+
+  .actions-cell { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+  .action-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: transparent; color: var(--text-muted);
+    font-size: 14px; text-decoration: none; transition: background .12s;
+  }
+  .action-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-strong); }
+
+  /* ── Pills ── */
+  .pill-danger  { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(239,68,68,.10);  color: #dc2626; }
+  .pill-warning { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(245,158,11,.14); color: #b45309; }
+  .pill-neutral { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(0,0,0,.06); color: var(--text-secondary); }
+
+  /* ── Quick links strip ── */
+  .quick-links-strip {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px;
+  }
+  .quick-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border: 1px solid var(--border);
+    border-radius: var(--radius-md); background: var(--bg-surface);
+    font-size: 12.5px; color: var(--text-secondary); text-decoration: none;
+    transition: background .12s, border-color .12s, color .12s;
+  }
+  .quick-link:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+
+  /* ── Buttons ── */
+  .btn-primary {
+    background: var(--accent); color: #fff; font-family: 'Nunito', sans-serif;
+    font-weight: 700; font-size: 13.5px; border: none; border-radius: var(--radius-md);
+    padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: opacity .18s; text-decoration: none;
+  }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+    font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px;
+    border-radius: var(--radius-md); padding: 9px 16px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s; text-decoration: none;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .btn-sm { padding: 7px 13px !important; font-size: 12px !important; }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-
-  /* ── Build timeline chart from data ─────────────────────────────── */
-  var chartContainer = document.getElementById('timeline-chart');
-  if (!chartContainer) return;
-
-  var data = {{ historique_mensuel_json|safe|default:"[]" }};
-  if (!data || data.length === 0) return;
-
-  // Find max for scaling
-  var maxVal = 0;
-  data.forEach(function (d) {
-    maxVal = Math.max(maxVal, d.bl_total || 0, d.factures_total || 0, d.reglements_total || 0);
+  // Colour debt bar based on percentage
+  var fills = document.querySelectorAll('.debt-bar__fill[data-pct]');
+  fills.forEach(function (el) {
+    var pct = parseInt(el.dataset.pct, 10) || 0;
+    if (pct > 85) el.classList.add('crit');
+    else if (pct > 60) el.classList.add('warn');
   });
-  if (maxVal === 0) maxVal = 1;
-
-  data.forEach(function (d) {
-    var group = document.createElement('div');
-    group.className = 'timeline-bar-group';
-
-    var bars = document.createElement('div');
-    bars.className = 'timeline-bars';
-
-    // BL bar
-    var blH = ((d.bl_total || 0) / maxVal * 140);
-    var blBar = document.createElement('div');
-    blBar.className = 'timeline-bar bl';
-    blBar.style.height = Math.max(blH, 2) + 'px';
-    blBar.title = 'BL: ' + (d.bl_total || 0).toLocaleString('fr-FR') + ' DZD';
-    bars.appendChild(blBar);
-
-    // Facture bar
-    var facH = ((d.factures_total || 0) / maxVal * 140);
-    var facBar = document.createElement('div');
-    facBar.className = 'timeline-bar fac';
-    facBar.style.height = Math.max(facH, 2) + 'px';
-    facBar.title = 'Factures: ' + (d.factures_total || 0).toLocaleString('fr-FR') + ' DZD';
-    bars.appendChild(facBar);
-
-    // Reglement bar
-    var regH = ((d.reglements_total || 0) / maxVal * 140);
-    var regBar = document.createElement('div');
-    regBar.className = 'timeline-bar reg';
-    regBar.style.height = Math.max(regH, 2) + 'px';
-    regBar.title = 'Règlements: ' + (d.reglements_total || 0).toLocaleString('fr-FR') + ' DZD';
-    bars.appendChild(regBar);
-
-    group.appendChild(bars);
-
-    // Month label
-    var monthLabel = document.createElement('div');
-    monthLabel.className = 'timeline-month';
-    monthLabel.textContent = d.month_label || '';
-    group.appendChild(monthLabel);
-
-    chartContainer.appendChild(group);
-  });
-
 });
 </script>
 {% endblock %}

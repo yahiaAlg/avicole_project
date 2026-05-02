@@ -1,361 +1,362 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}Tableau de bord — Dépenses — Élevage Avicole{% endblock %}
+
 {% block nav_depenses %}active{% endblock %}
 
-{% block page_title %}Dépenses{% endblock %}
-{% block page_sub_text %}Tableau de bord · {{ today|date:"d/m/Y" }}{% endblock %}
+{% block page_title %}Dépenses opérationnelles{% endblock %}
+{% block page_sub_text %}{{ today|date:"F Y" }} — {{ summary_mois.nb_depenses }} dépense{{ summary_mois.nb_depenses|pluralize }} ce mois{% endblock %}
 
 {% block topbar_actions %}
-{% if not request.user.profile.role == 'viewer' %}
-<a href="{% url 'depenses:depense_create' %}" class="btn-primary">
-  <i class="bx bx-plus"></i> Nouvelle dépense
-</a>
-{% endif %}
-<a href="{% url 'depenses:categorie_depense_list' %}" class="btn-ghost">
-  <i class="bx bxs-category"></i> Catégories
-</a>
+  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'depenses:depense_create' %}" class="btn-primary">
+    <i class="bx bx-plus"></i> Nouvelle dépense
+  </a>
+  {% endif %}
+  <a href="{% url 'depenses:depense_list' %}" class="btn-ghost">
+    <i class="bx bx-list-ul"></i> Toutes les dépenses
+  </a>
 {% endblock %}
 
 {% block content %}
+<div class="page-body">
 
-{# ── KPI Metric Cards ──────────────────────────────────────────────────── #}
-<div class="row g-3 mb-4">
+  <!-- ── KPI Row ── -->
+  <div class="kpi-row">
 
-  <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-red"><i class="bx bxs-wallet"></i></div>
-      <div class="metric-label">Dépenses du mois</div>
-      <div class="metric-value sm">{{ summary_mois.total|floatformat:0 }} <span style="font-size:14px;color:var(--text-muted);">DZD</span></div>
-      <span class="metric-delta neutral">
-        <i class="bx bxs-calendar"></i> {{ premier_du_mois|date:"d/m/Y" }} – {{ today|date:"d/m/Y" }}
-      </span>
+      <div class="metric-label">DÉPENSES CE MOIS</div>
+      <div class="metric-value">{{ summary_mois.total|floatformat:0 }} <span class="metric-unit">DZD</span></div>
+      <span class="metric-caption">{{ summary_mois.nb_depenses }} enregistrement{{ summary_mois.nb_depenses|pluralize }}</span>
     </div>
-  </div>
 
-  <div class="col-xl-3 col-md-6">
     <div class="metric-card">
-      <div class="metric-icon ic-amber"><i class="bx bxs-bar-chart-alt-2"></i></div>
-      <div class="metric-label">Dépenses YTD</div>
-      <div class="metric-value sm">{{ summary_annee.total|floatformat:0 }} <span style="font-size:14px;color:var(--text-muted);">DZD</span></div>
-      <span class="metric-delta neutral">
-        <i class="bx bxs-calendar"></i> Depuis {{ premier_de_lannee|date:"d/m/Y" }}
-      </span>
+      <div class="metric-icon ic-amber"><i class="bx bxs-calendar-check"></i></div>
+      <div class="metric-label">DÉPENSES ANNUELLES (YTD)</div>
+      <div class="metric-value">{{ summary_annee.total|floatformat:0 }} <span class="metric-unit">DZD</span></div>
+      <span class="metric-caption">{{ summary_annee.nb_depenses }} enregistrement{{ summary_annee.nb_depenses|pluralize }}</span>
     </div>
-  </div>
 
-  <div class="col-xl-3 col-md-6">
     <div class="metric-card">
-      <div class="metric-icon ic-blue"><i class="bx bxs-receipt"></i></div>
-      <div class="metric-label">Nombre d'opérations (mois)</div>
-      <div class="metric-value">{{ summary_mois.nb_depenses }}</div>
-      <span class="metric-delta neutral">
-        <i class="bx bx-trending-up"></i> Moy. {{ summary_mois.moyenne_par_jour|floatformat:0|default:"—" }} DZD/j
-      </span>
+      <div class="metric-icon ic-blue"><i class="bx bxs-calculator"></i></div>
+      <div class="metric-label">MOYENNE JOURNALIÈRE</div>
+      <div class="metric-value">
+        {% if summary_mois.moyenne_par_jour %}
+          {{ summary_mois.moyenne_par_jour|floatformat:0 }} <span class="metric-unit">DZD/j</span>
+        {% else %}
+          <span style="font-size:16px;color:var(--text-muted);">—</span>
+        {% endif %}
+      </div>
+      <span class="metric-caption">Du {{ premier_du_mois|date:"d/m/Y" }} au {{ today|date:"d/m/Y" }}</span>
     </div>
-  </div>
 
-  <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-green"><i class="bx bxs-category"></i></div>
-      <div class="metric-label">Catégories actives</div>
+      <div class="metric-label">CATÉGORIES ACTIVES</div>
       <div class="metric-value">{{ nb_categories_actives }}</div>
-      <span class="metric-delta neutral">
-        <i class="bx bxs-cog"></i> <a href="{% url 'depenses:categorie_depense_list' %}" style="color:var(--accent-text);">Gérer</a>
-      </span>
+      <a href="{% url 'depenses:categorie_depense_list' %}" class="metric-caption" style="color:var(--accent-text);text-decoration:none;">Gérer les catégories →</a>
     </div>
+
   </div>
 
-</div>
+  <!-- ── Main grid ── -->
+  <div class="dash-grid">
 
-{# ── Main row: Category breakdown + Recent expenses ────────────────────── #}
-<div class="row g-3 mb-4">
+    <!-- LEFT: Category breakdown -->
+    <div class="dash-col dash-col--main">
 
-  {# Category breakdown chart #}
-  <div class="col-xl-5">
-    <div class="section-card h-100">
-      <div class="section-card__head">
-        <span class="section-card__title">
-          <i class="bx bxs-pie-chart-alt-2" style="color:var(--accent);margin-right:8px;"></i>Répartition par catégorie
-        </span>
-        <span style="font-size:11px;color:var(--text-muted);">Mois en cours</span>
-      </div>
-      <div class="section-card__body" style="min-height:280px;">
-        {% if summary_mois.par_categorie %}
-        <div id="chartCategoriesWrap" style="position:relative;width:100%;height:240px;">
-          <canvas id="chartCategories"></canvas>
-        </div>
-        <div class="cat-legend">
-          {% for item in summary_mois.par_categorie %}
-          <div class="cat-legend__item">
-            <span class="cat-legend__dot" style="background:{{ item.color|default:'var(--accent)' }};"></span>
-            <span class="cat-legend__label">{{ item.categorie.libelle }}</span>
-            <span class="cat-legend__pct">{{ item.pct|floatformat:1 }}%</span>
-          </div>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="empty-state" style="padding:36px 20px;">
-          <i class="bx bxs-pie-chart-alt-2 empty-state__icon"></i>
-          <div class="empty-state__title">Aucune donnée</div>
-          <div class="empty-state__text">Aucune dépense enregistrée ce mois.</div>
-        </div>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-
-  {# Payment method breakdown #}
-  <div class="col-xl-3">
-    <div class="section-card h-100">
-      <div class="section-card__head">
-        <span class="section-card__title">
-          <i class="bx bxs-coin" style="color:#b45309;margin-right:8px;"></i>Modes de paiement
-        </span>
-        <span style="font-size:11px;color:var(--text-muted);">Mois en cours</span>
-      </div>
-      <div class="section-card__body no-pad">
-        {% if summary_mois.par_mode_paiement %}
-        <table class="table-base">
-          <thead>
-            <tr>
-              <th>Mode</th>
-              <th style="text-align:right;">Montant</th>
-              <th style="text-align:right;">Nb</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for mode in summary_mois.par_mode_paiement %}
-            <tr class="stagger-row">
-              <td>{{ mode.label }}</td>
-              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ mode.total|floatformat:0 }} DZD</td>
-              <td style="text-align:right;color:var(--text-muted);">{{ mode.nb }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        {% else %}
-        <div class="empty-state" style="padding:36px 20px;">
-          <i class="bx bxs-coin empty-state__icon"></i>
-          <div class="empty-state__title">Aucune donnée</div>
-          <div class="empty-state__text">Aucune dépense ce mois.</div>
-        </div>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-
-  {# Recent expenses #}
-  <div class="col-xl-4">
-    <div class="section-card h-100">
-      <div class="section-card__head">
-        <span class="section-card__title">
-          <i class="bx bxs-time-five" style="color:var(--text-muted);margin-right:8px;"></i>Dépenses récentes
-        </span>
-        <a href="{% url 'depenses:depense_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
-          Voir tout <i class="bx bx-right-arrow-alt"></i>
-        </a>
-      </div>
-      <div class="section-card__body no-pad">
-        {% if depenses_recentes %}
-        <div class="recent-list">
-          {% for dep in depenses_recentes %}
-          <a href="{% url 'depenses:depense_detail' dep.pk %}" class="recent-item">
-            <div class="recent-item__main">
-              <div class="recent-item__cat">
-                <span class="pill-base pill-neutral">{{ dep.categorie.libelle }}</span>
-              </div>
-              <div class="recent-item__desc">{{ dep.description|truncatechars:50 }}</div>
-              <div class="recent-item__meta">{{ dep.date|date:"d/m/Y" }}</div>
-            </div>
-            <div class="recent-item__amount">{{ dep.montant|floatformat:0 }} DZD</div>
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bxs-pie-chart-alt-2"></i> Répartition par catégorie — {{ today|date:"F Y" }}</div>
+          <a href="{% url 'depenses:depense_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;text-decoration:none;">
+            Voir tout <i class="bx bx-right-arrow-alt"></i>
           </a>
-          {% endfor %}
+        </div>
+
+        {% if summary_mois.par_categorie %}
+        <div class="cat-chart-wrapper">
+          <div class="cat-chart-canvas-col">
+            <canvas id="catChart" height="220"></canvas>
+          </div>
+          <div class="cat-legend-col">
+            {% for item in summary_mois.par_categorie %}
+            <div class="cat-legend-item" style="--legend-i:{{ forloop.counter0 }};">
+              <span class="cat-legend-dot" style="--dot-i:{{ forloop.counter0 }};"></span>
+              <div class="cat-legend-body">
+                <div class="cat-legend-name">{{ item.categorie.libelle }}</div>
+                <div class="cat-legend-values">
+                  <span class="cat-legend-amount">{{ item.total|floatformat:0 }} DZD</span>
+                  <span class="cat-legend-pct">{{ item.pct }}%</span>
+                </div>
+              </div>
+              <div class="cat-legend-bar-wrap">
+                <div class="cat-legend-bar" style="width:{{ item.pct }}%;--bar-i:{{ forloop.counter0 }};"></div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
         </div>
         {% else %}
-        <div class="empty-state" style="padding:36px 20px;">
-          <i class="bx bxs-wallet empty-state__icon"></i>
-          <div class="empty-state__title">Aucune dépense</div>
-          <div class="empty-state__text">Enregistrez votre première dépense.</div>
-          {% if not request.user.profile.role == 'viewer' %}
-          <a href="{% url 'depenses:depense_create' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
+        <div class="empty-state">
+          <i class="bx bxs-pie-chart-alt-2 empty-state__icon"></i>
+          <div class="empty-state__title">Aucune dépense ce mois</div>
+          <div class="empty-state__body">Enregistrez des dépenses pour voir la répartition.</div>
+          {% if not request.user.userprofile.role == 'viewer' %}
+          <a href="{% url 'depenses:depense_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
             <i class="bx bx-plus"></i> Nouvelle dépense
           </a>
           {% endif %}
         </div>
         {% endif %}
       </div>
+
+      <!-- Mode de paiement breakdown -->
+      {% if summary_mois.par_mode_paiement %}
+      <div class="card" style="margin-top:18px;">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bxs-credit-card"></i> Modes de paiement — ce mois</div>
+        </div>
+        <div class="mode-grid">
+          {% for mode_item in summary_mois.par_mode_paiement %}
+          <div class="mode-item">
+            <div class="mode-icon">
+              {% if mode_item.mode == 'especes' %}<i class="bx bx-money"></i>
+              {% elif mode_item.mode == 'cheque' %}<i class="bx bxs-receipt"></i>
+              {% elif mode_item.mode == 'virement' %}<i class="bx bx-transfer"></i>
+              {% elif mode_item.mode == 'carte' %}<i class="bx bxs-credit-card-alt"></i>
+              {% else %}<i class="bx bx-dots-horizontal-rounded"></i>{% endif %}
+            </div>
+            <div class="mode-info">
+              <div class="mode-label">{{ mode_item.label }}</div>
+              <div class="mode-amount">{{ mode_item.total|floatformat:0 }} DZD</div>
+            </div>
+            <span class="mode-count">{{ mode_item.nb }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <!-- RIGHT: Recent + max depense -->
+    <div class="dash-col dash-col--side">
+
+      <!-- Max dépense of the month -->
+      {% if summary_mois.max_depense %}
+      <div class="card card--highlight">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bxs-up-arrow-circle"></i> Plus grande dépense du mois</div>
+        </div>
+        <div style="padding:16px 20px;">
+          <a href="{% url 'depenses:depense_detail' summary_mois.max_depense.pk %}" style="text-decoration:none;">
+            <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--text-primary);">{{ summary_mois.max_depense.montant|floatformat:0 }} DZD</div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">{{ summary_mois.max_depense.description|truncatechars:60 }}</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+              <span class="pill-cat">{{ summary_mois.max_depense.categorie.libelle }}</span>
+              <span style="font-size:12px;color:var(--text-muted);">{{ summary_mois.max_depense.date|date:"d/m/Y" }}</span>
+            </div>
+          </a>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Recent expenses -->
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bx-time-five"></i> Dépenses récentes</div>
+          <a href="{% url 'depenses:depense_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;text-decoration:none;">
+            Tout voir <i class="bx bx-right-arrow-alt"></i>
+          </a>
+        </div>
+
+        {% if depenses_recentes %}
+        <div class="recent-list">
+          {% for dep in depenses_recentes %}
+          <a href="{% url 'depenses:depense_detail' dep.pk %}" class="recent-item" style="--row-i:{{ forloop.counter0 }};">
+            <div class="recent-item__icon ic-{% cycle 'red' 'amber' 'orange' 'purple' 'blue' %}">
+              <i class="bx bxs-wallet"></i>
+            </div>
+            <div class="recent-item__body">
+              <div class="recent-item__title">{{ dep.description|truncatechars:42 }}</div>
+              <div class="recent-item__sub">
+                <span class="pill-cat" style="font-size:10px;padding:2px 7px;">{{ dep.categorie.libelle }}</span>
+                {% if dep.lot %}
+                <span style="font-size:11px;color:var(--text-muted);">· {{ dep.lot.designation|truncatechars:20 }}</span>
+                {% endif %}
+              </div>
+            </div>
+            <div class="recent-item__right">
+              <div class="recent-item__amount">{{ dep.montant|floatformat:0 }}</div>
+              <div class="recent-item__date">{{ dep.date|date:"d/m/Y" }}</div>
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding:32px 20px;">
+          <i class="bx bxs-wallet empty-state__icon"></i>
+          <div class="empty-state__title">Aucune dépense</div>
+          <div class="empty-state__body">Les dépenses enregistrées apparaîtront ici.</div>
+        </div>
+        {% endif %}
+      </div>
+
     </div>
   </div>
 
 </div>
-
-{# ── Top expenses table ────────────────────────────────────────────────── #}
-{% if summary_mois.max_depense %}
-<div class="section-card">
-  <div class="section-card__head">
-    <span class="section-card__title">
-      <i class="bx bxs-up-arrow-circle" style="color:#dc2626;margin-right:8px;"></i>Dépense la plus élevée ce mois
-    </span>
-  </div>
-  <div class="section-card__body">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
-      <div>
-        <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:15px;color:var(--text-primary);margin-bottom:4px;">
-          {{ summary_mois.max_depense.description }}
-        </div>
-        <div style="font-size:12px;color:var(--text-muted);">
-          {{ summary_mois.max_depense.categorie.libelle }} · {{ summary_mois.max_depense.date|date:"d/m/Y" }} · {{ summary_mois.max_depense.get_mode_paiement_display }}
-        </div>
-      </div>
-      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;color:#dc2626;white-space:nowrap;">
-        {{ summary_mois.max_depense.montant|floatformat:0 }} DZD
-      </div>
-    </div>
-  </div>
-</div>
-{% endif %}
-
 {% endblock %}
 
 {% block extra_css %}
 <style>
-/* Category legend */
-.cat-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-}
-.cat-legend__item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-}
-.cat-legend__dot {
-  width: 10px; height: 10px;
-  border-radius: 3px;
-  flex-shrink: 0;
-}
-.cat-legend__label { color: var(--text-secondary); }
-.cat-legend__pct { color: var(--text-muted); font-weight: 500; }
+  .page-body { padding: 28px 32px; }
+  @media (max-width: 768px) { .page-body { padding: 20px 16px; } }
 
-/* Recent expenses list */
-.recent-list { display: flex; flex-direction: column; }
-.recent-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 18px;
-  border-bottom: 1px solid var(--border);
-  text-decoration: none;
-  color: inherit;
-  transition: background 0.12s;
-}
-.recent-item:last-child { border-bottom: none; }
-.recent-item:hover { background: var(--bg-raised); }
-.recent-item__main { flex: 1; min-width: 0; }
-.recent-item__cat { margin-bottom: 4px; }
-.recent-item__desc {
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.recent-item__meta {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-.recent-item__amount {
-  font-family: 'Nunito', sans-serif;
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text-primary);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
+  /* ── KPI Row ── */
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  @media (max-width: 1100px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px)  { .kpi-row { grid-template-columns: 1fr; } }
+
+  .metric-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; display: flex; flex-direction: column; gap: 4px; position: relative; transition: border-color .15s, transform .15s; }
+  .metric-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+  .metric-icon { width: 40px; height: 40px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 8px; }
+  .ic-red    { background: rgba(239,68,68,.12); color: #dc2626; }
+  .ic-amber  { background: rgba(245,158,11,.14); color: #b45309; }
+  .ic-blue   { background: rgba(56,189,248,.14); color: #0284c7; }
+  .ic-green  { background: rgba(34,197,94,.14); color: #15803d; }
+  .ic-orange { background: rgba(251,146,60,.14); color: #ea580c; }
+  .ic-purple { background: rgba(167,139,250,.14); color: #7c3aed; }
+  .ic-teal   { background: rgba(45,212,191,.14); color: #0d9488; }
+  .metric-label { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+  .metric-value { font-family: 'Nunito', sans-serif; font-size: 24px; font-weight: 800; color: var(--text-primary); line-height: 1.1; }
+  .metric-unit { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+  .metric-caption { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ── Dashboard grid ── */
+  .dash-grid { display: grid; grid-template-columns: 1fr 360px; gap: 18px; align-items: start; }
+  @media (max-width: 1100px) { .dash-grid { grid-template-columns: 1fr; } }
+  .dash-col { display: flex; flex-direction: column; gap: 18px; }
+
+  /* ── Card base ── */
+  .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .card--highlight { border-color: rgba(239,68,68,.2); }
+  .card-header-row { padding: 14px 20px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+  .section-eyebrow i { font-size: 13px; }
+
+  /* ── Category chart wrapper ── */
+  .cat-chart-wrapper { display: grid; grid-template-columns: 220px 1fr; gap: 0; }
+  @media (max-width: 860px) { .cat-chart-wrapper { grid-template-columns: 1fr; } }
+  .cat-chart-canvas-col { padding: 20px; border-right: 1px solid var(--border); display: flex; align-items: center; justify-content: center; }
+  .cat-legend-col { padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; max-height: 280px; }
+  .cat-legend-item { display: flex; flex-direction: column; gap: 4px; animation: fadeIn .3s ease both; animation-delay: calc(var(--legend-i, 0) * 50ms); }
+  .cat-legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; background: var(--chart-colors, #22c55e); }
+  .cat-legend-body { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .cat-legend-name { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+  .cat-legend-values { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .cat-legend-amount { font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700; color: var(--text-primary); }
+  .cat-legend-pct { font-size: 11px; color: var(--text-muted); background: var(--bg-raised); border-radius: var(--radius-sm); padding: 1px 6px; }
+  .cat-legend-bar-wrap { height: 4px; background: var(--bg-raised); border-radius: 4px; overflow: hidden; }
+  .cat-legend-bar { height: 100%; border-radius: 4px; transition: width .5s ease; }
+
+  /* ── Mode de paiement grid ── */
+  .mode-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0; }
+  .mode-item { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
+  .mode-item:last-child { border-bottom: none; }
+  .mode-icon { width: 36px; height: 36px; border-radius: var(--radius-sm); background: var(--bg-raised); display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--text-muted); flex-shrink: 0; }
+  .mode-info { flex: 1; min-width: 0; }
+  .mode-label { font-size: 12px; color: var(--text-muted); }
+  .mode-amount { font-family: 'Nunito', sans-serif; font-size: 14px; font-weight: 700; color: var(--text-primary); }
+  .mode-count { font-size: 11px; color: var(--text-muted); background: var(--bg-raised); border-radius: 10px; padding: 2px 7px; white-space: nowrap; }
+
+  /* ── Recent list ── */
+  .recent-list { display: flex; flex-direction: column; }
+  .recent-item { display: flex; align-items: center; gap: 12px; padding: 12px 20px; text-decoration: none; border-bottom: 1px solid var(--border); transition: background .12s; animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i, 0) * 40ms); }
+  .recent-item:last-child { border-bottom: none; }
+  .recent-item:hover { background: var(--bg-hover); }
+  .recent-item__icon { width: 34px; height: 34px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .recent-item__body { flex: 1; min-width: 0; }
+  .recent-item__title { font-size: 13px; color: var(--text-primary); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .recent-item__sub { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+  .recent-item__right { text-align: right; flex-shrink: 0; }
+  .recent-item__amount { font-family: 'Nunito', sans-serif; font-size: 13.5px; font-weight: 700; color: var(--text-primary); }
+  .recent-item__date { font-size: 11.5px; color: var(--text-muted); margin-top: 1px; }
+
+  /* ── Pills ── */
+  .pill-cat { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(99,102,241,.12); color: #4338ca; }
+
+  /* ── Buttons ── */
+  .btn-primary { background: var(--accent); color: #fff; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: var(--radius-md); padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: opacity .18s; text-decoration: none; }
+  .btn-primary:hover { opacity: .88; color: #fff; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px; border-radius: var(--radius-md); padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .12s; text-decoration: none; }
+  .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+
+  /* ── Empty state ── */
+  .empty-state { text-align: center; padding: 48px 20px; color: var(--text-muted); }
+  .empty-state__icon { font-size: 32px; display: block; margin-bottom: 12px; color: var(--border-strong); }
+  .empty-state__title { font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; }
+  .empty-state__body { font-size: 13px; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+  const catCanvas = document.getElementById('catChart');
+  if (!catCanvas) return;
 
-  /* Design system chart color sequence */
-  var DS_COLORS = [
-    '#22c55e', '#38bdf8', '#f59e0b', '#c4b5fd',
-    '#fb923c', '#5eead4', '#f9a8d4', '#a5b4fc', '#f87171'
-  ];
+  const CHART_COLORS = ['#22c55e','#38bdf8','#f59e0b','#c4b5fd','#fb923c','#5eead4','#f9a8d4','#a5b4fc','#f87171'];
 
-  var tipConfig = {
-    backgroundColor: '#ffffff',
-    borderColor:     'rgba(0,0,0,.12)',
-    borderWidth:     1,
-    titleColor:      '#1a2219',
-    bodyColor:       '#3d5242',
-    padding:         10,
-    cornerRadius:    8,
-  };
+  // Build legend bar colors from the same sequence
+  document.querySelectorAll('.cat-legend-dot').forEach(function (dot, i) {
+    dot.style.background = CHART_COLORS[i % CHART_COLORS.length];
+  });
+  document.querySelectorAll('.cat-legend-bar').forEach(function (bar, i) {
+    bar.style.background = CHART_COLORS[i % CHART_COLORS.length];
+  });
 
-  function fmtDZD(n) {
-    return new Intl.NumberFormat('fr-FR', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(Math.round(n)) + ' DZD';
-  }
+  const labels = [{% for item in summary_mois.par_categorie %}"{{ item.categorie.libelle|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+  const data   = [{% for item in summary_mois.par_categorie %}{{ item.total|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}];
 
-  /* ── Doughnut: Répartition par catégorie ────────────────────────────── */
-  var canvas = document.getElementById('chartCategories');
-  if (canvas && typeof Chart !== 'undefined') {
-    var catData = [];
-    var catLabels = [];
-    var catColors = [];
+  if (!labels.length) return;
 
-    {% for item in summary_mois.par_categorie %}
-    catLabels.push("{{ item.categorie.libelle|escapejs }}");
-    catData.push({{ item.total|floatformat:0 }});
-    catColors.push(DS_COLORS[{{ forloop.counter0 }} % DS_COLORS.length]);
-    {% endfor %}
-
-    if (catData.length > 0) {
-      new Chart(canvas, {
-        type: 'doughnut',
-        data: {
-          labels: catLabels,
-          datasets: [{
-            data: catData,
-            backgroundColor: catColors,
-            borderColor: '#ffffff',
-            borderWidth: 3,
-          }]
-        },
-        options: {
-          cutout: '68%',
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: Object.assign({}, tipConfig, {
-              callbacks: {
-                label: function (ctx) {
-                  return ctx.label + ' : ' + fmtDZD(ctx.raw);
-                }
-              }
-            })
+  new Chart(catCanvas, {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: CHART_COLORS.slice(0, labels.length),
+        borderWidth: 2,
+        borderColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-surface') || '#fff',
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '62%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a2219',
+          titleFont: { family: 'Nunito', weight: '700', size: 13 },
+          bodyFont: { family: 'Inter', size: 12 },
+          padding: 10,
+          callbacks: {
+            label: function (ctx) {
+              return ' ' + ctx.label + ' : ' + new Intl.NumberFormat('fr-DZ').format(ctx.raw) + ' DZD';
+            }
           }
         }
-      });
+      }
     }
-  }
-
+  });
 });
 </script>
 {% endblock %}
