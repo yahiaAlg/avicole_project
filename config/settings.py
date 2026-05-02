@@ -1,5 +1,5 @@
 """
-Django settings for avicole_farm_project project.
+Django settings for config project.
 """
 
 from pathlib import Path
@@ -57,7 +57,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "avicole_farm_project.urls"
+ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [
     {
@@ -76,7 +76,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "avicole_farm_project.wsgi.application"
+WSGI_APPLICATION = "config.wsgi.application"
 
 
 # Database
