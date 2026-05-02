@@ -1,207 +1,241 @@
 {% extends "base.html" %}
-{% load reporting_extras %}
-{% load static i18n %}
+{% load static %}
+{% block title %}Historique des Règlements — Élevage Avicole{% endblock %}
+{% block nav_rapports %}active{% endblock %}
+{% block page_title %}Historique des Règlements{% endblock %}
+{% block page_sub_text %}
+  {{ totaux.nb|default:0 }} règlement(s) —
+  Total : {{ totaux.total|default:0|floatformat:0 }} DZD
+{% endblock %}
+{% block topbar_actions %}
+<a href="?{% if fournisseur_pk %}fournisseur={{ fournisseur_pk }}&{% endif %}{% if mode %}mode={{ mode }}&{% endif %}{% if date_debut %}date_debut={{ date_debut|date:"Y-m-d" }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:"Y-m-d" }}&{% endif %}export=csv" class="btn-ghost btn-sm">
+  <i class="bx bxs-spreadsheet"></i> Exporter CSV
+</a>
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> Rapports</a>
+{% endblock %}
 
-{% block title %}{{ title }} — {{ company.nom|default:"AviTrack" }}{% endblock %}
-
-{% block page_title %}{{ title }}{% endblock %}
+{% block extra_css %}
+<style>
+.alloc-row { background: var(--bg-raised); }
+.alloc-row td { padding: 8px 14px 8px 36px !important; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text-muted); }
+.toggle-alloc { cursor: pointer; background: none; border: none; color: var(--text-muted); font-size: 13px; padding: 2px 5px; border-radius: var(--radius-sm); transition: background .15s; }
+.toggle-alloc:hover { background: var(--bg-hover); color: var(--text-primary); }
+.chart-wrap { height: 220px; position: relative; }
+</style>
+{% endblock %}
 
 {% block content %}
-<!-- Filters -->
-<div class="card mb-4">
-    <div class="card-header bg-light">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-filter me-2 text-primary"></i>Filtres</h6>
-    </div>
-    <div class="card-body">
-        <form method="get" class="row g-3 align-items-end" id="filter-form">
-            <div class="col-md-3 col-lg-3">
-                <label for="fournisseur" class="form-label small text-muted">Fournisseur</label>
-                <select name="fournisseur" id="fournisseur" class="form-select">
-                    <option value="">— Tous —</option>
-                    {% for f in fournisseurs %}
-                    <option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>
-                        {{ f.nom }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3 col-lg-2">
-                <label for="mode" class="form-label small text-muted">Mode de paiement</label>
-                <select name="mode" id="mode" class="form-select">
-                    <option value="">— Tous —</option>
-                    {% for code, label in mode_choices %}
-                    <option value="{{ code }}" {% if mode == code %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3 col-lg-2">
-                <label for="date_debut" class="form-label small text-muted">Date début</label>
-                <input type="date" name="date_debut" id="date_debut" class="form-control" value="{{ date_debut|date:'Y-m-d'|default:'' }}">
-            </div>
-            <div class="col-md-3 col-lg-2">
-                <label for="date_fin" class="form-label small text-muted">Date fin</label>
-                <input type="date" name="date_fin" id="date_fin" class="form-control" value="{{ date_fin|date:'Y-m-d'|default:'' }}">
-            </div>
-            <div class="col-md-12 col-lg-3 text-lg-end">
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-filter me-1"></i> Filtrer
-                </button>
-                <a href="{{ request.path }}" class="btn btn-outline-secondary">
-                    <i class="fas fa-rotate-left"></i>
-                </a>
-                <a href="{{ request.path }}?{% if fournisseur_pk %}fournisseur={{ fournisseur_pk }}&{% endif %}{% if mode %}mode={{ mode }}&{% endif %}{% if date_debut %}date_debut={{ date_debut|date:'Y-m-d' }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:'Y-m-d' }}&{% endif %}export=csv" class="btn btn-success">
-                    <i class="fas fa-file-csv"></i>
-                </a>
-            </div>
-        </form>
-    </div>
+<!-- Filter -->
+<div class="section-card mb-3">
+  <div class="section-card__body" style="padding:14px 20px;">
+    <form method="get">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="input-wrapper" style="flex:1;min-width:180px;">
+          <i class="bx bxs-building input-icon"></i>
+          <select name="fournisseur" class="field-input has-icon">
+            <option value="">Tous les fournisseurs</option>
+            {% for f in fournisseurs %}<option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.nom }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="input-wrapper" style="min-width:160px;">
+          <i class="bx bxs-coin input-icon"></i>
+          <select name="mode" class="field-input has-icon">
+            <option value="">Tous les modes</option>
+            {% for val, lbl in mode_choices %}<option value="{{ val }}" {% if mode == val %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="input-wrapper" style="min-width:150px;">
+          <i class="bx bxs-calendar input-icon"></i>
+          <input type="date" name="date_debut" class="field-input has-icon" value="{{ date_debut|date:'Y-m-d' }}" placeholder="Du">
+        </div>
+        <div class="input-wrapper" style="min-width:150px;">
+          <i class="bx bxs-calendar input-icon"></i>
+          <input type="date" name="date_fin" class="field-input has-icon" value="{{ date_fin|date:'Y-m-d' }}" placeholder="Au">
+        </div>
+        <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> Filtrer</button>
+        <a href="{% url 'reporting:historique_reglements' %}" class="btn-ghost btn-sm">Réinitialiser</a>
+      </div>
+    </form>
+  </div>
 </div>
 
-<!-- Summary Cards -->
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card border-start border-4 border-success">
-            <div class="card-body d-flex justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase">Total Règlements</div>
-                    <div class="h5 fw-bold mb-0">{{ totaux.total|default:0|floatformat:2 }} DZD</div>
-                </div>
-                <div class="text-success fs-3"><i class="fas fa-money-bill-wave"></i></div>
-            </div>
-        </div>
+<div class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-green"><i class="bx bxs-coin"></i></div>
+      <div class="metric-label">Total Réglé</div>
+      <div class="metric-value sm">{{ totaux.total|default:0|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
-    <div class="col-md-4">
-        <div class="card border-start border-4 border-info">
-            <div class="card-body d-flex justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase">Nombre de Règlements</div>
-                    <div class="h5 fw-bold mb-0">{{ totaux.nb|default:0 }}</div>
-                </div>
-                <div class="text-info fs-3"><i class="fas fa-receipt"></i></div>
-            </div>
-        </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-blue"><i class="bx bxs-file-txt"></i></div>
+      <div class="metric-label">Nombre de Règlements</div>
+      <div class="metric-value sm">{{ totaux.nb|default:0 }}</div>
     </div>
-    <div class="col-md-4">
-        <div class="card border-start border-4 border-primary">
-            <div class="card-body d-flex justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase">Moyenne par règlement</div>
-                    <div class="h5 fw-bold mb-0">
-                        {% if totaux.nb %}{{ totaux.total|default:0|div:totaux.nb|floatformat:2 }}{% else %}0.00{% endif %} DZD
-                    </div>
-                </div>
-                <div class="text-primary fs-3"><i class="fas fa-calculator"></i></div>
-            </div>
-        </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-amber"><i class="bx bxs-calendar"></i></div>
+      <div class="metric-label">Période</div>
+      <div class="metric-value sm" style="font-size:14px;">
+        {% if date_debut %}{{ date_debut|date:"d/m/Y" }}{% else %}—{% endif %}
+        <span style="font-size:11px;color:var(--text-muted);"> au </span>
+        {% if date_fin %}{{ date_fin|date:"d/m/Y" }}{% else %}—{% endif %}
+      </div>
     </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-teal"><i class="bx bx-transfer"></i></div>
+      <div class="metric-label">Fournisseur Filtré</div>
+      <div class="metric-value sm" style="font-size:15px;">
+        {% if fournisseur_pk %}{% for f in fournisseurs %}{% if f.pk|stringformat:"s" == fournisseur_pk %}{{ f.nom }}{% endif %}{% endfor %}{% else %}Tous{% endif %}
+      </div>
+    </div>
+  </div>
 </div>
 
-<!-- Data Table -->
-<div class="card mb-4">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-table me-2 text-primary"></i>Historique des Règlements</h6>
-        <div class="small text-muted">{{ page.paginator.count|default:0 }} enregistrement(s)</div>
+<!-- Table -->
+<div class="section-card">
+  <div class="section-card__head">
+    <span class="section-card__title">Règlements</span>
+    <span style="font-size:12px;color:var(--text-muted);">Cliquer sur <i class="bx bx-chevron-down" style="vertical-align:middle;"></i> pour voir les allocations FIFO</span>
+  </div>
+  <div class="section-card__body no-pad">
+    {% if page.object_list %}
+    <div style="overflow-x:auto;">
+      <table class="table-base" id="regl-table">
+        <thead>
+          <tr>
+            <th style="width:30px;"></th>
+            <th>Date</th>
+            <th>Fournisseur</th>
+            <th>Mode</th>
+            <th>Référence</th>
+            <th style="text-align:right;">Montant</th>
+            <th>Enregistré par</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for reglement in page.object_list %}
+          <tr class="stagger-row" data-reg-id="{{ reglement.pk }}">
+            <td>
+              <button class="toggle-alloc" data-target="alloc-{{ reglement.pk }}" title="Allocations FIFO">
+                <i class="bx bx-chevron-down"></i>
+              </button>
+            </td>
+            <td>
+              <span style="font-family:'Nunito',sans-serif;font-weight:600;">{{ reglement.date_reglement|date:"d/m/Y" }}</span>
+            </td>
+            <td>
+              <span style="font-weight:600;color:var(--text-primary);">{{ reglement.fournisseur.nom }}</span>
+            </td>
+            <td>
+              <span class="pill-base pill-info">{{ reglement.get_mode_paiement_display }}</span>
+            </td>
+            <td><span class="text-mono" style="font-size:12px;color:var(--text-muted);">{{ reglement.reference_paiement|default:"—" }}</span></td>
+            <td style="text-align:right;">
+              <span class="val-money" style="color:#15803d;">{{ reglement.montant|floatformat:0 }} DZD</span>
+            </td>
+            <td style="color:var(--text-muted);font-size:12px;">{{ reglement.created_by|default:"—" }}</td>
+          </tr>
+          <!-- Allocation detail row (hidden by default) -->
+          <tr class="alloc-row" id="alloc-{{ reglement.pk }}" style="display:none;">
+            <td colspan="7">
+              <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:8px;"><i class="bx bx-transfer"></i> Allocation FIFO</div>
+              <div id="alloc-content-{{ reglement.pk }}">
+                <span style="color:var(--text-muted);font-style:italic;">Chargement…</span>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover mb-0 align-middle" id="data-table">
-                <thead class="table-light">
-                    <tr>
-                        <th class="cursor-pointer" onclick="sortTable(0)">Date <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable(1)">Fournisseur <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable(2)">Montant <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable(3)">Mode <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable(4)">Référence <i class="fas fa-sort text-muted small"></i></th>
-                        <th>Factures imputées</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for r in page.object_list %}
-                    <tr>
-                        <td>{{ r.date_reglement|date:"d/m/Y" }}</td>
-                        <td>
-                            <a href="{% url 'reporting:historique_reglements' %}?fournisseur={{ r.fournisseur.pk }}" class="fw-bold text-decoration-none">
-                                {{ r.fournisseur.nom }}
-                            </a>
-                        </td>
-                        <td class="text-end fw-bold text-success">{{ r.montant|floatformat:2 }}</td>
-                        <td><span class="badge bg-secondary">{{ r.get_mode_paiement_display }}</span></td>
-                        <td><code class="small">{{ r.reference_paiement|default:"—" }}</code></td>
-                        <td>
-                            {% with allocs=allocations_map|get_item:r.pk %}
-                            {% if allocs %}
-                                {% for a in allocs %}
-                                <div class="small">
-                                    <span class="text-muted">{{ a.facture.reference }}</span>
-                                    <span class="fw-bold text-primary">{{ a.montant_alloue|floatformat:2 }} DZD</span>
-                                </div>
-                                {% endfor %}
-                            {% else %}
-                                <span class="text-muted small">—</span>
-                            {% endif %}
-                            {% endwith %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="6" class="text-center py-4 text-muted">
-                            <i class="fas fa-circle-info fa-2x mb-2 text-info"></i><br>
-                            Aucun règlement trouvé pour les filtres sélectionnés.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+
+    <!-- Pagination -->
     {% if page.has_other_pages %}
-    <div class="card-footer d-flex justify-content-between align-items-center">
-        <small class="text-muted">Page {{ page.number }} / {{ page.paginator.num_pages }}</small>
-        <nav>
-            <ul class="pagination pagination-sm mb-0">
-                {% if page.has_previous %}
-                <li class="page-item"><a class="page-link" href="?{% param_replace page=1 %}"><i class="fas fa-angles-left"></i></a></li>
-                <li class="page-item"><a class="page-link" href="?{% param_replace page=page.previous_page_number %}"><i class="fas fa-angle-left"></i></a></li>
-                {% endif %}
-                <li class="page-item active"><span class="page-link">{{ page.number }}</span></li>
-                {% if page.has_next %}
-                <li class="page-item"><a class="page-link" href="?{% param_replace page=page.next_page_number %}"><i class="fas fa-angle-right"></i></a></li>
-                <li class="page-item"><a class="page-link" href="?{% param_replace page=page.paginator.num_pages %}"><i class="fas fa-angles-right"></i></a></li>
-                {% endif %}
-            </ul>
-        </nav>
+    <div class="pagination-bar">
+      <span>Page {{ page.number }} / {{ page.paginator.num_pages }} — {{ page.paginator.count }} règlement(s)</span>
+      <div class="page-links">
+        {% if page.has_previous %}
+        <a href="?page={{ page.previous_page_number }}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}{% if mode %}&mode={{ mode }}{% endif %}{% if date_debut %}&date_debut={{ date_debut|date:"Y-m-d" }}{% endif %}{% if date_fin %}&date_fin={{ date_fin|date:"Y-m-d" }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>
+        {% endif %}
+        <span class="page-link active">{{ page.number }}</span>
+        {% if page.has_next %}
+        <a href="?page={{ page.next_page_number }}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}{% if mode %}&mode={{ mode }}{% endif %}{% if date_debut %}&date_debut={{ date_debut|date:"Y-m-d" }}{% endif %}{% if date_fin %}&date_fin={{ date_fin|date:"Y-m-d" }}{% endif %}" class="page-link"><i class="bx bx-chevron-right"></i></a>
+        {% endif %}
+      </div>
     </div>
     {% endif %}
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bxs-coin empty-state__icon"></i>
+      <div class="empty-state__title">Aucun règlement trouvé</div>
+      <div class="empty-state__text">Modifiez les filtres pour élargir la recherche.</div>
+    </div>
+    {% endif %}
+  </div>
 </div>
-{% endblock content %}
+
+<!-- Allocation data embedded for JS -->
+<script id="alloc-data" type="application/json">
+{
+  {% for reg_id, allocs in allocations_map.items %}
+  "{{ reg_id }}": [
+    {% for a in allocs %}
+    {
+      "facture": "{{ a.facture.reference|escapejs }}",
+      "montant": {{ a.montant_alloue|floatformat:2 }}
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ]{% if not forloop.last %},{% endif %}
+  {% endfor %}
+}
+</script>
+{% endblock %}
 
 {% block extra_js %}
 <script>
-(function() {
-    'use strict';
+document.addEventListener('DOMContentLoaded', function () {
+  const allocData = JSON.parse(document.getElementById('alloc-data').textContent || '{}');
+  const fmt = v => new Intl.NumberFormat('fr-DZ').format(Math.round(v));
 
-    // ── Table sort utility ────────────────────────────────────────────
-    window.sortTable = function(n) {
-        var table = document.getElementById('data-table');
-        if (!table) return;
-        var tbody = table.querySelector('tbody');
-        var rows = Array.from(tbody.querySelectorAll('tr'));
-        var asc = table.getAttribute('data-sort-col') != n || table.getAttribute('data-sort-dir') === 'desc';
-        table.setAttribute('data-sort-col', n);
-        table.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
+  document.querySelectorAll('.toggle-alloc').forEach(btn => {
+    btn.addEventListener('click', function () {
+      const targetId = this.dataset.target;
+      const row = document.getElementById(targetId);
+      const icon = this.querySelector('i');
+      if (!row) return;
 
-        rows.sort(function(a, b) {
-            var x = a.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
-            var y = b.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
-            var xn = parseFloat(x);
-            var yn = parseFloat(y);
-            if (!isNaN(xn) && !isNaN(yn)) {
-                return asc ? xn - yn : yn - xn;
-            }
-            return asc ? x.localeCompare(y) : y.localeCompare(x);
+      const isOpen = row.style.display !== 'none';
+      row.style.display = isOpen ? 'none' : 'table-row';
+      icon.className = isOpen ? 'bx bx-chevron-down' : 'bx bx-chevron-up';
+
+      if (!isOpen) {
+        const regId = targetId.replace('alloc-', '');
+        const contentEl = document.getElementById('alloc-content-' + regId);
+        const allocs = allocData[regId];
+        if (!contentEl) return;
+
+        if (!allocs || allocs.length === 0) {
+          contentEl.innerHTML = '<span style="color:var(--text-muted);font-style:italic;">Aucune allocation (acompte ou en attente).</span>';
+          return;
+        }
+
+        let html = '<table style="width:100%;border-collapse:collapse;">';
+        allocs.forEach(a => {
+          html += `<tr>
+            <td style="padding:4px 8px;font-family:'Inter',monospace;color:var(--text-secondary);">${a.facture}</td>
+            <td style="padding:4px 8px;text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">${fmt(a.montant)} DZD</td>
+          </tr>`;
         });
-        rows.forEach(function(r) { tbody.appendChild(r); });
-    };
-})();
+        html += '</table>';
+        contentEl.innerHTML = html;
+      }
+    });
+  });
+});
 </script>
-{% endblock extra_js %}
+{% endblock %}

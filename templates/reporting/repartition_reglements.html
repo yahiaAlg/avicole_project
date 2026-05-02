@@ -1,194 +1,181 @@
 {% extends "base.html" %}
-{% load reporting_extras %}
-{% load static i18n %}
+{% load static %}
+{% block title %}Répartition des Règlements — Élevage Avicole{% endblock %}
+{% block nav_rapports %}active{% endblock %}
+{% block page_title %}Répartition des Règlements{% endblock %}
+{% block page_sub_text %}Total alloué : {{ grand_total|floatformat:0 }} DZD{% endblock %}
+{% block topbar_actions %}
+<a href="?{% if fournisseur_pk %}fournisseur={{ fournisseur_pk }}&{% endif %}{% if date_debut %}date_debut={{ date_debut|date:"Y-m-d" }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:"Y-m-d" }}&{% endif %}export=csv" class="btn-ghost btn-sm">
+  <i class="bx bxs-spreadsheet"></i> Exporter CSV
+</a>
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> Rapports</a>
+{% endblock %}
 
-{% block title %}{{ title }} — {{ company.nom|default:"AviTrack" }}{% endblock %}
-{% block page_title %}{{ title }}{% endblock %}
+{% block extra_css %}
+<style>
+.chart-wrap { height: 220px; position: relative; }
+.supplier-pill { display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:var(--radius-sm);background:var(--bg-raised);font-size:12px;font-weight:600;color:var(--text-secondary);border:1px solid var(--border); }
+</style>
+{% endblock %}
 
 {% block content %}
 <!-- Filters -->
-<div class="card mb-4">
-    <div class="card-header bg-light">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-filter me-2 text-primary"></i>Filtres</h6>
-    </div>
-    <div class="card-body">
-        <form method="get" class="row g-3 align-items-end" id="filter-form">
-            <div class="col-md-4 col-lg-3">
-                <label for="fournisseur" class="form-label small text-muted">Fournisseur</label>
-                <select name="fournisseur" id="fournisseur" class="form-select">
-                    <option value="">— Tous —</option>
-                    {% for f in fournisseurs %}
-                    <option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.nom }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-4 col-lg-2">
-                <label for="date_debut" class="form-label small text-muted">Date début</label>
-                <input type="date" name="date_debut" id="date_debut" class="form-control" value="{{ date_debut|date:'Y-m-d'|default:'' }}">
-            </div>
-            <div class="col-md-4 col-lg-2">
-                <label for="date_fin" class="form-label small text-muted">Date fin</label>
-                <input type="date" name="date_fin" id="date_fin" class="form-control" value="{{ date_fin|date:'Y-m-d'|default:'' }}">
-            </div>
-            <div class="col-md-12 col-lg-5 text-lg-end">
-                <button type="submit" class="btn btn-primary"><i class="fas fa-filter me-1"></i> Filtrer</button>
-                <a href="{{ request.path }}" class="btn btn-outline-secondary"><i class="fas fa-rotate-left"></i></a>
-                <a href="{{ request.path }}?{% if fournisseur_pk %}fournisseur={{ fournisseur_pk }}&{% endif %}{% if date_debut %}date_debut={{ date_debut|date:'Y-m-d' }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:'Y-m-d' }}&{% endif %}export=csv" class="btn btn-success"><i class="fas fa-file-csv"></i></a>
-            </div>
-        </form>
-    </div>
+<div class="section-card mb-3">
+  <div class="section-card__body" style="padding:14px 20px;">
+    <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="input-wrapper" style="flex:1;min-width:180px;">
+        <i class="bx bxs-building input-icon"></i>
+        <select name="fournisseur" class="field-input has-icon">
+          <option value="">Tous les fournisseurs</option>
+          {% for f in fournisseurs %}<option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.nom }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="input-wrapper" style="min-width:150px;">
+        <i class="bx bxs-calendar input-icon"></i>
+        <input type="date" name="date_debut" class="field-input has-icon" value="{{ date_debut|date:'Y-m-d' }}">
+      </div>
+      <div class="input-wrapper" style="min-width:150px;">
+        <i class="bx bxs-calendar input-icon"></i>
+        <input type="date" name="date_fin" class="field-input has-icon" value="{{ date_fin|date:'Y-m-d' }}">
+      </div>
+      <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> Filtrer</button>
+      <a href="{% url 'reporting:repartition_reglements' %}" class="btn-ghost btn-sm">Réinitialiser</a>
+    </form>
+  </div>
 </div>
 
-<!-- Summary Row -->
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card border-start border-4 border-success">
-            <div class="card-body d-flex justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase">Total Alloué</div>
-                    <div class="h5 fw-bold mb-0">{{ grand_total|floatformat:2 }} DZD</div>
-                </div>
-                <div class="text-success fs-3"><i class="fas fa-money-bill-wave"></i></div>
+<!-- Charts row -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-5">
+    <div class="section-card" style="height:100%;">
+      <div class="section-card__head"><span class="section-card__title">Par Mode de Paiement</span></div>
+      <div class="section-card__body">
+        <div class="chart-wrap"><canvas id="modeDonut"></canvas></div>
+        <div style="margin-top:14px;">
+          {% for m in mode_totals %}
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);">
+            <span style="font-size:13px;color:var(--text-secondary);">{{ m.label }}</span>
+            <div style="text-align:right;">
+              <span style="font-family:'Nunito',sans-serif;font-weight:700;">{{ m.total|floatformat:0 }} DZD</span>
+              <span style="font-size:11px;color:var(--text-muted);margin-left:6px;">{{ m.nb }} opér.</span>
             </div>
+          </div>
+          {% empty %}
+          <div style="text-align:center;color:var(--text-muted);padding:20px 0;font-size:13px;">Aucune donnée</div>
+          {% endfor %}
         </div>
+      </div>
     </div>
+  </div>
+  <div class="col-xl-7">
+    <div class="section-card" style="height:100%;">
+      <div class="section-card__head"><span class="section-card__title">Par Fournisseur</span></div>
+      <div class="section-card__body">
+        <div class="chart-wrap" style="height:260px;"><canvas id="supplierBar"></canvas></div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<!-- Charts Row -->
-<div class="row mb-4">
-    <div class="col-lg-6">
-        <div class="card h-100">
-            <div class="card-header bg-light">
-                <h6 class="mb-0 fw-bold"><i class="fas fa-chart-pie me-2 text-primary"></i>Par Fournisseur</h6>
-            </div>
-            <div class="card-body">
-                <div style="height: 260px;"><canvas id="supplierChart"></canvas></div>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-6">
-        <div class="card h-100">
-            <div class="card-header bg-light">
-                <h6 class="mb-0 fw-bold"><i class="fas fa-chart-pie me-2 text-success"></i>Par Mode de Paiement</h6>
-            </div>
-            <div class="card-body">
-                <div style="height: 260px;"><canvas id="modeChart"></canvas></div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Detail Table -->
-<div class="card mb-4">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-table me-2 text-primary"></i>Détail des Allocations</h6>
-        <div class="small text-muted">{{ page.paginator.count|default:0 }} enregistrement(s)</div>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover mb-0 align-middle" id="data-table">
-                <thead class="table-light">
-                    <tr>
-                        <th class="cursor-pointer" onclick="sortTable(0)">Fournisseur <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable(1)">Date <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable(2)">Mode <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable(3)">Référence <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable(4)">Facture <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable(5)">Montant alloué <i class="fas fa-sort text-muted small"></i></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for a in page.object_list %}
-                    <tr>
-                        <td class="fw-bold">{{ a.reglement.fournisseur.nom }}</td>
-                        <td>{{ a.reglement.date_reglement|date:"d/m/Y" }}</td>
-                        <td><span class="badge bg-secondary">{{ a.reglement.get_mode_paiement_display }}</span></td>
-                        <td><code class="small">{{ a.reglement.reference_paiement|default:"—" }}</code></td>
-                        <td>{{ a.facture.reference }}</td>
-                        <td class="text-end fw-bold">{{ a.montant_alloue|floatformat:2 }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="6" class="text-center py-4 text-muted"><i class="fas fa-circle-info fa-2x mb-2 text-info"></i><br>Aucune allocation trouvée.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+<!-- Detail table -->
+<div class="section-card">
+  <div class="section-card__head">
+    <span class="section-card__title">Détail Allocations</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ page.paginator.count }} allocation(s)</span>
+  </div>
+  <div class="section-card__body no-pad">
+    {% if page.object_list %}
+    <div style="overflow-x:auto;">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>Fournisseur</th>
+            <th>Date Règlement</th>
+            <th>Mode</th>
+            <th>Réf. Règlement</th>
+            <th>Facture Imputée</th>
+            <th style="text-align:right;">Montant Alloué</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in page.object_list %}
+          <tr class="stagger-row">
+            <td><span style="font-weight:600;color:var(--text-primary);">{{ a.reglement.fournisseur.nom }}</span></td>
+            <td>{{ a.reglement.date_reglement|date:"d/m/Y" }}</td>
+            <td><span class="pill-base pill-info">{{ a.reglement.get_mode_paiement_display }}</span></td>
+            <td><span class="text-mono" style="font-size:12px;color:var(--text-muted);">{{ a.reglement.reference_paiement|default:"—" }}</span></td>
+            <td><span class="text-mono" style="font-size:12px;font-weight:600;">{{ a.facture.reference }}</span></td>
+            <td style="text-align:right;"><span class="val-money" style="color:#15803d;">{{ a.montant_alloue|floatformat:0 }} DZD</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--bg-raised);">
+            <td colspan="5" style="font-weight:700;padding:12px 14px;">TOTAL</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;padding:12px 14px;color:var(--text-primary);">{{ grand_total|floatformat:0 }} DZD</td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
     {% if page.has_other_pages %}
-    <div class="card-footer d-flex justify-content-between align-items-center">
-        <small class="text-muted">Page {{ page.number }} / {{ page.paginator.num_pages }}</small>
-        <nav>
-            <ul class="pagination pagination-sm mb-0">
-                {% if page.has_previous %}
-                <li class="page-item"><a class="page-link" href="?{% param_replace page=1 %}"><i class="fas fa-angles-left"></i></a></li>
-                <li class="page-item"><a class="page-link" href="?{% param_replace page=page.previous_page_number %}"><i class="fas fa-angle-left"></i></a></li>
-                {% endif %}
-                <li class="page-item active"><span class="page-link">{{ page.number }}</span></li>
-                {% if page.has_next %}
-                <li class="page-item"><a class="page-link" href="?{% param_replace page=page.next_page_number %}"><i class="fas fa-angle-right"></i></a></li>
-                <li class="page-item"><a class="page-link" href="?{% param_replace page=page.paginator.num_pages %}"><i class="fas fa-angles-right"></i></a></li>
-                {% endif %}
-            </ul>
-        </nav>
+    <div class="pagination-bar">
+      <span>Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      <div class="page-links">
+        {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}{% if date_debut %}&date_debut={{ date_debut|date:"Y-m-d" }}{% endif %}{% if date_fin %}&date_fin={{ date_fin|date:"Y-m-d" }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>{% endif %}
+        <span class="page-link active">{{ page.number }}</span>
+        {% if page.has_next %}<a href="?page={{ page.next_page_number }}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}{% if date_debut %}&date_debut={{ date_debut|date:"Y-m-d" }}{% endif %}{% if date_fin %}&date_fin={{ date_fin|date:"Y-m-d" }}{% endif %}" class="page-link"><i class="bx bx-chevron-right"></i></a>{% endif %}
+      </div>
     </div>
     {% endif %}
+    {% else %}
+    <div class="empty-state"><i class="bx bx-transfer empty-state__icon"></i><div class="empty-state__title">Aucune allocation</div><div class="empty-state__text">Modifiez la période ou le fournisseur.</div></div>
+    {% endif %}
+  </div>
 </div>
-{% endblock content %}
+
+<script id="chart-data" type="application/json">
+{
+  "modes": {
+    "labels": [{% for m in mode_totals %}"{{ m.label|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+    "values": [{% for m in mode_totals %}{{ m.total|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}]
+  },
+  "suppliers": {
+    "labels": [{% for s in supplier_totals %}"{{ s.reglement__fournisseur__nom|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+    "values": [{% for s in supplier_totals %}{{ s.total_alloue|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}]
+  }
+}
+</script>
+{% endblock %}
 
 {% block extra_js %}
 <script>
-(function() {
-    'use strict';
+document.addEventListener('DOMContentLoaded', function () {
+  const d = JSON.parse(document.getElementById('chart-data').textContent);
+  const COLORS = ['#22c55e','#38bdf8','#f59e0b','#c4b5fd','#fb923c','#5eead4','#f9a8d4'];
+  const tip = { backgroundColor:'#fff',borderColor:'rgba(0,0,0,.12)',borderWidth:1,titleColor:'#1a2219',bodyColor:'#3d5242',padding:10,cornerRadius:8,
+    callbacks:{ label: c => ' '+new Intl.NumberFormat('fr-DZ').format(Math.round(c.raw))+' DZD' } };
 
-    var supLabels = [], supData = [];
-    {% for s in supplier_totals %}
-    supLabels.push("{{ s.reglement__fournisseur__nom|escapejs }}");
-    supData.push({{ s.total_alloue|default:0 }});
-    {% endfor %}
+  // Mode donut
+  if (d.modes.labels.length) {
+    new Chart(document.getElementById('modeDonut'), {
+      type: 'doughnut',
+      data: { labels: d.modes.labels, datasets: [{ data: d.modes.values, backgroundColor: COLORS, borderColor:'#fff', borderWidth:3 }] },
+      options: { cutout:'68%', responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ display:false }, tooltip:tip } }
+    });
+  }
 
-    var modeLabels = [], modeData = [];
-    {% for m in mode_totals %}
-    modeLabels.push("{{ m.label|escapejs }}");
-    modeData.push({{ m.total|default:0 }});
-    {% endfor %}
-
-    if (supLabels.length > 0) {
-        new Chart(document.getElementById('supplierChart').getContext('2d'), {
-            type: 'doughnut',
-            data: { labels: supLabels, datasets: [{ data: supData, backgroundColor: ['#0d6efd','#198754','#ffc107','#dc3545','#6f42c1','#0dcaf0','#fd7e14','#20c997'] }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
-        });
-    } else {
-        document.getElementById('supplierChart').parentNode.innerHTML = '<div class="text-center text-muted py-5">Aucune donnée</div>';
-    }
-
-    if (modeLabels.length > 0) {
-        new Chart(document.getElementById('modeChart').getContext('2d'), {
-            type: 'pie',
-            data: { labels: modeLabels, datasets: [{ data: modeData, backgroundColor: ['#0d6efd','#198754','#ffc107','#dc3545','#6f42c1','#0dcaf0'] }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
-        });
-    } else {
-        document.getElementById('modeChart').parentNode.innerHTML = '<div class="text-center text-muted py-5">Aucune donnée</div>';
-    }
-
-    window.sortTable = function(n) {
-        var table = document.getElementById('data-table');
-        if (!table) return;
-        var tbody = table.querySelector('tbody');
-        var rows = Array.from(tbody.querySelectorAll('tr'));
-        var asc = table.getAttribute('data-sort-col') != n || table.getAttribute('data-sort-dir') === 'desc';
-        table.setAttribute('data-sort-col', n);
-        table.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
-        rows.sort(function(a, b) {
-            var x = a.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
-            var y = b.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
-            var xn = parseFloat(x), yn = parseFloat(y);
-            if (!isNaN(xn) && !isNaN(yn)) return asc ? xn - yn : yn - xn;
-            return asc ? x.localeCompare(y) : y.localeCompare(x);
-        });
-        rows.forEach(function(r) { tbody.appendChild(r); });
-    };
-})();
+  // Supplier bar
+  if (d.suppliers.labels.length) {
+    new Chart(document.getElementById('supplierBar'), {
+      type: 'bar',
+      data: { labels: d.suppliers.labels, datasets:[{ label:'Montant alloué (DZD)', data:d.suppliers.values,
+        backgroundColor:'rgba(34,197,94,.7)', borderColor:'#22c55e', borderWidth:1, borderRadius:6, borderSkipped:false }] },
+      options: { indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:tip },
+        scales:{ x:{grid:{color:'rgba(0,0,0,.05)'},ticks:{callback:v=>(v/1000).toFixed(0)+'k'}}, y:{grid:{display:false}} } }
+    });
+  }
+});
 </script>
-{% endblock extra_js %}
+{% endblock %}

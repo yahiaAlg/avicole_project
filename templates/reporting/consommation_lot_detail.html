@@ -1,244 +1,312 @@
 {% extends "base.html" %}
-{% load reporting_extras %}
-{% load static i18n %}
+{% load static %}
+{% block title %}Consommation — {{ lot.designation }} — Élevage Avicole{% endblock %}
+{% block nav_rapports %}active{% endblock %}
 
-{% block title %}{{ title }} — {{ company.nom|default:"AviTrack" }}{% endblock %}
-{% block page_title %}{{ title }}{% endblock %}
+{% block page_title %}Consommation — {{ lot.designation }}{% endblock %}
+{% block page_sub_text %}
+  Durée : {{ summary.duree_elevage }} j —
+  Aliment : {{ summary.consommation_totale_aliment_kg|floatformat:2 }} kg —
+  IC : {% if summary.ic %}{{ summary.ic|floatformat:3 }}{% else %}N/A{% endif %}
+{% endblock %}
+{% block topbar_actions %}
+<a href="?export=csv" class="btn-ghost btn-sm"><i class="bx bxs-spreadsheet"></i> Exporter CSV</a>
+<a href="{% url 'reporting:consommation_lot' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> Tous les lots</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.chart-wrap { height: 260px; position: relative; }
+.kpi-inline { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
+.kpi-chip {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  min-width: 140px;
+  flex: 1;
+}
+.kpi-chip__label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); margin-bottom: 3px; }
+.kpi-chip__val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 17px; color: var(--text-primary); }
+.kpi-chip__unit { font-size: 11px; color: var(--text-muted); margin-left: 3px; }
+.lot-meta-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px; border-radius: var(--radius-sm);
+  font-size: 12px; font-weight: 600;
+  background: var(--bg-raised); border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+.intrant-bar-wrap { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.intrant-bar-wrap:last-child { border-bottom: none; }
+.intrant-bar-label { min-width: 160px; font-size: 12.5px; color: var(--text-secondary); font-weight: 500; }
+.intrant-bar-track { flex: 1; height: 6px; background: var(--bg-hover); border-radius: 6px; overflow: hidden; }
+.intrant-bar-fill { height: 100%; border-radius: 6px; transition: width .5s ease; }
+.intrant-bar-qty { min-width: 80px; text-align: right; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 12.5px; color: var(--text-primary); }
+</style>
+{% endblock %}
 
 {% block content %}
-<!-- Back Link -->
-<div class="mb-3">
-    <a href="{% url 'reporting:consommation_lot' %}" class="btn btn-outline-secondary btn-sm">
-        <i class="fas fa-arrow-left me-1"></i> Retour aux consommations
-    </a>
+
+<!-- Lot metadata banner -->
+<div class="section-card mb-4" style="border-left: 3px solid var(--accent);">
+  <div class="section-card__body" style="padding: 14px 20px;">
+    <div style="display:flex; gap: 14px; flex-wrap: wrap; align-items: center;">
+      <span class="lot-meta-badge"><i class="bx bxs-home" style="color:var(--accent-text);"></i> {{ lot.batiment.nom }}</span>
+      <span class="lot-meta-badge"><i class="bx bxs-calendar" style="color:#0284c7;"></i> Ouvert le {{ lot.date_ouverture|date:"d/m/Y" }}</span>
+      {% if lot.date_fermeture %}<span class="lot-meta-badge"><i class="bx bxs-lock" style="color:#b45309;"></i> Clôturé le {{ lot.date_fermeture|date:"d/m/Y" }}</span>{% endif %}
+      <span class="lot-meta-badge"><i class="bx bxs-bird" style="color:#7c3aed;"></i> {{ lot.nombre_poussins_initial }} poussins</span>
+      {% if lot.souche %}<span class="lot-meta-badge"><i class="bx bxs-tag" style="color:var(--text-muted);"></i> {{ lot.souche }}</span>{% endif %}
+      <span class="pill-base {% if lot.statut == 'ouvert' %}pill-success{% else %}pill-neutral{% endif %}" style="margin-left:auto;">
+        {% if lot.statut == 'ouvert' %}Ouvert{% else %}Clôturé{% endif %}
+      </span>
+    </div>
+  </div>
 </div>
 
-<!-- Lot Header -->
-<div class="card mb-4 border-info border-2">
-    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-warehouse me-2"></i>{{ lot.designation }}</h6>
-        <span class="badge bg-light text-dark">{{ lot.get_statut_display }}</span>
+<!-- KPI chips row -->
+<div class="kpi-inline">
+  <div class="kpi-chip">
+    <div class="kpi-chip__label">Effectif vivant</div>
+    <div class="kpi-chip__val">{{ summary.effectif_vivant }}<span class="kpi-chip__unit">têtes</span></div>
+  </div>
+  <div class="kpi-chip">
+    <div class="kpi-chip__label">Mortalité</div>
+    <div class="kpi-chip__val" style="color:{% if summary.taux_mortalite > 5 %}#dc2626{% elif summary.taux_mortalite > 2 %}#b45309{% else %}#15803d{% endif %};">
+      {{ summary.taux_mortalite|floatformat:2 }}<span class="kpi-chip__unit">%</span>
     </div>
-    <div class="card-body">
-        <div class="row g-4">
-            <div class="col-md-3 text-center">
-                <div class="text-muted small text-uppercase">Poussins Initial</div>
-                <div class="h4 fw-bold">{{ lot.nombre_poussins_initial }}</div>
-            </div>
-            <div class="col-md-3 text-center">
-                <div class="text-muted small text-uppercase">Effectif Vivant</div>
-                <div class="h4 fw-bold">{{ summary.effectif_vivant }}</div>
-            </div>
-            <div class="col-md-3 text-center">
-                <div class="text-muted small text-uppercase">Mortalité</div>
-                <div class="h4 fw-bold {% if summary.taux_mortalite > 5 %}text-danger{% else %}text-success{% endif %}">{{ summary.taux_mortalite|floatformat:2 }}%</div>
-            </div>
-            <div class="col-md-3 text-center">
-                <div class="text-muted small text-uppercase">IC</div>
-                <div class="h4 fw-bold">{{ summary.ic|default:"—"|floatformat:3 }}</div>
-            </div>
+  </div>
+  <div class="kpi-chip">
+    <div class="kpi-chip__label">Aliment consommé</div>
+    <div class="kpi-chip__val">{{ summary.consommation_totale_aliment_kg|floatformat:2 }}<span class="kpi-chip__unit">kg</span></div>
+  </div>
+  <div class="kpi-chip">
+    <div class="kpi-chip__label">Indice consommation</div>
+    <div class="kpi-chip__val">
+      {% if summary.ic %}{{ summary.ic|floatformat:3 }}{% else %}<span style="color:var(--text-muted);font-size:14px;">N/A</span>{% endif %}
+    </div>
+  </div>
+  <div class="kpi-chip">
+    <div class="kpi-chip__label">Durée élevage</div>
+    <div class="kpi-chip__val">{{ summary.duree_elevage }}<span class="kpi-chip__unit">j</span></div>
+  </div>
+  <div class="kpi-chip">
+    <div class="kpi-chip__label">Coût intrants</div>
+    <div class="kpi-chip__val" style="font-size:14px;">{{ summary.cout_total_intrants|floatformat:0 }}<span class="kpi-chip__unit">DZD</span></div>
+  </div>
+</div>
+
+<!-- Charts row -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-8">
+    <div class="section-card" style="height:100%;">
+      <div class="section-card__head">
+        <span class="section-card__title">Consommation par Intrant (quantités cumulées)</span>
+      </div>
+      <div class="section-card__body">
+        <div class="chart-wrap"><canvas id="consoBar"></canvas></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-4">
+    <div class="section-card" style="height:100%;">
+      <div class="section-card__head">
+        <span class="section-card__title">Répartition par Catégorie</span>
+      </div>
+      <div class="section-card__body">
+        <div class="chart-wrap" style="height:180px;"><canvas id="catDonut"></canvas></div>
+        <!-- Category breakdown bars -->
+        <div style="margin-top:12px;" id="cat-bars">
+          <!-- Rendered from JS chart data -->
         </div>
+      </div>
     </div>
+  </div>
 </div>
 
-<!-- Consumption Summary Chart -->
-<div class="card mb-4">
-    <div class="card-header bg-light">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-chart-bar me-2 text-primary"></i>Consommation par Intrant</h6>
+<!-- Consumption summary table by intrant -->
+<div class="section-card mb-4">
+  <div class="section-card__head">
+    <span class="section-card__title">Résumé par Intrant</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ summary.consommations|length }} enregistrement(s)</span>
+  </div>
+  <div class="section-card__body no-pad">
+    {% if summary.consommations %}
+    <div style="overflow-x:auto;">
+      <table class="table-base" id="conso-summary">
+        <thead>
+          <tr>
+            <th>Intrant</th>
+            <th>Catégorie</th>
+            <th style="text-align:right;">Quantité Totale</th>
+            <th>Unité</th>
+            <th>Proportion</th>
+          </tr>
+        </thead>
+        <tbody id="conso-summary-body">
+          <!-- Filled by JS aggregation from detail data -->
+        </tbody>
+      </table>
     </div>
-    <div class="card-body">
-        <div style="height: 300px;"><canvas id="consoChart"></canvas></div>
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bxs-droplet empty-state__icon"></i>
+      <div class="empty-state__title">Aucune consommation enregistrée</div>
+      <div class="empty-state__text">Ce lot n'a pas encore de données de consommation.</div>
     </div>
+    {% endif %}
+  </div>
 </div>
 
-<!-- Consumption Table -->
-<div class="card mb-4">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-table me-2 text-primary"></i>Détail des Consommations</h6>
-        <div class="small text-muted">{{ summary.consommations|length }} enregistrement(s)</div>
+<!-- Detailed consumption log -->
+<div class="section-card">
+  <div class="section-card__head">
+    <span class="section-card__title">Journal de Consommation</span>
+    <span style="font-size:12px;color:var(--text-muted);">Chronologique décroissant</span>
+  </div>
+  <div class="section-card__body no-pad">
+    {% if summary.consommations %}
+    <div style="overflow-x:auto;">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Intrant</th>
+            <th>Catégorie</th>
+            <th style="text-align:right;">Quantité</th>
+            <th>Unité</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in summary.consommations %}
+          <tr class="stagger-row" style="--row-i: {{ forloop.counter0 }};">
+            <td>
+              <span style="font-family:'Nunito',sans-serif;font-weight:600;">{{ c.date|date:"d/m/Y" }}</span>
+            </td>
+            <td>
+              <span style="font-weight:600;color:var(--text-primary);">{{ c.intrant.designation }}</span>
+            </td>
+            <td>
+              <span class="pill-base pill-info" style="font-size:10.5px;">{{ c.intrant.categorie.libelle }}</span>
+            </td>
+            <td style="text-align:right;">
+              <span style="font-family:'Nunito',sans-serif;font-weight:700;">{{ c.quantite|floatformat:3 }}</span>
+            </td>
+            <td style="color:var(--text-muted);font-size:12px;">{{ c.intrant.unite_mesure }}</td>
+            <td style="color:var(--text-muted);font-size:12px;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              {{ c.notes|default:"—" }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover mb-0 align-middle" id="data-table">
-                <thead class="table-light">
-                    <tr>
-                        <th class="cursor-pointer" onclick="sortTable(0)">Date <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable(1)">Intrant <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable(2)">Catégorie <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable(3)">Quantité <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable(4)">Unité <i class="fas fa-sort text-muted small"></i></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for c in summary.consommations %}
-                    <tr>
-                        <td>{{ c.date|date:"d/m/Y" }}</td>
-                        <td>{{ c.intrant.designation }}</td>
-                        <td><span class="badge bg-secondary">{{ c.intrant.categorie.libelle }}</span></td>
-                        <td class="text-end fw-bold">{{ c.quantite|floatformat:3 }}</td>
-                        <td>{{ c.intrant.unite_mesure }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="5" class="text-center py-4 text-muted"><i class="fas fa-circle-info fa-2x mb-2 text-info"></i><br>Aucune consommation enregistrée pour ce lot.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bxs-droplet empty-state__icon"></i>
+      <div class="empty-state__title">Aucune consommation</div>
     </div>
+    {% endif %}
+  </div>
 </div>
 
-<!-- Mortality Table -->
-<div class="card mb-4">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-skull-crossbones me-2 text-danger"></i>Mortalités</h6>
-        <div class="small text-muted">{{ summary.mortalites|length }} enregistrement(s)</div>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover mb-0 align-middle" id="mortalite-table">
-                <thead class="table-light">
-                    <tr>
-                        <th class="cursor-pointer" onclick="sortTableId('mortalite-table',0)">Date <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTableId('mortalite-table',1)">Nombre <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTableId('mortalite-table',2)">Taux % <i class="fas fa-sort text-muted small"></i></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for m in summary.mortalites %}
-                    <tr>
-                        <td>{{ m.date|date:"d/m/Y" }}</td>
-                        <td class="text-end fw-bold text-danger">{{ m.nombre }}</td>
-                        <td class="text-end">{{ m.taux_mortalite|floatformat:3 }}%</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="3" class="text-center py-3 text-muted">Aucune mortalité enregistrée.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- Depenses Table -->
-<div class="card mb-4">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-money-bill-wave me-2 text-warning"></i>Dépenses Attribuées</h6>
-        <div class="small text-muted">Total: {{ summary.cout_total_depenses|floatformat:2 }} DZD</div>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover mb-0 align-middle" id="depense-table">
-                <thead class="table-light">
-                    <tr>
-                        <th class="cursor-pointer" onclick="sortTableId('depense-table',0)">Date <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTableId('depense-table',1)">Catégorie <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTableId('depense-table',2)">Description <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTableId('depense-table',3)">Montant <i class="fas fa-sort text-muted small"></i></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for d in summary.depenses %}
-                    <tr>
-                        <td>{{ d.date|date:"d/m/Y" }}</td>
-                        <td><span class="badge bg-info">{{ d.categorie.libelle }}</span></td>
-                        <td>{{ d.description|truncatechars:50 }}</td>
-                        <td class="text-end fw-bold">{{ d.montant|floatformat:2 }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4" class="text-center py-3 text-muted">Aucune dépense attribuée.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<div class="text-end">
-    <a href="{{ request.path }}?export=csv" class="btn btn-success"><i class="fas fa-file-csv me-1"></i> Exporter CSV</a>
-</div>
-{% endblock content %}
+<!-- Embedded chart data -->
+<script id="conso-data" type="application/json">
+[{% for c in summary.consommations %}{"date":"{{ c.date|date:'d/m/Y' }}","intrant":"{{ c.intrant.designation|escapejs }}","categorie":"{{ c.intrant.categorie.libelle|escapejs }}","categorie_code":"{{ c.intrant.categorie.code|escapejs }}","quantite":{{ c.quantite|floatformat:3 }},"unite":"{{ c.intrant.unite_mesure|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]
+</script>
+{% endblock %}
 
 {% block extra_js %}
 <script>
-(function() {
-    'use strict';
+document.addEventListener('DOMContentLoaded', function () {
+  const raw = JSON.parse(document.getElementById('conso-data').textContent || '[]');
+  const COLORS = ['#22c55e','#38bdf8','#f59e0b','#c4b5fd','#fb923c','#5eead4','#f9a8d4','#a5b4fc','#f87171'];
+  const tip = {
+    backgroundColor:'#fff', borderColor:'rgba(0,0,0,.12)', borderWidth:1,
+    titleColor:'#1a2219', bodyColor:'#3d5242', padding:10, cornerRadius:8
+  };
 
-    var labels = [];
-    var dataQty = [];
+  // Aggregate by intrant
+  const byIntrant = {};
+  const byCat = {};
+  raw.forEach(c => {
+    if (!byIntrant[c.intrant]) byIntrant[c.intrant] = { total: 0, unite: c.unite, categorie: c.categorie };
+    byIntrant[c.intrant].total += parseFloat(c.quantite);
+    if (!byCat[c.categorie]) byCat[c.categorie] = 0;
+    byCat[c.categorie] += parseFloat(c.quantite);
+  });
 
-    // Aggregate consumption by intrant for the chart
-    var agg = {};
-    {% for c in summary.consommations %}
-    var key = "{{ c.intrant.designation|escapejs }}";
-    if (!agg[key]) agg[key] = 0;
-    agg[key] += {{ c.quantite|default:0 }};
-    {% endfor %}
+  const intrantLabels = Object.keys(byIntrant);
+  const intrantVals = intrantLabels.map(k => byIntrant[k].total);
+  const maxVal = Math.max(...intrantVals, 1);
 
-    for (var k in agg) {
-        labels.push(k);
-        dataQty.push(agg[k]);
-    }
+  // Fill summary table
+  const tbody = document.getElementById('conso-summary-body');
+  if (tbody) {
+    intrantLabels.forEach((name, i) => {
+      const entry = byIntrant[name];
+      const pct = (entry.total / maxVal * 100).toFixed(1);
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td style="font-weight:600;color:var(--text-primary);">${name}</td>
+        <td><span class="pill-base pill-info" style="font-size:10.5px;">${entry.categorie}</span></td>
+        <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">${entry.total.toFixed(3)}</td>
+        <td style="color:var(--text-muted);font-size:12px;">${entry.unite}</td>
+        <td style="min-width:120px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div style="flex:1;height:5px;background:var(--bg-hover);border-radius:4px;">
+              <div style="width:${pct}%;height:100%;background:${COLORS[i % COLORS.length]};border-radius:4px;"></div>
+            </div>
+            <span style="font-size:11px;color:var(--text-muted);min-width:35px;">${pct}%</span>
+          </div>
+        </td>`;
+      tbody.appendChild(row);
+    });
+  }
 
-    var ctx = document.getElementById('consoChart');
-    if (ctx && labels.length > 0) {
-        new Chart(ctx.getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Quantité consommée',
-                    data: dataQty,
-                    backgroundColor: 'rgba(13, 110, 253, 0.7)',
-                    borderColor: '#0d6efd',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true } }
-            }
-        });
-    } else if (ctx) {
-        ctx.parentNode.innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-circle-info fa-2x mb-2 text-info"></i><br>Aucune consommation à afficher</div>';
-    }
+  // Bar chart — by intrant
+  const barEl = document.getElementById('consoBar');
+  if (barEl && intrantLabels.length) {
+    new Chart(barEl, {
+      type: 'bar',
+      data: {
+        labels: intrantLabels,
+        datasets: [{
+          label: 'Quantité consommée',
+          data: intrantVals,
+          backgroundColor: intrantLabels.map((_, i) => COLORS[i % COLORS.length] + 'bb'),
+          borderColor: intrantLabels.map((_, i) => COLORS[i % COLORS.length]),
+          borderWidth: 1, borderRadius: 6, borderSkipped: false
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { ...tip, callbacks: { label: c => ` ${c.raw.toFixed(3)} ${byIntrant[c.label]?.unite || ''}` } } },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: '#7a8c78', font: { size: 11 } } },
+          y: { grid: { color: 'rgba(0,0,0,.05)' }, ticks: { color: '#7a8c78' } }
+        }
+      }
+    });
+  }
 
-    window.sortTable = function(n) {
-        var table = document.getElementById('data-table');
-        if (!table) return;
-        var tbody = table.querySelector('tbody');
-        var rows = Array.from(tbody.querySelectorAll('tr'));
-        var asc = table.getAttribute('data-sort-col') != n || table.getAttribute('data-sort-dir') === 'desc';
-        table.setAttribute('data-sort-col', n);
-        table.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
-        rows.sort(function(a, b) {
-            var x = a.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
-            var y = b.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
-            var xn = parseFloat(x), yn = parseFloat(y);
-            if (!isNaN(xn) && !isNaN(yn)) return asc ? xn - yn : yn - xn;
-            return asc ? x.localeCompare(y) : y.localeCompare(x);
-        });
-        rows.forEach(function(r) { tbody.appendChild(r); });
-    };
-
-    window.sortTableId = function(tableId, n) {
-        var table = document.getElementById(tableId);
-        if (!table) return;
-        var tbody = table.querySelector('tbody');
-        var rows = Array.from(tbody.querySelectorAll('tr'));
-        var asc = table.getAttribute('data-sort-col') != n || table.getAttribute('data-sort-dir') === 'desc';
-        table.setAttribute('data-sort-col', n);
-        table.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
-        rows.sort(function(a, b) {
-            var x = a.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
-            var y = b.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
-            var xn = parseFloat(x), yn = parseFloat(y);
-            if (!isNaN(xn) && !isNaN(yn)) return asc ? xn - yn : yn - xn;
-            return asc ? x.localeCompare(y) : y.localeCompare(x);
-        });
-        rows.forEach(function(r) { tbody.appendChild(r); });
-    };
-})();
+  // Donut — by category
+  const catLabels = Object.keys(byCat);
+  const catVals = catLabels.map(k => byCat[k]);
+  const donutEl = document.getElementById('catDonut');
+  if (donutEl && catLabels.length) {
+    new Chart(donutEl, {
+      type: 'doughnut',
+      data: {
+        labels: catLabels,
+        datasets: [{ data: catVals, backgroundColor: COLORS, borderColor: '#fff', borderWidth: 3 }]
+      },
+      options: {
+        cutout: '65%', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } }, tooltip: tip }
+      }
+    });
+  }
+});
 </script>
-{% endblock extra_js %}
+{% endblock %}

@@ -1,202 +1,270 @@
 {% extends "base.html" %}
-{% load reporting_extras %}
-{% load static i18n %}
+{% load static %}
+{% block title %}Balance Fournisseur par Ancienneté — Élevage Avicole{% endblock %}
+{% block nav_rapports %}active{% endblock %}
 
-{% block title %}{{ title }} — {{ company.nom|default:"AviTrack" }}{% endblock %}
+{% block page_title %}Balance Fournisseur par Ancienneté{% endblock %}
+{% block page_sub_text %}
+  {% if fournisseur_obj %}{{ fournisseur_obj.nom }} — {% endif %}
+  {{ buckets|length }} fournisseur(s) avec dette en cours
+{% endblock %}
+{% block topbar_actions %}
+<a href="?{% if fournisseur_pk %}fournisseur={{ fournisseur_pk }}&{% endif %}export=csv" class="btn-ghost btn-sm">
+  <i class="bx bxs-spreadsheet"></i> Exporter CSV
+</a>
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm">
+  <i class="bx bx-arrow-back"></i> Rapports
+</a>
+{% endblock %}
 
-{% block page_title %}{{ title }}{% endblock %}
+{% block extra_css %}
+<style>
+.aging-cell { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px; text-align: right; }
+.aging-cell.cur  { color: #15803d; }
+.aging-cell.d30  { color: #b45309; }
+.aging-cell.d60  { color: #ea580c; }
+.aging-cell.d90  { color: #dc2626; }
+.aging-cell.over { color: #991b1b; }
+.aging-cell.tot  { color: var(--text-primary); }
+.tfoot-row td { background: var(--bg-raised); font-weight: 700; border-top: 2px solid var(--border-strong); }
+.chart-wrap { position: relative; height: 260px; }
+</style>
+{% endblock %}
 
 {% block content %}
-<!-- Filters -->
-<div class="card mb-4">
-    <div class="card-header bg-light">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-filter me-2 text-primary"></i>Filtres</h6>
-    </div>
-    <div class="card-body">
-        <form method="get" class="row g-3 align-items-end" id="filter-form">
-            <div class="col-md-4 col-lg-3">
-                <label for="fournisseur" class="form-label small text-muted">Fournisseur</label>
-                <select name="fournisseur" id="fournisseur" class="form-select">
-                    <option value="">— Tous les fournisseurs —</option>
-                    {% for f in fournisseurs %}
-                    <option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>
-                        {{ f.nom }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-4 col-lg-3">
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-filter me-1"></i> Filtrer
-                </button>
-                <a href="{{ request.path }}" class="btn btn-outline-secondary">
-                    <i class="fas fa-rotate-left me-1"></i> Réinitialiser
-                </a>
-            </div>
-            <div class="col-md-4 col-lg-6 text-md-end">
-                <a href="{{ request.path }}?{% if fournisseur_pk %}fournisseur={{ fournisseur_pk }}&{% endif %}export=csv" class="btn btn-success">
-                    <i class="fas fa-file-csv me-1"></i> Exporter CSV
-                </a>
-            </div>
-        </form>
-    </div>
+<!-- Filter bar -->
+<div class="section-card mb-3">
+  <div class="section-card__body" style="padding:14px 20px;">
+    <form method="get" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div class="input-wrapper" style="flex:1;min-width:200px;">
+        <i class="bx bxs-building input-icon"></i>
+        <select name="fournisseur" class="field-input has-icon" onchange="this.form.submit()">
+          <option value="">Tous les fournisseurs</option>
+          {% for f in fournisseurs %}
+          <option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.nom }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> Filtrer</button>
+      {% if fournisseur_pk %}
+      <a href="{% url 'reporting:supplier_aging' %}" class="btn-ghost btn-sm">Réinitialiser</a>
+      {% endif %}
+    </form>
+  </div>
 </div>
 
-<!-- Chart -->
-<div class="card mb-4">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-chart-bar me-2 text-primary"></i>Répartition par Échéance</h6>
-        {% if fournisseur_obj %}
-        <span class="badge bg-primary">{{ fournisseur_obj.nom }}</span>
-        {% endif %}
+{% if buckets %}
+<!-- KPI row -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-green"><i class="bx bxs-check-circle"></i></div>
+      <div class="metric-label">Courant (non échu)</div>
+      <div class="metric-value sm">{{ totaux.current|floatformat:0 }} <small style="font-size:13px;font-weight:400;">DZD</small></div>
     </div>
-    <div class="card-body">
-        <div style="height: 320px;">
-            <canvas id="agingChart"></canvas>
-        </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-amber"><i class="bx bx-hourglass"></i></div>
+      <div class="metric-label">1–30 jours</div>
+      <div class="metric-value sm" style="color:#b45309;">{{ totaux.1_30|floatformat:0 }} <small style="font-size:13px;font-weight:400;">DZD</small></div>
     </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-orange"><i class="bx bxs-error"></i></div>
+      <div class="metric-label">31–90 jours</div>
+      <div class="metric-value sm" style="color:#ea580c;">{{ totaux.31_60|floatformat:0 }} <small style="font-size:13px;font-weight:400;">DZD</small></div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-red"><i class="bx bxs-error-circle"></i></div>
+      <div class="metric-label">+90 jours (critique)</div>
+      <div class="metric-value sm" style="color:#dc2626;">{{ totaux.over_90|floatformat:0 }} <small style="font-size:13px;font-weight:400;">DZD</small></div>
+    </div>
+  </div>
 </div>
 
-<!-- Data Table -->
-<div class="card mb-4">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-table me-2 text-primary"></i>Détail par Fournisseur</h6>
-        <div class="small text-muted">
-            Total dette: <strong class="text-danger">{{ totaux.total|floatformat:2 }} DZD</strong>
-        </div>
+<div class="row g-3 mb-4">
+  <!-- Chart -->
+  <div class="col-xl-8">
+    <div class="section-card">
+      <div class="section-card__head">
+        <span class="section-card__title">Répartition par Ancienneté — par Fournisseur</span>
+      </div>
+      <div class="section-card__body">
+        <div class="chart-wrap"><canvas id="agingChart"></canvas></div>
+      </div>
     </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover mb-0 align-middle" id="data-table">
-                <thead class="table-light">
-                    <tr>
-                        <th class="cursor-pointer" onclick="sortTable(0)">Fournisseur <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable(1)">Courant <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable(2)">1–30 j <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable(3)">31–60 j <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable(4)">61–90 j <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable(5)">> 90 j <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable(6)">Total <i class="fas fa-sort text-muted small"></i></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for b in buckets %}
-                    <tr>
-                        <td>
-                            <a href="{% url 'reporting:supplier_aging' %}?fournisseur={{ b.fournisseur.pk }}" class="fw-bold text-decoration-none">
-                                {{ b.fournisseur.nom }}
-                            </a>
-                        </td>
-                        <td class="text-end">{{ b.current|floatformat:2 }}</td>
-                        <td class="text-end">{{ b.1_30|floatformat:2 }}</td>
-                        <td class="text-end">{{ b.31_60|floatformat:2 }}</td>
-                        <td class="text-end">{{ b.61_90|floatformat:2 }}</td>
-                        <td class="text-end text-danger fw-bold">{{ b.over_90|floatformat:2 }}</td>
-                        <td class="text-end fw-bold">{{ b.total|floatformat:2 }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7" class="text-center py-4 text-muted">
-                            <i class="fas fa-circle-check fa-2x mb-2 text-success"></i><br>
-                            Aucune dette fournisseur en cours.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot class="table-group-divider fw-bold">
-                    <tr class="table-light">
-                        <td>TOTAL</td>
-                        <td class="text-end">{{ totaux.current|floatformat:2 }}</td>
-                        <td class="text-end">{{ totaux.1_30|floatformat:2 }}</td>
-                        <td class="text-end">{{ totaux.31_60|floatformat:2 }}</td>
-                        <td class="text-end">{{ totaux.61_90|floatformat:2 }}</td>
-                        <td class="text-end text-danger">{{ totaux.over_90|floatformat:2 }}</td>
-                        <td class="text-end">{{ totaux.total|floatformat:2 }}</td>
-                    </tr>
-                </tfoot>
-            </table>
+  </div>
+  <!-- Bucket summary -->
+  <div class="col-xl-4">
+    <div class="section-card" style="height:100%;">
+      <div class="section-card__head">
+        <span class="section-card__title">Total Général</span>
+      </div>
+      <div class="section-card__body">
+        <div style="margin-bottom:14px;">
+          <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:4px;">Dette totale</div>
+          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:26px;color:#dc2626;">{{ totaux.total|floatformat:0 }} DZD</div>
         </div>
+        <div class="chart-wrap" style="height:180px;"><canvas id="bucketDonut"></canvas></div>
+      </div>
     </div>
+  </div>
 </div>
-{% endblock content %}
+
+<!-- Table -->
+<div class="section-card">
+  <div class="section-card__head">
+    <span class="section-card__title">Détail par Fournisseur</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ buckets|length }} fournisseur(s)</span>
+  </div>
+  <div class="section-card__body no-pad">
+    <div style="overflow-x:auto;">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>Fournisseur</th>
+            <th style="text-align:right;">Courant</th>
+            <th style="text-align:right;">1–30 j</th>
+            <th style="text-align:right;">31–60 j</th>
+            <th style="text-align:right;">61–90 j</th>
+            <th style="text-align:right;">> 90 j</th>
+            <th style="text-align:right;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in buckets %}
+          <tr class="stagger-row">
+            <td>
+              <span style="font-weight:600;color:var(--text-primary);">{{ b.fournisseur.nom }}</span>
+            </td>
+            <td class="aging-cell cur">{% if b.current %}{{ b.current|floatformat:0 }}{% else %}—{% endif %}</td>
+            <td class="aging-cell d30">{% if b.1_30 %}{{ b.1_30|floatformat:0 }}{% else %}—{% endif %}</td>
+            <td class="aging-cell d60">{% if b.31_60 %}{{ b.31_60|floatformat:0 }}{% else %}—{% endif %}</td>
+            <td class="aging-cell d90">{% if b.61_90 %}{{ b.61_90|floatformat:0 }}{% else %}—{% endif %}</td>
+            <td class="aging-cell over">{% if b.over_90 %}{{ b.over_90|floatformat:0 }}{% else %}—{% endif %}</td>
+            <td class="aging-cell tot">{{ b.total|floatformat:0 }} DZD</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr class="tfoot-row">
+            <td style="font-weight:700;color:var(--text-primary);">TOTAL GÉNÉRAL</td>
+            <td class="aging-cell cur">{{ totaux.current|floatformat:0 }}</td>
+            <td class="aging-cell d30">{{ totaux.1_30|floatformat:0 }}</td>
+            <td class="aging-cell d60">{{ totaux.31_60|floatformat:0 }}</td>
+            <td class="aging-cell d90">{{ totaux.61_90|floatformat:0 }}</td>
+            <td class="aging-cell over">{{ totaux.over_90|floatformat:0 }}</td>
+            <td class="aging-cell tot">{{ totaux.total|floatformat:0 }} DZD</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div class="section-card">
+  <div class="section-card__body">
+    <div class="empty-state">
+      <i class="bx bxs-check-circle empty-state__icon" style="color:#15803d;"></i>
+      <div class="empty-state__title">Aucune dette en cours</div>
+      <div class="empty-state__text">
+        {% if fournisseur_obj %}{{ fournisseur_obj.nom }} n'a aucune facture impayée.{% else %}Tous les fournisseurs sont à jour.{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Chart data embedded as JSON -->
+<script id="aging-data" type="application/json">
+{
+  "labels": [{% for b in buckets %}"{{ b.fournisseur.nom|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  "current": [{% for b in buckets %}{{ b.current|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}],
+  "d30":     [{% for b in buckets %}{{ b.1_30|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}],
+  "d60":     [{% for b in buckets %}{{ b.31_60|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}],
+  "d90":     [{% for b in buckets %}{{ b.61_90|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}],
+  "over90":  [{% for b in buckets %}{{ b.over_90|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}],
+  "totaux": {
+    "current": {{ totaux.current|floatformat:2 }},
+    "d30":     {{ totaux.1_30|floatformat:2 }},
+    "d60":     {{ totaux.31_60|floatformat:2 }},
+    "d90":     {{ totaux.61_90|floatformat:2 }},
+    "over90":  {{ totaux.over_90|floatformat:2 }}
+  }
+}
+</script>
+{% endblock %}
 
 {% block extra_js %}
 <script>
-(function() {
-    'use strict';
+document.addEventListener('DOMContentLoaded', function () {
+  const raw = document.getElementById('aging-data');
+  if (!raw) return;
+  const d = JSON.parse(raw.textContent);
 
-    var chartLabels = [];
-    var dataCurrent = [], data1_30 = [], data31_60 = [], data61_90 = [], dataOver90 = [];
+  const tooltipCfg = {
+    backgroundColor:'#ffffff', borderColor:'rgba(0,0,0,.12)', borderWidth:1,
+    titleColor:'#1a2219', bodyColor:'#3d5242', padding:10, cornerRadius:8,
+    callbacks: { label: ctx => ' ' + new Intl.NumberFormat('fr-DZ').format(Math.round(ctx.raw)) + ' DZD' }
+  };
 
-    {% for b in buckets %}
-    chartLabels.push("{{ b.fournisseur.nom|escapejs }}");
-    dataCurrent.push({{ b.current|default:0 }});
-    data1_30.push({{ b.1_30|default:0 }});
-    data31_60.push({{ b.31_60|default:0 }});
-    data61_90.push({{ b.61_90|default:0 }});
-    dataOver90.push({{ b.over_90|default:0 }});
-    {% endfor %}
+  // Stacked horizontal bar
+  const agingEl = document.getElementById('agingChart');
+  if (agingEl && d.labels.length) {
+    new Chart(agingEl, {
+      type: 'bar',
+      data: {
+        labels: d.labels,
+        datasets: [
+          { label: 'Courant', data: d.current, backgroundColor: '#22c55e', borderRadius: 0, stack: 'a' },
+          { label: '1–30 j', data: d.d30, backgroundColor: '#f59e0b', borderRadius: 0, stack: 'a' },
+          { label: '31–60 j', data: d.d60, backgroundColor: '#fb923c', borderRadius: 0, stack: 'a' },
+          { label: '61–90 j', data: d.d90, backgroundColor: '#ef4444', borderRadius: 0, stack: 'a' },
+          { label: '> 90 j', data: d.over90, backgroundColor: '#991b1b', borderRadius: 4, borderSkipped: false, stack: 'a' },
+        ]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }, tooltip: tooltipCfg },
+        scales: {
+          x: { stacked: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: v => (v/1000).toFixed(0)+'k' } },
+          y: { stacked: true, grid: { display: false }, ticks: { color: '#7a8c78', font: { size: 11 } } }
+        }
+      }
+    });
+  }
 
-    var ctx = document.getElementById('agingChart');
-    if (ctx && chartLabels.length > 0) {
-        new Chart(ctx.getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: chartLabels,
-                datasets: [
-                    { label: 'Courant', data: dataCurrent, backgroundColor: 'rgba(13, 110, 253, 0.7)', borderColor: '#0d6efd', borderWidth: 1 },
-                    { label: '1–30 j',    data: data1_30,   backgroundColor: 'rgba(25, 135, 84, 0.7)',  borderColor: '#198754', borderWidth: 1 },
-                    { label: '31–60 j',   data: data31_60,  backgroundColor: 'rgba(255, 193, 7, 0.7)',  borderColor: '#ffc107', borderWidth: 1 },
-                    { label: '61–90 j',   data: data61_90,  backgroundColor: 'rgba(253, 126, 20, 0.7)', borderColor: '#fd7e14', borderWidth: 1 },
-                    { label: '> 90 j',    data: dataOver90, backgroundColor: 'rgba(220, 53, 69, 0.7)',  borderColor: '#dc3545', borderWidth: 1 }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'top' },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return context.dataset.label + ': ' + new Intl.NumberFormat('fr-DZ', {
-                                    style: 'currency', currency: 'DZD', maximumFractionDigits: 2
-                                }).format(context.raw);
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: { stacked: true },
-                    y: { stacked: true, beginAtZero: true }
-                }
-            }
-        });
-    } else if (ctx) {
-        ctx.parentNode.innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-circle-check fa-2x mb-2 text-success"></i><br>Aucune donnée à afficher</div>';
-    }
-
-    window.sortTable = function(n) {
-        var table = document.getElementById('data-table');
-        if (!table) return;
-        var tbody = table.querySelector('tbody');
-        var rows = Array.from(tbody.querySelectorAll('tr'));
-        var asc = table.getAttribute('data-sort-col') != n || table.getAttribute('data-sort-dir') === 'desc';
-        table.setAttribute('data-sort-col', n);
-        table.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
-
-        rows.sort(function(a, b) {
-            var x = a.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
-            var y = b.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
-            var xn = parseFloat(x);
-            var yn = parseFloat(y);
-            if (!isNaN(xn) && !isNaN(yn)) {
-                return asc ? xn - yn : yn - xn;
-            }
-            return asc ? x.localeCompare(y) : y.localeCompare(x);
-        });
-        rows.forEach(function(r) { tbody.appendChild(r); });
-    };
-})();
+  // Doughnut for bucket totals
+  const donutEl = document.getElementById('bucketDonut');
+  if (donutEl) {
+    const t = d.totaux;
+    const total = t.current + t.d30 + t.d60 + t.d90 + t.over90;
+    new Chart(donutEl, {
+      type: 'doughnut',
+      data: {
+        labels: ['Courant', '1–30 j', '31–60 j', '61–90 j', '> 90 j'],
+        datasets: [{ data: [t.current, t.d30, t.d60, t.d90, t.over90],
+          backgroundColor: ['#22c55e', '#f59e0b', '#fb923c', '#ef4444', '#991b1b'],
+          borderColor: '#fff', borderWidth: 3
+        }]
+      },
+      options: {
+        cutout: '68%', responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10.5 } } },
+          tooltip: { ...tooltipCfg, callbacks: {
+            label: ctx => ' ' + ctx.label + ': ' + new Intl.NumberFormat('fr-DZ').format(Math.round(ctx.raw)) + ' DZD'
+          }}
+        }
+      }
+    });
+  }
+});
 </script>
-{% endblock extra_js %}
+{% endblock %}

@@ -1,155 +1,286 @@
 {% extends "base.html" %}
-{% load reporting_extras %}
-{% load static i18n %}
+{% load static %}
+{% block title %}Historique BL Clients — Élevage Avicole{% endblock %}
+{% block nav_rapports %}active{% endblock %}
 
-{% block title %}{{ title }} — {{ company.nom|default:"AviTrack" }}{% endblock %}
-{% block page_title %}{{ title }}{% endblock %}
+{% block page_title %}Historique BL Clients{% endblock %}
+{% block page_sub_text %}{{ nb_total }} bon(s) de livraison{% if client_pk %} — client filtré{% endif %}{% endblock %}
+{% block topbar_actions %}
+<a href="?{% if client_pk %}client={{ client_pk }}&{% endif %}{% if statut %}statut={{ statut }}&{% endif %}{% if date_debut %}date_debut={{ date_debut|date:'Y-m-d' }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:'Y-m-d' }}&{% endif %}{% if q %}q={{ q }}&{% endif %}export=csv" class="btn-ghost btn-sm">
+  <i class="bx bxs-spreadsheet"></i> Exporter CSV
+</a>
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> Rapports</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.chart-wrap { height: 220px; position: relative; }
+.filter-chip { display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:var(--bg-raised);border:1px solid var(--border);border-radius:20px;font-size:11.5px;color:var(--text-secondary); }
+</style>
+{% endblock %}
 
 {% block content %}
 <!-- Filters -->
-<div class="card mb-4">
-    <div class="card-header bg-light">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-filter me-2 text-primary"></i>Filtres</h6>
-    </div>
-    <div class="card-body">
-        <form method="get" class="row g-3 align-items-end" id="filter-form">
-            <div class="col-md-3 col-lg-2">
-                <label for="client" class="form-label small text-muted">Client</label>
-                <select name="client" id="client" class="form-select">
-                    <option value="">— Tous —</option>
-                    {% for c in clients %}
-                    <option value="{{ c.pk }}" {% if client_pk == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nom }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3 col-lg-2">
-                <label for="statut" class="form-label small text-muted">Statut</label>
-                <select name="statut" id="statut" class="form-select">
-                    <option value="">— Tous —</option>
-                    {% for code, label in statut_choices %}
-                    <option value="{{ code }}" {% if statut == code %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3 col-lg-2">
-                <label for="date_debut" class="form-label small text-muted">Date début</label>
-                <input type="date" name="date_debut" id="date_debut" class="form-control" value="{{ date_debut|date:'Y-m-d'|default:'' }}">
-            </div>
-            <div class="col-md-3 col-lg-2">
-                <label for="date_fin" class="form-label small text-muted">Date fin</label>
-                <input type="date" name="date_fin" id="date_fin" class="form-control" value="{{ date_fin|date:'Y-m-d'|default:'' }}">
-            </div>
-            <div class="col-md-6 col-lg-4 text-lg-end">
-                <div class="input-group mb-2">
-                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                    <input type="text" name="q" class="form-control" placeholder="Référence / Client..." value="{{ q|default:'' }}">
-                </div>
-                <button type="submit" class="btn btn-primary"><i class="fas fa-filter me-1"></i> Filtrer</button>
-                <a href="{{ request.path }}" class="btn btn-outline-secondary"><i class="fas fa-rotate-left"></i></a>
-                <a href="{{ request.path }}?{% if client_pk %}client={{ client_pk }}&{% endif %}{% if statut %}statut={{ statut }}&{% endif %}{% if date_debut %}date_debut={{ date_debut|date:'Y-m-d' }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:'Y-m-d' }}&{% endif %}{% if q %}q={{ q|urlencode }}&{% endif %}export=csv" class="btn btn-success"><i class="fas fa-file-csv"></i></a>
-            </div>
-        </form>
-    </div>
+<div class="section-card mb-3">
+  <div class="section-card__body" style="padding:14px 20px;">
+    <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="input-wrapper" style="flex:1;min-width:180px;">
+        <i class="bx bx-search input-icon"></i>
+        <input type="text" name="q" class="field-input has-icon" placeholder="Référence ou client…" value="{{ q }}">
+      </div>
+      <div class="input-wrapper" style="min-width:180px;">
+        <i class="bx bxs-group input-icon"></i>
+        <select name="client" class="field-input has-icon">
+          <option value="">Tous les clients</option>
+          {% for c in clients %}<option value="{{ c.pk }}" {% if client_pk == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nom }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="input-wrapper" style="min-width:150px;">
+        <i class="bx bxs-circle input-icon"></i>
+        <select name="statut" class="field-input has-icon">
+          <option value="">Tous les statuts</option>
+          {% for val, lbl in statut_choices %}<option value="{{ val }}" {% if statut == val %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="input-wrapper" style="min-width:145px;">
+        <i class="bx bxs-calendar input-icon"></i>
+        <input type="date" name="date_debut" class="field-input has-icon" value="{{ date_debut|date:'Y-m-d' }}">
+      </div>
+      <div class="input-wrapper" style="min-width:145px;">
+        <i class="bx bxs-calendar input-icon"></i>
+        <input type="date" name="date_fin" class="field-input has-icon" value="{{ date_fin|date:'Y-m-d' }}">
+      </div>
+      <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> Filtrer</button>
+      {% if q or client_pk or statut or date_debut or date_fin %}
+      <a href="{% url 'reporting:historique_bl_clients' %}" class="btn-ghost btn-sm">Réinitialiser</a>
+      {% endif %}
+    </form>
+  </div>
 </div>
 
-<!-- Summary -->
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card border-start border-4 border-primary">
-            <div class="card-body d-flex justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase">Total BL</div>
-                    <div class="h5 fw-bold mb-0">{{ nb_total }}</div>
-                </div>
-                <div class="text-primary fs-3"><i class="fas fa-truck-fast"></i></div>
-            </div>
-        </div>
+<!-- KPI + charts -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-blue"><i class="bx bxs-file-txt"></i></div>
+      <div class="metric-label">Total BL</div>
+      <div class="metric-value sm">{{ nb_total }}</div>
     </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-green"><i class="bx bxs-check-circle"></i></div>
+      <div class="metric-label">Facturés</div>
+      <div class="metric-value sm" id="kpi-factures">—</div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-amber"><i class="bx bx-package"></i></div>
+      <div class="metric-label">Livrés (non facturés)</div>
+      <div class="metric-value sm" id="kpi-livres">—</div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-teal"><i class="bx bxs-wallet"></i></div>
+      <div class="metric-label">Valeur totale BL</div>
+      <div class="metric-value sm" style="font-size:16px;" id="kpi-valeur">—</div>
+    </div>
+  </div>
 </div>
 
-<!-- Data Table -->
-<div class="card mb-4">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-table me-2 text-primary"></i>Historique des BL Clients</h6>
-        <div class="small text-muted">Page {{ page.number }} / {{ page.paginator.num_pages }}</div>
+<div class="row g-3 mb-4">
+  <div class="col-xl-5">
+    <div class="section-card" style="height:100%;">
+      <div class="section-card__head"><span class="section-card__title">Répartition par Statut</span></div>
+      <div class="section-card__body">
+        <div class="chart-wrap" style="height:180px;"><canvas id="statutDonut"></canvas></div>
+      </div>
     </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover mb-0 align-middle" id="data-table">
-                <thead class="table-light">
-                    <tr>
-                        <th class="cursor-pointer" onclick="sortTable(0)">Référence <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable(1)">Client <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable(2)">Date <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable(3)">Statut <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable(4)">Montant <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable(5)">Lignes <i class="fas fa-sort text-muted small"></i></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for bl in page.object_list %}
-                    <tr>
-                        <td><code class="fw-bold">{{ bl.reference }}</code></td>
-                        <td>{{ bl.client.nom }}</td>
-                        <td>{{ bl.date_bl|date:"d/m/Y" }}</td>
-                        <td>
-                            {% if bl.statut == 'livre' %}<span class="badge bg-success">{{ bl.get_statut_display }}</span>
-                            {% elif bl.statut == 'facture' %}<span class="badge bg-primary">{{ bl.get_statut_display }}</span>
-                            {% elif bl.statut == 'annule' %}<span class="badge bg-danger">{{ bl.get_statut_display }}</span>
-                            {% else %}<span class="badge bg-secondary">{{ bl.get_statut_display }}</span>{% endif %}
-                        </td>
-                        <td class="text-end fw-bold">{{ bl.montant_total|floatformat:2 }}</td>
-                        <td class="text-end">{{ bl.lignes.count }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="6" class="text-center py-4 text-muted"><i class="fas fa-circle-info fa-2x mb-2 text-info"></i><br>Aucun BL trouvé.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+  </div>
+  <div class="col-xl-7">
+    <div class="section-card" style="height:100%;">
+      <div class="section-card__head"><span class="section-card__title">Volume par Client (Top 10)</span></div>
+      <div class="section-card__body">
+        <div class="chart-wrap"><canvas id="clientBar"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BL table -->
+<div class="section-card">
+  <div class="section-card__head">
+    <span class="section-card__title">Journal BL Clients</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ page.paginator.count }} résultat(s) — Page {{ page.number }}/{{ page.paginator.num_pages }}</span>
+  </div>
+  <div class="section-card__body no-pad">
+    {% if page.object_list %}
+    <div style="overflow-x:auto;">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>Référence</th>
+            <th>Client</th>
+            <th>Date BL</th>
+            <th style="text-align:center;">Statut</th>
+            <th style="text-align:right;">Montant Total</th>
+            <th>Facture(s)</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for bl in page.object_list %}
+          <tr class="stagger-row" style="--row-i:{{ forloop.counter0 }};">
+            <td>
+              <span class="text-mono" style="font-weight:700;font-size:12.5px;">{{ bl.reference }}</span>
+            </td>
+            <td>
+              <span style="font-weight:600;color:var(--text-primary);">{{ bl.client.nom }}</span>
+            </td>
+            <td>
+              <span style="font-family:'Nunito',sans-serif;font-weight:600;">{{ bl.date_bl|date:"d/m/Y" }}</span>
+            </td>
+            <td style="text-align:center;">
+              {% if bl.statut == 'brouillon' %}
+                <span class="pill-base pill-warning">Brouillon</span>
+              {% elif bl.statut == 'livre' %}
+                <span class="pill-base pill-info">Livré</span>
+              {% elif bl.statut == 'facture' %}
+                <span class="pill-base pill-success">Facturé</span>
+              {% elif bl.statut == 'litige' %}
+                <span class="pill-base pill-danger">En Litige</span>
+              {% endif %}
+            </td>
+            <td style="text-align:right;">
+              <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;color:{% if bl.statut == 'facture' %}#15803d{% else %}var(--text-primary){% endif %};">
+                {{ bl.montant_total|floatformat:0 }} DZD
+              </span>
+            </td>
+            <td>
+              {% for facture in bl.factures.all %}
+                <span class="text-mono" style="font-size:11px;color:var(--accent-text);font-weight:600;">{{ facture.reference }}</span>{% if not forloop.last %}, {% endif %}
+              {% empty %}
+                <span style="color:var(--text-muted);font-size:12px;">—</span>
+              {% endfor %}
+            </td>
+            <td style="color:var(--text-muted);font-size:12px;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              {{ bl.notes|default:"—" }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
     {% if page.has_other_pages %}
-    <div class="card-footer d-flex justify-content-between align-items-center">
-        <small class="text-muted">Page {{ page.number }} / {{ page.paginator.num_pages }}</small>
-        <nav>
-            <ul class="pagination pagination-sm mb-0">
-                {% if page.has_previous %}
-                <li class="page-item"><a class="page-link" href="?{% param_replace page=1 %}"><i class="fas fa-angles-left"></i></a></li>
-                <li class="page-item"><a class="page-link" href="?{% param_replace page=page.previous_page_number %}"><i class="fas fa-angle-left"></i></a></li>
-                {% endif %}
-                <li class="page-item active"><span class="page-link">{{ page.number }}</span></li>
-                {% if page.has_next %}
-                <li class="page-item"><a class="page-link" href="?{% param_replace page=page.next_page_number %}"><i class="fas fa-angle-right"></i></a></li>
-                <li class="page-item"><a class="page-link" href="?{% param_replace page=page.paginator.num_pages %}"><i class="fas fa-angles-right"></i></a></li>
-                {% endif %}
-            </ul>
-        </nav>
+    <div class="pagination-bar">
+      <span>Page {{ page.number }} / {{ page.paginator.num_pages }} — {{ page.paginator.count }} BL</span>
+      <div class="page-links">
+        {% if page.has_previous %}
+        <a href="?page={{ page.previous_page_number }}{% if client_pk %}&client={{ client_pk }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if date_debut %}&date_debut={{ date_debut|date:'Y-m-d' }}{% endif %}{% if date_fin %}&date_fin={{ date_fin|date:'Y-m-d' }}{% endif %}{% if q %}&q={{ q }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>
+        {% endif %}
+        <span class="page-link active">{{ page.number }}</span>
+        {% if page.has_next %}
+        <a href="?page={{ page.next_page_number }}{% if client_pk %}&client={{ client_pk }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if date_debut %}&date_debut={{ date_debut|date:'Y-m-d' }}{% endif %}{% if date_fin %}&date_fin={{ date_fin|date:'Y-m-d' }}{% endif %}{% if q %}&q={{ q }}{% endif %}" class="page-link"><i class="bx bx-chevron-right"></i></a>
+        {% endif %}
+      </div>
     </div>
     {% endif %}
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bxs-file-txt empty-state__icon"></i>
+      <div class="empty-state__title">Aucun BL trouvé</div>
+      <div class="empty-state__text">Modifiez les filtres pour élargir la recherche.</div>
+    </div>
+    {% endif %}
+  </div>
 </div>
-{% endblock content %}
+
+<!-- Chart data embedded -->
+<script id="bl-data" type="application/json">
+{
+  "statuts": {
+    "brouillon": 0{% for bl in page.object_list %}{% if bl.statut == "brouillon" %}{# count via JS #}{% endif %}{% endfor %},
+    "livre": 0,
+    "facture": 0,
+    "litige": 0
+  },
+  "rows": [
+    {% for bl in page.object_list %}
+    {"statut":"{{ bl.statut }}","client":"{{ bl.client.nom|escapejs }}","montant":{{ bl.montant_total|floatformat:2 }}}{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ]
+}
+</script>
+{% endblock %}
 
 {% block extra_js %}
 <script>
-(function() {
-    'use strict';
-    window.sortTable = function(n) {
-        var table = document.getElementById('data-table');
-        if (!table) return;
-        var tbody = table.querySelector('tbody');
-        var rows = Array.from(tbody.querySelectorAll('tr'));
-        var asc = table.getAttribute('data-sort-col') != n || table.getAttribute('data-sort-dir') === 'desc';
-        table.setAttribute('data-sort-col', n);
-        table.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
-        rows.sort(function(a, b) {
-            var x = a.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
-            var y = b.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
-            var xn = parseFloat(x), yn = parseFloat(y);
-            if (!isNaN(xn) && !isNaN(yn)) return asc ? xn - yn : yn - xn;
-            return asc ? x.localeCompare(y) : y.localeCompare(x);
-        });
-        rows.forEach(function(r) { tbody.appendChild(r); });
-    };
-})();
+document.addEventListener('DOMContentLoaded', function () {
+  const raw = JSON.parse(document.getElementById('bl-data').textContent || '{"rows":[]}');
+  const rows = raw.rows || [];
+
+  const COLORS = ['#22c55e','#38bdf8','#f59e0b','#c4b5fd','#fb923c','#5eead4','#f9a8d4','#a5b4fc','#f87171'];
+  const fmt = v => new Intl.NumberFormat('fr-DZ').format(Math.round(v));
+  const tip = { backgroundColor:'#fff', borderColor:'rgba(0,0,0,.12)', borderWidth:1, titleColor:'#1a2219', bodyColor:'#3d5242', padding:10, cornerRadius:8 };
+
+  // Aggregations
+  const statuts = { brouillon:0, livre:0, facture:0, litige:0 };
+  const byClient = {};
+  let totalValeur = 0;
+  rows.forEach(r => {
+    statuts[r.statut] = (statuts[r.statut] || 0) + 1;
+    if (!byClient[r.client]) byClient[r.client] = 0;
+    byClient[r.client] += parseFloat(r.montant);
+    totalValeur += parseFloat(r.montant);
+  });
+
+  // KPI updates
+  const el = id => document.getElementById(id);
+  if (el('kpi-factures')) el('kpi-factures').textContent = statuts.facture;
+  if (el('kpi-livres')) el('kpi-livres').textContent = statuts.livre;
+  if (el('kpi-valeur')) el('kpi-valeur').textContent = fmt(totalValeur) + ' DZD';
+
+  // Statut donut
+  const donutEl = document.getElementById('statutDonut');
+  if (donutEl) {
+    new Chart(donutEl, {
+      type: 'doughnut',
+      data: {
+        labels: ['Brouillon', 'Livré', 'Facturé', 'En Litige'],
+        datasets: [{ data: [statuts.brouillon, statuts.livre, statuts.facture, statuts.litige],
+          backgroundColor: ['#f59e0b','#38bdf8','#22c55e','#ef4444'],
+          borderColor: '#fff', borderWidth: 3 }]
+      },
+      options: {
+        cutout: '65%', responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
+          tooltip: { ...tip, callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw}` } }
+        }
+      }
+    });
+  }
+
+  // Client bar
+  const clientEntries = Object.entries(byClient).sort((a,b) => b[1]-a[1]).slice(0,10);
+  const barEl = document.getElementById('clientBar');
+  if (barEl && clientEntries.length) {
+    new Chart(barEl, {
+      type: 'bar',
+      data: {
+        labels: clientEntries.map(e => e[0]),
+        datasets: [{ label: 'Valeur BL (DZD)', data: clientEntries.map(e => e[1]),
+          backgroundColor: 'rgba(56,189,248,.7)', borderColor: '#38bdf8', borderWidth:1, borderRadius:6, borderSkipped:false }]
+      },
+      options: {
+        indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:{ ...tip, callbacks:{ label: c => ' '+fmt(c.raw)+' DZD' } } },
+        scales:{ x:{grid:{color:'rgba(0,0,0,.05)'},ticks:{callback:v=>(v/1000).toFixed(0)+'k'}}, y:{grid:{display:false},ticks:{font:{size:11}}} }
+      }
+    });
+  }
+});
 </script>
-{% endblock extra_js %}
+{% endblock %}

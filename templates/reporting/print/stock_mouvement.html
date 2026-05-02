@@ -1,116 +1,426 @@
-{% load static %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <title>Bon de Mouvement — {{ mouvement.reference }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        @media print {
-            .no-print { display: none !important; }
-            body { background: white; }
-            .print-container { box-shadow: none !important; border: none !important; }
-        }
-        body { background: #f5f5f5; }
-        .print-container {
-            max-width: 800px;
-            margin: 2rem auto;
-            background: white;
-            padding: 2rem;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        .company-header { border-bottom: 2px solid #0d6efd; padding-bottom: 1rem; margin-bottom: 1.5rem; }
-        .doc-title { font-size: 1.5rem; font-weight: bold; color: #0d6efd; text-transform: uppercase; }
-        .info-row { margin-bottom: 0.5rem; }
-        .info-label { font-weight: bold; color: #555; }
-        .table-print th { background: #f8f9fa; }
-        .signature-zone { margin-top: 3rem; border-top: 1px dashed #ccc; padding-top: 1rem; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bon de Mouvement #{{ mouvement.pk }} — {{ company.nom }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent:      #22c55e;
+      --accent-text: #15803d;
+      --text-primary:   #1a2219;
+      --text-secondary: #3d5242;
+      --text-muted:     #7a8c78;
+      --border:      rgba(0,0,0,.10);
+      --bg-raised:   #eef2ee;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text-primary);
+      background: #fff;
+      padding: 32px 40px;
+      max-width: 780px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ── */
+    .doc-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid var(--accent);
+    }
+    .brand { display: flex; flex-direction: column; gap: 3px; }
+    .brand__name {
+      font-family: 'Nunito', sans-serif;
+      font-weight: 800;
+      font-size: 20px;
+      color: var(--text-primary);
+    }
+    .brand__sub { font-size: 11.5px; color: var(--text-muted); }
+
+    .doc-title-block { text-align: right; }
+    .doc-title {
+      font-family: 'Nunito', sans-serif;
+      font-weight: 800;
+      font-size: 18px;
+      color: var(--accent-text);
+      letter-spacing: -.015em;
+    }
+    .doc-ref {
+      font-family: 'Nunito', sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    .doc-date { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; }
+
+    /* ── Type badge ── */
+    .type-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      margin-bottom: 22px;
+    }
+    .type-badge.entree  { background: rgba(34,197,94,.12); color: #15803d; border: 1px solid rgba(34,197,94,.3); }
+    .type-badge.sortie  { background: rgba(239,68,68,.10); color: #dc2626; border: 1px solid rgba(239,68,68,.25); }
+    .type-badge.ajust   { background: rgba(245,158,11,.12); color: #b45309; border: 1px solid rgba(245,158,11,.3); }
+
+    .type-badge .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* ── Info grid ── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .info-block {
+      background: var(--bg-raised);
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .info-block__label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+    }
+    .info-block__val {
+      font-family: 'Nunito', sans-serif;
+      font-weight: 700;
+      font-size: 14.5px;
+      color: var(--text-primary);
+    }
+    .info-block__sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ── Movement detail table ── */
+    .mov-table { width: 100%; border-collapse: collapse; margin-bottom: 22px; }
+    .mov-table th {
+      background: var(--bg-raised);
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-muted);
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .mov-table td {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text-secondary);
+      vertical-align: top;
+    }
+    .mov-table .val-num {
+      font-family: 'Nunito', sans-serif;
+      font-weight: 800;
+      font-size: 15px;
+    }
+    .mov-table .val-num.entree { color: #15803d; }
+    .mov-table .val-num.sortie { color: #dc2626; }
+    .mov-table .val-num.ajust  { color: #b45309; }
+
+    /* ── Stock level visual ── */
+    .stock-visual {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 0;
+      margin-bottom: 22px;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .stock-visual__block { text-align: center; flex: 1; }
+    .stock-visual__val {
+      font-family: 'Nunito', sans-serif;
+      font-weight: 800;
+      font-size: 20px;
+    }
+    .stock-visual__label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); margin-top: 3px; }
+    .stock-visual__arrow {
+      font-size: 22px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    /* ── Source reference ── */
+    .source-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding: 12px 16px;
+      background: var(--bg-raised);
+      border-radius: 8px;
+      margin-bottom: 22px;
+    }
+    .source-pair { display: flex; flex-direction: column; gap: 2px; }
+    .source-pair__key { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); }
+    .source-pair__val { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+
+    /* ── Notes ── */
+    .notes-block {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      min-height: 50px;
+      margin-bottom: 26px;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    /* ── Signature row ── */
+    .sig-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+      margin-top: 8px;
+    }
+    .sig-block { text-align: center; }
+    .sig-line {
+      border-bottom: 1px solid var(--text-muted);
+      height: 48px;
+      margin-bottom: 6px;
+    }
+    .sig-label { font-size: 11px; color: var(--text-muted); }
+
+    /* ── Footer ── */
+    .doc-footer {
+      margin-top: 30px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .doc-footer__text { font-size: 10.5px; color: var(--text-muted); }
+
+    /* ── Print ── */
+    .no-print { display: block; }
+
+    @media print {
+      body { padding: 20px 24px; }
+      .no-print { display: none !important; }
+      @page { size: A4; margin: 18mm 20mm; }
+    }
+  </style>
 </head>
 <body>
-<div class="no-print text-center py-3">
-    <button onclick="window.print()" class="btn btn-primary"><i class="fas fa-print me-1"></i> Imprimer</button>
-    <button onclick="window.close()" class="btn btn-secondary"><i class="fas fa-xmark me-1"></i> Fermer</button>
+
+<!-- Print action (hidden on print) -->
+<div class="no-print" style="text-align:right;margin-bottom:22px;">
+  <button onclick="window.print()" style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;background:#22c55e;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;">
+    <span style="margin-right:6px;">🖨</span> Imprimer / Enregistrer PDF
+  </button>
+  <a href="javascript:history.back()" style="font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;color:#7a8c78;margin-left:14px;text-decoration:none;">← Retour</a>
 </div>
 
-<div class="print-container">
-    <!-- Company Header -->
-    <div class="company-header d-flex justify-content-between align-items-start">
-        <div>
-            <h4 class="mb-1 fw-bold">{{ company.nom|default:"AviTrack" }}</h4>
-            <div class="small text-muted">
-                {% if company.adresse %}{{ company.adresse }}<br>{% endif %}
-                {% if company.telephone %}Tél: {{ company.telephone }}{% endif %}
-                {% if company.email %} | Email: {{ company.email }}{% endif %}
-            </div>
-        </div>
-        <div class="text-end">
-            <div class="doc-title">Bon de Mouvement</div>
-            <div class="h5 fw-bold mt-1">{{ mouvement.reference }}</div>
-        </div>
-    </div>
-
-    <!-- Document Info -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="info-row"><span class="info-label">Date:</span> {{ mouvement.date_mouvement|date:"d/m/Y H:i" }}</div>
-            <div class="info-row"><span class="info-label">Type:</span> {{ mouvement.get_type_mouvement_display }}</div>
-            <div class="info-row"><span class="info-label">Motif:</span> {{ mouvement.motif|default:"—" }}</div>
-        </div>
-        <div class="col-md-6">
-            <div class="info-row"><span class="info-label">Enregistré par:</span> {{ mouvement.enregistre_par.get_full_name|default:mouvement.enregistre_par.username }}</div>
-            {% if mouvement.lot %}<div class="info-row"><span class="info-label">Lot:</span> {{ mouvement.lot.designation }}</div>{% endif %}
-        </div>
-    </div>
-
-    <!-- Lines Table -->
-    <table class="table table-bordered table-print">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Intrant</th>
-                <th>Catégorie</th>
-                <th class="text-end">Quantité</th>
-                <th>Unité</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for ligne in mouvement.lignes.all %}
-            <tr>
-                <td>{{ forloop.counter }}</td>
-                <td>{{ ligne.intrant.designation }}</td>
-                <td>{{ ligne.intrant.categorie.libelle }}</td>
-                <td class="text-end">{{ ligne.quantite|floatformat:3 }}</td>
-                <td>{{ ligne.intrant.unite_mesure }}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="5" class="text-center text-muted">Aucune ligne.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
-
-    <!-- Notes -->
-    {% if mouvement.notes %}
-    <div class="mt-3 p-2 bg-light rounded">
-        <strong>Notes:</strong> {{ mouvement.notes }}
-    </div>
-    {% endif %}
-
-    <!-- Signature Zone -->
-    <div class="signature-zone row">
-        <div class="col-6 text-center">
-            <div class="small text-muted mb-5">Signature Responsable Stock</div>
-            <div>_______________________</div>
-        </div>
-        <div class="col-6 text-center">
-            <div class="small text-muted mb-5">Signature Responsable</div>
-            <div>_______________________</div>
-        </div>
-    </div>
-
-    <div class="text-center mt-4 small text-muted">
-        Document généré par AviTrack — {{ mouvement.created_at|date:"d/m/Y H:i" }}
-    </div>
+<!-- Header -->
+<div class="doc-header">
+  <div class="brand">
+    <div class="brand__name">{{ company.nom }}</div>
+    {% if company.adresse %}<div class="brand__sub">{{ company.adresse }}</div>{% endif %}
+    {% if company.telephone %}<div class="brand__sub">{{ company.telephone }}</div>{% endif %}
+    {% if company.nif %}<div class="brand__sub">NIF : {{ company.nif }}{% if company.rc %} — RC : {{ company.rc }}{% endif %}</div>{% endif %}
+  </div>
+  <div class="doc-title-block">
+    <div class="doc-title">Bon de Mouvement</div>
+    <div class="doc-ref"># {{ mouvement.pk }}</div>
+    <div class="doc-date">{{ mouvement.date_mouvement|date:"d/m/Y" }}</div>
+  </div>
 </div>
+
+<!-- Type badge -->
+{% if mouvement.type_mouvement == 'entree' %}
+<span class="type-badge entree"><span class="dot"></span> Entrée en Stock</span>
+{% elif mouvement.type_mouvement == 'sortie' %}
+<span class="type-badge sortie"><span class="dot"></span> Sortie de Stock</span>
+{% else %}
+<span class="type-badge ajust"><span class="dot"></span> Ajustement</span>
+{% endif %}
+
+<!-- Info grid -->
+<div class="info-grid">
+  <div class="info-block">
+    <div class="info-block__label">Article</div>
+    <div class="info-block__val">
+      {% if mouvement.intrant %}{{ mouvement.intrant.designation }}{% elif mouvement.produit_fini %}{{ mouvement.produit_fini.designation }}{% endif %}
+    </div>
+    <div class="info-block__sub">
+      {% if mouvement.intrant %}Intrant — {{ mouvement.intrant.categorie.libelle }}{% elif mouvement.produit_fini %}Produit Fini — {{ mouvement.produit_fini.get_type_produit_display }}{% endif %}
+    </div>
+  </div>
+  <div class="info-block">
+    <div class="info-block__label">Source</div>
+    <div class="info-block__val">{{ mouvement.get_source_display }}</div>
+    {% if mouvement.reference_label %}<div class="info-block__sub">Réf. : {{ mouvement.reference_label }}</div>{% endif %}
+  </div>
+  <div class="info-block">
+    <div class="info-block__label">Date du mouvement</div>
+    <div class="info-block__val">{{ mouvement.date_mouvement|date:"d/m/Y" }}</div>
+    <div class="info-block__sub">Enregistré le {{ mouvement.created_at|date:"d/m/Y à H:i" }}</div>
+  </div>
+  <div class="info-block">
+    <div class="info-block__label">Enregistré par</div>
+    <div class="info-block__val">
+      {% if mouvement.created_by %}{{ mouvement.created_by.get_full_name|default:mouvement.created_by.username }}{% else %}Système{% endif %}
+    </div>
+    <div class="info-block__sub">
+      {% if mouvement.intrant %}Unité : {{ mouvement.intrant.unite_mesure }}{% elif mouvement.produit_fini %}Unité : {{ mouvement.produit_fini.unite_mesure }}{% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Movement detail table -->
+<table class="mov-table">
+  <thead>
+    <tr>
+      <th>Désignation</th>
+      <th style="text-align:right;">Quantité Avant</th>
+      <th style="text-align:center;">Mouvement</th>
+      <th style="text-align:right;">Quantité</th>
+      <th style="text-align:right;">Quantité Après</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="font-weight:600;color:var(--text-primary);">
+        {% if mouvement.intrant %}{{ mouvement.intrant.designation }}{% elif mouvement.produit_fini %}{{ mouvement.produit_fini.designation }}{% endif %}
+      </td>
+      <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:600;">
+        {{ mouvement.quantite_avant|floatformat:3 }}
+      </td>
+      <td style="text-align:center;">
+        {% if mouvement.type_mouvement == 'entree' %}
+          <span style="font-size:18px;color:#15803d;">+</span>
+        {% elif mouvement.type_mouvement == 'sortie' %}
+          <span style="font-size:18px;color:#dc2626;">−</span>
+        {% else %}
+          <span style="font-size:18px;color:#b45309;">≈</span>
+        {% endif %}
+      </td>
+      <td style="text-align:right;">
+        <span class="val-num {% if mouvement.type_mouvement == 'entree' %}entree{% elif mouvement.type_mouvement == 'sortie' %}sortie{% else %}ajust{% endif %}">
+          {% if mouvement.type_mouvement == 'entree' %}+{% elif mouvement.type_mouvement == 'sortie' %}−{% endif %}{{ mouvement.quantite|floatformat:3 }}
+        </span>
+      </td>
+      <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;">
+        {{ mouvement.quantite_apres|floatformat:3 }}
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- Stock level visual -->
+<div class="stock-visual">
+  <div class="stock-visual__block">
+    <div class="stock-visual__val" style="color:var(--text-muted);">{{ mouvement.quantite_avant|floatformat:3 }}</div>
+    <div class="stock-visual__label">Stock Avant</div>
+  </div>
+  <div class="stock-visual__arrow">
+    {% if mouvement.type_mouvement == 'entree' %}→{% elif mouvement.type_mouvement == 'sortie' %}→{% else %}⇌{% endif %}
+  </div>
+  <div class="stock-visual__block">
+    <div class="stock-visual__val {% if mouvement.type_mouvement == 'entree' %}entree{% elif mouvement.type_mouvement == 'sortie' %}sortie{% else %}ajust{% endif %}" style="{% if mouvement.type_mouvement == 'entree' %}color:#15803d{% elif mouvement.type_mouvement == 'sortie' %}color:#dc2626{% else %}color:#b45309{% endif %};">
+      {% if mouvement.type_mouvement == 'entree' %}+{% elif mouvement.type_mouvement == 'sortie' %}−{% endif %}{{ mouvement.quantite|floatformat:3 }}
+    </div>
+    <div class="stock-visual__label">
+      {% if mouvement.intrant %}{{ mouvement.intrant.unite_mesure }}{% elif mouvement.produit_fini %}{{ mouvement.produit_fini.unite_mesure }}{% endif %}
+    </div>
+  </div>
+  <div class="stock-visual__arrow">→</div>
+  <div class="stock-visual__block">
+    <div class="stock-visual__val" style="color:var(--text-primary);">{{ mouvement.quantite_apres|floatformat:3 }}</div>
+    <div class="stock-visual__label">Stock Après</div>
+  </div>
+</div>
+
+<!-- Source reference -->
+{% if mouvement.reference_label or mouvement.reference_id %}
+<div class="source-row">
+  <div class="source-pair">
+    <span class="source-pair__key">Source</span>
+    <span class="source-pair__val">{{ mouvement.get_source_display }}</span>
+  </div>
+  {% if mouvement.reference_label %}
+  <div class="source-pair">
+    <span class="source-pair__key">Référence document</span>
+    <span class="source-pair__val">{{ mouvement.reference_label }}</span>
+  </div>
+  {% endif %}
+  {% if mouvement.reference_id %}
+  <div class="source-pair">
+    <span class="source-pair__key">ID document</span>
+    <span class="source-pair__val">#{{ mouvement.reference_id }}</span>
+  </div>
+  {% endif %}
+  <div class="source-pair">
+    <span class="source-pair__key">Type mouvement</span>
+    <span class="source-pair__val">{{ mouvement.get_type_mouvement_display }}</span>
+  </div>
+</div>
+{% endif %}
+
+<!-- Notes -->
+<div style="font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--text-muted);margin-bottom:7px;">Notes / Observations</div>
+<div class="notes-block">
+  {{ mouvement.notes|default:"Aucune note." }}
+</div>
+
+<!-- Signatures -->
+<div class="sig-row">
+  <div class="sig-block">
+    <div class="sig-line"></div>
+    <div class="sig-label">Responsable Stock — Signature & cachet</div>
+  </div>
+  <div class="sig-block">
+    <div class="sig-line"></div>
+    <div class="sig-label">Vérifié par — Signature</div>
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="doc-footer">
+  <div class="doc-footer__text">
+    {{ company.nom }}
+    {% if company.adresse %} — {{ company.adresse }}{% endif %}
+    {% if company.telephone %} — Tél : {{ company.telephone }}{% endif %}
+  </div>
+  <div class="doc-footer__text">
+    Bon #{{ mouvement.pk }} — {{ mouvement.date_mouvement|date:"d/m/Y" }} — {{ mouvement.get_type_mouvement_display|upper }}
+  </div>
+</div>
+
+<script>
+  window.addEventListener('beforeprint', function () {
+    document.querySelectorAll('.no-print').forEach(el => el.style.display = 'none');
+  });
+  window.addEventListener('afterprint', function () {
+    document.querySelectorAll('.no-print').forEach(el => el.style.display = 'block');
+  });
+</script>
 </body>
 </html>

@@ -1,229 +1,337 @@
 {% extends "base.html" %}
-{% load reporting_extras %}
-{% load static i18n %}
+{% load static %}
+{% block title %}État des Stocks — Élevage Avicole{% endblock %}
+{% block nav_rapports %}active{% endblock %}
+{% block page_title %}État des Stocks{% endblock %}
+{% block page_sub_text %}
+  Valeur totale : {{ valeur_totale|floatformat:0 }} DZD
+  {% if nb_rupture_intrants %} — <span style="color:#dc2626;font-weight:700;">{{ nb_rupture_intrants }} rupture(s)</span>{% endif %}
+  {% if nb_alerte_intrants %} — <span style="color:#b45309;font-weight:700;">{{ nb_alerte_intrants }} alerte(s)</span>{% endif %}
+{% endblock %}
+{% block topbar_actions %}
+<a href="?{% if segment %}segment={{ segment }}&{% endif %}{% if categorie_pk %}categorie={{ categorie_pk }}&{% endif %}{% if alerte_only %}alerte=1&{% endif %}{% if q %}q={{ q }}&{% endif %}export=csv" class="btn-ghost btn-sm">
+  <i class="bx bxs-spreadsheet"></i> Exporter CSV
+</a>
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> Rapports</a>
+{% endblock %}
 
-{% block title %}{{ title }} — {{ company.nom|default:"AviTrack" }}{% endblock %}
-{% block page_title %}{{ title }}{% endblock %}
+{% block extra_css %}
+<style>
+.chart-wrap { height: 240px; position: relative; }
+.stock-bar-wrap { width: 90px; height: 6px; background: var(--bg-hover); border-radius: 4px; display:inline-block; vertical-align:middle; }
+.stock-bar-fill { height: 100%; border-radius: 4px; transition: width .4s; }
+.segment-tab { display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-secondary);text-decoration:none;transition:all .15s; }
+.segment-tab.active, .segment-tab:hover { background:var(--accent-dim);border-color:var(--accent);color:var(--accent-text); }
+</style>
+{% endblock %}
 
 {% block content %}
 <!-- Filters -->
-<div class="card mb-4">
-    <div class="card-header bg-light">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-filter me-2 text-primary"></i>Filtres</h6>
-    </div>
-    <div class="card-body">
-        <form method="get" class="row g-3 align-items-end" id="filter-form">
-            <div class="col-md-3 col-lg-2">
-                <label for="segment" class="form-label small text-muted">Segment</label>
-                <select name="segment" id="segment" class="form-select">
-                    <option value="">— Tous —</option>
-                    <option value="intrants" {% if segment == 'intrants' %}selected{% endif %}>Intrants</option>
-                    <option value="produits_finis" {% if segment == 'produits_finis' %}selected{% endif %}>Produits finis</option>
-                </select>
-            </div>
-            <div class="col-md-3 col-lg-2">
-                <label for="categorie" class="form-label small text-muted">Catégorie</label>
-                <select name="categorie" id="categorie" class="form-select">
-                    <option value="">— Toutes —</option>
-                    {% for c in categories %}
-                    <option value="{{ c.pk }}" {% if categorie_pk == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.libelle }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3 col-lg-3">
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                    <input type="text" name="q" class="form-control" placeholder="Rechercher..." value="{{ q|default:'' }}">
-                </div>
-            </div>
-            <div class="col-md-3 col-lg-5 text-md-end">
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="checkbox" name="alerte" id="alerte" value="1" {% if alerte_only %}checked{% endif %} onchange="this.form.submit()">
-                    <label class="form-check-label small" for="alerte">Alertes uniquement</label>
-                </div>
-                <button type="submit" class="btn btn-primary"><i class="fas fa-filter me-1"></i> Filtrer</button>
-                <a href="{{ request.path }}" class="btn btn-outline-secondary"><i class="fas fa-rotate-left"></i></a>
-                <a href="{{ request.path }}?{% if segment %}segment={{ segment }}&{% endif %}{% if categorie_pk %}categorie={{ categorie_pk }}&{% endif %}{% if q %}q={{ q|urlencode }}&{% endif %}{% if alerte_only %}alerte=1&{% endif %}export=csv" class="btn btn-success"><i class="fas fa-file-csv"></i></a>
-            </div>
-        </form>
-    </div>
+<div class="section-card mb-3">
+  <div class="section-card__body" style="padding:14px 20px;">
+    <form method="get">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:1px;">
+          <a href="?{% if q %}q={{ q }}&{% endif %}{% if alerte_only %}alerte=1&{% endif %}" class="segment-tab {% if not segment %}active{% endif %}">Tout</a>
+          <a href="?segment=intrants{% if q %}&q={{ q }}{% endif %}{% if alerte_only %}&alerte=1{% endif %}" class="segment-tab {% if segment == 'intrants' %}active{% endif %}"><i class="bx bxs-package"></i> Intrants</a>
+          <a href="?segment=produits_finis{% if q %}&q={{ q }}{% endif %}{% if alerte_only %}&alerte=1{% endif %}" class="segment-tab {% if segment == 'produits_finis' %}active{% endif %}"><i class="bx bxs-box"></i> Produits Finis</a>
+        </div>
+        {% if segment in "" or segment == "intrants" %}
+        <div class="input-wrapper" style="min-width:180px;">
+          <i class="bx bxs-tag input-icon"></i>
+          <select name="categorie" class="field-input has-icon" onchange="this.form.submit()">
+            <option value="">Toutes catégories</option>
+            {% for c in categories %}
+            <option value="{{ c.pk }}" {% if categorie_pk == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.libelle }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+        <div class="input-wrapper" style="flex:1;min-width:180px;">
+          <i class="bx bx-search input-icon"></i>
+          <input type="text" name="q" class="field-input has-icon" placeholder="Rechercher…" value="{{ q }}">
+        </div>
+        {% if segment %}<input type="hidden" name="segment" value="{{ segment }}">{% endif %}
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="alerte_only" name="alerte" value="1" {% if alerte_only %}checked{% endif %} onchange="this.form.submit()" style="width:16px;height:16px;accent-color:var(--accent);">
+          <label for="alerte_only" style="font-size:13px;color:var(--text-secondary);cursor:pointer;">Alertes uniquement</label>
+        </div>
+        <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> Filtrer</button>
+        <a href="{% url 'reporting:etat_stocks' %}" class="btn-ghost btn-sm">Réinitialiser</a>
+      </div>
+    </form>
+  </div>
 </div>
 
-<!-- KPI Cards -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card border-start border-4 border-primary">
-            <div class="card-body d-flex justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase">Valeur Intrants</div>
-                    <div class="h5 fw-bold mb-0">{{ valeur_intrants|floatformat:2 }} DZD</div>
-                </div>
-                <div class="text-primary fs-3"><i class="fas fa-wheat-awn"></i></div>
-            </div>
-        </div>
+<!-- KPIs -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-blue"><i class="bx bxs-package"></i></div>
+      <div class="metric-label">Valeur Stock Intrants</div>
+      <div class="metric-value sm">{{ valeur_intrants|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
-    <div class="col-md-3">
-        <div class="card border-start border-4 border-success">
-            <div class="card-body d-flex justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase">Valeur Produits</div>
-                    <div class="h5 fw-bold mb-0">{{ valeur_produits|floatformat:2 }} DZD</div>
-                </div>
-                <div class="text-success fs-3"><i class="fas fa-drumstick-bite"></i></div>
-            </div>
-        </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-green"><i class="bx bxs-box"></i></div>
+      <div class="metric-label">Valeur Produits Finis</div>
+      <div class="metric-value sm">{{ valeur_produits|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
-    <div class="col-md-3">
-        <div class="card border-start border-4 border-info">
-            <div class="card-body d-flex justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase">Valeur Totale</div>
-                    <div class="h5 fw-bold mb-0">{{ valeur_totale|floatformat:2 }} DZD</div>
-                </div>
-                <div class="text-info fs-3"><i class="fas fa-warehouse"></i></div>
-            </div>
-        </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-amber"><i class="bx bxs-error"></i></div>
+      <div class="metric-label">Articles en Alerte</div>
+      <div class="metric-value sm {% if nb_alerte_intrants > 0 %}" style="color:#b45309;{% endif %}">{{ nb_alerte_intrants|add:nb_alerte_produits }}</div>
     </div>
-    <div class="col-md-3">
-        <div class="card border-start border-4 border-warning">
-            <div class="card-body d-flex justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase">Alertes / Ruptures</div>
-                    <div class="h5 fw-bold mb-0">
-                        <span class="text-warning">{{ nb_alerte_intrants|default:0 }}</span> / <span class="text-danger">{{ nb_rupture_intrants|default:0 }}</span>
-                        <span class="text-muted small">|</span>
-                        <span class="text-warning">{{ nb_alerte_produits|default:0 }}</span> / <span class="text-danger">{{ nb_rupture_produits|default:0 }}</span>
-                    </div>
-                </div>
-                <div class="text-warning fs-3"><i class="fas fa-bell"></i></div>
-            </div>
-        </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-red"><i class="bx bxs-error-circle"></i></div>
+      <div class="metric-label">Ruptures de Stock</div>
+      <div class="metric-value sm {% if nb_rupture_intrants > 0 %}" style="color:#dc2626;{% endif %}">{{ nb_rupture_intrants }}</div>
     </div>
+  </div>
 </div>
 
+<!-- Charts row -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-5">
+    <div class="section-card">
+      <div class="section-card__head"><span class="section-card__title">Valorisation par Catégorie</span></div>
+      <div class="section-card__body"><div class="chart-wrap"><canvas id="valeurDonut"></canvas></div></div>
+    </div>
+  </div>
+  <div class="col-xl-7">
+    <div class="section-card">
+      <div class="section-card__head"><span class="section-card__title">Top 10 Intrants par Valeur</span></div>
+      <div class="section-card__body"><div class="chart-wrap"><canvas id="top10Bar"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Stock Intrants table -->
+{% if segment in "" or segment == "intrants" %}
 {% if stocks_intrants %}
-<!-- Intrants Table -->
-<div class="card mb-4">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-wheat-awn me-2 text-primary"></i>Stocks Intrants</h6>
-        <span class="badge bg-primary">{{ stocks_intrants|length }}</span>
+<div class="section-card mb-3">
+  <div class="section-card__head">
+    <span class="section-card__title"><i class="bx bxs-package" style="color:var(--text-muted);margin-right:6px;"></i>Stock Intrants</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ stocks_intrants|length }} article(s) — {{ valeur_intrants|floatformat:0 }} DZD</span>
+  </div>
+  <div class="section-card__body no-pad">
+    <div style="overflow-x:auto;">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>Désignation</th>
+            <th>Catégorie</th>
+            <th style="text-align:right;">Quantité</th>
+            <th style="text-align:right;">Seuil</th>
+            <th style="text-align:center;">Statut</th>
+            <th style="text-align:right;">PMP</th>
+            <th style="text-align:right;">Valeur Stock</th>
+            <th style="font-size:10px;">Dernière MAJ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in stocks_intrants %}
+          <tr class="stagger-row {% if s.quantite <= 0 %}" style="background:rgba(239,68,68,.04);{% elif s.en_alerte %}" style="background:rgba(245,158,11,.04);{% endif %}">
+            <td>
+              <span style="font-weight:600;color:var(--text-primary);">{{ s.intrant.designation }}</span>
+            </td>
+            <td><span class="pill-base pill-info">{{ s.intrant.categorie.libelle }}</span></td>
+            <td style="text-align:right;">
+              <span style="font-family:'Nunito',sans-serif;font-weight:700;">{{ s.quantite|floatformat:3 }}</span>
+              <span style="font-size:11px;color:var(--text-muted);"> {{ s.intrant.unite_mesure }}</span>
+              {% if s.intrant.seuil_alerte > 0 %}
+              <div style="margin-top:4px;">
+                <div class="stock-bar-wrap">
+                  <div class="stock-bar-fill"
+                    style="width:{% if s.intrant.seuil_alerte > 0 %}{% widthratio s.quantite s.intrant.seuil_alerte 100 %}{% else %}100{% endif %}%;
+                    background:{% if s.quantite <= 0 %}#ef4444{% elif s.en_alerte %}#f59e0b{% else %}#22c55e{% endif %};"
+                    data-pct="{{ s.quantite }}" data-max="{{ s.intrant.seuil_alerte }}">
+                  </div>
+                </div>
+              </div>
+              {% endif %}
+            </td>
+            <td style="text-align:right;font-size:12.5px;color:var(--text-muted);">{{ s.intrant.seuil_alerte|floatformat:0 }} {{ s.intrant.unite_mesure }}</td>
+            <td style="text-align:center;">
+              {% if s.quantite <= 0 %}
+              <span class="pill-base pill-danger">Rupture</span>
+              {% elif s.en_alerte %}
+              <span class="pill-base pill-warning">Alerte</span>
+              {% else %}
+              <span class="pill-base pill-success">Normal</span>
+              {% endif %}
+            </td>
+            <td style="text-align:right;font-size:12.5px;">{{ s.prix_moyen_pondere|floatformat:2 }} DZD</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ s.valeur_stock|floatformat:0 }} DZD</td>
+            <td style="font-size:11px;color:var(--text-muted);">{{ s.derniere_mise_a_jour|date:"d/m/Y" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--bg-raised);">
+            <td colspan="6" style="font-weight:700;padding:12px 14px;">TOTAL INTRANTS</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;padding:12px 14px;">{{ valeur_intrants|floatformat:0 }} DZD</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover mb-0 align-middle" id="table-intrants">
-                <thead class="table-light">
-                    <tr>
-                        <th class="cursor-pointer" onclick="sortTable('table-intrants',0)">Catégorie <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable('table-intrants',1)">Désignation <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable('table-intrants',2)">Quantité <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable('table-intrants',3)">Unité <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable('table-intrants',4)">Seuil <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable('table-intrants',5)">Statut <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable('table-intrants',6)">PMP <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable('table-intrants',7)">Valeur <i class="fas fa-sort text-muted small"></i></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for s in stocks_intrants %}
-                    <tr>
-                        <td><span class="badge bg-secondary">{{ s.intrant.categorie.libelle }}</span></td>
-                        <td class="fw-bold">{{ s.intrant.designation }}</td>
-                        <td class="text-end">{{ s.quantite|floatformat:3 }}</td>
-                        <td>{{ s.intrant.unite_mesure }}</td>
-                        <td class="text-end">{{ s.intrant.seuil_alerte|floatformat:3 }}</td>
-                        <td>
-                            {% if s.quantite <= 0 %}<span class="badge bg-danger">RUPTURE</span>
-                            {% elif s.en_alerte %}<span class="badge bg-warning">ALERTE</span>
-                            {% else %}<span class="badge bg-success">OK</span>{% endif %}
-                        </td>
-                        <td class="text-end">{{ s.prix_moyen_pondere|floatformat:2 }}</td>
-                        <td class="text-end fw-bold">{{ s.valeur_stock|floatformat:2 }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+  </div>
+</div>
+{% else %}
+<div class="section-card mb-3">
+  <div class="section-card__body">
+    <div class="empty-state">
+      <i class="bx bxs-package empty-state__icon"></i>
+      <div class="empty-state__title">Aucun intrant{% if alerte_only %} en alerte{% endif %}</div>
+      {% if alerte_only %}<div class="empty-state__text">Tous les stocks intrants sont au-dessus du seuil d'alerte.</div>{% endif %}
     </div>
+  </div>
 </div>
 {% endif %}
+{% endif %}
 
+<!-- Stock Produits Finis table -->
+{% if segment in "" or segment == "produits_finis" %}
 {% if stocks_produits %}
-<!-- Produits Finis Table -->
-<div class="card mb-4">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-drumstick-bite me-2 text-success"></i>Produits Finis</h6>
-        <span class="badge bg-success">{{ stocks_produits|length }}</span>
+<div class="section-card">
+  <div class="section-card__head">
+    <span class="section-card__title"><i class="bx bxs-box" style="color:var(--text-muted);margin-right:6px;"></i>Stock Produits Finis</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ stocks_produits|length }} article(s) — {{ valeur_produits|floatformat:0 }} DZD</span>
+  </div>
+  <div class="section-card__body no-pad">
+    <div style="overflow-x:auto;">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>Produit</th>
+            <th>Type</th>
+            <th style="text-align:right;">Quantité</th>
+            <th style="text-align:right;">Seuil</th>
+            <th style="text-align:center;">Statut</th>
+            <th style="text-align:right;">Coût Moyen</th>
+            <th style="text-align:right;">Valeur Stock</th>
+            <th style="font-size:10px;">Dernière MAJ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in stocks_produits %}
+          <tr class="stagger-row {% if s.quantite <= 0 %}" style="background:rgba(239,68,68,.04);{% elif s.en_alerte %}" style="background:rgba(245,158,11,.04);{% endif %}">
+            <td style="font-weight:600;color:var(--text-primary);">{{ s.produit_fini.designation }}</td>
+            <td><span class="pill-base pill-neutral">{{ s.produit_fini.get_type_produit_display }}</span></td>
+            <td style="text-align:right;">
+              <span style="font-family:'Nunito',sans-serif;font-weight:700;">{{ s.quantite|floatformat:3 }}</span>
+              <span style="font-size:11px;color:var(--text-muted);"> {{ s.produit_fini.unite_mesure }}</span>
+            </td>
+            <td style="text-align:right;font-size:12.5px;color:var(--text-muted);">{{ s.seuil_alerte|floatformat:0 }} {{ s.produit_fini.unite_mesure }}</td>
+            <td style="text-align:center;">
+              {% if s.quantite <= 0 %}
+              <span class="pill-base pill-danger">Rupture</span>
+              {% elif s.en_alerte %}
+              <span class="pill-base pill-warning">Alerte</span>
+              {% else %}
+              <span class="pill-base pill-success">Normal</span>
+              {% endif %}
+            </td>
+            <td style="text-align:right;font-size:12.5px;">{{ s.cout_moyen_production|floatformat:2 }} DZD</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ s.valeur_stock|floatformat:0 }} DZD</td>
+            <td style="font-size:11px;color:var(--text-muted);">{{ s.derniere_mise_a_jour|date:"d/m/Y" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--bg-raised);">
+            <td colspan="6" style="font-weight:700;padding:12px 14px;">TOTAL PRODUITS FINIS</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;padding:12px 14px;">{{ valeur_produits|floatformat:0 }} DZD</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover mb-0 align-middle" id="table-produits">
-                <thead class="table-light">
-                    <tr>
-                        <th class="cursor-pointer" onclick="sortTable('table-produits',0)">Type <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable('table-produits',1)">Désignation <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable('table-produits',2)">Quantité <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable('table-produits',3)">Unité <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable('table-produits',4)">Seuil <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable('table-produits',5)">Statut <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable('table-produits',6)">Coût moyen <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable('table-produits',7)">Valeur <i class="fas fa-sort text-muted small"></i></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for s in stocks_produits %}
-                    <tr>
-                        <td><span class="badge bg-secondary">{{ s.produit_fini.get_type_produit_display }}</span></td>
-                        <td class="fw-bold">{{ s.produit_fini.designation }}</td>
-                        <td class="text-end">{{ s.quantite|floatformat:3 }}</td>
-                        <td>{{ s.produit_fini.unite_mesure }}</td>
-                        <td class="text-end">{{ s.seuil_alerte|floatformat:3 }}</td>
-                        <td>
-                            {% if s.quantite <= 0 %}<span class="badge bg-danger">RUPTURE</span>
-                            {% elif s.en_alerte %}<span class="badge bg-warning">ALERTE</span>
-                            {% else %}<span class="badge bg-success">OK</span>{% endif %}
-                        </td>
-                        <td class="text-end">{{ s.cout_moyen_production|floatformat:2 }}</td>
-                        <td class="text-end fw-bold">{{ s.valeur_stock|floatformat:2 }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+  </div>
 </div>
+{% else %}
+<div class="section-card">
+  <div class="section-card__body">
+    <div class="empty-state">
+      <i class="bx bxs-box empty-state__icon"></i>
+      <div class="empty-state__title">Aucun produit fini en stock</div>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endif %}
 
-{% if not stocks_intrants and not stocks_produits %}
-<div class="card">
-    <div class="card-body text-center py-5 text-muted">
-        <i class="fas fa-box-open fa-2x mb-2 text-info"></i><br>
-        Aucun stock ne correspond aux filtres sélectionnés.
-    </div>
-</div>
-{% endif %}
-{% endblock content %}
+<script id="stocks-data" type="application/json">
+{
+  "intrants_labels": [{% for s in stocks_intrants|slice:":10" %}"{{ s.intrant.designation|truncatechars:20|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  "intrants_values": [{% for s in stocks_intrants|slice:":10" %}{{ s.valeur_stock|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}],
+  "donut_labels": ["Stock Intrants","Stock Produits Finis"],
+  "donut_values": [{{ valeur_intrants|floatformat:2 }}, {{ valeur_produits|floatformat:2 }}]
+}
+</script>
+{% endblock %}
 
 {% block extra_js %}
 <script>
-(function() {
-    'use strict';
-    window.sortTable = function(tableId, n) {
-        var table = document.getElementById(tableId);
-        if (!table) return;
-        var tbody = table.querySelector('tbody');
-        var rows = Array.from(tbody.querySelectorAll('tr'));
-        var asc = table.getAttribute('data-sort-col') != n || table.getAttribute('data-sort-dir') === 'desc';
-        table.setAttribute('data-sort-col', n);
-        table.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
-        rows.sort(function(a, b) {
-            var x = a.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
-            var y = b.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
-            var xn = parseFloat(x), yn = parseFloat(y);
-            if (!isNaN(xn) && !isNaN(yn)) return asc ? xn - yn : yn - xn;
-            return asc ? x.localeCompare(y) : y.localeCompare(x);
-        });
-        rows.forEach(function(r) { tbody.appendChild(r); });
-    };
-})();
+document.addEventListener('DOMContentLoaded', function () {
+  const d = JSON.parse(document.getElementById('stocks-data').textContent);
+  const COLORS = ['#22c55e','#38bdf8','#f59e0b','#c4b5fd','#fb923c','#5eead4','#f9a8d4','#a5b4fc','#f87171','#86efac'];
+  const tip = {
+    backgroundColor: '#fff', borderColor: 'rgba(0,0,0,.12)', borderWidth: 1,
+    titleColor: '#1a2219', bodyColor: '#3d5242', padding: 10, cornerRadius: 8,
+    callbacks: { label: ctx => ' ' + new Intl.NumberFormat('fr-DZ').format(Math.round(ctx.raw)) + ' DZD' }
+  };
+
+  // Valeur donut
+  const donutEl = document.getElementById('valeurDonut');
+  if (donutEl) {
+    new Chart(donutEl, {
+      type: 'doughnut',
+      data: {
+        labels: d.donut_labels,
+        datasets: [{ data: d.donut_values, backgroundColor: ['#22c55e', '#38bdf8'], borderColor: '#fff', borderWidth: 3 }]
+      },
+      options: {
+        cutout: '65%', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }, tooltip: tip }
+      }
+    });
+  }
+
+  // Top 10 bar
+  const barEl = document.getElementById('top10Bar');
+  if (barEl && d.intrants_labels.length) {
+    new Chart(barEl, {
+      type: 'bar',
+      data: {
+        labels: d.intrants_labels,
+        datasets: [{ label: 'Valeur (DZD)', data: d.intrants_values, backgroundColor: COLORS, borderRadius: 5, borderSkipped: false }]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: tip },
+        scales: {
+          x: { grid: { color: 'rgba(0,0,0,.05)' }, ticks: { callback: v => (v / 1000).toFixed(0) + 'k' } },
+          y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+        }
+      }
+    });
+  }
+
+  // Fix stock bars (cap at 100%)
+  document.querySelectorAll('.stock-bar-fill[data-pct]').forEach(el => {
+    const qty = parseFloat(el.dataset.pct);
+    const max = parseFloat(el.dataset.max);
+    if (max > 0) {
+      el.style.width = Math.min(qty / max * 100, 100) + '%';
+    }
+  });
+});
 </script>
-{% endblock extra_js %}
+{% endblock %}

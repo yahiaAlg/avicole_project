@@ -1,456 +1,642 @@
 {% extends "base.html" %}
-{% load static i18n %}
-
-{% block title %}Rapports & Tableaux de Bord — {{ company.nom|default:"AviTrack" }}{% endblock %}
-
+{% load static %}
+{% block title %}Rapports — Élevage Avicole{% endblock %}
+{% block nav_rapports %}active{% endblock %}
 {% block page_title %}Rapports & Tableaux de Bord{% endblock %}
+{% block page_sub_text %}Vue d'ensemble — {{ today|date:"d/m/Y" }}{% endblock %}
+{% block topbar_actions %}{% endblock %}
+
+{% block extra_css %}
+<style>
+.dash-grid-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+.dash-grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+.dash-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media(max-width:1200px){
+  .dash-grid-4{grid-template-columns:repeat(2,1fr);}
+  .dash-grid-3{grid-template-columns:repeat(2,1fr);}
+}
+@media(max-width:700px){
+  .dash-grid-4,.dash-grid-3,.dash-grid-2{grid-template-columns:1fr;}
+}
+
+.alert-metric {
+  background:var(--bg-surface); border:1px solid var(--border);
+  border-radius:var(--radius-lg); padding:18px 20px;
+  display:flex; align-items:center; gap:16px;
+  transition:box-shadow .18s,transform .18s;
+}
+.alert-metric:hover{box-shadow:0 4px 16px rgba(0,0,0,.07);transform:translateY(-1px);}
+.alert-metric__icon{width:48px;height:48px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.alert-metric__icon i{font-size:22px;}
+.alert-metric__body{flex:1;min-width:0;}
+.alert-metric__label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:4px;}
+.alert-metric__value{font-family:'Nunito',sans-serif;font-weight:800;font-size:28px;color:var(--text-primary);line-height:1;}
+.alert-metric__sub{font-size:11.5px;margin-top:4px;}
+.alert-metric--danger{border-left:3px solid #ef4444;}
+.alert-metric--warn{border-left:3px solid #f59e0b;}
+.alert-metric--ok{border-left:3px solid #22c55e;}
+.alert-metric--info{border-left:3px solid #38bdf8;}
+
+.fin-card {
+  background:var(--bg-surface); border:1px solid var(--border);
+  border-radius:var(--radius-lg); padding:22px 24px;
+  position:relative; overflow:hidden;
+}
+.fin-card__label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:8px;}
+.fin-card__value{font-family:'Nunito',sans-serif;font-weight:800;font-size:30px;line-height:1;margin-bottom:6px;}
+.fin-card__sub{font-size:12px;color:var(--text-muted);margin-bottom:14px;}
+.fin-card__link{font-size:12px;display:inline-flex;align-items:center;gap:4px;text-decoration:none;font-weight:600;}
+.fin-card__link:hover{text-decoration:underline;}
+.fin-card--red .fin-card__value{color:#dc2626;}
+.fin-card--green .fin-card__value{color:#15803d;}
+.fin-card__watermark{position:absolute;right:-10px;bottom:-14px;font-size:80px;opacity:.04;line-height:1;}
+
+.section-eyebrow{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--text-muted);margin:28px 0 12px;display:flex;align-items:center;gap:8px;}
+.section-eyebrow::after{content:'';flex:1;height:1px;background:var(--border);}
+
+.report-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;}
+.report-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;text-decoration:none;color:inherit;display:flex;align-items:flex-start;gap:14px;transition:border-color .18s,transform .18s,box-shadow .18s;position:relative;overflow:hidden;}
+.report-card:hover{border-color:var(--border-strong);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.08);color:inherit;text-decoration:none;}
+.report-card::after{content:'';position:absolute;top:0;left:0;right:0;height:0;background:var(--accent);border-radius:var(--radius-lg) var(--radius-lg) 0 0;transition:height .18s;}
+.report-card:hover::after{height:2px;}
+.report-card__icon{width:40px;height:40px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.report-card__icon i{font-size:19px;}
+.report-card__content{flex:1;min-width:0;}
+.report-card__title{font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;color:var(--text-primary);margin-bottom:3px;}
+.report-card__desc{font-size:12px;color:var(--text-muted);line-height:1.5;}
+.report-card__arrow{color:var(--text-muted);font-size:18px;flex-shrink:0;transition:transform .18s,color .18s;}
+.report-card:hover .report-card__arrow{transform:translateX(3px);color:var(--accent-text);}
+
+.shimmer{background:var(--bg-raised);border-radius:var(--radius-sm);animation:shimmer 1.2s infinite;display:inline-block;}
+@keyframes shimmer{0%,100%{opacity:.5;}50%{opacity:1;}}
+.chart-wrap{position:relative;height:220px;}
+.chart-wrap-sm{position:relative;height:160px;}
+.val-ok{color:#15803d;}
+.val-warn{color:#b45309;}
+.val-danger{color:#dc2626;}
+</style>
+{% endblock %}
 
 {% block content %}
-<!-- KPI Header Widgets -->
-<div class="row mb-4" id="kpi-widgets">
-    <div class="col-md-4 col-lg-2 mb-3">
-        <div class="card kpi-card h-100 border-start border-4 border-danger">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <div class="text-muted small text-uppercase fw-bold">Dettes Fournisseurs</div>
-                        <div class="h4 mt-2 mb-0 fw-bold" id="kpi-dette-fournisseurs">
-                            <span class="spinner-border spinner-border-sm" role="status"></span>
-                        </div>
-                    </div>
-                    <div class="bg-danger bg-opacity-10 rounded p-2 text-danger">
-                        <i class="fas fa-file-invoice-dollar fa-lg"></i>
-                    </div>
-                </div>
-                <div class="small text-muted mt-2">Factures non payées</div>
-            </div>
-        </div>
+
+<!-- ── ROW 1: 4 Alert KPI cards ───────────────────────────────── -->
+<div class="dash-grid-4 mb-4">
+
+  <div class="alert-metric {% if nb_factures_retard_fournisseur > 0 %}alert-metric--danger{% else %}alert-metric--ok{% endif %}">
+    <div class="alert-metric__icon ic-red"><i class="bx bxs-buildings"></i></div>
+    <div class="alert-metric__body">
+      <div class="alert-metric__label">FF en retard</div>
+      <div class="alert-metric__value" id="kpi-ff-retard">{{ nb_factures_retard_fournisseur }}</div>
+      <div class="alert-metric__sub {% if nb_factures_retard_fournisseur > 0 %}val-danger{% else %}val-ok{% endif %}">
+        {% if nb_factures_retard_fournisseur > 0 %}<i class="bx bxs-error-circle"></i> Dépassement échéance
+        {% else %}<i class="bx bxs-check-circle"></i> Aucun retard{% endif %}
+      </div>
     </div>
-    <div class="col-md-4 col-lg-2 mb-3">
-        <div class="card kpi-card h-100 border-start border-4 border-warning">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <div class="text-muted small text-uppercase fw-bold">Créances Clients</div>
-                        <div class="h4 mt-2 mb-0 fw-bold" id="kpi-creances-clients">
-                            <span class="spinner-border spinner-border-sm" role="status"></span>
-                        </div>
-                    </div>
-                    <div class="bg-warning bg-opacity-10 rounded p-2 text-warning">
-                        <i class="fas fa-hand-holding-dollar fa-lg"></i>
-                    </div>
-                </div>
-                <div class="small text-muted mt-2">Factures client non payées</div>
-            </div>
-        </div>
+  </div>
+
+  <div class="alert-metric {% if nb_factures_retard_client > 0 %}alert-metric--warn{% else %}alert-metric--ok{% endif %}">
+    <div class="alert-metric__icon ic-amber"><i class="bx bxs-group"></i></div>
+    <div class="alert-metric__body">
+      <div class="alert-metric__label">FC en retard</div>
+      <div class="alert-metric__value" id="kpi-fc-retard">{{ nb_factures_retard_client }}</div>
+      <div class="alert-metric__sub {% if nb_factures_retard_client > 0 %}val-warn{% else %}val-ok{% endif %}">
+        {% if nb_factures_retard_client > 0 %}<i class="bx bxs-error"></i> Créances échues
+        {% else %}<i class="bx bxs-check-circle"></i> À jour{% endif %}
+      </div>
     </div>
-    <div class="col-md-4 col-lg-2 mb-3">
-        <div class="card kpi-card h-100 border-start border-4 border-success">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <div class="text-muted small text-uppercase fw-bold">Lots Ouverts</div>
-                        <div class="h4 mt-2 mb-0 fw-bold" id="kpi-lots-ouverts">
-                            <span class="spinner-border spinner-border-sm" role="status"></span>
-                        </div>
-                    </div>
-                    <div class="bg-success bg-opacity-10 rounded p-2 text-success">
-                        <i class="fas fa-warehouse fa-lg"></i>
-                    </div>
-                </div>
-                <div class="small text-muted mt-2">Lots en cours d'élevage</div>
-            </div>
-        </div>
+  </div>
+
+  <div class="alert-metric {% if nb_stocks_alerte > 0 %}alert-metric--warn{% else %}alert-metric--ok{% endif %}">
+    <div class="alert-metric__icon ic-orange"><i class="bx bxs-archive"></i></div>
+    <div class="alert-metric__body">
+      <div class="alert-metric__label">Stocks en alerte</div>
+      <div class="alert-metric__value">{{ nb_stocks_alerte }}</div>
+      <div class="alert-metric__sub {% if nb_stocks_alerte > 0 %}val-warn{% else %}val-ok{% endif %}">
+        {% if nb_stocks_alerte > 0 %}<i class="bx bxs-error"></i> Sous le seuil
+        {% else %}<i class="bx bxs-check-circle"></i> Niveaux normaux{% endif %}
+      </div>
     </div>
-    <div class="col-md-4 col-lg-2 mb-3">
-        <div class="card kpi-card h-100 border-start border-4 border-info">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <div class="text-muted small text-uppercase fw-bold">Alertes Stock</div>
-                        <div class="h4 mt-2 mb-0 fw-bold" id="kpi-alertes-stock">
-                            <span class="spinner-border spinner-border-sm" role="status"></span>
-                        </div>
-                    </div>
-                    <div class="bg-info bg-opacity-10 rounded p-2 text-info">
-                        <i class="fas fa-boxes-stacked fa-lg"></i>
-                    </div>
-                </div>
-                <div class="small text-muted mt-2">Intrants sous seuil</div>
-            </div>
-        </div>
+  </div>
+
+  <div class="alert-metric alert-metric--info">
+    <div class="alert-metric__icon ic-green"><i class="bx bxs-grid-alt"></i></div>
+    <div class="alert-metric__body">
+      <div class="alert-metric__label">Lots ouverts</div>
+      <div class="alert-metric__value" id="kpi-lots-ouverts"><span class="shimmer" style="width:40px;height:28px;"></span></div>
+      <div class="alert-metric__sub" id="kpi-lots-label" style="color:var(--text-muted);">
+        <i class="bx bx-loader-circle bx-spin"></i> Chargement…
+      </div>
     </div>
-    <div class="col-md-4 col-lg-2 mb-3">
-        <div class="card kpi-card h-100 border-start border-4 border-danger">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <div class="text-muted small text-uppercase fw-bold">Fact. Fourn. Retard</div>
-                        <div class="h4 mt-2 mb-0 fw-bold" id="kpi-fact-fourn-retard">
-                            <span class="spinner-border spinner-border-sm" role="status"></span>
-                        </div>
-                    </div>
-                    <div class="bg-danger bg-opacity-10 rounded p-2 text-danger">
-                        <i class="fas fa-clock fa-lg"></i>
-                    </div>
-                </div>
-                <div class="small text-muted mt-2">Échéance dépassée</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4 col-lg-2 mb-3">
-        <div class="card kpi-card h-100 border-start border-4 border-warning">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <div class="text-muted small text-uppercase fw-bold">Fact. Client Retard</div>
-                        <div class="h4 mt-2 mb-0 fw-bold" id="kpi-fact-client-retard">
-                            <span class="spinner-border spinner-border-sm" role="status"></span>
-                        </div>
-                    </div>
-                    <div class="bg-warning bg-opacity-10 rounded p-2 text-warning">
-                        <i class="fas fa-bell fa-lg"></i>
-                    </div>
-                </div>
-                <div class="small text-muted mt-2">Échéance dépassée</div>
-            </div>
-        </div>
-    </div>
+  </div>
+
 </div>
 
-<!-- Report Cards Grid -->
-<div class="row g-4">
-    {% if is_financial %}
-    <!-- Fournisseurs Section -->
-    <div class="col-12">
-        <div class="d-flex align-items-center mb-3">
-            <div class="section-icon bg-primary bg-opacity-10 rounded-circle p-2 me-2 text-primary">
-                <i class="fas fa-truck-field"></i>
-            </div>
-            <h5 class="mb-0 fw-bold text-primary">Fournisseurs & Achats</h5>
-        </div>
-    </div>
-    <div class="col-md-6 col-lg-4 col-xl-3">
-        <div class="card report-card h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="icon-circle bg-primary bg-opacity-10 text-primary">
-                        <i class="fas fa-hourglass-half"></i>
-                    </div>
-                    <div class="ms-3">
-                        <h6 class="mb-0 fw-bold">Balance par Ancienneté</h6>
-                        <small class="text-muted">Dettes fournisseurs échelonnées</small>
-                    </div>
-                </div>
-                <a href="{% url 'reporting:supplier_aging' %}" class="btn btn-sm btn-primary w-100">
-                    <i class="fas fa-chart-pie me-1"></i> Consulter
-                </a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 col-lg-4 col-xl-3">
-        <div class="card report-card h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="icon-circle bg-success bg-opacity-10 text-success">
-                        <i class="fas fa-money-bill-transfer"></i>
-                    </div>
-                    <div class="ms-3">
-                        <h6 class="mb-0 fw-bold">Historique Règlements</h6>
-                        <small class="text-muted">Chronologie des paiements</small>
-                    </div>
-                </div>
-                <a href="{% url 'reporting:historique_reglements' %}" class="btn btn-sm btn-success w-100">
-                    <i class="fas fa-list me-1"></i> Consulter
-                </a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 col-lg-4 col-xl-3">
-        <div class="card report-card h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="icon-circle bg-info bg-opacity-10 text-info">
-                        <i class="fas fa-chart-bar"></i>
-                    </div>
-                    <div class="ms-3">
-                        <h6 class="mb-0 fw-bold">Répartition Règlements</h6>
-                        <small class="text-muted">Par fournisseur et mode</small>
-                    </div>
-                </div>
-                <a href="{% url 'reporting:repartition_reglements' %}" class="btn btn-sm btn-info text-white w-100">
-                    <i class="fas fa-chart-column me-1"></i> Consulter
-                </a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 col-lg-4 col-xl-3">
-        <div class="card report-card h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="icon-circle bg-danger bg-opacity-10 text-danger">
-                        <i class="fas fa-file-invoice"></i>
-                    </div>
-                    <div class="ms-3">
-                        <h6 class="mb-0 fw-bold">Dettes en Cours</h6>
-                        <small class="text-muted">Synthèse dettes par fournisseur</small>
-                    </div>
-                </div>
-                <a href="{% url 'reporting:dettes_fournisseurs' %}" class="btn btn-sm btn-danger w-100">
-                    <i class="fas fa-table me-1"></i> Consulter
-                </a>
-            </div>
-        </div>
-    </div>
+{% if is_financial %}
+<!-- ── ROW 2: Financial summary cards + mini cash flow chart ──── -->
+<div class="dash-grid-3 mb-4">
 
-    <!-- Trésorerie Section -->
-    <div class="col-12 mt-2">
-        <div class="d-flex align-items-center mb-3">
-            <div class="section-icon bg-success bg-opacity-10 rounded-circle p-2 me-2 text-success">
-                <i class="fas fa-coins"></i>
-            </div>
-            <h5 class="mb-0 fw-bold text-success">Trésorerie & Finances</h5>
-        </div>
-    </div>
-    <div class="col-md-6 col-lg-4 col-xl-3">
-        <div class="card report-card h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="icon-circle bg-success bg-opacity-10 text-success">
-                        <i class="fas fa-scale-balanced"></i>
-                    </div>
-                    <div class="ms-3">
-                        <h6 class="mb-0 fw-bold">Résumé de Trésorerie</h6>
-                        <small class="text-muted">Entrées, sorties, solde net</small>
-                    </div>
-                </div>
-                <a href="{% url 'reporting:cash_flow' %}" class="btn btn-sm btn-success w-100">
-                    <i class="fas fa-chart-line me-1"></i> Consulter
-                </a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 col-lg-4 col-xl-3">
-        <div class="card report-card h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="icon-circle bg-warning bg-opacity-10 text-warning">
-                        <i class="fas fa-hand-holding-dollar"></i>
-                    </div>
-                    <div class="ms-3">
-                        <h6 class="mb-0 fw-bold">Créances Clients</h6>
-                        <small class="text-muted">Ancienneté créances clients</small>
-                    </div>
-                </div>
-                <a href="{% url 'reporting:creances_clients' %}" class="btn btn-sm btn-warning text-white w-100">
-                    <i class="fas fa-chart-pie me-1"></i> Consulter
-                </a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 col-lg-4 col-xl-3">
-        <div class="card report-card h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="icon-circle bg-danger bg-opacity-10 text-danger">
-                        <i class="fas fa-money-bill-wave"></i>
-                    </div>
-                    <div class="ms-3">
-                        <h6 class="mb-0 fw-bold">Rapport Dépenses</h6>
-                        <small class="text-muted">Analyse des dépenses par période</small>
-                    </div>
-                </div>
-                <a href="{% url 'reporting:depenses' %}" class="btn btn-sm btn-danger w-100">
-                    <i class="fas fa-chart-column me-1"></i> Consulter
-                </a>
-            </div>
-        </div>
-    </div>
-    {% endif %}
+  <div class="fin-card fin-card--red">
+    <div class="fin-card__label">Dette Fournisseurs</div>
+    <div class="fin-card__value" id="kpi-dette-total"><span class="shimmer" style="width:110px;height:30px;"></span></div>
+    <div class="fin-card__sub" id="kpi-dette-sub">Chargement…</div>
+    <a href="{% url 'reporting:dettes_fournisseurs' %}" class="fin-card__link" style="color:#dc2626;">Voir rapport <i class="bx bx-right-arrow-alt"></i></a>
+    <div class="fin-card__watermark">🏭</div>
+  </div>
 
-    <!-- Production & Élevage Section -->
-    <div class="col-12 mt-2">
-        <div class="d-flex align-items-center mb-3">
-            <div class="section-icon bg-info bg-opacity-10 rounded-circle p-2 me-2 text-info">
-                <i class="fas fa-egg"></i>
-            </div>
-            <h5 class="mb-0 fw-bold text-info">Production & Élevage</h5>
-        </div>
-    </div>
-    <div class="col-md-6 col-lg-4 col-xl-3">
-        <div class="card report-card h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="icon-circle bg-info bg-opacity-10 text-info">
-                        <i class="fas fa-chart-line"></i>
-                    </div>
-                    <div class="ms-3">
-                        <h6 class="mb-0 fw-bold">Rentabilité par Lot</h6>
-                        <small class="text-muted">Marges, IC, mortalité</small>
-                    </div>
-                </div>
-                {% if is_financial %}
-                <a href="{% url 'reporting:rentabilite_lot' %}" class="btn btn-sm btn-info text-white w-100">
-                    <i class="fas fa-chart-bar me-1"></i> Consulter
-                </a>
-                {% else %}
-                <button class="btn btn-sm btn-secondary w-100" disabled>
-                    <i class="fas fa-lock me-1"></i> Accès restreint
-                </button>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 col-lg-4 col-xl-3">
-        <div class="card report-card h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="icon-circle bg-primary bg-opacity-10 text-primary">
-                        <i class="fas fa-industry"></i>
-                    </div>
-                    <div class="ms-3">
-                        <h6 class="mb-0 fw-bold">Tableau de Bord Production</h6>
-                        <small class="text-muted">Oiseaux, poids, coûts</small>
-                    </div>
-                </div>
-                {% if is_financial %}
-                <a href="{% url 'reporting:production_dashboard' %}" class="btn btn-sm btn-primary w-100">
-                    <i class="fas fa-chart-area me-1"></i> Consulter
-                </a>
-                {% else %}
-                <button class="btn btn-sm btn-secondary w-100" disabled>
-                    <i class="fas fa-lock me-1"></i> Accès restreint
-                </button>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 col-lg-4 col-xl-3">
-        <div class="card report-card h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="icon-circle bg-secondary bg-opacity-10 text-secondary">
-                        <i class="fas fa-wheat-awn"></i>
-                    </div>
-                    <div class="ms-3">
-                        <h6 class="mb-0 fw-bold">Consommation par Lot</h6>
-                        <small class="text-muted">Aliment et médicaments</small>
-                    </div>
-                </div>
-                <a href="{% url 'reporting:consommation_lot' %}" class="btn btn-sm btn-secondary w-100">
-                    <i class="fas fa-list me-1"></i> Consulter
-                </a>
-            </div>
-        </div>
-    </div>
+  <div class="fin-card fin-card--green">
+    <div class="fin-card__label">Créances Clients</div>
+    <div class="fin-card__value" id="kpi-creances-total"><span class="shimmer" style="width:110px;height:30px;"></span></div>
+    <div class="fin-card__sub" id="kpi-creances-sub">Chargement…</div>
+    <a href="{% url 'reporting:creances_clients' %}" class="fin-card__link" style="color:#15803d;">Voir rapport <i class="bx bx-right-arrow-alt"></i></a>
+    <div class="fin-card__watermark">🤝</div>
+  </div>
 
-    <!-- Stock & Clients Section -->
-    <div class="col-12 mt-2">
-        <div class="d-flex align-items-center mb-3">
-            <div class="section-icon bg-warning bg-opacity-10 rounded-circle p-2 me-2 text-warning">
-                <i class="fas fa-boxes-packing"></i>
-            </div>
-            <h5 class="mb-0 fw-bold text-warning">Stock & Livraisons</h5>
-        </div>
+  <div class="section-card" style="border-radius:var(--radius-lg);padding:0;">
+    <div class="section-card__head" style="padding:14px 18px 10px;">
+      <span class="section-card__title" style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;">Flux Trésorerie</span>
+      <a href="{% url 'reporting:cash_flow' %}" style="font-size:11px;color:var(--accent-text);display:flex;align-items:center;gap:3px;">Détail <i class="bx bx-right-arrow-alt"></i></a>
     </div>
-    <div class="col-md-6 col-lg-4 col-xl-3">
-        <div class="card report-card h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="icon-circle bg-warning bg-opacity-10 text-warning">
-                        <i class="fas fa-boxes-stacked"></i>
-                    </div>
-                    <div class="ms-3">
-                        <h6 class="mb-0 fw-bold">État des Stocks</h6>
-                        <small class="text-muted">Intrants et produits finis</small>
-                    </div>
-                </div>
-                <a href="{% url 'reporting:etat_stocks' %}" class="btn btn-sm btn-warning text-white w-100">
-                    <i class="fas fa-table me-1"></i> Consulter
-                </a>
-            </div>
+    <div style="padding:0 16px 16px;">
+      <div class="chart-wrap-sm"><canvas id="miniFlowChart"></canvas></div>
+      <div style="display:flex;gap:14px;margin-top:8px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;">
+          <div style="width:9px;height:9px;border-radius:50%;background:#22c55e;flex-shrink:0;"></div>
+          <span style="color:var(--text-muted);">Encaiss.</span>
+          <strong id="mini-encaiss" style="color:#15803d;font-family:'Nunito',sans-serif;">—</strong>
         </div>
-    </div>
-    <div class="col-md-6 col-lg-4 col-xl-3">
-        <div class="card report-card h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="icon-circle bg-primary bg-opacity-10 text-primary">
-                        <i class="fas fa-truck-fast"></i>
-                    </div>
-                    <div class="ms-3">
-                        <h6 class="mb-0 fw-bold">Historique BL Clients</h6>
-                        <small class="text-muted">Bons de livraison client</small>
-                    </div>
-                </div>
-                <a href="{% url 'reporting:historique_bl_clients' %}" class="btn btn-sm btn-primary w-100">
-                    <i class="fas fa-list me-1"></i> Consulter
-                </a>
-            </div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;">
+          <div style="width:9px;height:9px;border-radius:50%;background:#ef4444;flex-shrink:0;"></div>
+          <span style="color:var(--text-muted);">Sorties</span>
+          <strong id="mini-sorties" style="color:#dc2626;font-family:'Nunito',sans-serif;">—</strong>
         </div>
+      </div>
     </div>
+  </div>
+
 </div>
-{% endblock content %}
+
+<!-- ── ROW 3: Aging donuts ────────────────────────────────────── -->
+<div class="dash-grid-2 mb-2">
+  <div class="section-card">
+    <div class="section-card__head">
+      <span class="section-card__title">Dette Fournisseurs par Ancienneté</span>
+      <a href="{% url 'reporting:supplier_aging' %}" style="font-size:11px;color:var(--accent-text);display:flex;align-items:center;gap:3px;">Rapport <i class="bx bx-right-arrow-alt"></i></a>
+    </div>
+    <div class="section-card__body">
+      <div class="chart-wrap" id="agingFournWrap"><canvas id="agingFournChart"></canvas></div>
+    </div>
+  </div>
+  <div class="section-card">
+    <div class="section-card__head">
+      <span class="section-card__title">Créances Clients par Ancienneté</span>
+      <a href="{% url 'reporting:creances_clients' %}" style="font-size:11px;color:var(--accent-text);display:flex;align-items:center;gap:3px;">Rapport <i class="bx bx-right-arrow-alt"></i></a>
+    </div>
+    <div class="section-card__body">
+      <div class="chart-wrap" id="agingClientWrap"><canvas id="agingClientChart"></canvas></div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── ROW: Production & Élevage ─────────────────────────────── -->
+<div class="section-eyebrow">Production & Élevage</div>
+<div class="dash-grid-2 mb-2">
+  <div class="section-card">
+    <div class="section-card__head">
+      <span class="section-card__title">Lots en Cours</span>
+      <a href="{% url 'reporting:consommation_lot' %}" style="font-size:11px;color:var(--accent-text);display:flex;align-items:center;gap:3px;">Consommation <i class="bx bx-right-arrow-alt"></i></a>
+    </div>
+    <div class="section-card__body" id="lots-summary" style="min-height:100px;">
+      <div style="text-align:center;padding:30px 0;">
+        <span class="shimmer" style="width:120px;height:18px;display:inline-block;margin-bottom:8px;"></span><br>
+        <span class="shimmer" style="width:80px;height:14px;display:inline-block;"></span>
+      </div>
+    </div>
+  </div>
+  <div class="section-card">
+    <div class="section-card__head">
+      <span class="section-card__title">Production Récente (lots)</span>
+      <a href="{% url 'reporting:production_dashboard' %}" style="font-size:11px;color:var(--accent-text);display:flex;align-items:center;gap:3px;">Rapport <i class="bx bx-right-arrow-alt"></i></a>
+    </div>
+    <div class="section-card__body">
+      <div class="chart-wrap" id="prodWrap"><canvas id="prodChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ROW: Stocks & BL Clients ──────────────────────────────── -->
+<div class="section-eyebrow">Stocks & Livraisons</div>
+<div class="dash-grid-2 mb-4">
+  <div class="section-card">
+    <div class="section-card__head">
+      <span class="section-card__title">État des Stocks Intrants</span>
+      <a href="{% url 'reporting:etat_stocks' %}" style="font-size:11px;color:var(--accent-text);display:flex;align-items:center;gap:3px;">Rapport <i class="bx bx-right-arrow-alt"></i></a>
+    </div>
+    <div class="section-card__body">
+      <div style="display:flex;gap:16px;align-items:center;">
+        <div style="width:140px;height:140px;flex-shrink:0;position:relative;">
+          <canvas id="stockDonut"></canvas>
+        </div>
+        <div id="stock-legend" style="flex:1;">
+          <div style="text-align:center;padding:20px 0;">
+            <span class="shimmer" style="width:80px;height:16px;display:inline-block;"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="section-card">
+    <div class="section-card__head">
+      <span class="section-card__title">BL Clients — Répartition Statuts</span>
+      <a href="{% url 'reporting:historique_bl_clients' %}" style="font-size:11px;color:var(--accent-text);display:flex;align-items:center;gap:3px;">Rapport <i class="bx bx-right-arrow-alt"></i></a>
+    </div>
+    <div class="section-card__body">
+      <div class="chart-wrap-sm" id="blWrap"><canvas id="blClientChart"></canvas></div>
+      <div id="bl-client-stats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ALL REPORT CARDS ───────────────────────────────────────── -->
+{% if is_financial %}
+<div class="section-eyebrow">Rapports Financiers — Fournisseurs</div>
+<div class="report-grid mb-4">
+  <a href="{% url 'reporting:supplier_aging' %}" class="report-card">
+    <div class="report-card__icon ic-amber"><i class="bx bx-hourglass"></i></div>
+    <div class="report-card__content">
+      <div class="report-card__title">Balance par Ancienneté</div>
+      <div class="report-card__desc">Décomposition dette fournisseur par tranche : courant, 1–30j, 31–60j, 61–90j, +90j.</div>
+    </div>
+    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
+  </a>
+  <a href="{% url 'reporting:historique_reglements' %}" class="report-card">
+    <div class="report-card__icon ic-green"><i class="bx bxs-coin"></i></div>
+    <div class="report-card__content">
+      <div class="report-card__title">Historique des Règlements</div>
+      <div class="report-card__desc">Chronologie complète des paiements fournisseurs avec détail allocation FIFO.</div>
+    </div>
+    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
+  </a>
+  <a href="{% url 'reporting:repartition_reglements' %}" class="report-card">
+    <div class="report-card__icon ic-blue"><i class="bx bx-transfer"></i></div>
+    <div class="report-card__content">
+      <div class="report-card__title">Répartition des Règlements</div>
+      <div class="report-card__desc">Distribution par fournisseur, facture et mode de paiement sur une période.</div>
+    </div>
+    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
+  </a>
+  <a href="{% url 'reporting:dettes_fournisseurs' %}" class="report-card">
+    <div class="report-card__icon ic-red"><i class="bx bxs-buildings"></i></div>
+    <div class="report-card__content">
+      <div class="report-card__title">Dettes en Cours</div>
+      <div class="report-card__desc">Live : dette totale, factures ouvertes, jours sans règlement, prochaines échéances.</div>
+    </div>
+    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
+  </a>
+</div>
+
+<div class="section-eyebrow">Rapports Financiers — Clients</div>
+<div class="report-grid mb-4">
+  <a href="{% url 'reporting:creances_clients' %}" class="report-card">
+    <div class="report-card__icon ic-amber"><i class="bx bxs-group"></i></div>
+    <div class="report-card__content">
+      <div class="report-card__title">Créances par Ancienneté</div>
+      <div class="report-card__desc">Analyse créances clients par tranche d'âge : courant, 1–30j, 31–60j, 61–90j, +90j.</div>
+    </div>
+    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
+  </a>
+  <a href="{% url 'reporting:cash_flow' %}" class="report-card">
+    <div class="report-card__icon ic-teal"><i class="bx bxs-wallet"></i></div>
+    <div class="report-card__content">
+      <div class="report-card__title">Résumé de Trésorerie</div>
+      <div class="report-card__desc">Encaissements vs décaissements (règlements + dépenses) — solde net trésorerie.</div>
+    </div>
+    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
+  </a>
+  <a href="{% url 'reporting:depenses' %}" class="report-card">
+    <div class="report-card__icon ic-orange"><i class="bx bxs-wallet"></i></div>
+    <div class="report-card__content">
+      <div class="report-card__title">Rapport des Dépenses</div>
+      <div class="report-card__desc">Dépenses opérationnelles par catégorie, mode de paiement et lot attribué.</div>
+    </div>
+    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
+  </a>
+</div>
+
+<div class="section-eyebrow">Rentabilité & Production</div>
+<div class="report-grid mb-4">
+  <a href="{% url 'reporting:rentabilite_lot' %}" class="report-card">
+    <div class="report-card__icon ic-purple"><i class="bx bxs-bar-chart-alt-2"></i></div>
+    <div class="report-card__content">
+      <div class="report-card__title">Rentabilité par Lot</div>
+      <div class="report-card__desc">KPIs complets : coûts intrants, dépenses, revenus ventes, marge brute, IC.</div>
+    </div>
+    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
+  </a>
+  <a href="{% url 'reporting:production_dashboard' %}" class="report-card">
+    <div class="report-card__icon ic-green"><i class="bx bx-refresh"></i></div>
+    <div class="report-card__content">
+      <div class="report-card__title">Tableau de Bord Production</div>
+      <div class="report-card__desc">Oiseaux abattus, poids total, poids moyen et coût estimé par lot.</div>
+    </div>
+    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
+  </a>
+</div>
+{% endif %}
+
+<div class="section-eyebrow">Stocks & Opérations</div>
+<div class="report-grid mb-4">
+  <a href="{% url 'reporting:etat_stocks' %}" class="report-card">
+    <div class="report-card__icon ic-blue"><i class="bx bxs-archive"></i></div>
+    <div class="report-card__content">
+      <div class="report-card__title">État des Stocks</div>
+      <div class="report-card__desc">Snapshot complet intrants + produits finis : niveaux, alertes, valorisation PMP.</div>
+    </div>
+    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
+  </a>
+  <a href="{% url 'reporting:consommation_lot' %}" class="report-card">
+    <div class="report-card__icon ic-teal"><i class="bx bxs-droplet"></i></div>
+    <div class="report-card__content">
+      <div class="report-card__title">Consommation par Lot</div>
+      <div class="report-card__desc">Détail consommation aliments + médicaments par lot, intrant et période.</div>
+    </div>
+    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
+  </a>
+  <a href="{% url 'reporting:historique_bl_clients' %}" class="report-card">
+    <div class="report-card__icon ic-indigo"><i class="bx bx-link-external"></i></div>
+    <div class="report-card__content">
+      <div class="report-card__title">Historique BL Clients</div>
+      <div class="report-card__desc">Journal bons de livraison clients : statuts, montants, lien facturation.</div>
+    </div>
+    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
+  </a>
+  {% if not is_financial %}
+  <a href="{% url 'reporting:rentabilite_lot' %}" class="report-card">
+    <div class="report-card__icon ic-purple"><i class="bx bxs-bar-chart-alt-2"></i></div>
+    <div class="report-card__content">
+      <div class="report-card__title">Rentabilité par Lot</div>
+      <div class="report-card__desc">KPIs par lot : mortalité, IC, consommation aliment, revenus, marge brute.</div>
+    </div>
+    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
+  </a>
+  <a href="{% url 'reporting:production_dashboard' %}" class="report-card">
+    <div class="report-card__icon ic-green"><i class="bx bx-refresh"></i></div>
+    <div class="report-card__content">
+      <div class="report-card__title">Tableau de Bord Production</div>
+      <div class="report-card__desc">Oiseaux abattus, poids total, poids moyen et coût estimé par lot.</div>
+    </div>
+    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
+  </a>
+  {% endif %}
+</div>
+
+{% endblock %}
 
 {% block extra_js %}
 <script>
-(function() {
-    'use strict';
+document.addEventListener('DOMContentLoaded', function () {
+  const fmt  = v => new Intl.NumberFormat('fr-DZ').format(Math.round(v));
+  const fmtK = v => {
+    const n = Math.round(v);
+    if (n >= 1000000) return (n/1000000).toFixed(1)+'M';
+    if (n >= 1000)    return (n/1000).toFixed(0)+'k';
+    return String(n);
+  };
+  const tip = {
+    backgroundColor:'#fff', borderColor:'rgba(0,0,0,.12)', borderWidth:1,
+    titleColor:'#1a2219', bodyColor:'#3d5242', padding:10, cornerRadius:8
+  };
+  const BCOLORS = ['#22c55e','#f59e0b','#fb923c','#ef4444','#991b1b'];
+  const BLABELS = ['Courant','1–30 j','31–60 j','61–90 j','> 90 j'];
 
-    // ── AJAX KPI loader ────────────────────────────────────────────
-    function fetchKPIs() {
-        fetch('{% url "reporting:kpi_summary_json" %}', {
-            method: 'GET',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json',
-            },
-            credentials: 'same-origin'
-        })
-        .then(function(response) {
-            if (!response.ok) throw new Error('HTTP ' + response.status);
-            return response.json();
-        })
-        .then(function(data) {
-            _updateKPI('kpi-dette-fournisseurs',   data.dette_fournisseurs_totale,   true);
-            _updateKPI('kpi-creances-clients',     data.creances_clients_totale,     true);
-            _updateKPI('kpi-lots-ouverts',         data.nb_lots_ouverts,             false);
-            _updateKPI('kpi-alertes-stock',        data.nb_stocks_en_alerte,         false);
-            _updateKPI('kpi-fact-fourn-retard',    data.nb_factures_fournisseur_retard, false);
-            _updateKPI('kpi-fact-client-retard',   data.nb_factures_client_retard,   false);
-        })
-        .catch(function(err) {
-            console.error('KPI fetch failed:', err);
-            ['kpi-dette-fournisseurs','kpi-creances-clients','kpi-lots-ouverts',
-             'kpi-alertes-stock','kpi-fact-fourn-retard','kpi-fact-client-retard']
-            .forEach(function(id) {
-                var el = document.getElementById(id);
-                if (el) el.textContent = '—';
-            });
+  fetch('{% url "reporting:kpi_summary_json" %}')
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(d => {
+
+      // Lots ouverts
+      const lotsEl  = document.getElementById('kpi-lots-ouverts');
+      const lotsLbl = document.getElementById('kpi-lots-label');
+      if (lotsEl) lotsEl.textContent = d.nb_lots_ouverts ?? '—';
+      if (lotsLbl) {
+        lotsLbl.className = 'alert-metric__sub ' + (d.nb_lots_ouverts > 0 ? 'val-ok' : '');
+        lotsLbl.innerHTML = d.nb_lots_ouverts > 0
+          ? '<i class="bx bxs-check-circle"></i> En cours d\'élevage'
+          : '<i class="bx bx-minus"></i> Aucun lot actif';
+      }
+
+      // Dette fournisseurs
+      const detteEl  = document.getElementById('kpi-dette-total');
+      const detteSub = document.getElementById('kpi-dette-sub');
+      if (detteEl) detteEl.textContent = fmt(d.dette_fournisseurs_totale) + ' DZD';
+      if (detteSub) detteSub.textContent = d.nb_factures_fournisseur_retard > 0
+        ? d.nb_factures_fournisseur_retard + ' facture(s) en retard'
+        : 'Aucune facture en retard';
+
+      // Créances clients
+      const crEl  = document.getElementById('kpi-creances-total');
+      const crSub = document.getElementById('kpi-creances-sub');
+      if (crEl) crEl.textContent = fmt(d.creances_clients_totale) + ' DZD';
+      if (crSub) crSub.textContent = d.nb_factures_client_retard > 0
+        ? d.nb_factures_client_retard + ' facture(s) client en retard'
+        : 'Aucune créance échue';
+
+      const ffEl = document.getElementById('kpi-ff-retard');
+      const fcEl = document.getElementById('kpi-fc-retard');
+      if (ffEl) ffEl.textContent = d.nb_factures_fournisseur_retard ?? '—';
+      if (fcEl) fcEl.textContent = d.nb_factures_client_retard ?? '—';
+
+      // ── Mini cash flow chart ─────────────────────────────────
+      const miniEl = document.getElementById('miniFlowChart');
+      if (miniEl && d.cash_flow) {
+        const cf = d.cash_flow;
+        const miniE = document.getElementById('mini-encaiss');
+        const miniS = document.getElementById('mini-sorties');
+        if (miniE) miniE.textContent = fmtK(cf.encaissements) + ' DZD';
+        if (miniS) miniS.textContent = fmtK(cf.sorties) + ' DZD';
+        new Chart(miniEl, {
+          type: 'bar',
+          data: {
+            labels: ['Encaiss.', 'Règl.', 'Dép.', 'Solde'],
+            datasets: [{ data: [cf.encaissements, cf.reglements, cf.depenses, cf.solde_net],
+              backgroundColor: ['rgba(34,197,94,.75)','rgba(239,68,68,.75)','rgba(251,146,60,.75)',
+                cf.solde_net >= 0 ? 'rgba(56,189,248,.75)' : 'rgba(239,68,68,.5)'],
+              borderRadius: 5, borderSkipped: false }]
+          },
+          options: { responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { ...tip, callbacks: { label: c => ' '+fmt(c.raw)+' DZD' } } },
+            scales: {
+              x: { grid: { display: false }, ticks: { color: '#7a8c78', font: { size: 10 } } },
+              y: { grid: { color: 'rgba(0,0,0,.04)' }, ticks: { callback: v => fmtK(v), color: '#7a8c78', font: { size: 10 } } }
+            }
+          }
         });
-    }
+      }
 
-    function _updateKPI(id, value, isCurrency) {
-        var el = document.getElementById(id);
+      // ── Helper: build aging donut ────────────────────────────
+      function buildAgingDonut(canvasId, wrapId, agData) {
+        const el = document.getElementById(canvasId);
+        const wrap = document.getElementById(wrapId);
         if (!el) return;
-        if (isCurrency) {
-            el.textContent = new Intl.NumberFormat('fr-DZ', {
-                style: 'currency', currency: 'DZD', maximumFractionDigits: 0
-            }).format(value);
-        } else {
-            el.textContent = new Intl.NumberFormat('fr-DZ').format(value);
+        if (!agData) {
+          if (wrap) wrap.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:13px;"><i class="bx bxs-check-circle" style="font-size:28px;color:#22c55e;display:block;margin-bottom:8px;"></i>Aucune dette/créance en cours</div>';
+          return;
         }
-    }
+        const vals = [agData.current, agData['1_30'], agData['31_60'], agData['61_90'], agData.over_90];
+        const total = vals.reduce((a,b)=>a+b,0);
+        if (total <= 0) {
+          if (wrap) wrap.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:13px;"><i class="bx bxs-check-circle" style="font-size:28px;color:#22c55e;display:block;margin-bottom:8px;"></i>Aucun encours</div>';
+          return;
+        }
+        new Chart(el, {
+          type: 'doughnut',
+          data: { labels: BLABELS, datasets: [{ data: vals, backgroundColor: BCOLORS, borderColor: '#fff', borderWidth: 3 }] },
+          options: { cutout: '64%', responsive: true, maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'right', labels: { boxWidth: 11, font: { size: 11 },
+                generateLabels: () => BLABELS.map((l, i) => ({
+                  text: l + ': ' + fmtK(vals[i]) + ' DZD',
+                  fillStyle: BCOLORS[i], strokeStyle: '#fff', lineWidth: 1
+                }))
+              }},
+              tooltip: { ...tip, callbacks: { label: c => ' '+c.label+': '+fmt(c.raw)+' DZD' } }
+            }
+          }
+        });
+      }
 
-    // Load on DOM ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', fetchKPIs);
-    } else {
-        fetchKPIs();
-    }
+      buildAgingDonut('agingFournChart', 'agingFournWrap', d.supplier_aging);
+      buildAgingDonut('agingClientChart', 'agingClientWrap', d.client_aging);
 
-    // Refresh every 5 minutes
-    setInterval(fetchKPIs, 300000);
-})();
+      // ── Lots summary list ────────────────────────────────────
+      const lotsDiv = document.getElementById('lots-summary');
+      if (lotsDiv) {
+        if (!d.lots || !d.lots.length) {
+          lotsDiv.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:30px 0;font-size:13px;"><i class="bx bx-minus" style="font-size:28px;display:block;margin-bottom:8px;"></i>Aucun lot ouvert</div>';
+        } else {
+          let html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+          d.lots.forEach(lot => {
+            const mort = parseFloat(lot.taux_mortalite);
+            const mc = mort > 5 ? '#dc2626' : mort > 2 ? '#b45309' : '#15803d';
+            html += `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg-raised);border-radius:var(--radius-md);">
+              <div style="flex:1;min-width:0;">
+                <div style="font-weight:700;font-size:13px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${lot.designation}</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">${lot.batiment} — ${lot.effectif_vivant} têtes vivantes</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0;">
+                <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:${mc};">${mort.toFixed(1)}% mort.</div>
+                <div style="font-size:10px;color:var(--text-muted);">${lot.duree} j</div>
+              </div>
+            </div>`;
+          });
+          html += '</div>';
+          lotsDiv.innerHTML = html;
+        }
+      }
+
+      // ── Production bar chart ─────────────────────────────────
+      const prodEl   = document.getElementById('prodChart');
+      const prodWrap = document.getElementById('prodWrap');
+      if (prodEl && d.production_recent && d.production_recent.length) {
+        const pr = d.production_recent;
+        new Chart(prodEl, {
+          type: 'bar',
+          data: {
+            labels: pr.map(r => r.lot),
+            datasets: [
+              { label: 'Oiseaux abattus', data: pr.map(r => r.nb_oiseaux),
+                backgroundColor: 'rgba(34,197,94,.7)', borderRadius: 5, borderSkipped: false, yAxisID: 'y' },
+              { label: 'Poids (kg)', data: pr.map(r => r.poids_kg),
+                backgroundColor: 'rgba(56,189,248,.7)', borderRadius: 5, borderSkipped: false, yAxisID: 'y2' }
+            ]
+          },
+          options: { responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } }, tooltip: tip },
+            scales: {
+              x: { grid: { display: false }, ticks: { color: '#7a8c78', font: { size: 10 } } },
+              y: { grid: { color: 'rgba(0,0,0,.04)' }, ticks: { color: '#7a8c78', font: { size: 10 } } },
+              y2: { position: 'right', grid: { display: false }, ticks: { color: '#38bdf8', font: { size: 10 } } }
+            }
+          }
+        });
+      } else if (prodWrap) {
+        prodWrap.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:13px;">Aucune production récente</div>';
+      }
+
+      // ── Stock donut ──────────────────────────────────────────
+      const stockEl  = document.getElementById('stockDonut');
+      const stockLeg = document.getElementById('stock-legend');
+      if (stockEl && d.stock_status) {
+        const ss = d.stock_status;
+        new Chart(stockEl, {
+          type: 'doughnut',
+          data: { labels: ['Normal','En alerte'],
+            datasets: [{ data: [ss.normal, ss.alerte],
+              backgroundColor: ['rgba(34,197,94,.8)','rgba(245,158,11,.8)'],
+              borderColor: '#fff', borderWidth: 3 }]
+          },
+          options: { cutout: '70%', responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: tip }
+          }
+        });
+        if (stockLeg) stockLeg.innerHTML = `
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="width:10px;height:10px;border-radius:50%;background:rgba(34,197,94,.8);flex-shrink:0;"></div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);">Stocks normaux</div>
+                <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:18px;color:#15803d;">${ss.normal}</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="width:10px;height:10px;border-radius:50%;background:rgba(245,158,11,.8);flex-shrink:0;"></div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);">En alerte</div>
+                <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:18px;color:#b45309;">${ss.alerte}</div>
+              </div>
+            </div>
+            <div style="margin-top:4px;padding-top:8px;border-top:1px solid var(--border);">
+              <div style="font-size:11px;color:var(--text-muted);">Valeur totale stock</div>
+              <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;color:var(--text-primary);">${fmt(ss.valeur_totale)} DZD</div>
+            </div>
+          </div>`;
+      }
+
+      // ── BL Client donut ──────────────────────────────────────
+      const blEl   = document.getElementById('blClientChart');
+      const blWrap = document.getElementById('blWrap');
+      const blStats = document.getElementById('bl-client-stats');
+      if (blEl && d.bl_clients) {
+        const bl = d.bl_clients;
+        new Chart(blEl, {
+          type: 'doughnut',
+          data: { labels: ['Brouillon','Livré','Facturé','En Litige'],
+            datasets: [{ data: [bl.brouillon, bl.livre, bl.facture, bl.litige],
+              backgroundColor: ['#f59e0b','#38bdf8','#22c55e','#ef4444'],
+              borderColor: '#fff', borderWidth: 3 }]
+          },
+          options: { cutout: '65%', responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 11 } } }, tooltip: tip }
+          }
+        });
+        if (blStats) blStats.innerHTML = [
+          { label: 'Total BL', val: bl.total, color: 'var(--text-primary)' },
+          { label: 'Facturés', val: bl.facture, color: '#15803d' },
+          { label: 'En attente', val: bl.livre, color: '#b45309' }
+        ].map(it => `<div style="text-align:center;padding:8px;background:var(--bg-raised);border-radius:var(--radius-sm);">
+          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:18px;color:${it.color};">${it.val}</div>
+          <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px;">${it.label}</div>
+        </div>`).join('');
+      } else if (blWrap) {
+        blWrap.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:30px 0;font-size:13px;">Aucun BL client</div>';
+      }
+
+    })
+    .catch(() => {
+      ['kpi-lots-ouverts','kpi-dette-total','kpi-creances-total'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.querySelector && el.querySelector('.shimmer')) el.textContent = '—';
+      });
+    });
+});
 </script>
-{% endblock extra_js %}
+{% endblock %}

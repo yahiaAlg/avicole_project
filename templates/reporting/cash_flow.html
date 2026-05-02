@@ -1,232 +1,332 @@
 {% extends "base.html" %}
-{% load reporting_extras %}
-{% load static i18n %}
+{% load static %}
+{% block title %}Résumé de Trésorerie — Élevage Avicole{% endblock %}
+{% block nav_rapports %}active{% endblock %}
+{% block page_title %}Résumé de Trésorerie{% endblock %}
+{% block page_sub_text %}
+  {% if date_debut %}{{ date_debut|date:"d/m/Y" }}{% else %}—{% endif %}
+  au
+  {% if date_fin %}{{ date_fin|date:"d/m/Y" }}{% else %}—{% endif %}
+  — Solde net :
+  <span style="font-weight:700;{% if summary.solde_net >= 0 %}color:#15803d;{% else %}color:#dc2626;{% endif %}">
+    {{ summary.solde_net|floatformat:0 }} DZD
+  </span>
+{% endblock %}
+{% block topbar_actions %}
+<a href="?{% if date_debut %}date_debut={{ date_debut|date:"Y-m-d" }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:"Y-m-d" }}&{% endif %}export=csv" class="btn-ghost btn-sm">
+  <i class="bx bxs-spreadsheet"></i> Exporter CSV
+</a>
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> Rapports</a>
+{% endblock %}
 
-{% block title %}{{ title }} — {{ company.nom|default:"AviTrack" }}{% endblock %}
-{% block page_title %}{{ title }}{% endblock %}
+{% block extra_css %}
+<style>
+.chart-wrap { height: 260px; position: relative; }
+.flow-section { border-left: 3px solid transparent; padding-left: 14px; margin-bottom: 24px; }
+.flow-section.in  { border-color: #22c55e; }
+.flow-section.out { border-color: #ef4444; }
+.flow-section.net { border-color: #38bdf8; }
+.flow-section__title { font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px; }
+.flow-section.in  .flow-section__title { color: #15803d; }
+.flow-section.out .flow-section__title { color: #dc2626; }
+.flow-section.net .flow-section__title { color: #0284c7; }
+.flow-total { font-family:'Nunito',sans-serif;font-weight:800;font-size:26px; }
+.flow-total.in  { color: #15803d; }
+.flow-total.out { color: #dc2626; }
+.flow-total.net.pos { color: #15803d; }
+.flow-total.net.neg { color: #dc2626; }
+.mode-row { display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px; }
+.mode-bar { height:5px;border-radius:3px;margin-top:3px;transition:width .4s; }
+</style>
+{% endblock %}
 
 {% block content %}
-<!-- Filters -->
-<div class="card mb-4">
-    <div class="card-header bg-light">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-filter me-2 text-primary"></i>Filtres</h6>
-    </div>
-    <div class="card-body">
-        <form method="get" class="row g-3 align-items-end" id="filter-form">
-            <div class="col-md-3 col-lg-2">
-                <label for="date_debut" class="form-label small text-muted">Date début</label>
-                <input type="date" name="date_debut" id="date_debut" class="form-control" value="{{ date_debut|date:'Y-m-d'|default:'' }}">
-            </div>
-            <div class="col-md-3 col-lg-2">
-                <label for="date_fin" class="form-label small text-muted">Date fin</label>
-                <input type="date" name="date_fin" id="date_fin" class="form-control" value="{{ date_fin|date:'Y-m-d'|default:'' }}">
-            </div>
-            <div class="col-md-6 col-lg-8 text-md-end">
-                <button type="submit" class="btn btn-primary"><i class="fas fa-filter me-1"></i> Filtrer</button>
-                <a href="{{ request.path }}" class="btn btn-outline-secondary"><i class="fas fa-rotate-left"></i></a>
-                <a href="{{ request.path }}?{% if date_debut %}date_debut={{ date_debut|date:'Y-m-d' }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:'Y-m-d' }}&{% endif %}export=csv" class="btn btn-success"><i class="fas fa-file-csv"></i></a>
-            </div>
-        </form>
-    </div>
+<!-- Date filter -->
+<div class="section-card mb-3">
+  <div class="section-card__body" style="padding:14px 20px;">
+    <form method="get" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+      <div>
+        <label style="font-size:12px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:4px;">Du</label>
+        <div class="input-wrapper" style="min-width:160px;">
+          <i class="bx bxs-calendar input-icon"></i>
+          <input type="date" name="date_debut" class="field-input has-icon" value="{{ date_debut|date:'Y-m-d' }}">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:4px;">Au</label>
+        <div class="input-wrapper" style="min-width:160px;">
+          <i class="bx bxs-calendar input-icon"></i>
+          <input type="date" name="date_fin" class="field-input has-icon" value="{{ date_fin|date:'Y-m-d' }}">
+        </div>
+      </div>
+      <button type="submit" class="btn-primary btn-sm" style="margin-bottom:1px;"><i class="bx bxs-filter-alt"></i> Appliquer</button>
+      <a href="{% url 'reporting:cash_flow' %}" class="btn-ghost btn-sm" style="margin-bottom:1px;">Ce mois</a>
+    </form>
+  </div>
 </div>
 
-<!-- KPI Cards -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card border-start border-4 border-success">
-            <div class="card-body d-flex justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase">Encaissements</div>
-                    <div class="h5 fw-bold mb-0 text-success">{{ summary.total_encaissements|floatformat:2 }} DZD</div>
-                </div>
-                <div class="text-success fs-3"><i class="fas fa-arrow-trend-up"></i></div>
-            </div>
-        </div>
+<!-- Top KPIs -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-green"><i class="bx bxs-down-arrow-circle"></i></div>
+      <div class="metric-label">Encaissements Clients</div>
+      <div class="metric-value sm" style="color:#15803d;">{{ summary.total_encaissements|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
-    <div class="col-md-3">
-        <div class="card border-start border-4 border-danger">
-            <div class="card-body d-flex justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase">Règlements Fourn.</div>
-                    <div class="h5 fw-bold mb-0 text-danger">{{ summary.total_reglements_fournisseurs|floatformat:2 }} DZD</div>
-                </div>
-                <div class="text-danger fs-3"><i class="fas fa-arrow-trend-down"></i></div>
-            </div>
-        </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-red"><i class="bx bxs-up-arrow-circle"></i></div>
+      <div class="metric-label">Règlements Fournisseurs</div>
+      <div class="metric-value sm" style="color:#dc2626;">{{ summary.total_reglements_fournisseurs|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
-    <div class="col-md-3">
-        <div class="card border-start border-4 border-warning">
-            <div class="card-body d-flex justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase">Dépenses</div>
-                    <div class="h5 fw-bold mb-0 text-warning">{{ summary.total_depenses|floatformat:2 }} DZD</div>
-                </div>
-                <div class="text-warning fs-3"><i class="fas fa-money-bill-wave"></i></div>
-            </div>
-        </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-orange"><i class="bx bxs-wallet"></i></div>
+      <div class="metric-label">Dépenses Opérationnelles</div>
+      <div class="metric-value sm" style="color:#ea580c;">{{ summary.total_depenses|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
-    <div class="col-md-3">
-        <div class="card border-start border-4 {% if summary.solde_net >= 0 %}border-success{% else %}border-danger{% endif %}">
-            <div class="card-body d-flex justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase">Solde Net</div>
-                    <div class="h5 fw-bold mb-0 {% if summary.solde_net >= 0 %}text-success{% else %}text-danger{% endif %}">{{ summary.solde_net|floatformat:2 }} DZD</div>
-                </div>
-                <div class="{% if summary.solde_net >= 0 %}text-success{% else %}text-danger{% endif %} fs-3"><i class="fas fa-scale-balanced"></i></div>
-            </div>
-        </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon {% if summary.solde_net >= 0 %}ic-green{% else %}ic-red{% endif %}"><i class="bx bxs-bar-chart-alt-2"></i></div>
+      <div class="metric-label">Solde Net de Trésorerie</div>
+      <div class="metric-value sm {% if summary.solde_net >= 0 %}" style="color:#15803d;{% else %}" style="color:#dc2626;{% endif %}">
+        {% if summary.solde_net >= 0 %}+{% endif %}{{ summary.solde_net|floatformat:0 }} <small style="font-size:12px;">DZD</small>
+      </div>
     </div>
+  </div>
 </div>
 
-<!-- Charts Row -->
-<div class="row mb-4">
-    <div class="col-lg-6">
-        <div class="card h-100">
-            <div class="card-header bg-light">
-                <h6 class="mb-0 fw-bold"><i class="fas fa-chart-pie me-2 text-primary"></i>Encaissements par Mode</h6>
+<div class="row g-3 mb-4">
+  <!-- Waterfall / flow visualization -->
+  <div class="col-xl-5">
+    <div class="section-card" style="height:100%;">
+      <div class="section-card__head"><span class="section-card__title">Flux de Trésorerie</span></div>
+      <div class="section-card__body">
+        <div class="flow-section in">
+          <div class="flow-section__title"><i class="bx bxs-down-arrow-circle"></i> Encaissements (Entrées)</div>
+          <div class="flow-total in">{{ summary.total_encaissements|floatformat:0 }} DZD</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">Paiements clients reçus</div>
+          {% for m in summary.par_mode_encaissement %}
+          <div class="mode-row">
+            <span>{{ m.label }}</span>
+            <div style="text-align:right;">
+              <span style="font-weight:600;font-family:'Nunito',sans-serif;">{{ m.total|floatformat:0 }} DZD</span>
+              <span style="font-size:11px;color:var(--text-muted);margin-left:5px;">{{ m.nb }}</span>
             </div>
-            <div class="card-body">
-                <div style="height: 260px;"><canvas id="encaissementChart"></canvas></div>
-            </div>
+          </div>
+          {% endfor %}
         </div>
-    </div>
-    <div class="col-lg-6">
-        <div class="card h-100">
-            <div class="card-header bg-light">
-                <h6 class="mb-0 fw-bold"><i class="fas fa-chart-pie me-2 text-danger"></i>Sorties par Mode</h6>
+        <div class="flow-section out">
+          <div class="flow-section__title"><i class="bx bxs-up-arrow-circle"></i> Décaissements (Sorties)</div>
+          <div class="flow-total out">{{ summary.total_sorties|floatformat:0 }} DZD</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">Règlements fournisseurs + dépenses</div>
+          {% for m in summary.par_mode_sortie %}
+          <div class="mode-row">
+            <span>{{ m.label }}</span>
+            <div style="text-align:right;">
+              <span style="font-weight:600;font-family:'Nunito',sans-serif;">{{ m.total|floatformat:0 }} DZD</span>
+              <span style="font-size:11px;color:var(--text-muted);margin-left:5px;">{{ m.nb }}</span>
             </div>
-            <div class="card-body">
-                <div style="height: 260px;"><canvas id="sortieChart"></canvas></div>
-            </div>
+          </div>
+          {% endfor %}
         </div>
+        <div class="flow-section net">
+          <div class="flow-section__title"><i class="bx bxs-analyse"></i> Solde Net</div>
+          <div class="flow-total net {% if summary.solde_net >= 0 %}pos{% else %}neg{% endif %}">
+            {% if summary.solde_net >= 0 %}+{% endif %}{{ summary.solde_net|floatformat:0 }} DZD
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">Encaissements − Décaissements</div>
+        </div>
+      </div>
     </div>
+  </div>
+  <!-- Chart -->
+  <div class="col-xl-7">
+    <div class="section-card" style="height:100%;">
+      <div class="section-card__head"><span class="section-card__title">Comparaison Flux</span></div>
+      <div class="section-card__body">
+        <div class="chart-wrap" style="height:300px;"><canvas id="cashflowChart"></canvas></div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<!-- Summary Bar Chart -->
-<div class="card mb-4">
-    <div class="card-header bg-light">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-chart-bar me-2 text-primary"></i>Résumé Global</h6>
+<!-- Paiements clients table -->
+<div class="section-card mb-3">
+  <div class="section-card__head">
+    <span class="section-card__title"><i class="bx bxs-down-arrow-circle" style="color:#22c55e;margin-right:6px;"></i>Encaissements Clients</span>
+    <span class="pill-base pill-success">{{ summary.total_encaissements|floatformat:0 }} DZD</span>
+  </div>
+  <div class="section-card__body no-pad">
+    {% if summary.detail_paiements %}
+    <div style="overflow-x:auto;">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Client</th>
+            <th>Mode</th>
+            <th>Référence</th>
+            <th style="text-align:right;">Montant</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in summary.detail_paiements %}
+          <tr class="stagger-row">
+            <td style="font-size:12.5px;">{{ p.date_paiement|date:"d/m/Y" }}</td>
+            <td style="font-weight:600;">{{ p.client.nom }}</td>
+            <td><span class="pill-base pill-info">{{ p.get_mode_paiement_display }}</span></td>
+            <td style="font-size:12px;color:var(--text-muted);">{{ p.reference_paiement|default:"—" }}</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">{{ p.montant|floatformat:0 }} DZD</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-    <div class="card-body">
-        <div style="height: 200px;"><canvas id="summaryChart"></canvas></div>
+    {% else %}
+    <div class="empty-state" style="padding:30px 20px;">
+      <i class="bx bxs-down-arrow-circle empty-state__icon" style="color:#22c55e;"></i>
+      <div class="empty-state__title">Aucun encaissement sur cette période</div>
     </div>
+    {% endif %}
+  </div>
 </div>
 
-<!-- Detail Tabs -->
-<div class="card mb-4">
-    <div class="card-header bg-light">
-        <ul class="nav nav-tabs card-header-tabs" id="cashflowTab" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="encaissements-tab" data-bs-toggle="tab" data-bs-target="#encaissements" type="button" role="tab">
-                    <i class="fas fa-arrow-trend-up text-success me-1"></i>Encaissements ({{ summary.detail_paiements|length }})
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="reglements-tab" data-bs-toggle="tab" data-bs-target="#reglements" type="button" role="tab">
-                    <i class="fas fa-arrow-trend-down text-danger me-1"></i>Règlements Fourn. ({{ summary.detail_reglements|length }})
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="depenses-tab" data-bs-toggle="tab" data-bs-target="#depenses" type="button" role="tab">
-                    <i class="fas fa-money-bill-wave text-warning me-1"></i>Dépenses ({{ summary.detail_depenses|length }})
-                </button>
-            </li>
-        </ul>
+<!-- Règlements fournisseurs table -->
+<div class="section-card mb-3">
+  <div class="section-card__head">
+    <span class="section-card__title"><i class="bx bxs-building" style="color:#ef4444;margin-right:6px;"></i>Règlements Fournisseurs</span>
+    <span class="pill-base pill-danger">{{ summary.total_reglements_fournisseurs|floatformat:0 }} DZD</span>
+  </div>
+  <div class="section-card__body no-pad">
+    {% if summary.detail_reglements %}
+    <div style="overflow-x:auto;">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Fournisseur</th>
+            <th>Mode</th>
+            <th>Référence</th>
+            <th style="text-align:right;">Montant</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in summary.detail_reglements %}
+          <tr class="stagger-row">
+            <td style="font-size:12.5px;">{{ r.date_reglement|date:"d/m/Y" }}</td>
+            <td style="font-weight:600;">{{ r.fournisseur.nom }}</td>
+            <td><span class="pill-base pill-info">{{ r.get_mode_paiement_display }}</span></td>
+            <td style="font-size:12px;color:var(--text-muted);">{{ r.reference_paiement|default:"—" }}</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;">{{ r.montant|floatformat:0 }} DZD</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-    <div class="card-body p-0">
-        <div class="tab-content" id="cashflowTabContent">
-            <div class="tab-pane fade show active" id="encaissements" role="tabpanel">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover mb-0 align-middle">
-                        <thead class="table-light"><tr><th>Date</th><th>Client</th><th class="text-end">Montant</th><th>Mode</th></tr></thead>
-                        <tbody>
-                            {% for p in summary.detail_paiements %}
-                            <tr><td>{{ p.date_paiement|date:"d/m/Y" }}</td><td>{{ p.client.nom }}</td><td class="text-end fw-bold text-success">{{ p.montant|floatformat:2 }}</td><td><span class="badge bg-secondary">{{ p.get_mode_paiement_display }}</span></td></tr>
-                            {% empty %}<tr><td colspan="4" class="text-center py-3 text-muted">Aucun encaissement sur cette période.</td></tr>{% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="tab-pane fade" id="reglements" role="tabpanel">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover mb-0 align-middle">
-                        <thead class="table-light"><tr><th>Date</th><th>Fournisseur</th><th class="text-end">Montant</th><th>Mode</th></tr></thead>
-                        <tbody>
-                            {% for r in summary.detail_reglements %}
-                            <tr><td>{{ r.date_reglement|date:"d/m/Y" }}</td><td>{{ r.fournisseur.nom }}</td><td class="text-end fw-bold text-danger">{{ r.montant|floatformat:2 }}</td><td><span class="badge bg-secondary">{{ r.get_mode_paiement_display }}</span></td></tr>
-                            {% empty %}<tr><td colspan="4" class="text-center py-3 text-muted">Aucun règlement sur cette période.</td></tr>{% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="tab-pane fade" id="depenses" role="tabpanel">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover mb-0 align-middle">
-                        <thead class="table-light"><tr><th>Date</th><th>Catégorie</th><th>Description</th><th class="text-end">Montant</th><th>Mode</th></tr></thead>
-                        <tbody>
-                            {% for d in summary.detail_depenses %}
-                            <tr><td>{{ d.date|date:"d/m/Y" }}</td><td><span class="badge bg-info">{{ d.categorie.libelle }}</span></td><td>{{ d.description|truncatechars:50 }}</td><td class="text-end fw-bold text-warning">{{ d.montant|floatformat:2 }}</td><td><span class="badge bg-secondary">{{ d.get_mode_paiement_display }}</span></td></tr>
-                            {% empty %}<tr><td colspan="5" class="text-center py-3 text-muted">Aucune dépense sur cette période.</td></tr>{% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+    {% else %}
+    <div class="empty-state" style="padding:30px 20px;">
+      <i class="bx bxs-building empty-state__icon"></i>
+      <div class="empty-state__title">Aucun règlement fournisseur sur cette période</div>
     </div>
+    {% endif %}
+  </div>
 </div>
-{% endblock content %}
+
+<!-- Dépenses table -->
+<div class="section-card">
+  <div class="section-card__head">
+    <span class="section-card__title"><i class="bx bxs-wallet" style="color:#ea580c;margin-right:6px;"></i>Dépenses Opérationnelles</span>
+    <span class="pill-base pill-warning">{{ summary.total_depenses|floatformat:0 }} DZD</span>
+  </div>
+  <div class="section-card__body no-pad">
+    {% if summary.detail_depenses %}
+    <div style="overflow-x:auto;">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Catégorie</th>
+            <th>Description</th>
+            <th>Mode</th>
+            <th style="text-align:right;">Montant</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in summary.detail_depenses %}
+          <tr class="stagger-row">
+            <td style="font-size:12.5px;">{{ d.date|date:"d/m/Y" }}</td>
+            <td><span class="pill-base pill-warning">{{ d.categorie.libelle }}</span></td>
+            <td style="font-size:13px;color:var(--text-secondary);">{{ d.description|truncatechars:60 }}</td>
+            <td><span class="pill-base pill-info">{{ d.get_mode_paiement_display }}</span></td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#ea580c;">{{ d.montant|floatformat:0 }} DZD</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:30px 20px;">
+      <i class="bx bxs-wallet empty-state__icon"></i>
+      <div class="empty-state__title">Aucune dépense sur cette période</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script id="cashflow-data" type="application/json">
+{
+  "encaissements": {{ summary.total_encaissements|floatformat:2 }},
+  "reglements":    {{ summary.total_reglements_fournisseurs|floatformat:2 }},
+  "depenses":      {{ summary.total_depenses|floatformat:2 }},
+  "solde":         {{ summary.solde_net|floatformat:2 }}
+}
+</script>
+{% endblock %}
 
 {% block extra_js %}
 <script>
-(function() {
-    'use strict';
+document.addEventListener('DOMContentLoaded', function () {
+  const d = JSON.parse(document.getElementById('cashflow-data').textContent);
+  const fmt = v => new Intl.NumberFormat('fr-DZ').format(Math.round(v)) + ' DZD';
+  const tooltipCfg = {
+    backgroundColor: '#fff', borderColor: 'rgba(0,0,0,.12)', borderWidth: 1,
+    titleColor: '#1a2219', bodyColor: '#3d5242', padding: 10, cornerRadius: 8,
+    callbacks: { label: ctx => ' ' + fmt(ctx.raw) }
+  };
 
-    var encLabels = [], encData = [];
-    {% for m in summary.par_mode_encaissement %}
-    encLabels.push("{{ m.label|escapejs }}");
-    encData.push({{ m.total|default:0 }});
-    {% endfor %}
-
-    var sortieLabels = [], sortieData = [];
-    {% for m in summary.par_mode_sortie %}
-    sortieLabels.push("{{ m.label|escapejs }}");
-    sortieData.push({{ m.total|default:0 }});
-    {% endfor %}
-
-    if (encLabels.length > 0) {
-        new Chart(document.getElementById('encaissementChart').getContext('2d'), {
-            type: 'doughnut',
-            data: { labels: encLabels, datasets: [{ data: encData, backgroundColor: ['#198754','#0d6efd','#ffc107','#dc3545','#6f42c1','#0dcaf0'] }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
-        });
-    } else { document.getElementById('encaissementChart').parentNode.innerHTML = '<div class="text-center text-muted py-5">Aucune donnée</div>'; }
-
-    if (sortieLabels.length > 0) {
-        new Chart(document.getElementById('sortieChart').getContext('2d'), {
-            type: 'doughnut',
-            data: { labels: sortieLabels, datasets: [{ data: sortieData, backgroundColor: ['#dc3545','#fd7e14','#ffc107','#198754','#0d6efd','#6f42c1'] }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
-        });
-    } else { document.getElementById('sortieChart').parentNode.innerHTML = '<div class="text-center text-muted py-5">Aucune donnée</div>'; }
-
-    var soldeNet = {{ summary.solde_net|default:0 }};
-    var ctx3 = document.getElementById('summaryChart');
-    if (ctx3) {
-        new Chart(ctx3.getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: ['Encaissements', 'Règlements Fourn.', 'Dépenses', 'Solde Net'],
-                datasets: [{
-                    label: 'Montant (DZD)',
-                    data: [{{ summary.total_encaissements|default:0 }}, {{ summary.total_reglements_fournisseurs|default:0 }}, {{ summary.total_depenses|default:0 }}, soldeNet],
-                    backgroundColor: ['rgba(25, 135, 84, 0.7)', 'rgba(220, 53, 69, 0.7)', 'rgba(255, 193, 7, 0.7)', soldeNet >= 0 ? 'rgba(25, 135, 84, 0.7)' : 'rgba(220, 53, 69, 0.7)'],
-                    borderColor: ['#198754', '#dc3545', '#ffc107', soldeNet >= 0 ? '#198754' : '#dc3545'],
-                    borderWidth: 1
-                }]
-            },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
-        });
-    }
-})();
+  const cashflowEl = document.getElementById('cashflowChart');
+  if (cashflowEl) {
+    new Chart(cashflowEl, {
+      type: 'bar',
+      data: {
+        labels: ['Encaissements', 'Règlements Fournisseurs', 'Dépenses Opér.', 'Solde Net'],
+        datasets: [{
+          label: 'Montant (DZD)',
+          data: [d.encaissements, d.reglements, d.depenses, d.solde],
+          backgroundColor: [
+            'rgba(34,197,94,.7)',
+            'rgba(239,68,68,.7)',
+            'rgba(251,146,60,.7)',
+            d.solde >= 0 ? 'rgba(56,189,248,.7)' : 'rgba(239,68,68,.5)'
+          ],
+          borderRadius: 6,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: tooltipCfg },
+        scales: {
+          x: { grid: { display: false } },
+          y: { grid: { color: 'rgba(0,0,0,.05)' }, ticks: { callback: v => (v / 1000).toFixed(0) + 'k' } }
+        }
+      }
+    });
+  }
+});
 </script>
-{% endblock extra_js %}
+{% endblock %}

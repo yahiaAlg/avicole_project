@@ -1,232 +1,303 @@
 {% extends "base.html" %}
-{% load reporting_extras %}
-{% load static i18n %}
+{% load static %}
+{% block title %}Rapport des Dépenses — Élevage Avicole{% endblock %}
+{% block nav_rapports %}active{% endblock %}
 
-{% block title %}{{ title }} — {{ company.nom|default:"AviTrack" }}{% endblock %}
-{% block page_title %}{{ title }}{% endblock %}
+{% block page_title %}Rapport des Dépenses{% endblock %}
+{% block page_sub_text %}
+  {{ summary.nb_depenses }} dépense(s) — Total : {{ summary.total|floatformat:0 }} DZD
+  {% if summary.moyenne_par_jour %} — Moy. {{ summary.moyenne_par_jour|floatformat:0 }} DZD/j{% endif %}
+{% endblock %}
+{% block topbar_actions %}
+<a href="?{% if date_debut %}date_debut={{ date_debut|date:'Y-m-d' }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:'Y-m-d' }}&{% endif %}{% if categorie_pk %}categorie={{ categorie_pk }}&{% endif %}{% if lot_pk %}lot={{ lot_pk }}&{% endif %}export=csv" class="btn-ghost btn-sm">
+  <i class="bx bxs-spreadsheet"></i> Exporter CSV
+</a>
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> Rapports</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.chart-wrap { height: 230px; position: relative; }
+.cat-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); }
+.cat-row:last-child { border-bottom:none; }
+.cat-label { flex:1; font-size:13px; color:var(--text-secondary); white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.cat-bar-track { width:100px; height:5px; background:var(--bg-hover); border-radius:4px; overflow:hidden; }
+.cat-bar-fill { height:100%; border-radius:4px; }
+.cat-val { min-width:90px; text-align:right; font-family:'Nunito',sans-serif; font-weight:700; font-size:12.5px; }
+.cat-pct { min-width:36px; text-align:right; font-size:11px; color:var(--text-muted); }
+.mode-chip { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--bg-raised); border-radius:var(--radius-sm); margin-bottom:7px; }
+</style>
+{% endblock %}
 
 {% block content %}
 <!-- Filters -->
-<div class="card mb-4">
-    <div class="card-header bg-light">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-filter me-2 text-primary"></i>Filtres</h6>
-    </div>
-    <div class="card-body">
-        <form method="get" class="row g-3 align-items-end" id="filter-form">
-            <div class="col-md-3 col-lg-2">
-                <label for="date_debut" class="form-label small text-muted">Date début</label>
-                <input type="date" name="date_debut" id="date_debut" class="form-control" value="{{ date_debut|date:'Y-m-d'|default:'' }}">
-            </div>
-            <div class="col-md-3 col-lg-2">
-                <label for="date_fin" class="form-label small text-muted">Date fin</label>
-                <input type="date" name="date_fin" id="date_fin" class="form-control" value="{{ date_fin|date:'Y-m-d'|default:'' }}">
-            </div>
-            <div class="col-md-3 col-lg-2">
-                <label for="categorie" class="form-label small text-muted">Catégorie</label>
-                <select name="categorie" id="categorie" class="form-select">
-                    <option value="">— Toutes —</option>
-                    {% for c in categories %}
-                    <option value="{{ c.pk }}" {% if categorie_pk == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.libelle }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3 col-lg-2">
-                <label for="lot" class="form-label small text-muted">Lot</label>
-                <select name="lot" id="lot" class="form-select">
-                    <option value="">— Tous —</option>
-                    {% for l in lots %}
-                    <option value="{{ l.pk }}" {% if lot_pk == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.designation }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-12 col-lg-4 text-lg-end">
-                <button type="submit" class="btn btn-primary"><i class="fas fa-filter me-1"></i> Filtrer</button>
-                <a href="{{ request.path }}" class="btn btn-outline-secondary"><i class="fas fa-rotate-left"></i></a>
-                <a href="{{ request.path }}?{% if date_debut %}date_debut={{ date_debut|date:'Y-m-d' }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:'Y-m-d' }}&{% endif %}{% if categorie_pk %}categorie={{ categorie_pk }}&{% endif %}{% if lot_pk %}lot={{ lot_pk }}&{% endif %}export=csv" class="btn btn-success"><i class="fas fa-file-csv"></i></a>
-            </div>
-        </form>
-    </div>
+<div class="section-card mb-3">
+  <div class="section-card__body" style="padding:14px 20px;">
+    <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="input-wrapper" style="min-width:150px;">
+        <i class="bx bxs-calendar input-icon"></i>
+        <input type="date" name="date_debut" class="field-input has-icon" value="{{ date_debut|date:'Y-m-d' }}">
+      </div>
+      <div class="input-wrapper" style="min-width:150px;">
+        <i class="bx bxs-calendar input-icon"></i>
+        <input type="date" name="date_fin" class="field-input has-icon" value="{{ date_fin|date:'Y-m-d' }}">
+      </div>
+      <div class="input-wrapper" style="min-width:180px;">
+        <i class="bx bxs-category input-icon"></i>
+        <select name="categorie" class="field-input has-icon">
+          <option value="">Toutes catégories</option>
+          {% for c in categories %}<option value="{{ c.pk }}" {% if categorie_pk == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.libelle }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="input-wrapper" style="min-width:180px;">
+        <i class="bx bxs-bird input-icon"></i>
+        <select name="lot" class="field-input has-icon">
+          <option value="">Tous les lots</option>
+          {% for l in lots %}<option value="{{ l.pk }}" {% if lot_pk == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.designation }}</option>{% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> Filtrer</button>
+      <a href="{% url 'reporting:depenses' %}" class="btn-ghost btn-sm">Réinitialiser</a>
+    </form>
+  </div>
 </div>
 
-<!-- Summary Cards -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card border-start border-4 border-danger">
-            <div class="card-body d-flex justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase">Total Dépenses</div>
-                    <div class="h5 fw-bold mb-0">{{ summary.total|floatformat:2 }} DZD</div>
-                </div>
-                <div class="text-danger fs-3"><i class="fas fa-money-bill-wave"></i></div>
-            </div>
-        </div>
+<!-- Top KPIs -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-orange"><i class="bx bxs-wallet"></i></div>
+      <div class="metric-label">Total Dépenses</div>
+      <div class="metric-value sm" style="font-size:18px;">{{ summary.total|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
-    <div class="col-md-3">
-        <div class="card border-start border-4 border-info">
-            <div class="card-body d-flex justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase">Nombre</div>
-                    <div class="h5 fw-bold mb-0">{{ summary.nb_depenses|default:0 }}</div>
-                </div>
-                <div class="text-info fs-3"><i class="fas fa-receipt"></i></div>
-            </div>
-        </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-blue"><i class="bx bxs-file-txt"></i></div>
+      <div class="metric-label">Nombre d'opérations</div>
+      <div class="metric-value sm">{{ summary.nb_depenses }}</div>
     </div>
-    <div class="col-md-3">
-        <div class="card border-start border-4 border-primary">
-            <div class="card-body d-flex justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase">Moyenne / Jour</div>
-                    <div class="h5 fw-bold mb-0">{{ summary.moyenne_par_jour|default:"—"|floatformat:2 }} DZD</div>
-                </div>
-                <div class="text-primary fs-3"><i class="fas fa-calculator"></i></div>
-            </div>
-        </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-amber"><i class="bx bxs-bar-chart-alt-2"></i></div>
+      <div class="metric-label">Moyenne / jour</div>
+      <div class="metric-value sm" style="font-size:16px;">
+        {% if summary.moyenne_par_jour %}{{ summary.moyenne_par_jour|floatformat:0 }} <small style="font-size:12px;">DZD</small>{% else %}<span style="font-size:14px;color:var(--text-muted);">N/A</span>{% endif %}
+      </div>
     </div>
-    <div class="col-md-3">
-        <div class="card border-start border-4 border-warning">
-            <div class="card-body d-flex justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase">Max Dépense</div>
-                    <div class="h5 fw-bold mb-0">{% if summary.max_depense %}{{ summary.max_depense.montant|floatformat:2 }} DZD{% else %}—{% endif %}</div>
-                </div>
-                <div class="text-warning fs-3"><i class="fas fa-arrow-trend-up"></i></div>
-            </div>
-        </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-red"><i class="bx bxs-up-arrow-circle"></i></div>
+      <div class="metric-label">Dépense max</div>
+      <div class="metric-value sm" style="font-size:16px;">
+        {% if summary.max_depense %}{{ summary.max_depense.montant|floatformat:0 }} <small style="font-size:12px;">DZD</small>{% else %}—{% endif %}
+      </div>
+      {% if summary.max_depense %}<div style="font-size:11px;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ summary.max_depense.categorie.libelle }}</div>{% endif %}
     </div>
+  </div>
 </div>
 
-<!-- Charts Row -->
-<div class="row mb-4">
-    <div class="col-lg-6">
-        <div class="card h-100">
-            <div class="card-header bg-light">
-                <h6 class="mb-0 fw-bold"><i class="fas fa-chart-pie me-2 text-primary"></i>Par Catégorie</h6>
-            </div>
-            <div class="card-body">
-                <div style="height: 260px;"><canvas id="categorieChart"></canvas></div>
-            </div>
-        </div>
+<!-- Charts + breakdown -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-7">
+    <div class="section-card" style="height:100%;">
+      <div class="section-card__head"><span class="section-card__title">Répartition par Catégorie</span></div>
+      <div class="section-card__body">
+        <div class="chart-wrap"><canvas id="catBar"></canvas></div>
+      </div>
     </div>
-    <div class="col-lg-6">
-        <div class="card h-100">
-            <div class="card-header bg-light">
-                <h6 class="mb-0 fw-bold"><i class="fas fa-chart-pie me-2 text-success"></i>Par Mode de Paiement</h6>
+  </div>
+  <div class="col-xl-5">
+    <div class="section-card" style="height:100%;">
+      <div class="section-card__head"><span class="section-card__title">Par Mode de Paiement</span></div>
+      <div class="section-card__body">
+        <div class="chart-wrap" style="height:160px;"><canvas id="modeDonut"></canvas></div>
+        <div style="margin-top:14px;">
+          {% for m in summary.par_mode_paiement %}
+          <div class="mode-chip">
+            <span style="font-size:13px;color:var(--text-secondary);">{{ m.label }}</span>
+            <div style="text-align:right;">
+              <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;">{{ m.total|floatformat:0 }} DZD</span>
+              <span style="font-size:11px;color:var(--text-muted);margin-left:5px;">{{ m.nb }}</span>
             </div>
-            <div class="card-body">
-                <div style="height: 260px;"><canvas id="modeChart"></canvas></div>
-            </div>
+          </div>
+          {% empty %}
+          <div style="text-align:center;color:var(--text-muted);padding:18px 0;font-size:13px;">Aucune donnée</div>
+          {% endfor %}
         </div>
+      </div>
     </div>
+  </div>
 </div>
 
-<!-- Detail Table -->
-<div class="card mb-4">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-table me-2 text-primary"></i>Détail des Dépenses</h6>
-        <div class="small text-muted">{{ page.paginator.count|default:0 }} enregistrement(s)</div>
+<!-- Category breakdown -->
+<div class="section-card mb-4">
+  <div class="section-card__head">
+    <span class="section-card__title">Analyse par Catégorie</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ summary.par_categorie|length }} catégorie(s)</span>
+  </div>
+  <div class="section-card__body">
+    {% for c in summary.par_categorie %}
+    <div class="cat-row">
+      <div class="cat-label">
+        <span style="font-weight:600;">{{ c.categorie.libelle }}</span>
+        <span style="font-size:11px;color:var(--text-muted);margin-left:6px;">{{ c.nb }} opér.</span>
+      </div>
+      <div class="cat-bar-track">
+        <div class="cat-bar-fill" style="width:{{ c.pct }}%;background:{% cycle '#22c55e' '#38bdf8' '#f59e0b' '#c4b5fd' '#fb923c' '#5eead4' '#f87171' %};" data-pct="{{ c.pct }}"></div>
+      </div>
+      <div class="cat-val">{{ c.total|floatformat:0 }} DZD</div>
+      <div class="cat-pct">{{ c.pct }}%</div>
     </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover mb-0 align-middle" id="data-table">
-                <thead class="table-light">
-                    <tr>
-                        <th class="cursor-pointer" onclick="sortTable(0)">Date <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable(1)">Catégorie <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable(2)">Description <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="text-end cursor-pointer" onclick="sortTable(3)">Montant <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable(4)">Mode <i class="fas fa-sort text-muted small"></i></th>
-                        <th class="cursor-pointer" onclick="sortTable(5)">Lot <i class="fas fa-sort text-muted small"></i></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for d in page.object_list %}
-                    <tr>
-                        <td>{{ d.date|date:"d/m/Y" }}</td>
-                        <td><span class="badge bg-info">{{ d.categorie.libelle }}</span></td>
-                        <td>{{ d.description|truncatechars:60 }}</td>
-                        <td class="text-end fw-bold">{{ d.montant|floatformat:2 }}</td>
-                        <td><span class="badge bg-secondary">{{ d.get_mode_paiement_display }}</span></td>
-                        <td>{% if d.lot %}<a href="{% url 'reporting:consommation_lot_detail' d.lot.pk %}" class="text-decoration-none">{{ d.lot.designation }}</a>{% else %}<span class="text-muted">—</span>{% endif %}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="6" class="text-center py-4 text-muted"><i class="fas fa-circle-info fa-2x mb-2 text-info"></i><br>Aucune dépense trouvée.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    {% empty %}
+    <div style="text-align:center;color:var(--text-muted);padding:16px 0;font-size:13px;">Aucune dépense dans la période.</div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Detail table -->
+<div class="section-card">
+  <div class="section-card__head">
+    <span class="section-card__title">Détail des Dépenses</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ page.paginator.count }} enregistrement(s)</span>
+  </div>
+  <div class="section-card__body no-pad">
+    {% if page.object_list %}
+    <div style="overflow-x:auto;">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Catégorie</th>
+            <th>Description</th>
+            <th style="text-align:right;">Montant</th>
+            <th>Mode</th>
+            <th>Réf. Document</th>
+            <th>Lot</th>
+            <th>Par</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in page.object_list %}
+          <tr class="stagger-row" style="--row-i:{{ forloop.counter0 }};">
+            <td><span style="font-family:'Nunito',sans-serif;font-weight:600;">{{ d.date|date:"d/m/Y" }}</span></td>
+            <td><span class="pill-base pill-warning" style="font-size:10.5px;">{{ d.categorie.libelle }}</span></td>
+            <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              <span style="font-weight:500;color:var(--text-primary);">{{ d.description }}</span>
+            </td>
+            <td style="text-align:right;">
+              <span style="font-family:'Nunito',sans-serif;font-weight:700;color:#ea580c;">{{ d.montant|floatformat:0 }} DZD</span>
+            </td>
+            <td><span class="pill-base pill-info" style="font-size:10.5px;">{{ d.get_mode_paiement_display }}</span></td>
+            <td style="font-size:12px;color:var(--text-muted);">{{ d.reference_document|default:"—" }}</td>
+            <td style="font-size:12px;">
+              {% if d.lot %}<span style="color:var(--accent-text);font-weight:600;">{{ d.lot.designation }}</span>{% else %}<span class="val-muted">—</span>{% endif %}
+            </td>
+            <td style="font-size:12px;color:var(--text-muted);">{{ d.enregistre_par|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--bg-raised);">
+            <td colspan="3" style="font-weight:700;padding:12px 14px;">TOTAL</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;padding:12px 14px;color:#ea580c;">{{ summary.total|floatformat:0 }} DZD</td>
+            <td colspan="4" style="padding:12px 14px;color:var(--text-muted);font-size:12px;">{{ summary.nb_depenses }} opération(s)</td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
     {% if page.has_other_pages %}
-    <div class="card-footer d-flex justify-content-between align-items-center">
-        <small class="text-muted">Page {{ page.number }} / {{ page.paginator.num_pages }}</small>
-        <nav>
-            <ul class="pagination pagination-sm mb-0">
-                {% if page.has_previous %}
-                <li class="page-item"><a class="page-link" href="?{% param_replace page=1 %}"><i class="fas fa-angles-left"></i></a></li>
-                <li class="page-item"><a class="page-link" href="?{% param_replace page=page.previous_page_number %}"><i class="fas fa-angle-left"></i></a></li>
-                {% endif %}
-                <li class="page-item active"><span class="page-link">{{ page.number }}</span></li>
-                {% if page.has_next %}
-                <li class="page-item"><a class="page-link" href="?{% param_replace page=page.next_page_number %}"><i class="fas fa-angle-right"></i></a></li>
-                <li class="page-item"><a class="page-link" href="?{% param_replace page=page.paginator.num_pages %}"><i class="fas fa-angles-right"></i></a></li>
-                {% endif %}
-            </ul>
-        </nav>
+    <div class="pagination-bar">
+      <span>Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      <div class="page-links">
+        {% if page.has_previous %}
+        <a href="?page={{ page.previous_page_number }}{% if date_debut %}&date_debut={{ date_debut|date:'Y-m-d' }}{% endif %}{% if date_fin %}&date_fin={{ date_fin|date:'Y-m-d' }}{% endif %}{% if categorie_pk %}&categorie={{ categorie_pk }}{% endif %}{% if lot_pk %}&lot={{ lot_pk }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>
+        {% endif %}
+        <span class="page-link active">{{ page.number }}</span>
+        {% if page.has_next %}
+        <a href="?page={{ page.next_page_number }}{% if date_debut %}&date_debut={{ date_debut|date:'Y-m-d' }}{% endif %}{% if date_fin %}&date_fin={{ date_fin|date:'Y-m-d' }}{% endif %}{% if categorie_pk %}&categorie={{ categorie_pk }}{% endif %}{% if lot_pk %}&lot={{ lot_pk }}{% endif %}" class="page-link"><i class="bx bx-chevron-right"></i></a>
+        {% endif %}
+      </div>
     </div>
     {% endif %}
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bxs-wallet empty-state__icon"></i>
+      <div class="empty-state__title">Aucune dépense</div>
+      <div class="empty-state__text">Modifiez la période ou les filtres.</div>
+    </div>
+    {% endif %}
+  </div>
 </div>
-{% endblock content %}
+
+<script id="depense-data" type="application/json">
+{
+  "categories": {
+    "labels": [{% for c in summary.par_categorie %}"{{ c.categorie.libelle|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+    "values": [{% for c in summary.par_categorie %}{{ c.total|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}],
+    "pcts":   [{% for c in summary.par_categorie %}{{ c.pct }}{% if not forloop.last %},{% endif %}{% endfor %}]
+  },
+  "modes": {
+    "labels": [{% for m in summary.par_mode_paiement %}"{{ m.label|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+    "values": [{% for m in summary.par_mode_paiement %}{{ m.total|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}]
+  }
+}
+</script>
+{% endblock %}
 
 {% block extra_js %}
 <script>
-(function() {
-    'use strict';
+document.addEventListener('DOMContentLoaded', function () {
+  const d = JSON.parse(document.getElementById('depense-data').textContent);
+  const COLORS = ['#22c55e','#38bdf8','#f59e0b','#c4b5fd','#fb923c','#5eead4','#f9a8d4','#a5b4fc','#f87171'];
+  const tip = { backgroundColor:'#fff', borderColor:'rgba(0,0,0,.12)', borderWidth:1, titleColor:'#1a2219', bodyColor:'#3d5242', padding:10, cornerRadius:8 };
+  const fmt = v => new Intl.NumberFormat('fr-DZ').format(Math.round(v));
 
-    var catLabels = [], catData = [];
-    {% for c in summary.par_categorie %}
-    catLabels.push("{{ c.categorie.libelle|escapejs }}");
-    catData.push({{ c.total|default:0 }});
-    {% endfor %}
+  // Correct cat bar fill widths (override inline template cycle)
+  document.querySelectorAll('.cat-bar-fill[data-pct]').forEach((el, i) => {
+    el.style.width = el.dataset.pct + '%';
+    el.style.background = COLORS[i % COLORS.length];
+  });
 
-    var modeLabels = [], modeData = [];
-    {% for m in summary.par_mode_paiement %}
-    modeLabels.push("{{ m.label|escapejs }}");
-    modeData.push({{ m.total|default:0 }});
-    {% endfor %}
+  // Category horizontal bar
+  const catEl = document.getElementById('catBar');
+  if (catEl && d.categories.labels.length) {
+    new Chart(catEl, {
+      type: 'bar',
+      data: {
+        labels: d.categories.labels,
+        datasets: [{
+          label: 'Total (DZD)', data: d.categories.values,
+          backgroundColor: d.categories.labels.map((_, i) => COLORS[i % COLORS.length] + 'bb'),
+          borderColor: d.categories.labels.map((_, i) => COLORS[i % COLORS.length]),
+          borderWidth: 1, borderRadius: 6, borderSkipped: false
+        }]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { ...tip, callbacks: { label: c => ' ' + fmt(c.raw) + ' DZD' } } },
+        scales: { x: { grid: { color: 'rgba(0,0,0,.05)' }, ticks: { callback: v => (v/1000).toFixed(0)+'k' } }, y: { grid: { display: false }, ticks: { font: { size: 11 } } } }
+      }
+    });
+  }
 
-    if (catLabels.length > 0) {
-        new Chart(document.getElementById('categorieChart').getContext('2d'), {
-            type: 'doughnut',
-            data: { labels: catLabels, datasets: [{ data: catData, backgroundColor: ['#0d6efd','#198754','#ffc107','#dc3545','#6f42c1','#0dcaf0','#fd7e14','#20c997'] }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
-        });
-    } else { document.getElementById('categorieChart').parentNode.innerHTML = '<div class="text-center text-muted py-5">Aucune donnée</div>'; }
-
-    if (modeLabels.length > 0) {
-        new Chart(document.getElementById('modeChart').getContext('2d'), {
-            type: 'pie',
-            data: { labels: modeLabels, datasets: [{ data: modeData, backgroundColor: ['#198754','#0d6efd','#ffc107','#dc3545','#6f42c1','#0dcaf0'] }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
-        });
-    } else { document.getElementById('modeChart').parentNode.innerHTML = '<div class="text-center text-muted py-5">Aucune donnée</div>'; }
-
-    window.sortTable = function(n) {
-        var table = document.getElementById('data-table');
-        if (!table) return;
-        var tbody = table.querySelector('tbody');
-        var rows = Array.from(tbody.querySelectorAll('tr'));
-        var asc = table.getAttribute('data-sort-col') != n || table.getAttribute('data-sort-dir') === 'desc';
-        table.setAttribute('data-sort-col', n);
-        table.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
-        rows.sort(function(a, b) {
-            var x = a.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
-            var y = b.cells[n].textContent.trim().replace(/\s/g, '').replace(/,/g, '.');
-            var xn = parseFloat(x), yn = parseFloat(y);
-            if (!isNaN(xn) && !isNaN(yn)) return asc ? xn - yn : yn - xn;
-            return asc ? x.localeCompare(y) : y.localeCompare(x);
-        });
-        rows.forEach(function(r) { tbody.appendChild(r); });
-    };
-})();
+  // Mode donut
+  const modeEl = document.getElementById('modeDonut');
+  if (modeEl && d.modes.labels.length) {
+    new Chart(modeEl, {
+      type: 'doughnut',
+      data: {
+        labels: d.modes.labels,
+        datasets: [{ data: d.modes.values, backgroundColor: COLORS, borderColor: '#fff', borderWidth: 3 }]
+      },
+      options: {
+        cutout: '65%', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } }, tooltip: { ...tip, callbacks: { label: c => ' ' + fmt(c.raw) + ' DZD' } } }
+      }
+    });
+  }
+});
 </script>
-{% endblock extra_js %}
+{% endblock %}

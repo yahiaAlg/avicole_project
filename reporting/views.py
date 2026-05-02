@@ -529,14 +529,14 @@ def rapport_dettes_fournisseurs(request):
 
     today = datetime.date.today()
 
-    fournisseurs_qs = Fournisseur.objects.order_by("nom")
-    if request.GET.get("actif_seulement", "1") != "0":
-        fournisseurs_qs = fournisseurs_qs.filter(actif=True)
+    fournisseurs_all = Fournisseur.objects.filter(actif=True).order_by("nom")
 
-    # Search
-    q = request.GET.get("q", "").strip()
-    if q:
-        fournisseurs_qs = fournisseurs_qs.filter(nom__icontains=q)
+    fournisseur_pk = request.GET.get("fournisseur", "").strip()
+    fournisseur_obj = None
+    if fournisseur_pk:
+        fournisseur_obj = get_object_or_404(Fournisseur, pk=fournisseur_pk)
+
+    fournisseurs_qs = [fournisseur_obj] if fournisseur_obj else list(fournisseurs_all)
 
     rows = []
     for fournisseur in fournisseurs_qs:
@@ -618,14 +618,14 @@ def rapport_dettes_fournisseurs(request):
         return _csv_response("dettes_fournisseurs", headers, csv_rows)
 
     return render(
-        request,
-        "reporting/dettes_fournisseurs.html",
         {
             "title": "Dettes en Cours par Fournisseur",
             "rows": rows,
             "grand_total_dette": grand_total_dette,
             "today": today,
-            "q": q,
+            "fournisseurs": fournisseurs_all,
+            "fournisseur_pk": fournisseur_pk,
+            "fournisseur_obj": fournisseur_obj,
         },
     )
 
