@@ -785,6 +785,25 @@ def production_dashboard(request):
         total_poids=Sum("poids_total_kg"),
     )
 
+    # Stock produits finis summary
+    from stock.models import StockProduitFini
+
+    stock_produits = list(
+        StockProduitFini.objects.select_related("produit_fini").order_by(
+            "produit_fini__type_produit", "produit_fini__designation"
+        )
+    )
+    valeur_stock_total = sum(float(s.valeur_stock) for s in stock_produits)
+    revenu_potentiel = sum(
+        float(s.quantite) * float(s.produit_fini.prix_vente_defaut)
+        for s in stock_produits
+    )
+    nb_en_alerte = sum(1 for s in stock_produits if s.en_alerte)
+
+    from elevage.models import LotElevage
+
+    lots_actifs = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT).count()
+
     return render(
         request,
         "production/production_dashboard.html",
@@ -795,6 +814,11 @@ def production_dashboard(request):
             "totaux": totaux,
             "date_debut": date_debut_str,
             "date_fin": date_fin_str,
+            "stock_produits": stock_produits,
+            "valeur_stock_total": valeur_stock_total,
+            "revenu_potentiel": revenu_potentiel,
+            "nb_en_alerte": nb_en_alerte,
+            "lots_actifs": lots_actifs,
             "title": "Tableau de bord — Production",
         },
     )
@@ -894,3 +918,135 @@ def produit_fini_detail_json(request, pk):
         )
     except ProduitFini.DoesNotExist:
         return JsonResponse({"error": "not found"}, status=404)
+
+
+# ===========================================================================
+# AJAX — Dashboard charts data
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def production_dashboard_charts_json(request):
+    """
+    Returns JSON data for all Chart.js charts on the production dashboard:
+
+    - monthly_production  : last 6 months oiseaux abattus + poids total
+    - stock_par_produit   : current stock quantity per produit fini
+    - production_par_type : total quantity produced per product type (all time)
+    - cout_vs_revenu      : per-lot cost vs revenue potential comparison
+    """
+    import datetime
+    from collections import defaultdict
+    from stock.models import StockProduitFini
+    from production.models import ProductionRecord, ProductionLigne, ProduitFini
+
+    today = datetime.date.today()
+
+    # ── 1. Monthly production: last 6 months ─────────────────────────────
+    months = []
+    for i in range(5, -1, -1):
+        first_of_month = today.replace(day=1) - datetime.timedelta(days=1)
+        # Go back i months from current month
+        m = today.month - i
+        y = today.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        months.append((y, m))
+
+    monthly_labels = []
+    monthly_oiseaux = []
+    monthly_poids = []
+
+    FR_MONTHS = [
+        "Jan",
+        "Fév",
+        "Mar",
+        "Avr",
+        "Mai",
+        "Juin",
+        "Juil",
+        "Août",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Déc",
+    ]
+
+    for y, m in months:
+        monthly_labels.append(f"{FR_MONTHS[m-1]} {y}")
+        agg = ProductionRecord.objects.filter(
+            statut=ProductionRecord.STATUT_VALIDE,
+            date_production__year=y,
+            date_production__month=m,
+        ).aggregate(
+            oiseaux=Sum("nombre_oiseaux_abattus"),
+            poids=Sum("poids_total_kg"),
+        )
+        monthly_oiseaux.append(agg["oiseaux"] or 0)
+        monthly_poids.append(float(agg["poids"] or 0))
+
+    # ── 2. Stock par produit fini ─────────────────────────────────────────
+    stocks = (
+        StockProduitFini.objects.select_related("produit_fini")
+        .filter(produit_fini__actif=True)
+        .order_by("produit_fini__designation")
+    )
+    stock_labels = [s.produit_fini.designation for s in stocks]
+    stock_quantities = [float(s.quantite) for s in stocks]
+    stock_alertes = [s.en_alerte for s in stocks]
+    stock_unites = [s.produit_fini.unite_mesure for s in stocks]
+
+    # ── 3. Production par type de produit (quantités produites totales) ──
+    type_totals = defaultdict(float)
+    type_display = dict(ProduitFini.TYPE_CHOICES)
+    for ligne in ProductionLigne.objects.select_related(
+        "produit_fini", "production"
+    ).filter(production__statut=ProductionRecord.STATUT_VALIDE):
+        type_totals[ligne.produit_fini.get_type_produit_display()] += float(
+            ligne.quantite
+        )
+
+    type_labels = list(type_totals.keys())
+    type_values = list(type_totals.values())
+
+    # ── 4. Cost vs revenue per lot ────────────────────────────────────────
+    from production.utils import get_production_dashboard
+
+    rows = get_production_dashboard()
+    lot_labels = [r["lot"].designation.replace(" — ", "\n") for r in rows]
+    lot_couts = [float(r["cout_total_dzd"]) for r in rows]
+    lot_revenus = []
+    for r in rows:
+        rev = 0.0
+        for ligne in ProductionLigne.objects.filter(
+            production__lot=r["lot"],
+            production__statut=ProductionRecord.STATUT_VALIDE,
+        ).select_related("produit_fini"):
+            rev += float(ligne.quantite) * float(ligne.produit_fini.prix_vente_defaut)
+        lot_revenus.append(rev)
+
+    return JsonResponse(
+        {
+            "monthly": {
+                "labels": monthly_labels,
+                "oiseaux": monthly_oiseaux,
+                "poids": monthly_poids,
+            },
+            "stock": {
+                "labels": stock_labels,
+                "quantities": stock_quantities,
+                "alertes": stock_alertes,
+                "unites": stock_unites,
+            },
+            "par_type": {
+                "labels": type_labels,
+                "values": type_values,
+            },
+            "cout_revenu": {
+                "labels": lot_labels,
+                "couts": lot_couts,
+                "revenus": lot_revenus,
+            },
+        }
+    )

@@ -172,3 +172,36 @@ class DepenseFilterForm(forms.Form):
                 "La date de début doit être antérieure ou égale à la date de fin."
             )
         return cleaned
+
+
+# ---------------------------------------------------------------------------
+# Filter form for the dépenses dashboard
+# ---------------------------------------------------------------------------
+
+
+class DashboardFilterForm(forms.Form):
+    """
+    Date-range filter for the dépenses dashboard.
+    Both fields are optional; defaults are applied in the view.
+    """
+
+    date_debut = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        label="Du",
+    )
+    date_fin = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        label="Au",
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        date_debut = cleaned.get("date_debut")
+        date_fin = cleaned.get("date_fin")
+        if date_debut and date_fin and date_debut > date_fin:
+            raise forms.ValidationError(
+                "La date de début doit être antérieure ou égale à la date de fin."
+            )
+        return cleaned

@@ -1,362 +1,558 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Tableau de bord — Dépenses — Élevage Avicole{% endblock %}
+{% block title %}Tableau de bord Dépenses — Élevage Avicole{% endblock %}
+{% block nav_depenses_dashboard %}active{% endblock %}
 
-{% block nav_depenses %}active{% endblock %}
-
-{% block page_title %}Dépenses opérationnelles{% endblock %}
-{% block page_sub_text %}{{ today|date:"F Y" }} — {{ summary_mois.nb_depenses }} dépense{{ summary_mois.nb_depenses|pluralize }} ce mois{% endblock %}
+{% block page_title %}Dépenses{% endblock %}
+{% block page_sub_text %}Tableau de bord · {{ periode_label }} · Analyse par catégorie{% endblock %}
 
 {% block topbar_actions %}
-  {% if not request.user.userprofile.role == 'viewer' %}
   <a href="{% url 'depenses:depense_create' %}" class="btn-primary">
     <i class="bx bx-plus"></i> Nouvelle dépense
   </a>
-  {% endif %}
   <a href="{% url 'depenses:depense_list' %}" class="btn-ghost">
     <i class="bx bx-list-ul"></i> Toutes les dépenses
   </a>
 {% endblock %}
 
 {% block content %}
-<div class="page-body">
+<div class="dep-body">
 
-  <!-- ── KPI Row ── -->
-  <div class="kpi-row">
-
-    <div class="metric-card">
-      <div class="metric-icon ic-red"><i class="bx bxs-wallet"></i></div>
-      <div class="metric-label">DÉPENSES CE MOIS</div>
-      <div class="metric-value">{{ summary_mois.total|floatformat:0 }} <span class="metric-unit">DZD</span></div>
-      <span class="metric-caption">{{ summary_mois.nb_depenses }} enregistrement{{ summary_mois.nb_depenses|pluralize }}</span>
+  <!-- ══ Date-range filter bar ══════════════════════════════════════════════ -->
+  <form method="get" class="filter-bar" id="dashFilterForm">
+    <div class="filter-presets">
+      <button type="button" class="preset-btn" data-preset="month">Ce mois</button>
+      <button type="button" class="preset-btn" data-preset="prev_month">Mois préc.</button>
+      <button type="button" class="preset-btn" data-preset="3months">3 mois</button>
+      <button type="button" class="preset-btn" data-preset="ytd">YTD</button>
+      <button type="button" class="preset-btn" data-preset="year">Cette année</button>
     </div>
-
-    <div class="metric-card">
-      <div class="metric-icon ic-amber"><i class="bx bxs-calendar-check"></i></div>
-      <div class="metric-label">DÉPENSES ANNUELLES (YTD)</div>
-      <div class="metric-value">{{ summary_annee.total|floatformat:0 }} <span class="metric-unit">DZD</span></div>
-      <span class="metric-caption">{{ summary_annee.nb_depenses }} enregistrement{{ summary_annee.nb_depenses|pluralize }}</span>
+    <div class="filter-inputs">
+      <label class="filter-label">Du
+        {{ filter_form.date_debut }}
+      </label>
+      <label class="filter-label">Au
+        {{ filter_form.date_fin }}
+      </label>
+      <button type="submit" class="btn-primary btn-sm">
+        <i class="bx bx-filter-alt"></i> Filtrer
+      </button>
+      <a href="{% url 'depenses:dashboard' %}" class="btn-ghost btn-sm">
+        <i class="bx bx-reset"></i>
+      </a>
     </div>
+  </form>
 
-    <div class="metric-card">
-      <div class="metric-icon ic-blue"><i class="bx bxs-calculator"></i></div>
-      <div class="metric-label">MOYENNE JOURNALIÈRE</div>
-      <div class="metric-value">
-        {% if summary_mois.moyenne_par_jour %}
-          {{ summary_mois.moyenne_par_jour|floatformat:0 }} <span class="metric-unit">DZD/j</span>
-        {% else %}
-          <span style="font-size:16px;color:var(--text-muted);">—</span>
-        {% endif %}
+  <!-- ══ KPI Row ════════════════════════════════════════════════════════════ -->
+  <div class="kpi-grid">
+
+    <div class="kpi-card kpi-red">
+      <div class="kpi-icon"><i class="bx bxs-wallet-alt"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">TOTAL PÉRIODE</div>
+        <div class="kpi-value">{{ summary_periode.total|floatformat:0 }}<span class="kpi-unit">DZD</span></div>
+        <div class="kpi-sub">{{ date_debut|date:"d/m/Y" }} → {{ date_fin|date:"d/m/Y" }}</div>
       </div>
-      <span class="metric-caption">Du {{ premier_du_mois|date:"d/m/Y" }} au {{ today|date:"d/m/Y" }}</span>
     </div>
 
-    <div class="metric-card">
-      <div class="metric-icon ic-green"><i class="bx bxs-category"></i></div>
-      <div class="metric-label">CATÉGORIES ACTIVES</div>
-      <div class="metric-value">{{ nb_categories_actives }}</div>
-      <a href="{% url 'depenses:categorie_depense_list' %}" class="metric-caption" style="color:var(--accent-text);text-decoration:none;">Gérer les catégories →</a>
+    <div class="kpi-card kpi-orange">
+      <div class="kpi-icon"><i class="bx bxs-receipt"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">NB DÉPENSES</div>
+        <div class="kpi-value">{{ summary_periode.nb_depenses }}</div>
+        <div class="kpi-sub">opérations enregistrées</div>
+      </div>
+    </div>
+
+    <div class="kpi-card kpi-indigo">
+      <div class="kpi-icon"><i class="bx bxs-bar-chart-alt-2"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">TOTAL ANNUEL (YTD)</div>
+        <div class="kpi-value">{{ summary_annee.total|floatformat:0 }}<span class="kpi-unit">DZD</span></div>
+        <div class="kpi-sub">depuis le 1ᵉʳ janvier</div>
+      </div>
+    </div>
+
+    <div class="kpi-card kpi-teal">
+      <div class="kpi-icon"><i class="bx bxs-calculator"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">MOYENNE / JOUR</div>
+        <div class="kpi-value">
+          {% if summary_periode.moyenne_par_jour %}
+            {{ summary_periode.moyenne_par_jour|floatformat:0 }}<span class="kpi-unit">DZD</span>
+          {% else %}—{% endif %}
+        </div>
+        <div class="kpi-sub">moyenne quotidienne sur la période</div>
+      </div>
+    </div>
+
+    <div class="kpi-card {% if delta_pct is not None %}{% if delta_pct > 0 %}kpi-red{% elif delta_pct < 0 %}kpi-green{% else %}kpi-slate{% endif %}{% else %}kpi-slate{% endif %}">
+      <div class="kpi-icon">
+        <i class="bx {% if delta_pct is not None %}{% if delta_pct > 0 %}bxs-up-arrow{% elif delta_pct < 0 %}bxs-down-arrow{% else %}bx-minus{% endif %}{% else %}bx-minus{% endif %}"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">VS PÉRIODE PRÉC.</div>
+        <div class="kpi-value">
+          {% if delta_pct is not None %}
+            {% if delta_pct > 0 %}+{% endif %}{{ delta_pct }}<span class="kpi-unit">%</span>
+          {% else %}—{% endif %}
+        </div>
+        <div class="kpi-sub">{{ summary_precedent.total|floatformat:0 }} DZD la période préc.</div>
+      </div>
+    </div>
+
+    <div class="kpi-card kpi-slate">
+      <div class="kpi-icon"><i class="bx bxs-category"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">CATÉGORIES ACTIVES</div>
+        <div class="kpi-value">{{ nb_categories_actives }}</div>
+        <div class="kpi-sub"><a href="{% url 'depenses:categorie_depense_list' %}" class="kpi-link">Gérer les catégories</a></div>
+      </div>
     </div>
 
   </div>
 
-  <!-- ── Main grid ── -->
-  <div class="dash-grid">
+  <!-- ══ Charts Row ════════════════════════════════════════════════════════ -->
+  <div class="chart-row chart-2-1">
 
-    <!-- LEFT: Category breakdown -->
-    <div class="dash-col dash-col--main">
-
-      <div class="card">
-        <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-pie-chart-alt-2"></i> Répartition par catégorie — {{ today|date:"F Y" }}</div>
-          <a href="{% url 'depenses:depense_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;text-decoration:none;">
-            Voir tout <i class="bx bx-right-arrow-alt"></i>
-          </a>
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-eyebrow">Tendance mensuelle</div>
+          <div class="chart-title">Dépenses des 6 derniers mois</div>
         </div>
+        <div class="chart-legend">
+          <span class="legend-dot" style="background:#f87171;"></span>Total DZD
+          <span class="legend-dot" style="background:#fb923c;margin-left:12px;"></span>Nb opérations
+        </div>
+      </div>
+      <div class="chart-body">
+        <canvas id="chartTendance"></canvas>
+      </div>
+    </div>
 
-        {% if summary_mois.par_categorie %}
-        <div class="cat-chart-wrapper">
-          <div class="cat-chart-canvas-col">
-            <canvas id="catChart" height="220"></canvas>
-          </div>
-          <div class="cat-legend-col">
-            {% for item in summary_mois.par_categorie %}
-            <div class="cat-legend-item" style="--legend-i:{{ forloop.counter0 }};">
-              <span class="cat-legend-dot" style="--dot-i:{{ forloop.counter0 }};"></span>
-              <div class="cat-legend-body">
-                <div class="cat-legend-name">{{ item.categorie.libelle }}</div>
-                <div class="cat-legend-values">
-                  <span class="cat-legend-amount">{{ item.total|floatformat:0 }} DZD</span>
-                  <span class="cat-legend-pct">{{ item.pct }}%</span>
-                </div>
-              </div>
-              <div class="cat-legend-bar-wrap">
-                <div class="cat-legend-bar" style="width:{{ item.pct }}%;--bar-i:{{ forloop.counter0 }};"></div>
-              </div>
-            </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-eyebrow">Répartition annuelle</div>
+          <div class="chart-title">Par catégorie (YTD)</div>
+        </div>
+      </div>
+      <div class="chart-body chart-body-donut">
+        <canvas id="chartCategories"></canvas>
+        <div class="donut-center" id="donutCenter">—</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ Bottom Grid ════════════════════════════════════════════════════════ -->
+  <div class="bottom-grid">
+
+    <!-- Top categories table -->
+    <div class="data-card span-2">
+      <div class="data-header">
+        <div class="data-title">Répartition par catégorie <span class="data-period">· {{ periode_label }}</span></div>
+        <a href="{% url 'depenses:categorie_depense_list' %}" class="link-all">Gérer <i class="bx bx-right-arrow-alt"></i></a>
+      </div>
+      {% if par_categorie_periode %}
+      <div class="tbl-wrap">
+        <table class="dtable">
+          <thead>
+            <tr>
+              <th>Catégorie</th>
+              <th class="num">Nb dépenses</th>
+              <th class="num">Total DZD</th>
+              <th class="num">Part</th>
+              <th>Répartition</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in par_categorie_periode %}
+            <tr class="trow" style="--i:{{ forloop.counter0 }}">
+              <td>
+                <a href="{% url 'depenses:depense_list' %}?categorie={{ row.categorie.pk }}" class="lot-link">
+                  {{ row.categorie.libelle }}
+                </a>
+              </td>
+              <td class="num muted">{{ row.nb }}</td>
+              <td class="num bold accent-col">{{ row.total|floatformat:0 }} DZD</td>
+              <td class="num muted">{{ row.pct }}%</td>
+              <td>
+                <div class="prog-track"><div class="prog-fill" style="width:{{ row.pct }}%"></div></div>
+              </td>
+            </tr>
             {% endfor %}
-          </div>
-        </div>
-        {% else %}
-        <div class="empty-state">
-          <i class="bx bxs-pie-chart-alt-2 empty-state__icon"></i>
-          <div class="empty-state__title">Aucune dépense ce mois</div>
-          <div class="empty-state__body">Enregistrez des dépenses pour voir la répartition.</div>
-          {% if not request.user.userprofile.role == 'viewer' %}
-          <a href="{% url 'depenses:depense_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
-            <i class="bx bx-plus"></i> Nouvelle dépense
-          </a>
-          {% endif %}
-        </div>
-        {% endif %}
+          </tbody>
+        </table>
       </div>
-
-      <!-- Mode de paiement breakdown -->
-      {% if summary_mois.par_mode_paiement %}
-      <div class="card" style="margin-top:18px;">
-        <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-credit-card"></i> Modes de paiement — ce mois</div>
-        </div>
-        <div class="mode-grid">
-          {% for mode_item in summary_mois.par_mode_paiement %}
-          <div class="mode-item">
-            <div class="mode-icon">
-              {% if mode_item.mode == 'especes' %}<i class="bx bx-money"></i>
-              {% elif mode_item.mode == 'cheque' %}<i class="bx bxs-receipt"></i>
-              {% elif mode_item.mode == 'virement' %}<i class="bx bx-transfer"></i>
-              {% elif mode_item.mode == 'carte' %}<i class="bx bxs-credit-card-alt"></i>
-              {% else %}<i class="bx bx-dots-horizontal-rounded"></i>{% endif %}
-            </div>
-            <div class="mode-info">
-              <div class="mode-label">{{ mode_item.label }}</div>
-              <div class="mode-amount">{{ mode_item.total|floatformat:0 }} DZD</div>
-            </div>
-            <span class="mode-count">{{ mode_item.nb }}</span>
-          </div>
-          {% endfor %}
-        </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="bx bx-category"></i>
+        <p>Aucune dépense enregistrée sur cette période.</p>
       </div>
       {% endif %}
-
     </div>
 
-    <!-- RIGHT: Recent + max depense -->
-    <div class="dash-col dash-col--side">
-
-      <!-- Max dépense of the month -->
-      {% if summary_mois.max_depense %}
-      <div class="card card--highlight">
-        <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-up-arrow-circle"></i> Plus grande dépense du mois</div>
-        </div>
-        <div style="padding:16px 20px;">
-          <a href="{% url 'depenses:depense_detail' summary_mois.max_depense.pk %}" style="text-decoration:none;">
-            <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--text-primary);">{{ summary_mois.max_depense.montant|floatformat:0 }} DZD</div>
-            <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">{{ summary_mois.max_depense.description|truncatechars:60 }}</div>
-            <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
-              <span class="pill-cat">{{ summary_mois.max_depense.categorie.libelle }}</span>
-              <span style="font-size:12px;color:var(--text-muted);">{{ summary_mois.max_depense.date|date:"d/m/Y" }}</span>
-            </div>
-          </a>
-        </div>
+    <!-- Payment methods breakdown -->
+    <div class="data-card">
+      <div class="data-header">
+        <div class="data-title">Modes de paiement <span class="data-period">· {{ periode_label }}</span></div>
       </div>
+      {% if summary_periode.par_mode_paiement %}
+        {% for mode in summary_periode.par_mode_paiement %}
+        <div class="list-row" style="--i:{{ forloop.counter0 }}">
+          <div class="list-main">
+            <div class="list-name">{{ mode.label }}</div>
+            <div class="list-sub">{{ mode.nb }} opération{{ mode.nb|pluralize }}</div>
+          </div>
+          <span class="amount-badge">{{ mode.total|floatformat:0 }} DZD</span>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state small"><i class="bx bx-credit-card"></i><p>Aucune dépense sur cette période.</p></div>
       {% endif %}
-
-      <!-- Recent expenses -->
-      <div class="card">
-        <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bx-time-five"></i> Dépenses récentes</div>
-          <a href="{% url 'depenses:depense_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;text-decoration:none;">
-            Tout voir <i class="bx bx-right-arrow-alt"></i>
-          </a>
-        </div>
-
-        {% if depenses_recentes %}
-        <div class="recent-list">
-          {% for dep in depenses_recentes %}
-          <a href="{% url 'depenses:depense_detail' dep.pk %}" class="recent-item" style="--row-i:{{ forloop.counter0 }};">
-            <div class="recent-item__icon ic-{% cycle 'red' 'amber' 'orange' 'purple' 'blue' %}">
-              <i class="bx bxs-wallet"></i>
-            </div>
-            <div class="recent-item__body">
-              <div class="recent-item__title">{{ dep.description|truncatechars:42 }}</div>
-              <div class="recent-item__sub">
-                <span class="pill-cat" style="font-size:10px;padding:2px 7px;">{{ dep.categorie.libelle }}</span>
-                {% if dep.lot %}
-                <span style="font-size:11px;color:var(--text-muted);">· {{ dep.lot.designation|truncatechars:20 }}</span>
-                {% endif %}
-              </div>
-            </div>
-            <div class="recent-item__right">
-              <div class="recent-item__amount">{{ dep.montant|floatformat:0 }}</div>
-              <div class="recent-item__date">{{ dep.date|date:"d/m/Y" }}</div>
-            </div>
-          </a>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="empty-state" style="padding:32px 20px;">
-          <i class="bx bxs-wallet empty-state__icon"></i>
-          <div class="empty-state__title">Aucune dépense</div>
-          <div class="empty-state__body">Les dépenses enregistrées apparaîtront ici.</div>
-        </div>
-        {% endif %}
-      </div>
-
     </div>
+
+    <!-- Recent expenses -->
+    <div class="data-card">
+      <div class="data-header">
+        <div class="data-title">10 dernières dépenses</div>
+        <a href="{% url 'depenses:depense_list' %}" class="link-all">Tout voir <i class="bx bx-right-arrow-alt"></i></a>
+      </div>
+      {% if depenses_recentes %}
+        {% for dep in depenses_recentes %}
+        <a href="{% url 'depenses:depense_detail' dep.pk %}" class="list-row" style="--i:{{ forloop.counter0 }}">
+          <div class="list-main">
+            <div class="list-name">{{ dep.description|truncatechars:40 }}</div>
+            <div class="list-sub">
+              {{ dep.date|date:"d/m/Y" }} ·
+              <span class="cat-tag">{{ dep.categorie.libelle }}</span>{% if dep.lot %} · {{ dep.lot.designation|truncatechars:20 }}{% endif %}
+            </div>
+          </div>
+          <span class="amount-badge">{{ dep.montant|floatformat:0 }} DZD</span>
+        </a>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state small"><i class="bx bx-time"></i><p>Aucune dépense enregistrée.</p></div>
+      {% endif %}
+    </div>
+
   </div>
-
 </div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-  .page-body { padding: 28px 32px; }
-  @media (max-width: 768px) { .page-body { padding: 20px 16px; } }
+:root {
+  --kpi-red-bg:    rgba(248,113,113,.12); --kpi-red-fg:    #dc2626;
+  --kpi-orange-bg: rgba(251,146,60,.12);  --kpi-orange-fg: #c2410c;
+  --kpi-indigo-bg: rgba(99,102,241,.10);  --kpi-indigo-fg: #4f46e5;
+  --kpi-teal-bg:   rgba(45,212,191,.10);  --kpi-teal-fg:   #0d9488;
+  --kpi-green-bg:  rgba(34,197,94,.10);   --kpi-green-fg:  #15803d;
+  --kpi-slate-bg:  rgba(148,163,184,.10); --kpi-slate-fg:  #475569;
+}
 
-  /* ── KPI Row ── */
-  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
-  @media (max-width: 1100px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 600px)  { .kpi-row { grid-template-columns: 1fr; } }
+.dep-body { padding: 24px 28px; }
+@media(max-width:768px){ .dep-body{ padding:16px 14px; } }
 
-  .metric-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; display: flex; flex-direction: column; gap: 4px; position: relative; transition: border-color .15s, transform .15s; }
-  .metric-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
-  .metric-icon { width: 40px; height: 40px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 8px; }
-  .ic-red    { background: rgba(239,68,68,.12); color: #dc2626; }
-  .ic-amber  { background: rgba(245,158,11,.14); color: #b45309; }
-  .ic-blue   { background: rgba(56,189,248,.14); color: #0284c7; }
-  .ic-green  { background: rgba(34,197,94,.14); color: #15803d; }
-  .ic-orange { background: rgba(251,146,60,.14); color: #ea580c; }
-  .ic-purple { background: rgba(167,139,250,.14); color: #7c3aed; }
-  .ic-teal   { background: rgba(45,212,191,.14); color: #0d9488; }
-  .metric-label { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
-  .metric-value { font-family: 'Nunito', sans-serif; font-size: 24px; font-weight: 800; color: var(--text-primary); line-height: 1.1; }
-  .metric-unit { font-size: 13px; font-weight: 600; color: var(--text-muted); }
-  .metric-caption { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+/* ── KPI grid ─────────────────────────────────────────────── */
+.kpi-grid { display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:20px; }
+@media(max-width:1200px){ .kpi-grid{ grid-template-columns:repeat(3,1fr); } }
+@media(max-width:600px){  .kpi-grid{ grid-template-columns:repeat(2,1fr); } }
 
-  /* ── Dashboard grid ── */
-  .dash-grid { display: grid; grid-template-columns: 1fr 360px; gap: 18px; align-items: start; }
-  @media (max-width: 1100px) { .dash-grid { grid-template-columns: 1fr; } }
-  .dash-col { display: flex; flex-direction: column; gap: 18px; }
+.kpi-card {
+  border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--bg-surface);
+  padding:16px;display:flex;gap:12px;align-items:flex-start;animation:kpiFade .4s ease both;
+}
+.kpi-card:nth-child(1){animation-delay:.04s}.kpi-card:nth-child(2){animation-delay:.08s}
+.kpi-card:nth-child(3){animation-delay:.12s}.kpi-card:nth-child(4){animation-delay:.16s}
+.kpi-card:nth-child(5){animation-delay:.20s}.kpi-card:nth-child(6){animation-delay:.24s}
+@keyframes kpiFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
-  /* ── Card base ── */
-  .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
-  .card--highlight { border-color: rgba(239,68,68,.2); }
-  .card-header-row { padding: 14px 20px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
-  .section-eyebrow i { font-size: 13px; }
+.kpi-icon  { width:40px;height:40px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px; }
+.kpi-red    .kpi-icon { background:var(--kpi-red-bg);    color:var(--kpi-red-fg); }
+.kpi-orange .kpi-icon { background:var(--kpi-orange-bg); color:var(--kpi-orange-fg); }
+.kpi-indigo .kpi-icon { background:var(--kpi-indigo-bg); color:var(--kpi-indigo-fg); }
+.kpi-teal   .kpi-icon { background:var(--kpi-teal-bg);   color:var(--kpi-teal-fg); }
+.kpi-green  .kpi-icon { background:var(--kpi-green-bg);  color:var(--kpi-green-fg); }
+.kpi-slate  .kpi-icon { background:var(--kpi-slate-bg);  color:var(--kpi-slate-fg); }
 
-  /* ── Category chart wrapper ── */
-  .cat-chart-wrapper { display: grid; grid-template-columns: 220px 1fr; gap: 0; }
-  @media (max-width: 860px) { .cat-chart-wrapper { grid-template-columns: 1fr; } }
-  .cat-chart-canvas-col { padding: 20px; border-right: 1px solid var(--border); display: flex; align-items: center; justify-content: center; }
-  .cat-legend-col { padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; max-height: 280px; }
-  .cat-legend-item { display: flex; flex-direction: column; gap: 4px; animation: fadeIn .3s ease both; animation-delay: calc(var(--legend-i, 0) * 50ms); }
-  .cat-legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; background: var(--chart-colors, #22c55e); }
-  .cat-legend-body { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-  .cat-legend-name { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
-  .cat-legend-values { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-  .cat-legend-amount { font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700; color: var(--text-primary); }
-  .cat-legend-pct { font-size: 11px; color: var(--text-muted); background: var(--bg-raised); border-radius: var(--radius-sm); padding: 1px 6px; }
-  .cat-legend-bar-wrap { height: 4px; background: var(--bg-raised); border-radius: 4px; overflow: hidden; }
-  .cat-legend-bar { height: 100%; border-radius: 4px; transition: width .5s ease; }
+.kpi-label { font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px; }
+.kpi-value { font-size:22px;font-weight:800;color:var(--text-primary);line-height:1.1;margin-bottom:3px;font-family:'Nunito',sans-serif; }
+.kpi-unit  { font-size:12px;font-weight:600;color:var(--text-muted);margin-left:2px; }
+.kpi-sub   { font-size:11px;color:var(--text-muted); }
+.kpi-link  { color:var(--accent-text);text-decoration:none;font-size:11px; }
+.kpi-link:hover { text-decoration:underline; }
 
-  /* ── Mode de paiement grid ── */
-  .mode-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0; }
-  .mode-item { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
-  .mode-item:last-child { border-bottom: none; }
-  .mode-icon { width: 36px; height: 36px; border-radius: var(--radius-sm); background: var(--bg-raised); display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--text-muted); flex-shrink: 0; }
-  .mode-info { flex: 1; min-width: 0; }
-  .mode-label { font-size: 12px; color: var(--text-muted); }
-  .mode-amount { font-family: 'Nunito', sans-serif; font-size: 14px; font-weight: 700; color: var(--text-primary); }
-  .mode-count { font-size: 11px; color: var(--text-muted); background: var(--bg-raised); border-radius: 10px; padding: 2px 7px; white-space: nowrap; }
+/* ── Charts ───────────────────────────────────────────────── */
+.chart-row { display:grid;gap:14px;margin-bottom:14px; }
+.chart-2-1 { grid-template-columns:2fr 1fr; }
+@media(max-width:960px){ .chart-2-1{ grid-template-columns:1fr; } }
 
-  /* ── Recent list ── */
-  .recent-list { display: flex; flex-direction: column; }
-  .recent-item { display: flex; align-items: center; gap: 12px; padding: 12px 20px; text-decoration: none; border-bottom: 1px solid var(--border); transition: background .12s; animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i, 0) * 40ms); }
-  .recent-item:last-child { border-bottom: none; }
-  .recent-item:hover { background: var(--bg-hover); }
-  .recent-item__icon { width: 34px; height: 34px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
-  .recent-item__body { flex: 1; min-width: 0; }
-  .recent-item__title { font-size: 13px; color: var(--text-primary); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .recent-item__sub { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
-  .recent-item__right { text-align: right; flex-shrink: 0; }
-  .recent-item__amount { font-family: 'Nunito', sans-serif; font-size: 13.5px; font-weight: 700; color: var(--text-primary); }
-  .recent-item__date { font-size: 11.5px; color: var(--text-muted); margin-top: 1px; }
+.chart-card {
+  background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:18px 20px 14px;animation:kpiFade .4s .1s ease both;
+}
+.chart-header  { display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap; }
+.chart-eyebrow { font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:2px; }
+.chart-title   { font-size:13.5px;font-weight:700;color:var(--text-primary);font-family:'Nunito',sans-serif; }
+.chart-legend  { display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted); }
+.legend-dot    { display:inline-block;width:9px;height:9px;border-radius:50%; }
+.chart-body    { position:relative;height:240px; }
+.chart-body-donut { display:flex;align-items:center;justify-content:center; }
+.donut-center  {
+  position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;color:var(--text-primary);font-family:'Nunito',sans-serif;
+  pointer-events:none;text-align:center;
+}
 
-  /* ── Pills ── */
-  .pill-cat { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(99,102,241,.12); color: #4338ca; }
+/* ── Bottom grid ─────────────────────────────────────────── */
+.bottom-grid { display:grid;grid-template-columns:1fr 1fr;gap:14px; }
+@media(max-width:900px){ .bottom-grid{ grid-template-columns:1fr; } }
+.span-2 { grid-column:span 2; }
+@media(max-width:900px){ .span-2{ grid-column:span 1; } }
 
-  /* ── Buttons ── */
-  .btn-primary { background: var(--accent); color: #fff; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: var(--radius-md); padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: opacity .18s; text-decoration: none; }
-  .btn-primary:hover { opacity: .88; color: #fff; }
-  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px; border-radius: var(--radius-md); padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .12s; text-decoration: none; }
-  .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+.data-card   { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;animation:kpiFade .4s ease both; }
+.data-header { padding:13px 18px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between; }
+.data-title  { font-size:13px;font-weight:700;color:var(--text-primary);font-family:'Nunito',sans-serif; }
+.data-period { font-size:11px;color:var(--text-muted);font-weight:400; }
+.link-all    { font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:3px;text-decoration:none;font-weight:600; }
+.link-all:hover { text-decoration:underline; }
 
-  /* ── Empty state ── */
-  .empty-state { text-align: center; padding: 48px 20px; color: var(--text-muted); }
-  .empty-state__icon { font-size: 32px; display: block; margin-bottom: 12px; color: var(--border-strong); }
-  .empty-state__title { font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; }
-  .empty-state__body { font-size: 13px; }
+.tbl-wrap { overflow-x:auto; }
+.dtable   { width:100%;border-collapse:collapse; }
+.dtable thead th {
+  font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--text-muted);padding:9px 14px;border-bottom:1px solid var(--border);
+  white-space:nowrap;background:var(--bg-surface);
+}
+.dtable th.num,.dtable td.num { text-align:right; }
+.dtable tbody tr {
+  border-bottom:1px solid var(--border);
+  animation:fadeRow .3s ease both;animation-delay:calc(var(--i,0)*28ms);transition:background .1s;
+}
+.dtable tbody tr:last-child { border-bottom:none; }
+.dtable tbody tr:hover { background:var(--bg-hover); }
+.dtable td { padding:10px 14px;font-size:12.5px;color:var(--text-secondary);vertical-align:middle; }
+@keyframes fadeRow{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
 
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.prog-track { height:6px;background:var(--bg-hover);border-radius:4px;min-width:80px;overflow:hidden; }
+.prog-fill  { height:100%;background:var(--kpi-red-fg);border-radius:4px;transition:width .4s ease; }
+
+.list-row {
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 18px;text-decoration:none;border-bottom:1px solid var(--border);
+  transition:background .1s;animation:fadeRow .3s ease both;animation-delay:calc(var(--i,0)*25ms);
+}
+.list-row:last-child { border-bottom:none; }
+.list-row:hover { background:var(--bg-hover); }
+.list-name { font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:var(--text-primary); }
+.list-sub  { font-size:11px;color:var(--text-muted);margin-top:1px; }
+
+.amount-badge {
+  background:rgba(248,113,113,.10);color:var(--kpi-red-fg);
+  font-size:12px;font-weight:700;padding:3px 9px;border-radius:20px;
+  white-space:nowrap;flex-shrink:0;margin-left:10px;font-family:'Nunito',sans-serif;
+}
+.cat-tag    { color:var(--accent-text);font-weight:600; }
+.lot-link   { font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none; }
+.lot-link:hover { color:var(--accent-text); }
+.muted      { color:var(--text-muted)!important; }
+.bold       { font-weight:700; }
+.accent-col { color:var(--kpi-red-fg); }
+
+.empty-state { text-align:center;padding:36px 20px;color:var(--text-muted); }
+.empty-state i { font-size:28px;display:block;margin-bottom:10px;color:var(--border-strong); }
+.empty-state p { font-size:13px; }
+.empty-state.small { padding:24px 20px; }
+
+.btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;border:none;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .15s;text-decoration:none; }
+.btn-primary:hover { opacity:.85;color:#fff; }
+.btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:8px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s,border-color .12s;text-decoration:none; }
+.btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+.btn-sm { padding:7px 12px;font-size:12px; }
+
+/* ── Filter bar ──────────────────────────────────────────── */
+.filter-bar {
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  gap:10px;background:var(--bg-surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:12px 16px;margin-bottom:18px;
+}
+.filter-presets { display:flex;gap:6px;flex-wrap:wrap; }
+.preset-btn {
+  font-size:12px;font-weight:600;font-family:'Nunito',sans-serif;
+  border:1px solid var(--border);background:var(--bg-hover);color:var(--text-secondary);
+  border-radius:20px;padding:5px 13px;cursor:pointer;transition:background .12s,border-color .12s,color .12s;
+}
+.preset-btn:hover,.preset-btn.active { background:var(--accent);border-color:var(--accent);color:#fff; }
+.filter-inputs { display:flex;align-items:center;gap:10px;flex-wrap:wrap; }
+.filter-label { font-size:12px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:6px; }
+.filter-label input[type="date"] {
+  font-size:12px;font-family:'Inter',sans-serif;border:1px solid var(--border);
+  border-radius:var(--radius-md);padding:6px 10px;background:var(--bg-page,var(--bg-hover));
+  color:var(--text-primary);outline:none;transition:border-color .15s;
+}
+.filter-label input[type="date"]:focus { border-color:var(--accent); }
 </style>
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-  const catCanvas = document.getElementById('catChart');
-  if (!catCanvas) return;
+(function(){
+  const cs = getComputedStyle(document.documentElement);
+  const v  = n => cs.getPropertyValue(n).trim();
+  const C  = {
+    textPrimary : v('--text-primary')  || '#111',
+    textMuted   : v('--text-muted')    || '#888',
+    border      : v('--border')        || '#e5e7eb',
+    bgSurface   : v('--bg-surface')    || '#fff',
+  };
 
-  const CHART_COLORS = ['#22c55e','#38bdf8','#f59e0b','#c4b5fd','#fb923c','#5eead4','#f9a8d4','#a5b4fc','#f87171'];
+  Chart.defaults.font.family = "'Inter','Nunito',sans-serif";
+  Chart.defaults.font.size   = 11;
+  Chart.defaults.color       = C.textMuted;
 
-  // Build legend bar colors from the same sequence
-  document.querySelectorAll('.cat-legend-dot').forEach(function (dot, i) {
-    dot.style.background = CHART_COLORS[i % CHART_COLORS.length];
-  });
-  document.querySelectorAll('.cat-legend-bar').forEach(function (bar, i) {
-    bar.style.background = CHART_COLORS[i % CHART_COLORS.length];
-  });
+  const gridOpts    = { color: C.border, drawBorder: false };
+  const tipDefaults = {
+    backgroundColor: C.bgSurface, titleColor: C.textPrimary,
+    bodyColor: C.textMuted, borderColor: C.border, borderWidth: 1,
+    padding: 10, cornerRadius: 8, usePointStyle: true,
+  };
 
-  const labels = [{% for item in summary_mois.par_categorie %}"{{ item.categorie.libelle|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}];
-  const data   = [{% for item in summary_mois.par_categorie %}{{ item.total|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}];
+  /* ── 1. Monthly trend ────────────────────────────────────── */
+  (function buildTendance(){
+    const ctx = document.getElementById('chartTendance');
+    if (!ctx) return;
+    const raw    = {{ tendance_6_mois|safe }};
+    const labels = raw.map(d => d.label);
+    const totals = raw.map(d => d.total);
+    const counts = raw.map(d => d.nb);
 
-  if (!labels.length) return;
+    new Chart(ctx, {
+      data: {
+        labels,
+        datasets: [
+          { type:'bar',  label:'Total DZD',    data:totals, yAxisID:'y',
+            backgroundColor:'rgba(248,113,113,.22)', borderColor:'#f87171',
+            borderWidth:2, borderRadius:5 },
+          { type:'line', label:'Nb opérations', data:counts, yAxisID:'y2',
+            borderColor:'#fb923c', backgroundColor:'rgba(251,146,60,.07)',
+            borderWidth:2.5, pointBackgroundColor:'#fb923c',
+            pointRadius:4, pointHoverRadius:6, tension:0.35, fill:true },
+        ],
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        interaction:{ mode:'index', intersect:false },
+        plugins:{ legend:{ display:false }, tooltip:tipDefaults },
+        scales:{
+          x:  { grid:{ display:false }, border:{ display:false }, ticks:{ color:C.textMuted } },
+          y:  { type:'linear', position:'left', grid:gridOpts, border:{ display:false },
+                ticks:{ color:C.textMuted, callback: v => v>=1000 ? (v/1000).toFixed(0)+'k' : v },
+                title:{ display:true, text:'DZD', color:C.textMuted, font:{ size:10 } } },
+          y2: { type:'linear', position:'right', grid:{ display:false }, border:{ display:false },
+                ticks:{ color:'#fb923c', precision:0 },
+                title:{ display:true, text:'Nb', color:'#fb923c', font:{ size:10 } } },
+        },
+      },
+    });
+  })();
 
-  new Chart(catCanvas, {
-    type: 'doughnut',
-    data: {
-      labels: labels,
-      datasets: [{
-        data: data,
-        backgroundColor: CHART_COLORS.slice(0, labels.length),
-        borderWidth: 2,
-        borderColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-surface') || '#fff',
-        hoverOffset: 6
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      cutout: '62%',
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: '#1a2219',
-          titleFont: { family: 'Nunito', weight: '700', size: 13 },
-          bodyFont: { family: 'Inter', size: 12 },
-          padding: 10,
-          callbacks: {
-            label: function (ctx) {
-              return ' ' + ctx.label + ' : ' + new Intl.NumberFormat('fr-DZ').format(ctx.raw) + ' DZD';
-            }
-          }
-        }
+  /* ── 2. Categories donut ─────────────────────────────────── */
+  (function buildCategories(){
+    const ctx      = document.getElementById('chartCategories');
+    const centerEl = document.getElementById('donutCenter');
+    if (!ctx) return;
+
+    // Build data from server-rendered template vars
+    const rawLabels = [{% for row in par_categorie_periode %}"{{ row.categorie.libelle }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+    const rawValues = [{% for row in par_categorie_periode %}{{ row.total|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}];
+
+    if (!rawLabels.length) { centerEl.textContent = 'Aucune donnée'; return; }
+
+    const total   = rawValues.reduce((a,b) => a+b, 0);
+    const PALETTE = ['#f87171','#fb923c','#fbbf24','#34d399','#38bdf8','#818cf8','#e879f9','#f472b6'];
+    const fmt     = n => n.toLocaleString('fr-FR', { maximumFractionDigits:0 });
+
+    centerEl.innerHTML = `<div style="font-size:17px;font-weight:800;">${fmt(total)}</div><div style="font-size:10px;color:var(--text-muted);">DZD total</div>`;
+
+    const chart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: rawLabels,
+        datasets: [{
+          data: rawValues,
+          backgroundColor: PALETTE.slice(0, rawLabels.length),
+          borderColor: C.bgSurface, borderWidth: 3, hoverOffset: 8,
+        }],
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false, cutout:'68%',
+        plugins:{
+          legend:{ display:true, position:'bottom', labels:{ padding:10, boxWidth:10, boxHeight:10, font:{ size:10.5 }, color:C.textMuted } },
+          tooltip:{ ...tipDefaults, callbacks:{ label: c => ` ${c.label}: ${c.parsed.toLocaleString('fr-FR',{maximumFractionDigits:0})} DZD` } },
+        },
+      },
+    });
+
+    ctx.addEventListener('mousemove', e => {
+      const pts = chart.getElementsAtEventForMode(e, 'nearest', { intersect:true }, false);
+      if (pts.length) {
+        const i = pts[0].index;
+        centerEl.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--text-primary);max-width:80px;text-align:center;line-height:1.3;">${rawLabels[i]}</div><div style="font-size:16px;font-weight:800;margin-top:2px;">${fmt(rawValues[i])}</div><div style="font-size:9px;color:var(--text-muted);">DZD</div>`;
+      } else {
+        centerEl.innerHTML = `<div style="font-size:17px;font-weight:800;">${fmt(total)}</div><div style="font-size:10px;color:var(--text-muted);">DZD total</div>`;
       }
+    });
+  })();
+  /* ── Date-range preset buttons ───────────────────────────── */
+  (function initPresets(){
+    const form  = document.getElementById('dashFilterForm');
+    const dFrom = form.querySelector('input[name="date_debut"]');
+    const dTo   = form.querySelector('input[name="date_fin"]');
+    const today = new Date();
+
+    function fmt(d){
+      return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     }
-  });
-});
+    function firstOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
+    function lastOfMonth(d) { return new Date(d.getFullYear(), d.getMonth()+1, 0); }
+
+    const presets = {
+      month:      () => [firstOfMonth(today), today],
+      prev_month: () => {
+        const pm = new Date(today.getFullYear(), today.getMonth()-1, 1);
+        return [pm, lastOfMonth(pm)];
+      },
+      '3months':  () => {
+        const s = new Date(today); s.setDate(s.getDate()-89);
+        return [s, today];
+      },
+      ytd:        () => [new Date(today.getFullYear(), 0, 1), today],
+      year:       () => [new Date(today.getFullYear(), 0, 1), new Date(today.getFullYear(), 11, 31)],
+    };
+
+    // Highlight active preset on page load
+    const curFrom = dFrom.value, curTo = dTo.value;
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      const key = btn.dataset.preset;
+      if (presets[key]) {
+        const [s, e] = presets[key]();
+        if (fmt(s) === curFrom && fmt(e) === curTo) btn.classList.add('active');
+      }
+      btn.addEventListener('click', () => {
+        const [s, e] = presets[key]();
+        dFrom.value = fmt(s);
+        dTo.value   = fmt(e);
+        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        form.submit();
+      });
+    });
+  })();
+})();
 </script>
 {% endblock %}

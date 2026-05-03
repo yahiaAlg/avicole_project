@@ -2,314 +2,658 @@
 {% load static %}
 
 {% block title %}Tableau de bord Production — Élevage Avicole{% endblock %}
-
 {% block nav_production %}active{% endblock %}
 
-{% block page_title %}Tableau de bord — Production{% endblock %}
-{% block page_sub_text %}Vue d'ensemble des abattages et produits finis{% endblock %}
+{% block page_title %}Production{% endblock %}
+{% block page_sub_text %}Vue d'ensemble · Abattages · Stock produits finis{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'production:production_record_create' %}" class="btn-primary">
     <i class="bx bx-plus"></i> Nouvel enregistrement
   </a>
   <a href="{% url 'production:produit_fini_list' %}" class="btn-ghost">
-    <i class="bx bxs-badge-check"></i> Catalogue produits
+    <i class="bx bxs-package"></i> Catalogue produits
   </a>
 {% endblock %}
 
 {% block content %}
-<div class="page-body">
+<div class="prod-body">
 
-  <!-- Date filter -->
-  <form method="get" class="filter-bar" style="margin-bottom:18px;">
-    <div class="filter-group">
-      <div class="field-wrap">
-        <i class="bx bxs-calendar field-icon"></i>
-        <input type="date" name="date_debut" value="{{ date_debut }}" class="field-input" placeholder="Date début">
+  <!-- ══ Date filter ═══════════════════════════════════════════════════════ -->
+  <div class="filters-bar">
+    <form method="get" class="filters-form">
+      <div class="date-range-wrapper">
+        <div class="date-input-group">
+          <i class="bx bxs-calendar date-icon"></i>
+          <input type="date" name="date_debut" value="{{ date_debut }}" class="filter-date-input">
+        </div>
+        <span class="filter-range-sep">→</span>
+        <div class="date-input-group">
+          <i class="bx bxs-calendar date-icon"></i>
+          <input type="date" name="date_fin" value="{{ date_fin }}" class="filter-date-input">
+        </div>
       </div>
-      <div class="field-wrap">
-        <i class="bx bxs-calendar field-icon"></i>
-        <input type="date" name="date_fin" value="{{ date_fin }}" class="field-input" placeholder="Date fin">
-      </div>
-      <button type="submit" class="btn-ghost"><i class="bx bxs-filter-alt"></i> Filtrer</button>
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> Filtrer</button>
       {% if date_debut or date_fin %}
-        <a href="{% url 'production:dashboard' %}" class="btn-ghost" style="color:var(--text-muted);">
-          <i class="bx bx-x"></i> Effacer
-        </a>
+        <a href="{% url 'production:dashboard' %}" class="btn-ghost btn-sm btn-clear-filter"><i class="bx bx-x"></i> Effacer</a>
       {% endif %}
-    </div>
-  </form>
-
-  <!-- KPI cards -->
-  <div class="row g-3 mb-4">
-    <div class="col-xl-3 col-md-6">
-      <div class="metric-card">
-        <div class="metric-icon ic-green"><i class="bx bx-refresh" style="font-size:18px;"></i></div>
-        <div class="metric-label">ENREGISTREMENTS VALIDÉS</div>
-        <div class="metric-value">{{ dashboard_rows|length }}</div>
-        <span class="metric-delta neutral"><i class="bx bx-minus"></i> lots productifs</span>
-      </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-      <div class="metric-card">
-        <div class="metric-icon ic-amber"><i class="bx bxs-error" style="font-size:18px;"></i></div>
-        <div class="metric-label">BROUILLONS EN ATTENTE</div>
-        <div class="metric-value">{{ brouillons|length }}</div>
-        <span class="metric-delta {% if brouillons %}down{% else %}neutral{% endif %}">
-          <i class="bx {% if brouillons %}bx-trending-up{% else %}bx-minus{% endif %}"></i>
-          {% if brouillons %}À valider{% else %}Aucun{% endif %}
-        </span>
-      </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-      <div class="metric-card">
-        <div class="metric-icon ic-blue"><i class="bx bxs-group" style="font-size:18px;"></i></div>
-        <div class="metric-label">OISEAUX ABATTUS (PÉRIODE)</div>
-        <div class="metric-value">{{ totaux.total_oiseaux|default:0|floatformat:0 }}</div>
-        <span class="metric-delta neutral"><i class="bx bx-minus"></i> têtes</span>
-      </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-      <div class="metric-card">
-        <div class="metric-icon ic-teal"><i class="bx bxs-badge-check" style="font-size:18px;"></i></div>
-        <div class="metric-label">POIDS TOTAL (PÉRIODE)</div>
-        <div class="metric-value">{{ totaux.total_poids|default:0|floatformat:2 }} <small style="font-size:14px;font-weight:600;">kg</small></div>
-        <span class="metric-delta neutral"><i class="bx bx-minus"></i> poids cumulé</span>
-      </div>
-    </div>
+    </form>
   </div>
 
-  <div class="row g-3">
+  <!-- ══ KPI Row ════════════════════════════════════════════════════════════ -->
+  <div class="kpi-grid">
+
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon"><i class="bx bxs-layer"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">LOTS ACTIFS</div>
+        <div class="kpi-value">{{ lots_actifs }}</div>
+        <div class="kpi-sub">lots en cours d'élevage</div>
+      </div>
+    </div>
+
+    <div class="kpi-card kpi-blue">
+      <div class="kpi-icon"><i class="bx bxs-group"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">OISEAUX ABATTUS</div>
+        <div class="kpi-value">{{ totaux.total_oiseaux|default:0|floatformat:0 }}</div>
+        <div class="kpi-sub">têtes · période filtrée</div>
+      </div>
+    </div>
+
+    <div class="kpi-card kpi-teal">
+      <div class="kpi-icon"><i class="bx bxs-package"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">POIDS TOTAL</div>
+        <div class="kpi-value">{{ totaux.total_poids|default:0|floatformat:1 }}<span class="kpi-unit">kg</span></div>
+        <div class="kpi-sub">produit · période filtrée</div>
+      </div>
+    </div>
+
+    <div class="kpi-card kpi-indigo">
+      <div class="kpi-icon"><i class="bx bxs-bar-chart-alt-2"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">VALEUR STOCK</div>
+        <div class="kpi-value">{{ valeur_stock_total|floatformat:0 }}<span class="kpi-unit">DZD</span></div>
+        <div class="kpi-sub">au coût moyen production</div>
+      </div>
+    </div>
+
+    <div class="kpi-card kpi-emerald">
+      <div class="kpi-icon"><i class="bx bxs-coin-stack"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">REVENU POTENTIEL</div>
+        <div class="kpi-value">{{ revenu_potentiel|floatformat:0 }}<span class="kpi-unit">DZD</span></div>
+        <div class="kpi-sub">au prix de vente défaut</div>
+      </div>
+    </div>
+
+    <div class="kpi-card {% if nb_en_alerte %}kpi-red{% else %}kpi-slate{% endif %}">
+      <div class="kpi-icon"><i class="bx bxs-bell{% if nb_en_alerte %}-ring{% endif %}"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">ALERTES STOCK</div>
+        <div class="kpi-value">{{ nb_en_alerte }}</div>
+        <div class="kpi-sub">{% if nb_en_alerte %}produit(s) sous seuil{% else %}tout bien approvisionné{% endif %}</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ Charts Row 1 ══════════════════════════════════════════════════════ -->
+  <div class="chart-row chart-2-1">
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-eyebrow">Tendance mensuelle</div>
+          <div class="chart-title">Abattages des 6 derniers mois</div>
+        </div>
+        <div class="chart-legend">
+          <span class="legend-dot" style="background:#6366f1;"></span>Oiseaux
+          <span class="legend-dot" style="background:#0ea5e9;margin-left:12px;"></span>Poids (kg)
+        </div>
+      </div>
+      <div class="chart-body">
+        <canvas id="chartMonthly"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-eyebrow">Répartition globale</div>
+          <div class="chart-title">Production par type</div>
+        </div>
+      </div>
+      <div class="chart-body chart-body-donut">
+        <canvas id="chartParType"></canvas>
+        <div class="donut-center" id="donutCenter">—</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ Charts Row 2 ══════════════════════════════════════════════════════ -->
+  <div class="chart-row chart-1-1">
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-eyebrow">Inventaire actuel</div>
+          <div class="chart-title">Stock produits finis</div>
+        </div>
+      </div>
+      <div class="chart-body">
+        <canvas id="chartStock"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-eyebrow">Analyse rentabilité</div>
+          <div class="chart-title">Coût vs Revenu potentiel par lot</div>
+        </div>
+        <div class="chart-legend">
+          <span class="legend-dot" style="background:#f87171;"></span>Coût
+          <span class="legend-dot" style="background:#34d399;margin-left:12px;"></span>Revenu
+        </div>
+      </div>
+      <div class="chart-body">
+        <canvas id="chartCoutRevenu"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ Bottom Grid ════════════════════════════════════════════════════════ -->
+  <div class="bottom-grid">
 
     <!-- Per-lot summary table -->
-    <div class="col-xl-8">
-      <div class="card">
-        <div class="card-header-row">
-          <div class="section-eyebrow">Synthèse par lot — Période filtrée</div>
-        </div>
-        {% if dashboard_rows %}
-        <div class="table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Lot</th>
-                <th>Dernière production</th>
-                <th style="text-align:right;">Oiseaux abattus</th>
-                <th style="text-align:right;">Poids total (kg)</th>
-                <th style="text-align:right;">Poids moyen (kg)</th>
-                <th style="text-align:right;">Coût estimé (DZD)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in dashboard_rows %}
-              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
-                <td>
-                  <a href="{% url 'production:production_record_list' %}?lot={{ row.lot.pk }}"
-                     style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;">
-                    {{ row.lot.designation }}
-                  </a>
-                  <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
-                    {{ row.lot.batiment }}
-                  </div>
-                </td>
-                <td style="color:var(--text-muted);">{{ row.date_production|date:"d/m/Y" }}</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ row.nb_oiseaux_abattus|floatformat:0 }}</td>
-                <td style="text-align:right;">{{ row.poids_total_kg|floatformat:2 }}</td>
-                <td style="text-align:right;">{{ row.poids_moyen_kg|floatformat:3 }}</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">{{ row.cout_total_dzd|floatformat:0 }} DZD</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        {% else %}
-        <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
-          <i class="bx bx-refresh" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
-          <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">Aucune production</div>
-          <div style="font-size:13px;">Aucun enregistrement validé pour la période sélectionnée.</div>
-        </div>
-        {% endif %}
+    <div class="data-card span-2">
+      <div class="data-header">
+        <div class="data-title">Synthèse par lot <span class="data-period">· Période filtrée</span></div>
+        <a href="{% url 'production:production_record_list' %}?statut=valide" class="link-all">Voir tout <i class="bx bx-right-arrow-alt"></i></a>
       </div>
+      {% if dashboard_rows %}
+      <div class="tbl-wrap">
+        <table class="dtable">
+          <thead>
+            <tr>
+              <th>Lot</th>
+              <th>Bâtiment</th>
+              <th>Dernière prod.</th>
+              <th class="num">Oiseaux</th>
+              <th class="num">Poids (kg)</th>
+              <th class="num">Poids moy.</th>
+              <th class="num">Coût estimé</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in dashboard_rows %}
+            <tr class="trow" style="--i:{{ forloop.counter0 }}">
+              <td>
+                <a href="{% url 'production:production_record_list' %}?lot={{ row.lot.pk }}" class="lot-link">
+                  {{ row.lot.designation }}
+                </a>
+              </td>
+              <td class="muted">{{ row.lot.batiment }}</td>
+              <td class="muted">{{ row.date_production|date:"d/m/Y" }}</td>
+              <td class="num bold">{{ row.nb_oiseaux_abattus|floatformat:0 }}</td>
+              <td class="num">{{ row.poids_total_kg|floatformat:2 }}</td>
+              <td class="num">{{ row.poids_moyen_kg|floatformat:3 }}</td>
+              <td class="num accent-col bold">{{ row.cout_total_dzd|floatformat:0 }} DZD</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="bx bx-data"></i>
+        <p>Aucune production validée pour la période sélectionnée.</p>
+      </div>
+      {% endif %}
     </div>
 
-    <!-- Right column: brouillons + récents -->
-    <div class="col-xl-4">
-
-      <!-- Brouillons -->
-      <div class="card mb-3">
-        <div class="card-header-row" style="display:flex;align-items:center;justify-content:space-between;">
-          <div class="section-eyebrow">Brouillons à valider</div>
-          {% if brouillons %}
-            <span class="pill-warning">{{ brouillons|length }}</span>
-          {% endif %}
-        </div>
-        {% if brouillons %}
-          <div style="padding:6px 0;">
-            {% for rec in brouillons %}
-            <a href="{% url 'production:production_record_detail' rec.pk %}"
-               class="mini-row" style="--row-i:{{ forloop.counter0 }};">
-              <div>
-                <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:var(--text-primary);">
-                  {{ rec.lot.designation }}
-                </div>
-                <div style="font-size:11px;color:var(--text-muted);">{{ rec.date_production|date:"d/m/Y" }} · {{ rec.nombre_oiseaux_abattus|floatformat:0 }} oiseaux</div>
-              </div>
-              <span class="pill-warning">Brouillon</span>
-            </a>
-            {% endfor %}
-          </div>
-        {% else %}
-          <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px;">
-            Aucun brouillon en attente.
-          </div>
-        {% endif %}
+    <!-- Stock produits finis table -->
+    <div class="data-card span-2">
+      <div class="data-header">
+        <div class="data-title">Stock produits finis <span class="data-period">· Tous</span></div>
       </div>
-
-      <!-- Validés récents -->
-      <div class="card">
-        <div class="card-header-row" style="display:flex;align-items:center;justify-content:space-between;">
-          <div class="section-eyebrow">10 dernières validations</div>
-          <a href="{% url 'production:production_record_list' %}?statut=valide"
-             style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
-            Voir tout <i class="bx bx-right-arrow-alt"></i>
-          </a>
-        </div>
-        {% if valides_recents %}
-          <div style="padding:6px 0;">
-            {% for rec in valides_recents %}
-            <a href="{% url 'production:production_record_detail' rec.pk %}"
-               class="mini-row" style="--row-i:{{ forloop.counter0 }};">
-              <div>
-                <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:var(--text-primary);">
-                  {{ rec.lot.designation }}
-                </div>
-                <div style="font-size:11px;color:var(--text-muted);">{{ rec.date_production|date:"d/m/Y" }} · {{ rec.nombre_oiseaux_abattus|floatformat:0 }} oiseaux</div>
-              </div>
-              <span class="pill-success">Validé</span>
-            </a>
+      {% if stock_produits %}
+      <div class="tbl-wrap">
+        <table class="dtable">
+          <thead>
+            <tr>
+              <th>Produit</th>
+              <th>Type</th>
+              <th class="num">Quantité</th>
+              <th class="num">CMP (DZD)</th>
+              <th class="num">Valeur stock</th>
+              <th class="num">Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in stock_produits %}
+            <tr class="trow" style="--i:{{ forloop.counter0 }}">
+              <td>
+                <a href="{% url 'production:produit_fini_detail' s.produit_fini.pk %}" class="lot-link">
+                  {{ s.produit_fini.designation }}
+                </a>
+              </td>
+              <td class="muted">{{ s.produit_fini.get_type_produit_display }}</td>
+              <td class="num bold {% if s.en_alerte %}alert-col{% endif %}">
+                {{ s.quantite|floatformat:2 }} <span class="unit-tag">{{ s.produit_fini.unite_mesure }}</span>
+              </td>
+              <td class="num">{{ s.cout_moyen_production|floatformat:2 }}</td>
+              <td class="num accent-col">{{ s.valeur_stock|floatformat:0 }} DZD</td>
+              <td class="num">
+                {% if s.en_alerte %}
+                  <span class="pill pill-danger"><i class="bx bxs-error-circle"></i> Bas</span>
+                {% else %}
+                  <span class="pill pill-ok"><i class="bx bxs-check-circle"></i> OK</span>
+                {% endif %}
+              </td>
+            </tr>
             {% endfor %}
-          </div>
-        {% else %}
-          <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px;">Aucun enregistrement validé.</div>
-        {% endif %}
+          </tbody>
+        </table>
       </div>
-
+      {% else %}
+      <div class="empty-state"><i class="bx bx-package"></i><p>Aucun produit fini dans le catalogue.</p></div>
+      {% endif %}
     </div>
+
+    <!-- Brouillons -->
+    <div class="data-card">
+      <div class="data-header">
+        <div class="data-title">Brouillons à valider</div>
+        {% if brouillons %}<span class="badge-warn">{{ brouillons|length }}</span>{% endif %}
+      </div>
+      {% if brouillons %}
+        {% for rec in brouillons %}
+        <a href="{% url 'production:production_record_detail' rec.pk %}" class="list-row" style="--i:{{ forloop.counter0 }}">
+          <div class="list-main">
+            <div class="list-name">{{ rec.lot.designation }}</div>
+            <div class="list-sub">{{ rec.date_production|date:"d/m/Y" }} · {{ rec.nombre_oiseaux_abattus|floatformat:0 }} oiseaux</div>
+          </div>
+          <span class="pill pill-warn">Brouillon</span>
+        </a>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state small"><i class="bx bx-check-circle" style="color:#22c55e;"></i><p>Aucun brouillon en attente.</p></div>
+      {% endif %}
+    </div>
+
+    <!-- Validated recent -->
+    <div class="data-card">
+      <div class="data-header">
+        <div class="data-title">10 dernières validations</div>
+        <a href="{% url 'production:production_record_list' %}?statut=valide" class="link-all">Tout voir <i class="bx bx-right-arrow-alt"></i></a>
+      </div>
+      {% if valides_recents %}
+        {% for rec in valides_recents %}
+        <a href="{% url 'production:production_record_detail' rec.pk %}" class="list-row" style="--i:{{ forloop.counter0 }}">
+          <div class="list-main">
+            <div class="list-name">{{ rec.lot.designation }}</div>
+            <div class="list-sub">{{ rec.date_production|date:"d/m/Y" }} · {{ rec.nombre_oiseaux_abattus|floatformat:0 }} têtes · {{ rec.poids_total_kg|floatformat:1 }} kg</div>
+          </div>
+          <span class="pill pill-success">Validé</span>
+        </a>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state small"><i class="bx bx-time"></i><p>Aucun enregistrement validé.</p></div>
+      {% endif %}
+    </div>
+
   </div>
 </div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-  .page-body { padding: 28px 32px; }
-  @media (max-width:768px) { .page-body { padding: 20px 16px; } }
+:root {
+  --c-green:    #22c55e;  --kpi-green-bg:   rgba(34,197,94,.10);  --kpi-green-fg:  #15803d;
+  --c-blue:     #38bdf8;  --kpi-blue-bg:    rgba(56,189,248,.10); --kpi-blue-fg:   #0284c7;
+  --c-teal:     #2dd4bf;  --kpi-teal-bg:    rgba(45,212,191,.10); --kpi-teal-fg:   #0d9488;
+  --c-indigo:   #818cf8;  --kpi-indigo-bg:  rgba(99,102,241,.10); --kpi-indigo-fg: #4f46e5;
+  --c-emerald:  #10b981;  --kpi-emerald-bg: rgba(16,185,129,.10); --kpi-emerald-fg:#065f46;
+  --c-red:      #f87171;  --kpi-red-bg:     rgba(248,113,113,.12);--kpi-red-fg:    #dc2626;
+  --c-slate:    #94a3b8;  --kpi-slate-bg:   rgba(148,163,184,.10);--kpi-slate-fg:  #475569;
+}
 
-  .filter-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-  .filter-group { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-  .field-wrap { position:relative; }
-  .field-icon { position:absolute; left:11px; top:50%; transform:translateY(-50%); font-size:14px; color:var(--text-muted); pointer-events:none; }
-  .field-input {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    color: var(--text-primary);
-    font-family: 'Inter', sans-serif;
-    font-size: 13px;
-    padding: 9px 12px 9px 34px;
-    transition: border-color .15s, box-shadow .15s;
-  }
-  .field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); outline: none; }
+.prod-body { padding: 24px 28px; }
+@media(max-width:768px){ .prod-body{ padding:16px 14px; } }
 
-  .card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-  }
-  .card-header-row {
-    padding: 16px 20px 12px;
-    border-bottom: 1px solid var(--border);
-  }
-  .section-eyebrow {
-    font-size: 10.5px; font-weight: 600; letter-spacing: .1em;
-    text-transform: uppercase; color: var(--text-muted);
-  }
+/* ── Filter bar ──────────────────────────────────────── */
+.filters-bar { margin-bottom:22px; }
+.filters-form { display:flex;align-items:center;gap:10px;flex-wrap:wrap; }
+.date-range-wrapper { display:flex;align-items:center;gap:8px; }
+.date-input-group { position:relative;display:flex;align-items:center; }
+.date-icon { position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;pointer-events:none; }
+.filter-date-input {
+  background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);
+  color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13px;
+  padding:9px 12px 9px 32px;cursor:pointer;
+  transition:border-color .15s,box-shadow .15s;
+}
+.filter-date-input:focus { border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.15);outline:none; }
+.filter-range-sep { color:var(--text-muted);font-size:13px; }
+.btn-sm { padding:8px 14px;font-size:12.5px; }
+.btn-clear-filter { color:var(--text-muted); }
 
-  .table-wrapper { overflow-x: auto; }
-  .data-table { width: 100%; border-collapse: collapse; }
-  .data-table thead th {
-    font-size: 10.5px; font-weight: 600; letter-spacing: .07em;
-    text-transform: uppercase; color: var(--text-muted);
-    padding: 11px 14px; border-bottom: 1px solid var(--border);
-    white-space: nowrap; background: var(--bg-surface);
-  }
-  .data-table tbody tr {
-    border-bottom: 1px solid var(--border);
-    animation: fadeIn .3s ease both;
-    animation-delay: calc(var(--row-i,0) * 35ms);
-    transition: background .12s;
-  }
-  .data-table tbody tr:last-child { border-bottom: none; }
-  .data-table tbody tr:hover { background: var(--bg-hover); }
-  .data-table td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); vertical-align: middle; }
+/* ── KPI grid ─────────────────────────────────────────── */
+.kpi-grid { display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:20px; }
+@media(max-width:1200px){ .kpi-grid{ grid-template-columns:repeat(3,1fr); } }
+@media(max-width:600px){  .kpi-grid{ grid-template-columns:repeat(2,1fr); } }
 
-  .metric-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 20px 22px;
-    animation: fadeIn .3s ease both;
-  }
-  .metric-icon {
-    width: 42px; height: 42px; border-radius: var(--radius-sm);
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 14px;
-  }
-  .ic-green { background: rgba(34,197,94,.14); color: #15803d; }
-  .ic-amber { background: rgba(245,158,11,.14); color: #b45309; }
-  .ic-blue  { background: rgba(56,189,248,.14); color: #0284c7; }
-  .ic-teal  { background: rgba(45,212,191,.14); color: #0d9488; }
-  .metric-label { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
-  .metric-value { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 24px; color: var(--text-primary); margin-bottom: 6px; }
-  .metric-delta { font-size: 11px; font-weight: 500; display: inline-flex; align-items: center; gap: 3px; }
-  .metric-delta.neutral { color: var(--text-muted); }
-  .metric-delta.down { color: #dc2626; }
+.kpi-card {
+  border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--bg-surface);
+  padding:16px;display:flex;gap:12px;align-items:flex-start;
+  animation:kpiFade .4s ease both;
+}
+.kpi-card:nth-child(1){animation-delay:.04s}.kpi-card:nth-child(2){animation-delay:.08s}
+.kpi-card:nth-child(3){animation-delay:.12s}.kpi-card:nth-child(4){animation-delay:.16s}
+.kpi-card:nth-child(5){animation-delay:.20s}.kpi-card:nth-child(6){animation-delay:.24s}
+@keyframes kpiFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
-  .mini-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 18px; text-decoration: none;
-    transition: background .12s;
-    border-bottom: 1px solid var(--border);
-    animation: fadeIn .3s ease both;
-    animation-delay: calc(var(--row-i,0) * 35ms);
-  }
-  .mini-row:last-child { border-bottom: none; }
-  .mini-row:hover { background: var(--bg-hover); }
+.kpi-icon { width:40px;height:40px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px; }
+.kpi-green  .kpi-icon{background:var(--kpi-green-bg);  color:var(--kpi-green-fg);}
+.kpi-blue   .kpi-icon{background:var(--kpi-blue-bg);   color:var(--kpi-blue-fg);}
+.kpi-teal   .kpi-icon{background:var(--kpi-teal-bg);   color:var(--kpi-teal-fg);}
+.kpi-indigo .kpi-icon{background:var(--kpi-indigo-bg); color:var(--kpi-indigo-fg);}
+.kpi-emerald .kpi-icon{background:var(--kpi-emerald-bg);color:var(--kpi-emerald-fg);}
+.kpi-red    .kpi-icon{background:var(--kpi-red-bg);    color:var(--kpi-red-fg);}
+.kpi-slate  .kpi-icon{background:var(--kpi-slate-bg);  color:var(--kpi-slate-fg);}
 
-  .btn-primary {
-    background: var(--accent); color: #fff;
-    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px;
-    border: none; border-radius: var(--radius-md); padding: 10px 18px;
-    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
-    transition: opacity .18s, transform .12s; text-decoration: none;
-  }
-  .btn-primary:hover { opacity: .88; color: #fff; }
-  .btn-ghost {
-    background: transparent; border: 1px solid var(--border);
-    color: var(--text-secondary); font-family: 'Nunito', sans-serif; font-weight: 600;
-    font-size: 13px; border-radius: var(--radius-md); padding: 9px 16px;
-    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
-    transition: background .12s, border-color .12s, color .12s; text-decoration: none;
-  }
-  .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+.kpi-label{font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px;}
+.kpi-value{font-size:22px;font-weight:800;color:var(--text-primary);line-height:1.1;margin-bottom:3px;font-family:'Nunito',sans-serif;}
+.kpi-unit {font-size:12px;font-weight:600;color:var(--text-muted);margin-left:2px;}
+.kpi-sub  {font-size:11px;color:var(--text-muted);}
 
-  .pill-warning { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(245,158,11,.14);color:#b45309; }
-  .pill-success { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(34,197,94,.14);color:#15803d; }
-  .pill-info    { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(56,189,248,.12);color:#0284c7; }
-  .pill-danger  { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(239,68,68,.10);color:#dc2626; }
-  .pill-neutral { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(0,0,0,.06);color:var(--text-secondary); }
+/* ── Charts ───────────────────────────────────────────── */
+.chart-row { display:grid;gap:14px;margin-bottom:14px; }
+.chart-2-1 { grid-template-columns:2fr 1fr; }
+.chart-1-1 { grid-template-columns:1fr 1fr; }
+@media(max-width:960px){ .chart-2-1,.chart-1-1{ grid-template-columns:1fr; } }
 
-  .mb-3 { margin-bottom: 14px !important; }
-  .mb-4 { margin-bottom: 20px !important; }
+.chart-card {
+  background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:18px 20px 14px;animation:kpiFade .4s .1s ease both;
+}
+.chart-header { display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap; }
+.chart-eyebrow{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:2px;}
+.chart-title  {font-size:13.5px;font-weight:700;color:var(--text-primary);font-family:'Nunito',sans-serif;}
+.chart-legend { display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);flex-wrap:wrap; }
+.legend-dot   { display:inline-block;width:9px;height:9px;border-radius:50%; }
+.chart-body   { position:relative;height:240px; }
+.chart-body-donut { display:flex;align-items:center;justify-content:center; }
+.donut-center {
+  position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;color:var(--text-primary);font-family:'Nunito',sans-serif;
+  pointer-events:none;text-align:center;
+}
+
+/* ── Bottom grid ─────────────────────────────────────── */
+.bottom-grid { display:grid;grid-template-columns:1fr 1fr;gap:14px; }
+@media(max-width:900px){ .bottom-grid{ grid-template-columns:1fr; } }
+.span-2 { grid-column:span 2; }
+@media(max-width:900px){ .span-2{ grid-column:span 1; } }
+
+.data-card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;animation:kpiFade .4s ease both; }
+.data-header { padding:13px 18px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between; }
+.data-title  { font-size:13px;font-weight:700;color:var(--text-primary);font-family:'Nunito',sans-serif; }
+.data-period { font-size:11px;color:var(--text-muted);font-weight:400; }
+.link-all    { font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:3px;text-decoration:none;font-weight:600; }
+.link-all:hover{text-decoration:underline;}
+
+.tbl-wrap { overflow-x:auto; }
+.dtable   { width:100%;border-collapse:collapse; }
+.dtable thead th {
+  font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--text-muted);padding:9px 14px;border-bottom:1px solid var(--border);
+  white-space:nowrap;background:var(--bg-surface);
+}
+.dtable th.num,.dtable td.num{text-align:right;}
+.dtable tbody tr {
+  border-bottom:1px solid var(--border);
+  animation:fadeRow .3s ease both;
+  animation-delay:calc(var(--i,0)*28ms);
+  transition:background .1s;
+}
+.dtable tbody tr:last-child{border-bottom:none;}
+.dtable tbody tr:hover{background:var(--bg-hover);}
+.dtable td{padding:10px 14px;font-size:12.5px;color:var(--text-secondary);vertical-align:middle;}
+@keyframes fadeRow{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
+
+.lot-link  {font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;}
+.lot-link:hover{color:var(--accent-text);}
+.muted     {color:var(--text-muted)!important;}
+.bold      {font-weight:700;}
+.accent-col{color:var(--accent-text);}
+.alert-col {color:#dc2626!important;}
+.unit-tag  {font-size:10px;color:var(--text-muted);font-weight:500;}
+
+.list-row {
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 18px;text-decoration:none;
+  border-bottom:1px solid var(--border);
+  transition:background .1s;
+  animation:fadeRow .3s ease both;
+  animation-delay:calc(var(--i,0)*25ms);
+}
+.list-row:last-child{border-bottom:none;}
+.list-row:hover{background:var(--bg-hover);}
+.list-name{font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:var(--text-primary);}
+.list-sub {font-size:11px;color:var(--text-muted);margin-top:1px;}
+
+.empty-state{text-align:center;padding:36px 20px;color:var(--text-muted);}
+.empty-state i{font-size:28px;display:block;margin-bottom:10px;color:var(--border-strong);}
+.empty-state p{font-size:13px;}
+.empty-state.small{padding:24px 20px;}
+
+.badge-warn{background:rgba(245,158,11,.15);color:#b45309;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;}
+.pill{padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap;display:inline-flex;align-items:center;gap:3px;}
+.pill-warn   {background:rgba(245,158,11,.14);color:#b45309;}
+.pill-success{background:rgba(34,197,94,.14); color:#15803d;}
+.pill-danger {background:rgba(239,68,68,.10); color:#dc2626;}
+.pill-ok     {background:rgba(34,197,94,.10); color:#15803d;}
+
+.btn-primary{background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;border:none;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .15s;text-decoration:none;}
+.btn-primary:hover{opacity:.85;color:#fff;}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:8px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s,border-color .12s;text-decoration:none;}
+.btn-ghost:hover{background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary);}
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function(){
+  const cs = getComputedStyle(document.documentElement);
+  const v  = n => cs.getPropertyValue(n).trim();
+
+  const C = {
+    textPrimary : v('--text-primary')  || '#111',
+    textMuted   : v('--text-muted')    || '#888',
+    border      : v('--border')        || '#e5e7eb',
+    bgSurface   : v('--bg-surface')    || '#fff',
+    accent      : v('--accent')        || '#6366f1',
+  };
+
+  Chart.defaults.font.family = "'Inter','Nunito',sans-serif";
+  Chart.defaults.font.size   = 11;
+  Chart.defaults.color       = C.textMuted;
+
+  const gridOpts  = { color: C.border, drawBorder: false };
+  const tipDefaults = {
+    backgroundColor: C.bgSurface, titleColor: C.textPrimary,
+    bodyColor: C.textMuted, borderColor: C.border, borderWidth: 1,
+    padding: 10, cornerRadius: 8, usePointStyle: true,
+  };
+
+  fetch("{% url 'production:production_dashboard_charts_json' %}")
+    .then(r => r.json())
+    .then(data => {
+      buildMonthly(data.monthly);
+      buildParType(data.par_type);
+      buildStock(data.stock);
+      buildCoutRevenu(data.cout_revenu);
+    })
+    .catch(e => console.warn('Dashboard charts failed:', e));
+
+  /* ─── 1. Monthly ─────────────────────────────────────── */
+  function buildMonthly(d) {
+    const ctx = document.getElementById('chartMonthly');
+    if (!ctx) return;
+    new Chart(ctx, {
+      data: {
+        labels: d.labels,
+        datasets: [
+          {
+            type:'bar', label:'Oiseaux abattus', data:d.oiseaux, yAxisID:'y',
+            backgroundColor:'rgba(99,102,241,.22)', borderColor:'#6366f1',
+            borderWidth:2, borderRadius:5,
+          },
+          {
+            type:'line', label:'Poids total (kg)', data:d.poids, yAxisID:'y2',
+            borderColor:'#0ea5e9', backgroundColor:'rgba(14,165,233,.07)',
+            borderWidth:2.5, pointBackgroundColor:'#0ea5e9',
+            pointRadius:4, pointHoverRadius:6, tension:0.35, fill:true,
+          },
+        ],
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        interaction:{mode:'index',intersect:false},
+        plugins:{legend:{display:false},tooltip:tipDefaults},
+        scales:{
+          x:{grid:{display:false},border:{display:false},ticks:{color:C.textMuted}},
+          y:{type:'linear',position:'left',grid:gridOpts,border:{display:false},
+             ticks:{color:C.textMuted,precision:0},
+             title:{display:true,text:'Oiseaux',color:C.textMuted,font:{size:10}}},
+          y2:{type:'linear',position:'right',grid:{display:false},border:{display:false},
+              ticks:{color:'#0ea5e9'},
+              title:{display:true,text:'Poids (kg)',color:'#0ea5e9',font:{size:10}}},
+        },
+      },
+    });
+  }
+
+  /* ─── 2. Par type (donut) ────────────────────────────── */
+  function buildParType(d) {
+    const ctx = document.getElementById('chartParType');
+    const centerEl = document.getElementById('donutCenter');
+    if (!ctx) return;
+    if (!d.labels || !d.labels.length) {
+      centerEl.textContent = 'Aucune donnée';
+      return;
+    }
+    const PALETTE = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#f87171','#a855f7','#ec4899'];
+    const total = d.values.reduce((a,b)=>a+b,0);
+    const fmt = n => n.toLocaleString('fr-FR',{maximumFractionDigits:0});
+    centerEl.innerHTML = `<div style="font-size:18px;font-weight:800;">${fmt(total)}</div><div style="font-size:10px;color:var(--text-muted);">unités totales</div>`;
+
+    const chart = new Chart(ctx, {
+      type:'doughnut',
+      data:{
+        labels:d.labels,
+        datasets:[{
+          data:d.values,
+          backgroundColor:PALETTE.slice(0,d.labels.length),
+          borderColor:C.bgSurface, borderWidth:3, hoverOffset:8,
+        }],
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false, cutout:'68%',
+        plugins:{
+          legend:{display:true,position:'bottom',labels:{padding:10,boxWidth:10,boxHeight:10,font:{size:10.5},color:C.textMuted}},
+          tooltip:{...tipDefaults,callbacks:{label:c=>` ${c.label}: ${c.parsed.toLocaleString('fr-FR',{maximumFractionDigits:2})}`}},
+        },
+      },
+    });
+
+    ctx.addEventListener('mousemove', e => {
+      const pts = chart.getElementsAtEventForMode(e,'nearest',{intersect:true},false);
+      if (pts.length) {
+        const i = pts[0].index;
+        centerEl.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--text-primary);max-width:80px;text-align:center;line-height:1.3;">${d.labels[i]}</div><div style="font-size:17px;font-weight:800;margin-top:2px;">${d.values[i].toLocaleString('fr-FR',{maximumFractionDigits:1})}</div>`;
+      } else {
+        centerEl.innerHTML = `<div style="font-size:18px;font-weight:800;">${fmt(total)}</div><div style="font-size:10px;color:var(--text-muted);">unités totales</div>`;
+      }
+    });
+  }
+
+  /* ─── 3. Stock ───────────────────────────────────────── */
+  function buildStock(d) {
+    const ctx = document.getElementById('chartStock');
+    if (!ctx) return;
+    if (!d.labels || !d.labels.length) {
+      ctx.parentElement.innerHTML = '<div class="empty-state small"><i class="bx bx-package"></i><p>Aucun stock.</p></div>';
+      return;
+    }
+    const horiz = d.labels.length > 5;
+    const bgs   = d.labels.map((_,i) => d.alertes[i]?'rgba(248,113,113,.30)':'rgba(99,102,241,.22)');
+    const bords = d.labels.map((_,i) => d.alertes[i]?'#f87171':'#6366f1');
+
+    new Chart(ctx, {
+      type:'bar',
+      data:{labels:d.labels,datasets:[{label:'Quantité',data:d.quantities,backgroundColor:bgs,borderColor:bords,borderWidth:2,borderRadius:5}]},
+      options:{
+        indexAxis:horiz?'y':'x',
+        responsive:true, maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{...tipDefaults,callbacks:{
+            label:c=>{
+              const axis = horiz?'x':'y';
+              return ` ${c.parsed[axis].toLocaleString('fr-FR',{maximumFractionDigits:2})} ${d.unites[c.dataIndex]||''}`;
+            },
+          }},
+        },
+        scales:{
+          x:{grid:horiz?gridOpts:{display:false},border:{display:false},ticks:{color:C.textMuted}},
+          y:{grid:horiz?{display:false}:gridOpts,border:{display:false},ticks:{color:C.textMuted}},
+        },
+      },
+    });
+  }
+
+  /* ─── 4. Coût vs Revenu ──────────────────────────────── */
+  function buildCoutRevenu(d) {
+    const ctx = document.getElementById('chartCoutRevenu');
+    if (!ctx) return;
+    if (!d.labels || !d.labels.length) {
+      ctx.parentElement.innerHTML = '<div class="empty-state small"><i class="bx bx-bar-chart"></i><p>Aucune donnée de rentabilité.</p></div>';
+      return;
+    }
+    const labels = d.labels.map(l => l.length>20?l.slice(0,18)+'…':l);
+    const fmtDZD = v => v>=1e6?(v/1e6).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'k':v;
+
+    new Chart(ctx, {
+      type:'bar',
+      data:{
+        labels,
+        datasets:[
+          {label:'Coût estimé (DZD)',   data:d.couts,  backgroundColor:'rgba(248,113,113,.28)',borderColor:'#f87171',borderWidth:2,borderRadius:4},
+          {label:'Revenu potentiel (DZD)',data:d.revenus,backgroundColor:'rgba(52,211,153,.28)',borderColor:'#34d399',borderWidth:2,borderRadius:4},
+        ],
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        interaction:{mode:'index',intersect:false},
+        plugins:{
+          legend:{display:false},
+          tooltip:{...tipDefaults,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y.toLocaleString('fr-DZ',{maximumFractionDigits:0})} DZD`}},
+        },
+        scales:{
+          x:{grid:{display:false},border:{display:false},ticks:{color:C.textMuted,maxRotation:30}},
+          y:{grid:gridOpts,border:{display:false},ticks:{color:C.textMuted,callback:fmtDZD}},
+        },
+      },
+    });
+  }
+})();
+</script>
 {% endblock %}

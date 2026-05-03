@@ -87,6 +87,12 @@ urlpatterns = [
         name="production_record_delete",
     ),
     # ── AJAX ────────────────────────────────────────────────────────────
+    # Returns chart data JSON for the production dashboard
+    path(
+        "dashboard/charts.json",
+        views.production_dashboard_charts_json,
+        name="production_dashboard_charts_json",
+    ),
     # Returns lot.effectif_vivant for the bird-count guard in the form
     path(
         "lots/<int:lot_pk>/effectif.json",

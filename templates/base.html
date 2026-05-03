@@ -1024,6 +1024,10 @@
         <i class="bx bxs-droplet"></i>
         <span class="nav-link-label">Consommation</span>
       </a>
+      <a href="{% url 'production:dashboard' %}" class="nav-link {% block nav_production_dashboard %}{% endblock %}">
+        <i class="bx bxs-pie-chart-alt-2"></i>
+        <span class="nav-link-label">Tableau de bord</span>
+      </a>
       <a href="{% url 'production:production_record_list' %}" class="nav-link {% block nav_production %}{% endblock %}">
         <i class="bx bx-refresh"></i>
         <span class="nav-link-label">Production</span>
@@ -1086,12 +1090,21 @@
         <span class="nav-link-label">Paiements</span>
       </a>
 
-      <!-- Solo items -->
-      <div class="nav-group-label">&nbsp;</div>
+      <!-- Dépenses -->
+      <div class="nav-group-label">Dépenses</div>
+      <a href="{% url 'depenses:dashboard' %}" class="nav-link {% block nav_depenses_dashboard %}{% endblock %}">
+        <i class="bx bxs-pie-chart-alt-2"></i>
+        <span class="nav-link-label">Tableau de bord</span>
+      </a>
       <a href="{% url 'depenses:depense_list' %}" class="nav-link {% block nav_depenses %}{% endblock %}">
         <i class="bx bxs-wallet"></i>
         <span class="nav-link-label">Dépenses</span>
       </a>
+      <a href="{% url 'depenses:categorie_depense_list' %}" class="nav-link {% block nav_depenses_categories %}{% endblock %}">
+        <i class="bx bxs-category"></i>
+        <span class="nav-link-label">Catégories</span>
+      </a>
+
       <a href="{% url 'reporting:dashboard' %}" class="nav-link {% block nav_rapports %}{% endblock %}">
         <i class="bx bxs-bar-chart-alt-2"></i>
         <span class="nav-link-label">Rapports</span>

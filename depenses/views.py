@@ -30,7 +30,12 @@ from django.db.models import Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from depenses.forms import CategorieDepenseForm, DepenseFilterForm, DepenseForm
+from depenses.forms import (
+    CategorieDepenseForm,
+    DashboardFilterForm,
+    DepenseFilterForm,
+    DepenseForm,
+)
 from depenses.models import CategorieDepense, Depense
 from depenses.utils import get_depenses_par_categorie, get_depenses_summary
 
@@ -63,37 +68,129 @@ def _paginate(qs, page_number, per_page=PER_PAGE):
 @login_required(login_url=LOGIN_URL)
 def depenses_dashboard(request):
     """
-    Expense module dashboard:
-      - Summary totals for the current month and year-to-date
-      - Breakdown by category (current month)
-      - Recent expense records (last 10)
-      - Quick access to category management
+    Expense module dashboard with date-range filtering.
+
+    When no filter is submitted the default period is the current month.
+    The "previous period" comparison always covers an equal-length window
+    immediately preceding the selected range, so the delta % is meaningful
+    regardless of the chosen span.
+
+    Quick-preset buttons (Ce mois / Mois préc. / 3 mois / YTD) are handled
+    purely in the template via JS that fills the date inputs and submits.
     """
     import datetime
+    from django.db.models import Sum, Count
+    from decimal import Decimal
 
     today = datetime.date.today()
     premier_du_mois = today.replace(day=1)
     premier_de_lannee = today.replace(month=1, day=1)
 
-    summary_mois = get_depenses_summary(date_debut=premier_du_mois, date_fin=today)
-    summary_annee = get_depenses_summary(date_debut=premier_de_lannee, date_fin=today)
+    # ── Parse / validate the date-range filter ────────────────────────────
+    filter_form = DashboardFilterForm(request.GET or None)
 
+    if filter_form.is_valid():
+        date_debut = filter_form.cleaned_data.get("date_debut") or premier_du_mois
+        date_fin = filter_form.cleaned_data.get("date_fin") or today
+    else:
+        # Invalid input (e.g. bad date string) → fall back to current month
+        date_debut = premier_du_mois
+        date_fin = today
+
+    # Clamp date_fin to today so we never show "future" data
+    if date_fin > today:
+        date_fin = today
+
+    # ── Previous period (same duration, immediately preceding) ────────────
+    duree = (date_fin - date_debut).days  # inclusive span - 1
+    prev_fin = date_debut - datetime.timedelta(days=1)
+    prev_debut = prev_fin - datetime.timedelta(days=duree)
+
+    # ── Summaries ─────────────────────────────────────────────────────────
+    summary_periode = get_depenses_summary(date_debut=date_debut, date_fin=date_fin)
+    summary_annee = get_depenses_summary(date_debut=premier_de_lannee, date_fin=today)
+    summary_precedent = get_depenses_summary(date_debut=prev_debut, date_fin=prev_fin)
+
+    # ── Period-aware category breakdown (used in bottom table + donut) ────
+    par_categorie_periode = get_depenses_par_categorie(
+        date_debut=date_debut, date_fin=date_fin
+    )
+
+    # ── 6-month monthly trend (always absolute — not filtered) ────────────
+    tendance_6_mois = []
+    for i in range(5, -1, -1):
+        target = premier_du_mois
+        for _ in range(i):
+            target = (target - datetime.timedelta(days=1)).replace(day=1)
+        if i == 0:
+            mois_fin = today
+        else:
+            next_m = (target.replace(day=28) + datetime.timedelta(days=4)).replace(
+                day=1
+            )
+            mois_fin = next_m - datetime.timedelta(days=1)
+        qs = Depense.objects.filter(date__gte=target, date__lte=mois_fin)
+        agg = qs.aggregate(total=Sum("montant"), nb=Count("pk"))
+        tendance_6_mois.append(
+            {
+                "label": target.strftime("%b %Y"),
+                "mois": target.strftime("%m/%Y"),
+                "total": float(agg["total"] or 0),
+                "nb": agg["nb"] or 0,
+            }
+        )
+
+    # ── Recent expenses (always the 10 most recent, unfiltered) ──────────
     depenses_recentes = Depense.objects.select_related("categorie", "lot").order_by(
         "-date", "-created_at"
     )[:10]
 
     nb_categories_actives = CategorieDepense.objects.filter(actif=True).count()
 
+    # ── Period-over-period delta % ────────────────────────────────────────
+    total_periode = summary_periode["total"]
+    total_precedent = summary_precedent["total"]
+    if total_precedent and total_precedent > 0:
+        delta_pct = round(
+            float((total_periode - total_precedent) / total_precedent * 100), 1
+        )
+    else:
+        delta_pct = None
+
+    # ── Label helper for the template (human-readable period description) ─
+    if date_debut == premier_du_mois and date_fin == today:
+        periode_label = "Mois en cours"
+    elif date_debut == premier_de_lannee and date_fin == today:
+        periode_label = "Depuis le 1ᵉʳ janvier"
+    else:
+        periode_label = (
+            f"{date_debut.strftime('%d/%m/%Y')} → {date_fin.strftime('%d/%m/%Y')}"
+        )
+
     return render(
         request,
         "depenses/dashboard.html",
         {
-            "summary_mois": summary_mois,
+            # filter
+            "filter_form": filter_form,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+            "periode_label": periode_label,
+            # summaries
+            "summary_periode": summary_periode,
             "summary_annee": summary_annee,
+            "summary_precedent": summary_precedent,
+            # breakdowns
+            "par_categorie_periode": par_categorie_periode,
+            # trend
+            "tendance_6_mois": tendance_6_mois,
+            # misc
             "depenses_recentes": depenses_recentes,
             "nb_categories_actives": nb_categories_actives,
             "today": today,
             "premier_du_mois": premier_du_mois,
+            "premier_de_lannee": premier_de_lannee,
+            "delta_pct": delta_pct,
             "title": "Tableau de bord — Dépenses",
         },
     )
