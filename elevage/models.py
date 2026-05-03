@@ -116,8 +116,16 @@ class LotElevage(models.Model):
 
     @property
     def effectif_vivant(self):
-        """Current live bird count = initial – cumulative deaths."""
-        return self.nombre_poussins_initial - self.total_mortalite
+        """Current live bird count = initial – cumulative deaths – already slaughtered."""
+        from django.db.models import Sum
+
+        abattus = (
+            self.productions.filter(statut="valide").aggregate(
+                total=Sum("nombre_oiseaux_abattus")
+            )["total"]
+            or 0
+        )
+        return self.nombre_poussins_initial - self.total_mortalite - abattus
 
     @property
     def taux_mortalite(self):

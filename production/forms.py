@@ -84,6 +84,14 @@ class ProductionRecordForm(forms.ModelForm):
 
         if lot and nombre:
             effectif = lot.effectif_vivant
+            # On edit, add back this record's own previously saved count so
+            # the user isn't blocked from adjusting their own record.
+            if (
+                self.instance
+                and self.instance.pk
+                and self.instance.statut == ProductionRecord.STATUT_BROUILLON
+            ):
+                effectif += self.instance.nombre_oiseaux_abattus or 0
             if nombre > effectif:
                 raise ValidationError(
                     f"Le nombre d'oiseaux abattus ({nombre}) dépasse "
@@ -126,7 +134,7 @@ ProductionLigneFormSet = inlineformset_factory(
     ProductionRecord,
     ProductionLigne,
     form=ProductionLigneForm,
-    extra=3,
+    extra=1,
     min_num=1,
     validate_min=True,
     can_delete=True,

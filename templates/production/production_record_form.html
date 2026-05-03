@@ -125,6 +125,9 @@
                   {% if form.poids_total_kg.errors %}
                     <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.poids_total_kg.errors.0 }}</div>
                   {% endif %}
+                  <div id="poids-overweight" class="field-warning" style="display:none;">
+                    <i class="bx bxs-error"></i> <span id="poids-overweight-msg"></span>
+                  </div>
                 </div>
               </div>
 
@@ -186,7 +189,6 @@
               </div>
               <div class="lg-col lg-qty">Quantité <span class="required-star">*</span></div>
               <div class="lg-col lg-poids">Poids unit. (kg)</div>
-              <div class="lg-col lg-cout">Coût unit. (DZD)</div>
               <div class="lg-col lg-notes">Notes</div>
               <div class="lg-col lg-del"></div>
             </div>
@@ -196,7 +198,7 @@
               <div class="ligne-row {% if ligne_form.instance.pk %}existing{% endif %}" id="ligne-{{ forloop.counter0 }}">
                 {{ ligne_form.id }}
                 {% if ligne_form.DELETE %}
-                  <input type="hidden" name="{{ ligne_form.DELETE.html_name }}" value="false" class="delete-flag">
+                  <input type="hidden" name="{{ ligne_form.DELETE.html_name }}" value="" class="delete-flag">
                 {% endif %}
                 <div class="lg-col lg-produit">
                   <div class="field-wrap input-icon-wrap" style="position:relative;">
@@ -222,13 +224,7 @@
                     {{ ligne_form.poids_unitaire_kg }}
                   </div>
                 </div>
-                <div class="lg-col lg-cout">
-                  <div class="field-wrap">
-                    <i class="bx bxs-coin field-icon" style="top:12px;transform:none;"></i>
-                    {{ ligne_form.cout_unitaire_estime }}
-                  </div>
-                  <div class="field-hint" style="font-size:10.5px;">Alloué auto à la validation.</div>
-                </div>
+                <div style="display:none;">{{ ligne_form.cout_unitaire_estime }}</div>
                 <div class="lg-col lg-notes">
                   {{ ligne_form.notes }}
                 </div>
@@ -247,7 +243,7 @@
           <div id="empty-ligne-template" style="display:none;">
             <div class="ligne-row" id="ligne-__prefix__">
               <input type="hidden" name="lignes-__prefix__-id" value="">
-              <input type="hidden" name="lignes-__prefix__-DELETE" value="false" class="delete-flag">
+              <input type="hidden" name="lignes-__prefix__-DELETE" value="" class="delete-flag">
               <div class="lg-col lg-produit">
                 <div class="field-wrap input-icon-wrap" style="position:relative;">
                   <i class="bx bxs-badge-check field-icon" style="top:12px;transform:none;"></i>
@@ -271,12 +267,8 @@
                   <input type="number" name="lignes-__prefix__-poids_unitaire_kg" step="0.001" min="0" class="field-input" style="padding-left:36px;">
                 </div>
               </div>
-              <div class="lg-col lg-cout">
-                <div class="field-wrap">
-                  <i class="bx bxs-coin field-icon" style="top:12px;transform:none;"></i>
-                  <input type="number" name="lignes-__prefix__-cout_unitaire_estime" step="0.0001" min="0" class="field-input" style="padding-left:36px;">
-                </div>
-                <div class="field-hint" style="font-size:10.5px;">Alloué auto à la validation.</div>
+              <div style="display:none;">
+                <input type="number" name="lignes-__prefix__-cout_unitaire_estime" value="0" step="0.0001" min="0">
               </div>
               <div class="lg-col lg-notes">
                 <textarea name="lignes-__prefix__-notes" rows="1" class="notes-input" placeholder="Notes…"></textarea>
@@ -382,6 +374,9 @@
   .page-body { padding:28px 32px; }
   @media (max-width:768px) { .page-body { padding:20px 16px; } }
   .mb-3 { margin-bottom:14px!important; }
+  .field-warning { display:flex; align-items:center; gap:6px; margin-top:6px;
+    color:#b45309; font-size:12px; font-weight:500; }
+  .field-warning i { font-size:14px; flex-shrink:0; }
 
   .card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden; }
   .card-header-row { padding:14px 20px 12px;border-bottom:1px solid var(--border); }
@@ -422,7 +417,7 @@
   /* Inline formset grid */
   .ligne-header {
     display:grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr 1.5fr 38px;
+    grid-template-columns: 2fr 1fr 1fr 1.5fr 38px;
     gap:10px;
     padding:8px 16px;
     background:var(--bg-raised);
@@ -433,7 +428,7 @@
   }
   .ligne-row {
     display:grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr 1.5fr 38px;
+    grid-template-columns: 2fr 1fr 1fr 1.5fr 38px;
     gap:10px;
     padding:10px 16px;
     border-bottom:1px solid var(--border);
@@ -611,6 +606,44 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (poidsTotal) poidsTotal.addEventListener('input', updatePoidsMoyen);
 
+  // ── Soft warning: sum of line weights vs poids_total_kg ──────────────
+  var poidsOverweightDiv = document.getElementById('poids-overweight');
+  var poidsOverweightMsg = document.getElementById('poids-overweight-msg');
+
+  function checkPoidsLignes() {
+    if (!poidsTotal || !poidsOverweightDiv) return;
+    var total = parseFloat(poidsTotal.value);
+    if (!total || total <= 0) { poidsOverweightDiv.style.display = 'none'; return; }
+
+    var somme = 0;
+    document.querySelectorAll('.ligne-row:not(.deleted)').forEach(function (row) {
+      var qty   = parseFloat(row.querySelector('input[name$="-quantite"]')?.value) || 0;
+      var poids = parseFloat(row.querySelector('input[name$="-poids_unitaire_kg"]')?.value) || 0;
+      somme += qty * poids;
+    });
+
+    if (somme > 0 && somme > total) {
+      poidsOverweightMsg.textContent =
+        'Le poids total des lignes (' + somme.toFixed(2) + ' kg) dépasse ' +
+        'le poids déclaré (' + total.toFixed(2) + ' kg).';
+      poidsOverweightDiv.style.display = 'flex';
+    } else {
+      poidsOverweightDiv.style.display = 'none';
+    }
+  }
+
+  if (poidsTotal) poidsTotal.addEventListener('input', checkPoidsLignes);
+
+  // Delegate to catch inputs on existing and dynamically added rows
+  var ligneRowsContainer = document.getElementById('ligne-rows');
+  if (ligneRowsContainer) {
+    ligneRowsContainer.addEventListener('input', function (e) {
+      if (e.target.matches('input[name$="-quantite"], input[name$="-poids_unitaire_kg"]')) {
+        checkPoidsLignes();
+      }
+    });
+  }
+
   // ── Dynamic formset: add / delete rows ───────────────────────────────
   const totalFormsInput = document.querySelector('[name="lignes-TOTAL_FORMS"]');
   const addBtn          = document.getElementById('add-ligne-btn');
@@ -630,7 +663,7 @@ document.addEventListener('DOMContentLoaded', function () {
       clone.id = 'ligne-' + idx;
       ligneRows.appendChild(clone);
       totalFormsInput.value = idx + 1;
-      // Attach delete handler
+      // Attach handlers
       attachDeleteHandler(clone);
     });
   }
@@ -640,19 +673,17 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!btn) return;
     btn.addEventListener('click', function () {
       const flagInput = row.querySelector('.delete-flag');
-      if (row.querySelector('[name$="-id"]') && row.querySelector('[name$="-id"]').value) {
-        // Existing row: mark DELETE
-        if (flagInput) flagInput.value = 'on';
-        row.classList.add('deleted');
-      } else {
-        // New row: remove from DOM
-        row.remove();
-      }
+      if (flagInput) flagInput.value = 'on';
+      row.style.display = 'none';
+      row.classList.add('deleted');
+      checkPoidsLignes();
     });
   }
 
-  // Attach delete handlers to existing rows
-  document.querySelectorAll('.ligne-row').forEach(attachDeleteHandler);
+  // Attach to existing rows
+  document.querySelectorAll('.ligne-row').forEach(function (row) {
+    attachDeleteHandler(row);
+  });
 
   // ── Guard submit: block if oiseaux > effectif ─────────────────────────
   const form = document.getElementById('production-form');
