@@ -209,6 +209,11 @@ def bl_fournisseur_create(request, fournisseur_pk=None):
             "title": "Nouveau BL Fournisseur",
             "action_label": "Créer",
             "fournisseur": fournisseur,
+            "categories_intrant": __import__(
+                "intrants.models", fromlist=["CategorieIntrant"]
+            )
+            .CategorieIntrant.objects.filter(actif=True)
+            .order_by("ordre", "libelle"),
         },
     )
 
@@ -273,6 +278,11 @@ def bl_fournisseur_edit(request, pk):
             "object": bl,
             "title": f"Modifier BL — {bl.reference}",
             "action_label": "Enregistrer",
+            "categories_intrant": __import__(
+                "intrants.models", fromlist=["CategorieIntrant"]
+            )
+            .CategorieIntrant.objects.filter(actif=True)
+            .order_by("ordre", "libelle"),
         },
     )
 

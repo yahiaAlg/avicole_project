@@ -137,4 +137,9 @@ urlpatterns = [
         views.fournisseur_intrants_json,
         name="fournisseur_intrants_json",
     ),
+    path(
+        "intrants/creer-ajax/",
+        views.intrant_create_ajax,
+        name="intrant_create_ajax",
+    ),
 ]

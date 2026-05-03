@@ -152,7 +152,12 @@
           <table class="data-table" id="formset-table">
             <thead>
               <tr>
-                <th style="width:32%;">Intrant</th>
+                <th style="width:32%;">
+                Intrant
+                <button type="button" id="open-intrant-modal-hdr" class="btn-new-intrant" title="Créer un nouvel intrant">
+                  <i class="bx bx-plus"></i> Nouvel intrant
+                </button>
+              </th>
                 <th style="width:14%;">Quantité</th>
                 <th style="width:18%;">Prix unitaire (DZD)</th>
                 <th style="width:14%;">Montant</th>
@@ -279,6 +284,82 @@
   </div>
 </div>
 {% endif %}
+
+<!-- ── Modal: Créer un nouvel intrant ── -->
+<div id="intrant-modal-overlay" class="intrant-modal-overlay" style="display:none;" aria-modal="true" role="dialog">
+  <div class="intrant-modal">
+    <div class="intrant-modal__header">
+      <div class="intrant-modal__title">
+        <i class="bx bxs-plus-circle" style="color:var(--accent-text);font-size:17px;"></i>
+        Nouvel intrant
+      </div>
+      <button type="button" id="intrant-modal-close" class="action-btn" title="Fermer">
+        <i class="bx bx-x"></i>
+      </button>
+    </div>
+
+    <div class="intrant-modal__body">
+      <div class="intrant-modal__notice">
+        <i class="bx bxs-info-circle" style="color:#3b82f6;font-size:14px;flex-shrink:0;margin-top:1px;"></i>
+        <span>L'intrant sera créé dans le catalogue et associé au fournisseur en cours, puis sélectionné automatiquement dans la ligne avec un prix de <strong>0 DZD</strong>.</span>
+      </div>
+
+      <div class="im-grid">
+        <!-- Désignation -->
+        <div class="im-field im-field--full">
+          <label class="im-label">Désignation <span class="im-req">*</span></label>
+          <input type="text" id="im-designation" placeholder="Ex : Aliment démarrage 25 kg" autocomplete="off">
+          <div class="im-error" id="im-err-designation" style="display:none;"></div>
+        </div>
+
+        <!-- Catégorie -->
+        <div class="im-field">
+          <label class="im-label">Catégorie <span class="im-req">*</span></label>
+          <select id="im-categorie">
+            <option value="">— choisir —</option>
+            {% for cat in categories_intrant %}
+            <option value="{{ cat.pk }}">{{ cat.libelle }}</option>
+            {% endfor %}
+          </select>
+          <div class="im-error" id="im-err-categorie" style="display:none;"></div>
+        </div>
+
+        <!-- Unité de mesure -->
+        <div class="im-field">
+          <label class="im-label">Unité de mesure <span class="im-req">*</span></label>
+          <select id="im-unite">
+            <option value="">— choisir —</option>
+            <option value="kg">Kilogramme (kg)</option>
+            <option value="sac">Sac (25 kg)</option>
+            <option value="unite">Unité / Tête</option>
+            <option value="litre">Litre</option>
+            <option value="flacon">Flacon</option>
+            <option value="dose">Dose</option>
+            <option value="ml">Millilitre (ml)</option>
+            <option value="g">Gramme (g)</option>
+          </select>
+          <div class="im-error" id="im-err-unite" style="display:none;"></div>
+        </div>
+
+        <!-- Seuil d'alerte -->
+        <div class="im-field">
+          <label class="im-label">Seuil d'alerte stock</label>
+          <input type="number" id="im-seuil" value="0" step="0.001" min="0" placeholder="0">
+        </div>
+      </div>
+
+      <div class="im-error im-error--global" id="im-err-global" style="display:none;"></div>
+    </div>
+
+    <div class="intrant-modal__footer">
+      <button type="button" class="btn-ghost btn-sm" id="intrant-modal-cancel">Annuler</button>
+      <button type="button" class="btn-primary btn-sm" id="intrant-modal-submit">
+        <i class="bx bx-check"></i>
+        <span id="im-submit-label">Créer l'intrant</span>
+      </button>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_css %}
@@ -511,6 +592,81 @@
   .stock-hint--over { color: #dc2626 !important; font-weight: 600; }
   .confirm-panel__actions { display: flex; gap: 10px; justify-content: flex-end; }
   .confirm-panel__actions form { margin: 0; }
+
+  /* ── Nouvel intrant button in table header ── */
+  .btn-new-intrant {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.25);
+    color: var(--accent-text); border-radius: var(--radius-sm);
+    font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 10px;
+    padding: 3px 8px; cursor: pointer; margin-left: 8px;
+    transition: background .12s;
+    vertical-align: middle;
+  }
+  .btn-new-intrant:hover { background: rgba(34,197,94,.2); }
+  .btn-new-intrant i { font-size: 11px; }
+
+  /* ── Intrant modal overlay ── */
+  .intrant-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    z-index: 600; display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .intrant-modal {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); width: 100%; max-width: 480px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.18);
+    display: flex; flex-direction: column;
+  }
+  .intrant-modal__header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .intrant-modal__title {
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px;
+    color: var(--text-primary); display: flex; align-items: center; gap: 8px;
+  }
+  .intrant-modal__body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  .intrant-modal__footer {
+    padding: 14px 20px; border-top: 1px solid var(--border);
+    display: flex; justify-content: flex-end; gap: 10px;
+  }
+  .intrant-modal__notice {
+    display: flex; align-items: flex-start; gap: 9px;
+    background: rgba(59,130,246,.07); border: 1px solid rgba(59,130,246,.2);
+    border-radius: var(--radius-md); padding: 10px 13px;
+    font-size: 12.5px; color: var(--text-secondary);
+  }
+  .im-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  }
+  .im-field { display: flex; flex-direction: column; gap: 5px; }
+  .im-field--full { grid-column: 1 / -1; }
+  .im-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+  .im-req { color: #dc2626; }
+  .im-field input, .im-field select {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); color: var(--text-primary);
+    font-family: 'Inter', sans-serif; font-size: 13px;
+    padding: 9px 12px; outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .im-field input:focus, .im-field select:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  .im-field input.im-input--error, .im-field select.im-input--error {
+    border-color: #dc2626;
+  }
+  .im-error {
+    font-size: 11.5px; color: #dc2626;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .im-error--global {
+    background: rgba(239,68,68,.06); border: 1px solid rgba(239,68,68,.18);
+    border-radius: var(--radius-md); padding: 9px 12px;
+    font-size: 12.5px;
+  }
 </style>
 {% endblock %}
 
@@ -686,5 +842,201 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 });
+  /* ── Intrant modal ── */
+  (function () {
+    const AJAX_URL      = '{% url "intrants:intrant_create_ajax" %}';
+    const CSRF          = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    // Supplier pk may be in the fournisseur select or a hidden input
+    function getFournisseurPk() {
+      const sel = document.getElementById('id_fournisseur');
+      if (sel) return sel.value;
+      const hid = document.querySelector('input[name="fournisseur"]');
+      if (hid) return hid.value;
+      {% if fournisseur %}return '{{ fournisseur.pk }}';{% else %}return '';{% endif %}
+    }
+
+    const overlay     = document.getElementById('intrant-modal-overlay');
+    const closeBtn    = document.getElementById('intrant-modal-close');
+    const cancelBtn   = document.getElementById('intrant-modal-cancel');
+    const submitBtn   = document.getElementById('intrant-modal-submit');
+    const submitLabel = document.getElementById('im-submit-label');
+    const hdrBtn      = document.getElementById('open-intrant-modal-hdr');
+
+    // The row whose intrant <select> we should update after creation
+    let _targetRow = null;
+
+    function clearModal() {
+      ['im-designation','im-categorie','im-unite'].forEach(function(id){
+        const el = document.getElementById(id);
+        if (el) { el.value = ''; el.classList.remove('im-input--error'); }
+      });
+      const seuil = document.getElementById('im-seuil');
+      if (seuil) seuil.value = '0';
+      ['im-err-designation','im-err-categorie','im-err-unite','im-err-global'].forEach(function(id){
+        const el = document.getElementById(id);
+        if (el) { el.style.display = 'none'; el.textContent = ''; }
+      });
+      submitLabel.textContent = 'Créer l\'intrant';
+      submitBtn.disabled = false;
+    }
+
+    function openModal(targetRow) {
+      _targetRow = targetRow || null;
+      clearModal();
+      overlay.style.display = 'flex';
+      const desEl = document.getElementById('im-designation');
+      if (desEl) setTimeout(function(){ desEl.focus(); }, 80);
+    }
+
+    function closeModal() {
+      overlay.style.display = 'none';
+      _targetRow = null;
+    }
+
+    if (hdrBtn) hdrBtn.addEventListener('click', function(){ openModal(null); });
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+    overlay.addEventListener('click', function(e){ if (e.target === overlay) closeModal(); });
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && overlay.style.display !== 'none') closeModal();
+    });
+
+    // Each row gets a small "+" link inside the intrant select wrapper
+    function addRowTrigger(row) {
+      const wrap = row.querySelector('.input-icon-wrap');
+      if (!wrap || wrap.dataset.imTrigger) return;
+      wrap.dataset.imTrigger = '1';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn-new-intrant btn-row-intrant';
+      btn.title = 'Créer un intrant et le sélectionner ici';
+      btn.innerHTML = '<i class="bx bx-plus"></i>';
+      btn.style.cssText = 'position:absolute;right:6px;top:50%;transform:translateY(-50%);z-index:2;padding:2px 6px;';
+      wrap.style.position = 'relative';
+      wrap.appendChild(btn);
+      btn.addEventListener('click', function(){ openModal(row); });
+    }
+
+    tbody.querySelectorAll('.ligne-row').forEach(addRowTrigger);
+
+    // Hook into add-line so new rows also get the trigger
+    const _origAddLine = addBtn.onclick;
+    addBtn.addEventListener('click', function(){
+      setTimeout(function(){
+        tbody.querySelectorAll('.ligne-row').forEach(addRowTrigger);
+      }, 50);
+    });
+
+    // Also add trigger after formset clone (MutationObserver)
+    const obs = new MutationObserver(function(mutations){
+      mutations.forEach(function(m){
+        m.addedNodes.forEach(function(n){
+          if (n.classList && n.classList.contains('ligne-row')) addRowTrigger(n);
+        });
+      });
+    });
+    obs.observe(tbody, { childList: true });
+
+    // Submit
+    submitBtn.addEventListener('click', function(){
+      // Client-side required check
+      let ok = true;
+      [['im-designation','im-err-designation'],
+       ['im-categorie','im-err-categorie'],
+       ['im-unite','im-err-unite']].forEach(function(pair){
+        const inp = document.getElementById(pair[0]);
+        const err = document.getElementById(pair[1]);
+        if (!inp.value.trim()) {
+          inp.classList.add('im-input--error');
+          err.textContent = 'Ce champ est requis.'; err.style.display = 'flex';
+          ok = false;
+        } else {
+          inp.classList.remove('im-input--error');
+          err.style.display = 'none';
+        }
+      });
+      if (!ok) return;
+
+      submitBtn.disabled = true;
+      submitLabel.textContent = 'Création…';
+
+      const body = new FormData();
+      body.append('csrfmiddlewaretoken', CSRF);
+      body.append('designation', document.getElementById('im-designation').value.trim());
+      body.append('categorie', document.getElementById('im-categorie').value);
+      body.append('unite_mesure', document.getElementById('im-unite').value);
+      body.append('seuil_alerte', document.getElementById('im-seuil').value || '0');
+      body.append('actif', 'on');
+      const fPk = getFournisseurPk();
+      if (fPk) body.append('fournisseur_pk', fPk);
+
+      fetch(AJAX_URL, { method: 'POST', body: body })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          if (!data.ok) {
+            // Map server errors back to fields
+            const fieldMap = {
+              designation: ['im-designation','im-err-designation'],
+              categorie:   ['im-categorie','im-err-categorie'],
+              unite_mesure:['im-unite','im-err-unite'],
+            };
+            let hasGlobal = false;
+            Object.keys(data.errors || {}).forEach(function(field){
+              const msg = data.errors[field].join(' ');
+              if (fieldMap[field]) {
+                document.getElementById(fieldMap[field][0]).classList.add('im-input--error');
+                const errEl = document.getElementById(fieldMap[field][1]);
+                errEl.textContent = msg; errEl.style.display = 'flex';
+              } else {
+                const g = document.getElementById('im-err-global');
+                g.textContent = msg; g.style.display = 'flex';
+                hasGlobal = true;
+              }
+            });
+            submitBtn.disabled = false;
+            submitLabel.textContent = 'Créer l\'intrant';
+            return;
+          }
+
+          // Inject the new option into ALL intrant selects on the page
+          const allSelects = document.querySelectorAll('select[name$="-intrant"]');
+          const newOpt = document.createElement('option');
+          newOpt.value = data.pk;
+          newOpt.text  = data.label;
+
+          allSelects.forEach(function(sel){
+            sel.appendChild(newOpt.cloneNode(true));
+          });
+
+          // Select it in the target row (or the last row if opened from header)
+          const targetSel = _targetRow
+            ? _targetRow.querySelector('select[name$="-intrant"]')
+            : tbody.querySelector('.ligne-row:last-child select[name$="-intrant"]');
+
+          if (targetSel) {
+            targetSel.value = data.pk;
+            // Set price to 0 on the target row
+            const targetRow = targetSel.closest('.ligne-row');
+            if (targetRow) {
+              const puEl = targetRow.querySelector('input[name$="-prix_unitaire"]');
+              if (puEl) puEl.value = '0';
+              // Trigger stock hint fetch (price stays 0 as there's no history)
+              fetchIntrantHint(targetSel, targetRow, false);
+            }
+            // Dispatch change so recalcTotals runs
+            targetSel.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+
+          closeModal();
+        })
+        .catch(function(){
+          const g = document.getElementById('im-err-global');
+          g.textContent = 'Erreur réseau. Veuillez réessayer.';
+          g.style.display = 'flex';
+          submitBtn.disabled = false;
+          submitLabel.textContent = 'Créer l\'intrant';
+        });
+    });
+  })();
 </script>
 {% endblock %}

@@ -652,3 +652,56 @@ def fournisseur_intrants_json(request, pk):
         .order_by("designation")
     )
     return JsonResponse({"intrants": intrants})
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def intrant_create_ajax(request):
+    """
+    AJAX endpoint: create a new Intrant and return JSON.
+    Used by the BL Fournisseur form modal to add a missing intrant on-the-fly
+    and associate it with the current supplier.
+
+    POST params:
+        designation    — required
+        categorie      — required (pk)
+        unite_mesure   — required
+        seuil_alerte   — optional, defaults to 0
+        fournisseur_pk — optional, supplier pk to associate
+
+    Returns:
+        200 {"ok": true,  "pk": ..., "designation": ..., "label": ..., "unite_mesure": ...}
+        400 {"ok": false, "errors": {...}}
+    """
+    from django.http import JsonResponse
+
+    form = IntrantForm(request.POST)
+    if form.is_valid():
+        intrant = form.save()
+
+        # Associate supplier if provided
+        fournisseur_pk = request.POST.get("fournisseur_pk")
+        if fournisseur_pk:
+            try:
+                fournisseur = Fournisseur.objects.get(pk=fournisseur_pk, actif=True)
+                intrant.fournisseurs.add(fournisseur)
+            except Fournisseur.DoesNotExist:
+                pass
+
+        logger.info(
+            "Intrant pk=%s created via AJAX modal by '%s'.", intrant.pk, request.user
+        )
+        return JsonResponse(
+            {
+                "ok": True,
+                "pk": intrant.pk,
+                "designation": intrant.designation,
+                "label": str(intrant),
+                "unite_mesure": intrant.unite_mesure,
+                "categorie": intrant.categorie.libelle,
+            }
+        )
+
+    # Return field-level errors
+    errors = {field: list(errs) for field, errs in form.errors.items()}
+    return JsonResponse({"ok": False, "errors": errors}, status=400)
