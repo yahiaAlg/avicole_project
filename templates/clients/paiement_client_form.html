@@ -6,7 +6,9 @@
 {% block nav_paiements_clients %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{% if client %}Paiement de {{ client.nom }}{% else %}Sélectionnez le client et allouez aux factures{% endif %}{% endblock %}
+{% block page_sub_text %}
+  {% if client %}{{ client.nom }}{% else %}Sélectionner un client{% endif %}
+{% endblock %}
 
 {% block topbar_actions %}
   {% if client %}
@@ -15,265 +17,590 @@
   </a>
   {% else %}
   <a href="{% url 'clients:paiement_client_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour aux paiements
+    <i class="bx bx-arrow-back"></i> Retour
   </a>
   {% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="page-body">
-  <form method="post" id="paiement-form">
-    {% csrf_token %}
-    <div class="form-grid">
+<div class="form-layout">
 
-      <!-- Left: paiement header -->
-      <div class="form-col">
+  <!-- ── Main form ── -->
+  <div class="form-main">
 
-        <div class="form-card">
-          <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bxs-wallet"></i> Informations paiement</div>
-          </div>
-          <div class="form-card__body">
+    {% if client %}
+    <div class="client-banner">
+      <div class="client-banner__avatar">{{ client.nom|slice:":2"|upper }}</div>
+      <div class="client-banner__info">
+        <div class="client-banner__name">{{ client.nom }}</div>
+        {% if client.wilaya %}<div class="client-banner__sub">{{ client.wilaya }}</div>{% endif %}
+      </div>
+      <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost btn-sm">
+        <i class="bx bx-user"></i> Fiche client
+      </a>
+    </div>
+    {% endif %}
 
-            {% if not client %}
-            <div class="form-group">
-              <label class="form-label" for="{{ form.client.id_for_label }}">Client <span class="form-required">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bxs-group input-icon"></i>
-                {{ form.client }}
-              </div>
-              {% for err in form.client.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
-            {% else %}
-            {{ form.client }}
-            <div class="form-group">
-              <label class="form-label">Client</label>
-              <div style="padding:10px 14px;background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);font-size:13.5px;font-weight:500;color:var(--text-primary);">{{ client.nom }}</div>
-            </div>
-            {% endif %}
+    {% if facture_obj %}
+    <div class="notice-banner" style="background:rgba(34,197,94,.07);border-color:rgba(34,197,94,.22);">
+      <i class="bx bxs-receipt" style="flex-shrink:0;color:#16a34a;"></i>
+      <span>
+        Paiement initié depuis la facture
+        <strong style="color:#15803d;">{{ facture_obj.reference }}</strong>
+        — Reste à payer : <strong>{{ facture_obj.reste_a_payer|floatformat:0 }} DZD</strong>.
+        Le montant est pré-rempli ci-dessous. Allouez manuellement ou laissez tout à 0 pour l'allocation FIFO automatique.
+      </span>
+    </div>
+    {% endif %}
 
-            <div class="form-row-2">
-              <div class="form-group">
-                <label class="form-label" for="{{ form.date_paiement.id_for_label }}">Date <span class="form-required">*</span></label>
-                <div class="input-wrapper">
-                  <i class="bx bx-calendar input-icon"></i>
-                  {{ form.date_paiement }}
-                </div>
-                {% for err in form.date_paiement.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="{{ form.montant.id_for_label }}">Montant (DZD) <span class="form-required">*</span></label>
-                <div class="input-wrapper">
-                  <i class="bx bxs-coin input-icon"></i>
-                  {{ form.montant }}
-                </div>
-                {% for err in form.montant.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-              </div>
-            </div>
+    {% if form.non_field_errors %}
+    <div class="form-error-banner">
+      <i class="bx bxs-error-circle"></i>
+      {% for err in form.non_field_errors %}{{ err }}{% endfor %}
+    </div>
+    {% endif %}
 
-            <div class="form-group">
-              <label class="form-label" for="{{ form.mode_paiement.id_for_label }}">Mode de paiement <span class="form-required">*</span></label>
-              <div class="input-wrapper">
-                <i class="bx bx-credit-card input-icon"></i>
-                {{ form.mode_paiement }}
-              </div>
-              {% for err in form.mode_paiement.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
+    <div class="notice-banner">
+      <i class="bx bxs-lock" style="flex-shrink:0;color:#b45309;"></i>
+      <span><strong>Note :</strong> Les paiements sont <strong>immuables</strong> après enregistrement. Vérifiez le montant et le client avant de soumettre.</span>
+    </div>
 
-            <div class="form-group">
-              <label class="form-label" for="{{ form.reference_paiement.id_for_label }}">Référence (n° chèque / virement)</label>
-              <div class="input-wrapper">
-                <i class="bx bx-hash input-icon"></i>
-                {{ form.reference_paiement }}
-              </div>
-              {% for err in form.reference_paiement.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
+    <form method="post" id="paiement-form">
+      {% csrf_token %}
+      {% if client %}{{ form.client }}{% endif %}
 
-            <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" for="{{ form.notes.id_for_label }}">Notes</label>
-              <div class="input-wrapper input-wrapper--textarea">{{ form.notes }}</div>
-              {% for err in form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-            </div>
+      <div class="form-card">
+        <div class="form-card__title"><i class="bx bxs-wallet"></i> Détails du paiement</div>
 
-          </div>
-        </div>
-
-        {% if form.non_field_errors %}
-        <div class="field-error" style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:12px 14px;">
-          {% for err in form.non_field_errors %}<div><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+        {% if not client %}
+        <div class="field-group">
+          <label for="{{ form.client.id_for_label }}" class="field-label">Client <span class="required-star">*</span></label>
+          {{ form.client }}
+          {% if form.client.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.client.errors.0 }}</div>{% endif %}
         </div>
         {% endif %}
 
+        <div class="form-row-2">
+          <div class="field-group">
+            <label for="{{ form.date_paiement.id_for_label }}" class="field-label">Date du paiement <span class="required-star">*</span></label>
+            {{ form.date_paiement }}
+            {% if form.date_paiement.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.date_paiement.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="field-group">
+            <label for="{{ form.mode_paiement.id_for_label }}" class="field-label">Mode de paiement <span class="required-star">*</span></label>
+            {{ form.mode_paiement }}
+            {% if form.mode_paiement.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.mode_paiement.errors.0 }}</div>{% endif %}
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="field-group">
+            <label for="{{ form.montant.id_for_label }}" class="field-label">Montant (DZD) <span class="required-star">*</span></label>
+            <div class="input-icon-wrap">
+              <i class="bx bxs-coin"></i>
+              {{ form.montant }}
+            </div>
+            {% if form.montant.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.montant.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="field-group">
+            <label for="{{ form.reference_paiement.id_for_label }}" class="field-label">Référence (n° chèque / virement)</label>
+            {{ form.reference_paiement }}
+            <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">Auto-généré : REF-{MODE}-{DATE}-{HEURE}. Modifiable.</div>
+            {% if form.reference_paiement.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.reference_paiement.errors.0 }}</div>{% endif %}
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="{{ form.notes.id_for_label }}" class="field-label">Notes</label>
+          {{ form.notes }}
+          {% if form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.notes.errors.0 }}</div>{% endif %}
+        </div>
       </div>
 
-      <!-- Right: allocation to invoices -->
-      <div class="form-col">
+      <!-- Manual allocation card (BR-FAC-03) -->
+      {% if alloc_forms %}
+      <div class="form-card alloc-card">
+        <div class="form-card__title"><i class="bx bx-file"></i> Allocation manuelle aux factures <span class="alloc-mode-badge" id="alloc-mode-badge">FIFO auto</span></div>
+        <div class="form-hint" style="margin-bottom:14px;">
+          Saisissez les montants à imputer sur chaque facture. <strong>Laissez tout à 0</strong> pour appliquer l'allocation FIFO automatique (plus ancienne → plus récente). <span style="color:var(--text-muted);">(BR-FAC-03)</span>
+        </div>
 
-        <div class="form-card">
-          <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bx-file"></i> Allocation aux factures</div>
-          </div>
-          <div class="form-card__body">
-            <div class="form-hint" style="margin-bottom:14px;">Répartissez le paiement sur les factures ouvertes. Laissez à 0 pour ne pas allouer à une facture. <strong>(BR-FAC-03)</strong></div>
-
-            {% if alloc_forms %}
-            <div class="alloc-list">
-              {% for alloc_form in alloc_forms %}
-              <div class="alloc-item">
-                {{ alloc_form.facture }}
-                <div class="alloc-header">
-                  <div>
-                    <span class="alloc-ref">{{ alloc_form.facture_instance.reference }}</span>
-                    <span class="alloc-date">{{ alloc_form.facture_instance.date_facture|date:"d/m/Y" }}</span>
-                  </div>
-                  <div class="alloc-statut">
-                    {% if alloc_form.facture_instance.statut == 'non_payee' %}<span class="pill-danger">Non payée</span>
-                    {% elif alloc_form.facture_instance.statut == 'partiellement_payee' %}<span class="pill-warning">Part. payée</span>
-                    {% endif %}
-                  </div>
-                </div>
-                <div class="alloc-body">
-                  <div class="alloc-rap">
-                    <span class="alloc-rap-label">Reste à payer :</span>
-                    <span class="alloc-rap-val">{{ alloc_form.facture_instance.reste_a_payer|floatformat:0 }} DZD</span>
-                  </div>
-                  <div class="alloc-input-group">
-                    <label class="alloc-input-label">Montant alloué (DZD)</label>
-                    <div class="input-wrapper">
-                      <i class="bx bxs-coin input-icon"></i>
-                      {{ alloc_form.montant_alloue }}
-                    </div>
-                    {% for err in alloc_form.montant_alloue.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-                    {% for err in alloc_form.non_field_errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
-                  </div>
-                </div>
+        <div class="alloc-list">
+          {% for alloc_form in alloc_forms %}
+          <div class="alloc-item">
+            {{ alloc_form.facture }}
+            <div class="alloc-header">
+              <div>
+                <span class="alloc-ref">{{ alloc_form.facture_instance.reference }}</span>
+                <span class="alloc-date">{{ alloc_form.facture_instance.date_facture|date:"d/m/Y" }}</span>
               </div>
-              {% endfor %}
+              <div>
+                {% if alloc_form.facture_instance.statut == 'non_payee' %}<span class="pill-danger">Non payée</span>
+                {% elif alloc_form.facture_instance.statut == 'partiellement_payee' %}<span class="pill-warning">Part. payée</span>
+                {% endif %}
+              </div>
             </div>
-
-            <!-- Allocation total counter -->
-            <div id="alloc-summary" class="alloc-summary">
-              <span>Total alloué : </span>
-              <strong id="alloc-total">0</strong> DZD
+            <div class="alloc-body">
+              <div class="alloc-rap">
+                <span class="alloc-rap-label">Reste à payer</span>
+                <span class="alloc-rap-val">{{ alloc_form.facture_instance.reste_a_payer|floatformat:0 }} DZD</span>
+              </div>
+              <div class="alloc-input-group">
+                <span class="alloc-input-label">Montant alloué (DZD)</span>
+                {{ alloc_form.montant_alloue }}
+                {% for err in alloc_form.montant_alloue.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+                {% for err in alloc_form.non_field_errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              </div>
             </div>
-
-            {% else %}
-            <div style="background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);border-radius:var(--radius-md);padding:12px 14px;display:flex;align-items:center;gap:10px;">
-              <i class="bx bxs-info-circle" style="color:#0284c7;font-size:15px;"></i>
-              <span style="font-size:13px;color:var(--text-secondary);">
-                {% if client %}Aucune facture ouverte pour ce client.{% else %}Sélectionnez un client pour voir ses factures ouvertes.{% endif %}
-              </span>
-            </div>
-            {% endif %}
           </div>
+          {% endfor %}
         </div>
 
-        <div class="form-actions-footer">
-          {% if client %}
-          <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost">Annuler</a>
-          {% else %}
-          <a href="{% url 'clients:paiement_client_list' %}" class="btn-ghost">Annuler</a>
-          {% endif %}
-          <button type="submit" class="btn-primary"><i class="bx bx-check"></i> {{ action_label }}</button>
+        <div class="alloc-summary" id="alloc-summary">
+          <i class="bx bx-calculator" style="color:var(--text-muted);"></i>
+          Total alloué manuellement : <strong id="alloc-total">0</strong> DZD
         </div>
+      </div>
+      {% endif %}
 
+      <!-- FIFO preview block -->
+      <div class="fifo-preview" id="fifo-preview" style="display:none;">
+        <div class="fifo-preview__header">
+          <i class="bx bx-transfer"></i> <span id="fifo-preview-label">Simulation d'allocation FIFO</span>
+        </div>
+        <div id="fifo-rows"></div>
+        <div class="fifo-preview__footer" id="fifo-footer"></div>
+      </div>
+
+      {% if client and solde and not solde.factures_ouvertes %}
+      <div class="notice-banner notice-banner--success">
+        <i class="bx bxs-check-circle" style="flex-shrink:0;color:#15803d;"></i>
+        <span>Ce client n'a <strong>aucune facture ouverte</strong>. Le paiement sera enregistré sans allocation.</span>
+      </div>
+      {% endif %}
+
+      <div class="form-actions">
+        {% if client %}
+        <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost">Annuler</a>
+        {% else %}
+        <a href="{% url 'clients:paiement_client_list' %}" class="btn-ghost">Annuler</a>
+        {% endif %}
+        <button type="submit" class="btn-primary" id="submit-btn">
+          <i class="bx bxs-wallet"></i> {{ action_label }}
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Aside: receivables summary ── -->
+  <div class="form-aside">
+    {% if client and solde %}
+    <div class="aside-card aside-card--creance">
+      <div class="aside-card__title"><i class="bx bx-hourglass"></i> Situation du client</div>
+      <div class="debt-metric">
+        <div class="debt-metric__label">Créances totales</div>
+        <div class="debt-metric__val {% if solde.creance_globale > 0 %}val-orange{% endif %}">
+          {{ solde.creance_globale|floatformat:0 }} DZD
+        </div>
+      </div>
+      {% if solde.creance_globale > 0 %}
+      <div class="debt-bar-wrap">
+        <div class="debt-bar__track">
+          <div class="debt-bar__fill" id="creance-fill" style="width:100%;"></div>
+        </div>
+      </div>
+      {% endif %}
+      <div class="summary-row">
+        <span class="summary-label">Total encaissé (historique)</span>
+        <span class="summary-val">{{ solde.total_paiements|floatformat:0 }} DZD</span>
+      </div>
+      {% if solde.nb_factures_retard > 0 %}
+      <div class="summary-row">
+        <span class="summary-label" style="color:#dc2626;">Factures en retard</span>
+        <span class="summary-val" style="color:#dc2626;">{{ solde.nb_factures_retard }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if solde.factures_ouvertes %}
+    <div class="aside-card">
+      <div class="aside-card__title"><i class="bx bxs-file-txt"></i> Factures ouvertes (ordre FIFO)</div>
+      <div class="fifo-open-list" id="open-invoices">
+        {% for f in solde.factures_ouvertes %}
+        <div class="fifo-open-item"
+             data-pk="{{ f.pk }}"
+             data-ref="{{ f.reference }}"
+             data-reste="{{ f.reste_a_payer }}"
+             data-date="{{ f.date_facture|date:'d/m/Y' }}">
+          <div class="fifo-open-item__ref">{{ f.reference }}</div>
+          <div class="fifo-open-item__meta">{{ f.date_facture|date:"d/m/Y" }}
+            {% if f.date_echeance %}{% now "Y-m-d" as today_str %}{% if f.date_echeance|date:"Y-m-d" < today_str %}<span style="color:#dc2626;font-size:10px;"> · En retard</span>{% endif %}{% endif %}
+          </div>
+          <div class="fifo-open-item__reste">{{ f.reste_a_payer|floatformat:0 }} DZD</div>
+        </div>
+        {% endfor %}
       </div>
     </div>
-  </form>
+    {% endif %}
+
+    {% else %}
+    <div class="aside-card">
+      <div class="aside-card__title"><i class="bx bx-info-circle"></i> Allocation FIFO</div>
+      <div style="font-size:12px;color:var(--text-muted);line-height:1.6;">
+        Après enregistrement, l'allocation FIFO s'applique automatiquement aux factures ouvertes les plus anciennes en premier.
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
 </div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
-  @media (max-width: 860px) { .form-grid { grid-template-columns: 1fr; } }
-  .form-col { display: flex; flex-direction: column; gap: 18px; }
+  .form-layout { display: grid; grid-template-columns: 1fr 280px; gap: 18px; align-items: start; }
+  @media (max-width: 900px) { .form-layout { grid-template-columns: 1fr; } }
 
-  .form-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
-  .form-card__header { padding: 14px 20px 12px; border-bottom: 1px solid var(--border); }
-  .form-card__body { padding: 20px; }
-  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+  .client-banner {
+    display: flex; align-items: center; gap: 14px;
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 14px 18px; margin-bottom: 14px;
+  }
+  .client-banner__avatar {
+    width: 40px; height: 40px; border-radius: var(--radius-sm);
+    background: var(--accent-dim); color: var(--accent-text);
+    font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 14px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .client-banner__info { flex: 1; }
+  .client-banner__name { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px; color: var(--text-primary); }
+  .client-banner__sub { font-size: 11.5px; color: var(--text-muted); }
 
-  .form-group { margin-bottom: 16px; }
-  .form-group:last-child { margin-bottom: 0; }
-  .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .form-label { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .03em; margin-bottom: 6px; }
-  .form-required { color: #dc2626; }
-  .form-hint { font-size: 12px; color: var(--text-muted); }
+  .form-error-banner {
+    background: rgba(239,68,68,.06); border: 1px solid rgba(239,68,68,.2);
+    border-radius: var(--radius-md); padding: 12px 16px;
+    display: flex; align-items: flex-start; gap: 8px;
+    font-size: 13px; color: #dc2626; margin-bottom: 14px;
+  }
+  .notice-banner {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.22);
+    border-radius: var(--radius-md); padding: 12px 16px;
+    font-size: 13px; color: var(--text-secondary); margin-bottom: 14px;
+  }
+  .notice-banner--success { background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.2); }
 
-  .input-wrapper { position: relative; }
-  .input-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; pointer-events: none; transition: color .15s; }
-  .input-wrapper:focus-within .input-icon { color: var(--accent-text); }
-  .input-wrapper input[type="text"],
-  .input-wrapper input[type="date"],
-  .input-wrapper input[type="number"],
-  .input-wrapper select {
-    width: 100%; background: var(--bg-surface); border: 1px solid var(--border);
+  .form-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 20px 22px; margin-bottom: 14px;
+  }
+  .form-card__title {
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px;
+    color: var(--text-primary); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .field-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .field-group:last-child { margin-bottom: 0; }
+  .field-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .03em; }
+  .required-star { color: #dc2626; }
+  .field-error { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #dc2626; }
+
+  .form-card input[type="text"],
+  .form-card input[type="date"],
+  .form-card input[type="number"],
+  .form-card select,
+  .form-card textarea {
+    background: var(--bg-surface); border: 1px solid var(--border);
     border-radius: var(--radius-md); color: var(--text-primary);
     font-family: 'Inter', sans-serif; font-size: 13.5px;
-    padding: 10px 12px 10px 40px;
+    padding: 10px 13px; width: 100%; outline: none;
     transition: border-color .15s, box-shadow .15s;
   }
-  .input-wrapper input:focus, .input-wrapper select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none; }
-  .input-wrapper--textarea textarea {
-    width: 100%; background: var(--bg-surface); border: 1px solid var(--border);
-    border-radius: var(--radius-md); color: var(--text-primary);
-    font-family: 'Inter', sans-serif; font-size: 13.5px;
-    padding: 10px 12px; resize: vertical; min-height: 72px;
-    transition: border-color .15s, box-shadow .15s;
+  .form-card input:focus, .form-card select:focus, .form-card textarea:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow);
   }
-  .input-wrapper--textarea textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none; }
+  .input-icon-wrap { position: relative; display: flex; align-items: center; }
+  .input-icon-wrap > i { position: absolute; left: 12px; font-size: 15px; color: var(--text-muted); pointer-events: none; z-index: 1; }
+  .input-icon-wrap input { padding-left: 38px; width: 100%; }
+
+  .fifo-preview {
+    background: var(--bg-raised); border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md); padding: 14px 16px; margin-bottom: 14px;
+  }
+  .fifo-preview__header {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 10px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .fifo-preview__row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .fifo-preview__row:last-of-type { border-bottom: none; }
+  .fifo-preview__ref { flex: 1; font-family: 'Inter', monospace; color: var(--text-secondary); }
+  .fifo-preview__amount { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px; }
+  .fifo-preview__footer { font-size: 12px; color: var(--text-muted); margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+
+  .form-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
+
+  .aside-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 16px 18px; margin-bottom: 12px;
+  }
+  .aside-card--creance { border-top: 3px solid #f59e0b; }
+  .aside-card__title {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 12px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .debt-metric { margin-bottom: 10px; }
+  .debt-metric__label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); margin-bottom: 3px; }
+  .debt-metric__val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 22px; color: var(--text-primary); }
+  .val-orange { color: #d97706; }
+  .debt-bar-wrap { margin-bottom: 12px; }
+  .debt-bar__track { height: 4px; background: var(--bg-hover); border-radius: 4px; }
+  .debt-bar__fill { height: 100%; border-radius: 4px; background: #f59e0b; transition: width .4s ease; }
+  .debt-bar__fill.crit { background: #ef4444; }
+  .summary-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-label { font-size: 11.5px; color: var(--text-muted); }
+  .summary-val { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px; color: var(--text-primary); }
+
+  .fifo-open-list { display: flex; flex-direction: column; gap: 4px; }
+  .fifo-open-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); background: var(--bg-surface); transition: background .15s;
+  }
+  .fifo-open-item.fifo-open-item--allocated { background: var(--accent-dim); border-color: rgba(34,197,94,.3); }
+  .fifo-open-item.fifo-open-item--partial { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.25); }
+  .fifo-open-item__ref { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 11.5px; color: var(--text-primary); flex: 1; }
+  .fifo-open-item__meta { font-size: 10.5px; color: var(--text-muted); }
+  .fifo-open-item__reste { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 11.5px; color: var(--text-secondary); white-space: nowrap; }
+
+  .pill-success { display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:500;background:rgba(34,197,94,.14);color:#15803d; }
+  .pill-warning { display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:500;background:rgba(245,158,11,.14);color:#b45309; }
 
   /* Allocation rows */
-  .alloc-list { display: flex; flex-direction: column; gap: 12px; }
+  .alloc-card { }
+  .alloc-mode-badge {
+    margin-left: auto; padding: 2px 9px; border-radius: 20px;
+    font-size: 10.5px; font-weight: 600; letter-spacing: .04em;
+    background: rgba(34,197,94,.13); color: #15803d;
+    font-family: 'Inter', sans-serif; text-transform: uppercase;
+  }
+  .alloc-mode-badge.manual { background: rgba(99,102,241,.13); color: #4338ca; }
+  .alloc-list { display: flex; flex-direction: column; gap: 10px; }
   .alloc-item { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
-  .alloc-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg-base); border-bottom: 1px solid var(--border); }
-  .alloc-ref { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px; color: var(--text-primary); margin-right: 8px; }
-  .alloc-date { font-size: 11.5px; color: var(--text-muted); }
-  .alloc-body { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px 14px; align-items: end; }
+  .alloc-header { display: flex; align-items: center; justify-content: space-between; padding: 9px 13px; background: var(--bg-base); border-bottom: 1px solid var(--border); }
+  .alloc-ref { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px; color: var(--text-primary); margin-right: 8px; }
+  .alloc-date { font-size: 11px; color: var(--text-muted); }
+  .alloc-body { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 11px 13px; align-items: end; }
   .alloc-rap { display: flex; flex-direction: column; gap: 3px; }
-  .alloc-rap-label { font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+  .alloc-rap-label { font-size: 10.5px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
   .alloc-rap-val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px; color: #dc2626; }
   .alloc-input-group { display: flex; flex-direction: column; gap: 4px; }
   .alloc-input-label { font-size: 11.5px; font-weight: 500; color: var(--text-secondary); }
-
-  .alloc-summary { display: flex; align-items: center; gap: 6px; padding: 10px 14px; background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 13px; color: var(--text-secondary); margin-top: 14px; }
+  .alloc-item input[type="number"] {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); color: var(--text-primary);
+    font-family: 'Inter', sans-serif; font-size: 13.5px;
+    padding: 9px 12px; width: 100%; outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .alloc-item input[type="number"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .alloc-item input[type="number"].has-value { border-color: rgba(99,102,241,.5); background: rgba(99,102,241,.04); }
+  .alloc-summary {
+    display: flex; align-items: center; gap: 6px; margin-top: 12px;
+    padding: 9px 13px; background: var(--bg-raised); border: 1px solid var(--border);
+    border-radius: var(--radius-md); font-size: 13px; color: var(--text-secondary);
+  }
   .alloc-summary strong { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px; color: var(--text-primary); }
+  .form-hint { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+  .pill-danger  { display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:500;background:rgba(239,68,68,.10);color:#dc2626; }
 
-  .pill-danger  { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;font-family:'Inter',sans-serif;background:rgba(239,68,68,.10);color:#dc2626; }
-  .pill-warning { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;font-family:'Inter',sans-serif;background:rgba(245,158,11,.14);color:#b45309; }
-
-  .field-error { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #dc2626; margin-top: 5px; }
-
-  .form-actions-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 16px 20px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
-
-  .btn-primary { background: var(--accent); color: #fff; font-family: 'Nunito',sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: var(--radius-md); padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: opacity .18s; text-decoration: none; }
-  .btn-primary:hover { opacity: .88; color: #fff; }
-  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); font-family: 'Nunito',sans-serif; font-weight: 600; font-size: 13px; border-radius: var(--radius-md); padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .12s; text-decoration: none; }
-  .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);color:var(--text-primary); }
+  .btn-sm { padding:7px 13px !important;font-size:12px !important; }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  var allocInputs = document.querySelectorAll('.alloc-item input[type="number"]');
-  var totalEl = document.getElementById('alloc-total');
 
-  function updateAllocTotal() {
-    var total = 0;
-    allocInputs.forEach(function (inp) {
-      var v = parseFloat(inp.value) || 0;
-      if (v > 0) total += v;
+  var dateInput    = document.querySelector('[name="date_paiement"]');
+  var modeSelect   = document.querySelector('[name="mode_paiement"]');
+  var montantInput = document.querySelector('[name="montant"]');
+  var refInput     = document.querySelector('[name="reference_paiement"]');
+  var fifoPreview  = document.getElementById('fifo-preview');
+  var fifoRows     = document.getElementById('fifo-rows');
+  var fifoFooter   = document.getElementById('fifo-footer');
+  var fifoLabel    = document.getElementById('fifo-preview-label');
+  var creanceFill  = document.getElementById('creance-fill');
+  var allocTotal   = document.getElementById('alloc-total');
+  var modeBadge    = document.getElementById('alloc-mode-badge');
+
+  // ── 1. Date → today ───────────────────────────────────────────────────
+  if (dateInput && !dateInput.value) {
+    var now = new Date();
+    dateInput.value = now.getFullYear() + '-'
+      + String(now.getMonth() + 1).padStart(2, '0') + '-'
+      + String(now.getDate()).padStart(2, '0');
+  }
+
+  // ── 2. Reference auto-generation ─────────────────────────────────────
+  var MODE_INITIALS = { 'especes':'ESP', 'cheque':'CHQ', 'virement':'VIR', 'autre':'AUT' };
+  function buildRef() {
+    var mode   = modeSelect ? modeSelect.value : '';
+    var prefix = MODE_INITIALS[mode] || 'PAI';
+    var t = new Date();
+    var d = String(t.getFullYear()) + String(t.getMonth()+1).padStart(2,'0') + String(t.getDate()).padStart(2,'0');
+    var h = String(t.getHours()).padStart(2,'0') + String(t.getMinutes()).padStart(2,'0') + String(t.getSeconds()).padStart(2,'0');
+    return 'REF-' + prefix + '-' + d + '-' + h;
+  }
+  function isAutoRef(v) { return /^REF-(ESP|CHQ|VIR|AUT|PAI)-\d{8}-\d{6}$/.test(v); }
+  if (refInput && !refInput.value) refInput.value = buildRef();
+  if (modeSelect) {
+    modeSelect.addEventListener('change', function () {
+      if (refInput && isAutoRef(refInput.value)) refInput.value = buildRef();
     });
-    if (totalEl) totalEl.textContent = Math.round(total).toLocaleString('fr-DZ');
+  }
+
+  // ── 3. Montant pre-fill ───────────────────────────────────────────────
+  var factureReste   = {% if facture_reste %}{{ facture_reste }}{% else %}null{% endif %};
+  var creanceGlobale = {% if solde %}{{ solde.creance_globale|default:0 }}{% else %}0{% endif %};
+  var initialMontant = (factureReste !== null && factureReste > 0) ? factureReste : creanceGlobale;
+  if (montantInput && !montantInput.value && initialMontant > 0) {
+    montantInput.value = Number(initialMontant).toFixed(2);
+  }
+
+  // ── 4. Manual allocation tracking ────────────────────────────────────
+  var allocInputs = document.querySelectorAll('.alloc-item input[type="number"]');
+  var manualTotal = 0;
+
+  function getManualTotal() {
+    var t = 0;
+    allocInputs.forEach(function (inp) { t += parseFloat(inp.value) || 0; });
+    return t;
+  }
+
+  function updateAllocDisplay() {
+    manualTotal = getManualTotal();
+    if (allocTotal) allocTotal.textContent = Math.round(manualTotal).toLocaleString('fr-DZ');
+
+    // Highlight inputs that have a value
+    allocInputs.forEach(function (inp) {
+      inp.classList.toggle('has-value', (parseFloat(inp.value) || 0) > 0);
+    });
+
+    // Update mode badge
+    if (modeBadge) {
+      if (manualTotal > 0) {
+        modeBadge.textContent = 'Manuelle';
+        modeBadge.classList.add('manual');
+      } else {
+        modeBadge.textContent = 'FIFO auto';
+        modeBadge.classList.remove('manual');
+      }
+    }
+
+    // Re-run FIFO simulation for the remainder
+    var montant = parseFloat(montantInput ? montantInput.value : 0) || 0;
+    simulateFifo(montant, manualTotal);
   }
 
   allocInputs.forEach(function (inp) {
-    inp.addEventListener('input', updateAllocTotal);
+    inp.addEventListener('input', updateAllocDisplay);
   });
 
-  updateAllocTotal();
+  // ── 5. FIFO simulation on unallocated remainder ───────────────────────
+  var openInvoices = [];
+  document.querySelectorAll('.fifo-open-item').forEach(function (el) {
+    openInvoices.push({ ref: el.dataset.ref, reste: parseFloat(el.dataset.reste) || 0, date: el.dataset.date, el: el });
+  });
+
+  function fmtDZD(n) { return Math.round(n).toLocaleString('fr-DZ') + ' DZD'; }
+
+  function resetHL() {
+    openInvoices.forEach(function (inv) {
+      if (inv.el) inv.el.classList.remove('fifo-open-item--allocated', 'fifo-open-item--partial');
+    });
+  }
+
+  function simulateFifo(montant, manAllocated) {
+    if (!fifoPreview || !fifoRows) return;
+    manAllocated = manAllocated || 0;
+    var remaining = Math.max(0, montant - manAllocated);
+
+    if (!montant || montant <= 0) { fifoPreview.style.display = 'none'; resetHL(); return; }
+
+    // If all is manually allocated, hide FIFO preview
+    if (manAllocated > 0 && remaining <= 0) {
+      fifoPreview.style.display = 'none';
+      resetHL();
+      return;
+    }
+
+    fifoPreview.style.display = 'block';
+
+    // Update header label to clarify context
+    if (fifoLabel) {
+      fifoLabel.textContent = manAllocated > 0
+        ? 'Simulation FIFO pour le montant non alloué (' + fmtDZD(remaining) + ')'
+        : 'Simulation d\'allocation FIFO automatique';
+    }
+
+    var rem = remaining, html = '';
+    resetHL();
+
+    openInvoices.forEach(function (inv) {
+      if (rem <= 0) return;
+      var alloue = Math.min(rem, inv.reste);
+      rem -= alloue;
+      var full = alloue >= inv.reste;
+      html += '<div class="fifo-preview__row">'
+        + '<span class="fifo-preview__ref">' + inv.ref
+        + '<span style="font-size:10.5px;color:var(--text-muted);margin-left:6px;">' + inv.date + '</span></span>'
+        + '<span class="fifo-preview__amount" style="color:var(--accent-text);">' + fmtDZD(alloue) + '</span>'
+        + (full ? '<span class="pill-success">Soldée</span>' : '<span class="pill-warning">Part. payée</span>')
+        + '</div>';
+      if (inv.el) {
+        inv.el.classList.toggle('fifo-open-item--allocated', full);
+        inv.el.classList.toggle('fifo-open-item--partial', !full && alloue > 0);
+      }
+    });
+
+    fifoRows.innerHTML = html || '<div style="font-size:13px;color:var(--text-muted);padding:6px 0;">Aucune facture ouverte — paiement enregistré sans allocation FIFO.</div>';
+
+    var allocated = remaining - rem;
+    var newCreance = Math.max(0, creanceGlobale - manAllocated - allocated);
+    var footer = 'Créance restante estimée : <strong>' + fmtDZD(newCreance) + '</strong>';
+    if (rem > 0) footer += '<div style="font-size:12px;color:#b45309;margin-top:6px;"><i class="bx bxs-info-circle"></i> Surplus de ' + fmtDZD(rem) + ' — aucune facture ouverte pour l\'absorber.</div>';
+    fifoFooter.innerHTML = footer;
+
+    if (creanceFill && creanceGlobale > 0) {
+      var pct = Math.max(0, Math.min(100, (newCreance / creanceGlobale) * 100));
+      creanceFill.style.width = pct + '%';
+      creanceFill.className = 'debt-bar__fill' + (pct > 85 ? ' crit' : '');
+    }
+  }
+
+  if (montantInput) {
+    var timer = null;
+    montantInput.addEventListener('input', function () {
+      clearTimeout(timer);
+      var val = parseFloat(montantInput.value);
+      if (!val || val <= 0) { fifoPreview.style.display = 'none'; resetHL(); return; }
+      timer = setTimeout(function () { simulateFifo(val, getManualTotal()); }, 350);
+    });
+    var initVal = parseFloat(montantInput.value);
+    if (initVal > 0) setTimeout(function () { simulateFifo(initVal, 0); updateAllocDisplay(); }, 100);
+  }
+
 });
 </script>
 {% endblock %}

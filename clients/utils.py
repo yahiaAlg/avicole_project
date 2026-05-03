@@ -22,6 +22,81 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+def appliquer_paiement_client_fifo(paiement) -> dict:
+    """
+    Apply a PaiementClient to open invoices using FIFO ordering (oldest first).
+
+    Mirrors appliquer_reglement_fifo on the supplier side.
+    Any surplus beyond all open invoices is logged (no client acompte model).
+
+    Args:
+        paiement (PaiementClient): Freshly saved payment record.
+
+    Returns:
+        dict: allocations_creees, montant_alloue_total, surplus.
+    """
+    from clients.models import PaiementClientAllocation, FactureClient
+
+    montant_restant = Decimal(str(paiement.montant))
+    allocations_creees = 0
+    montant_alloue_total = Decimal("0")
+
+    factures_ouvertes = FactureClient.objects.filter(
+        client=paiement.client,
+        statut__in=[
+            FactureClient.STATUT_NON_PAYEE,
+            FactureClient.STATUT_PARTIELLEMENT_PAYEE,
+        ],
+    ).order_by("date_facture", "pk")
+
+    for facture in factures_ouvertes:
+        if montant_restant <= 0:
+            break
+        alloue = min(montant_restant, facture.reste_a_payer)
+        if alloue <= 0:
+            continue
+
+        PaiementClientAllocation.objects.create(
+            paiement=paiement,
+            facture=facture,
+            montant_alloue=alloue,
+        )
+        facture.montant_regle = facture.montant_regle + alloue
+        facture.recalculer_solde()
+
+        montant_restant -= alloue
+        montant_alloue_total += alloue
+        allocations_creees += 1
+
+        logger.debug(
+            "FIFO client: paiement pk=%s → facture %s alloué %s DZD.",
+            paiement.pk,
+            facture.reference,
+            alloue,
+        )
+
+    if montant_restant > 0:
+        logger.info(
+            "appliquer_paiement_client_fifo: paiement pk=%s surplus %s DZD "
+            "(aucune facture ouverte restante).",
+            paiement.pk,
+            montant_restant,
+        )
+
+    logger.info(
+        "appliquer_paiement_client_fifo: paiement pk=%s — %d allocation(s) totalling %s DZD.",
+        paiement.pk,
+        allocations_creees,
+        montant_alloue_total,
+    )
+
+    return {
+        "allocations_creees": allocations_creees,
+        "montant_alloue_total": montant_alloue_total,
+        "surplus": montant_restant,
+    }
+
+
 def appliquer_paiement_client(paiement, allocations: list[dict]) -> dict:
     """
     Apply a PaiementClient to one or more FactureClient records according to

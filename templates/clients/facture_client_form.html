@@ -238,4 +238,78 @@
 </style>
 {% endblock %}
 
-{% block extra_js %}{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  /* ── helpers ──────────────────────────────────────────────────────── */
+  function toISODate(d) {
+    return d.getFullYear() + '-'
+      + String(d.getMonth() + 1).padStart(2, '0') + '-'
+      + String(d.getDate()).padStart(2, '0');
+  }
+
+  function toYYYYMMDD(d) {
+    return d.getFullYear()
+      + String(d.getMonth() + 1).padStart(2, '0')
+      + String(d.getDate()).padStart(2, '0');
+  }
+
+  function clientInitials(name) {
+    if (!name) return 'CLI';
+    return name.trim().split(/\s+/)
+      .map(function (w) { return w[0]; })
+      .join('')
+      .toUpperCase()
+      .slice(0, 4);   /* cap at 4 chars */
+  }
+
+  var now      = new Date();
+  var plus30   = new Date(now); plus30.setMonth(plus30.getMonth() + 1);
+  var clientNom = "{{ client.nom|default:'' }}";
+
+  /* ── 1. Date de facturation → today ──────────────────────────────── */
+  var dateF = document.getElementById('{{ form.date_facture.id_for_label }}');
+  if (dateF && !dateF.value) {
+    dateF.value = toISODate(now);
+  }
+
+  /* ── 2. Date d'échéance → today + 1 month ────────────────────────── */
+  var dateE = document.getElementById('{{ form.date_echeance.id_for_label }}');
+  if (dateE && !dateE.value) {
+    dateE.value = toISODate(plus30);
+  }
+
+  /* ── 3. Référence → FAC-{INITIALS}-{YYYYMMDD} ────────────────────── */
+  var refField = document.getElementById('{{ form.reference.id_for_label }}');
+  var AUTO_REF_RE = /^FAC-[A-Z]{1,4}-\d{8}$/;
+
+  function buildRef() {
+    return 'FAC-' + clientInitials(clientNom) + '-' + toYYYYMMDD(now);
+  }
+
+  /* Only set if empty OR if it still looks like an auto-generated value
+     (avoids overwriting a server-supplied sequential ref the user edited). */
+  if (refField) {
+    if (!refField.value || AUTO_REF_RE.test(refField.value)) {
+      refField.value = buildRef();
+    }
+  }
+
+  /* If no client in URL (standalone form), rebuild ref when client changes */
+  {% if not client %}
+  var clientSel = document.getElementById('{{ form.client.id_for_label }}');
+  if (clientSel && refField) {
+    clientSel.addEventListener('change', function () {
+      var opt = clientSel.options[clientSel.selectedIndex];
+      clientNom = opt ? opt.text : '';
+      if (!refField.value || AUTO_REF_RE.test(refField.value)) {
+        refField.value = buildRef();
+      }
+    });
+  }
+  {% endif %}
+
+});
+</script>
+{% endblock %}

@@ -71,11 +71,17 @@ urlpatterns = [
         views.bl_client_edit,
         name="bl_client_edit",
     ),
-    # POST-only: BROUILLON → LIVRE transition
+    # POST-only: BROUILLON → LIVRE transition (with stock check)
     path(
         "bls/<int:pk>/valider/",
         views.bl_client_valider,
         name="bl_client_valider",
+    ),
+    # POST-only: manual statut change (brouillon↔litige, livre→litige)
+    path(
+        "bls/<int:pk>/changer-statut/",
+        views.bl_client_change_statut,
+        name="bl_client_change_statut",
     ),
     # POST-only: delete a BROUILLON BL
     path(

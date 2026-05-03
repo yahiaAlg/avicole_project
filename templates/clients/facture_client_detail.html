@@ -114,7 +114,7 @@
         <div class="card-header-row">
           <div class="section-eyebrow"><i class="bx bxs-wallet"></i> Paiements reçus</div>
           {% if not request.user.userprofile.role == 'viewer' and facture.statut != 'payee' %}
-          <a href="{% url 'clients:paiement_client_create_for_client' facture.client.pk %}" class="btn-ghost btn-sm">
+          <a href="{% url 'clients:paiement_client_create_for_client' facture.client.pk %}?facture={{ facture.pk }}" class="btn-ghost btn-sm">
             <i class="bx bx-plus"></i> Enregistrer paiement
           </a>
           {% endif %}
@@ -212,7 +212,7 @@
           <div class="section-eyebrow"><i class="bx bx-cog"></i> Actions</div>
         </div>
         <div style="padding:16px;display:flex;flex-direction:column;gap:8px;">
-          <a href="{% url 'clients:paiement_client_create_for_client' facture.client.pk %}" class="btn-primary btn-full">
+          <a href="{% url 'clients:paiement_client_create_for_client' facture.client.pk %}?facture={{ facture.pk }}" class="btn-primary btn-full">
             <i class="bx bxs-wallet"></i> Enregistrer un paiement
           </a>
           <a href="{% url 'clients:facture_client_print' facture.pk %}" class="btn-ghost btn-full" target="_blank">

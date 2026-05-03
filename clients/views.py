@@ -5,9 +5,9 @@ Function-based views for the full client AR (accounts-receivable) cycle:
 
   Client         : list, create, detail, edit, toggle active
   BLClient       : list, create, detail, edit, validate (BROUILLON → LIVRE),
-                   delete (BROUILLON only), print
+                   change statut, delete (BROUILLON only), print
   FactureClient  : list, create, detail, print
-  PaiementClient : list, create, detail, print
+  PaiementClient : list, create (with ?facture= pre-population), detail, print
   Dashboard      : clients overview with receivable aging
   AJAX           : client financial snapshot endpoint
 
@@ -15,7 +15,7 @@ Business rules enforced here (complementing model.clean(), forms, and signals):
   BR-BLC-01  Stock decreases only on BROUILLON → LIVRE transition (signal).
   BR-BLC-02  BL cannot be validated if any line qty > available stock.
   BR-BLC-03  Facturé BLs are locked — no edit or delete.
-  BR-FAC-01  Invoice HT total auto-computed from BL lines (signal on creation).
+  BR-FAC-01  Invoice HT total auto-computed from BL lines (m2m_changed signal).
   BR-FAC-02  Only Livré BLs from the selected client may be invoiced.
   BR-FAC-03  Client manually selects which invoice(s) a payment applies to.
 
@@ -53,6 +53,7 @@ from clients.models import (
 )
 from clients.utils import (
     appliquer_paiement_client,
+    appliquer_paiement_client_fifo,
     generer_reference_bl_client,
     generer_reference_facture_client,
     get_client_aging_buckets,
@@ -440,6 +441,24 @@ def bl_client_detail(request, pk):
     lignes = bl.lignes.select_related("produit_fini").all()
     factures = bl.factures.order_by("-date_facture")
 
+    # Build statut transition info for the sidebar
+    is_admin = request.user.is_superuser or (
+        hasattr(request.user, "userprofile")
+        and request.user.userprofile.role == "admin"
+    )
+
+    # Allowed manual transitions (FACTURE is system-only; BROUILLON→LIVRE uses dedicated view)
+    ALLOWED_TARGETS = {
+        BLClient.STATUT_BROUILLON: [(BLClient.STATUT_LITIGE, "Signaler en litige")],
+        BLClient.STATUT_LIVRE: [(BLClient.STATUT_LITIGE, "Signaler en litige")],
+        BLClient.STATUT_LITIGE: [(BLClient.STATUT_BROUILLON, "Remettre en brouillon")],
+    }
+    statut_transitions = ALLOWED_TARGETS.get(bl.statut, [])
+
+    # For non-admins: single next-step button (first allowed target)
+    next_statut_value = statut_transitions[0][0] if statut_transitions else None
+    next_statut_label = statut_transitions[0][1] if statut_transitions else None
+
     return render(
         request,
         "clients/bl_client_detail.html",
@@ -448,6 +467,10 @@ def bl_client_detail(request, pk):
             "lignes": lignes,
             "factures": factures,
             "montant_total": bl.montant_total,
+            "is_admin": is_admin,
+            "statut_transitions": statut_transitions,
+            "next_statut_value": next_statut_value,
+            "next_statut_label": next_statut_label,
             "title": f"BL Client — {bl.reference}",
         },
     )
@@ -586,6 +609,75 @@ def bl_client_valider(request, pk):
         except Exception as exc:
             logger.exception("Error validating BLClient pk=%s: %s", pk, exc)
             messages.error(request, f"Erreur lors de la validation : {exc}")
+
+    return redirect("clients:bl_client_detail", pk=bl.pk)
+
+
+# ===========================================================================
+# BLClient — Change statut  POST-only
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def bl_client_change_statut(request, pk):
+    """
+    Apply a manual statut transition on a BL Client.
+
+    Allowed transitions (FACTURE is system-only; BROUILLON→LIVRE uses the
+    dedicated bl_client_valider view which performs the stock check):
+      brouillon → litige
+      livre     → litige
+      litige    → brouillon
+
+    STATUT_FACTURE cannot be set manually — it is controlled by the
+    FactureClient creation signal (BR-BLC-03).
+    """
+    ALLOWED_TARGETS = {
+        BLClient.STATUT_BROUILLON: {BLClient.STATUT_LITIGE},
+        BLClient.STATUT_LIVRE: {BLClient.STATUT_LITIGE},
+        BLClient.STATUT_LITIGE: {BLClient.STATUT_BROUILLON},
+    }
+
+    bl = get_object_or_404(BLClient, pk=pk)
+    new_statut = request.POST.get("statut", "").strip()
+
+    if bl.statut == BLClient.STATUT_FACTURE:
+        messages.error(
+            request,
+            f"BR-BLC-03 : le BL « {bl.reference} » est verrouillé (Facturé) "
+            "et ne peut pas être modifié manuellement.",
+        )
+        return redirect("clients:bl_client_detail", pk=bl.pk)
+
+    allowed = ALLOWED_TARGETS.get(bl.statut, set())
+    if new_statut not in allowed:
+        messages.error(
+            request,
+            f"Transition non autorisée : {bl.get_statut_display()} → {new_statut}. "
+            "Pour valider un BL, utilisez le bouton « Valider ».",
+        )
+        return redirect("clients:bl_client_detail", pk=bl.pk)
+
+    try:
+        old_label = bl.get_statut_display()
+        bl.statut = new_statut
+        bl.save(update_fields=["statut", "updated_at"])
+        new_label = bl.get_statut_display()
+        messages.success(
+            request,
+            f"BL « {bl.reference} » : statut mis à jour ({old_label} → {new_label}).",
+        )
+        logger.info(
+            "BLClient pk=%s statut changed '%s' → '%s' by '%s'.",
+            bl.pk,
+            old_label,
+            new_statut,
+            request.user,
+        )
+    except Exception as exc:
+        logger.exception("Error changing BLClient pk=%s statut: %s", pk, exc)
+        messages.error(request, f"Erreur lors du changement de statut : {exc}")
 
     return redirect("clients:bl_client_detail", pk=bl.pk)
 
@@ -751,7 +843,7 @@ def facture_client_create(request, client_pk=None):
     Create a client invoice by selecting Livré BL Clients.
 
     BR-FAC-01: montant_ht/tva/ttc are computed from BL lines in the
-               post_save signal — the view only needs to persist the header.
+               m2m_changed signal (fires after save_m2m() links the BLs).
     BR-FAC-02: the form filters BLs to Livré BLs for the selected client.
 
     Accepts an optional `client_pk` URL parameter to pre-select the client.
@@ -772,10 +864,15 @@ def facture_client_create(request, client_pk=None):
                     if not facture.reference:
                         facture.reference = generer_reference_facture_client()
                     # montant_ht/tva/ttc initialised to 0 here;
-                    # the post_save signal recalculates and persists them.
+                    # the m2m_changed signal recalculates and persists them
+                    # after form.save_m2m() links the BLs.
                     facture.save()
-                    # M2M must be saved after the instance has a PK
+                    # M2M must be saved after the instance has a PK —
+                    # this triggers the m2m_changed signal.
                     form.save_m2m()
+
+                # Refresh from DB to get signal-computed totals for the message.
+                facture.refresh_from_db()
 
                 messages.success(
                     request,
@@ -783,7 +880,7 @@ def facture_client_create(request, client_pk=None):
                     f"Montant TTC : {facture.montant_ttc} DZD.",
                 )
                 logger.info(
-                    "FactureClient pk=%s ('%s') created by '%s' " "(client pk=%s).",
+                    "FactureClient pk=%s ('%s') created by '%s' (client pk=%s).",
                     facture.pk,
                     facture.reference,
                     request.user,
@@ -941,29 +1038,43 @@ def paiement_client_list(request):
 @login_required(login_url=LOGIN_URL)
 def paiement_client_create(request, client_pk=None):
     """
-    Record a client payment and allocate it to open invoices.
+    Record a client payment with automatic FIFO allocation.
 
-    BR-FAC-03: the user explicitly selects which invoice(s) the payment
-    applies to via inline allocation forms (one per open invoice).
+    The FIFO engine (clients.utils.appliquer_paiement_client_fifo) runs
+    immediately after the record is saved, applying the payment to the
+    oldest open invoices first.
 
-    Workflow:
-      GET  — render PaiementClientForm + one PaiementClientAllocationForm
-             per open invoice for the selected client.
-      POST — validate both, create the PaiementClient, then call
-             appliquer_paiement_client() with the user's allocation choices.
+    Optional GET params:
+      ?facture=<pk> — pre-fill montant with that invoice's reste_a_payer
     """
     client = None
     if client_pk:
         client = get_object_or_404(Client, pk=client_pk)
 
-    if request.method == "POST":
-        # Determine the client from POST if not in URL
-        if not client:
-            from clients.models import Client as ClientModel
+    # ── Resolve facture pre-population from ?facture=<pk> ────────────────
+    facture_obj = None
+    facture_reste = None
+    facture_pk_param = request.GET.get("facture") or request.POST.get("_facture_pk")
+    if facture_pk_param and client:
+        try:
+            fo = FactureClient.objects.get(
+                pk=facture_pk_param,
+                client=client,
+                statut__in=[
+                    FactureClient.STATUT_NON_PAYEE,
+                    FactureClient.STATUT_PARTIELLEMENT_PAYEE,
+                ],
+            )
+            facture_obj = fo
+            facture_reste = fo.reste_a_payer
+        except FactureClient.DoesNotExist:
+            pass
 
+    if request.method == "POST":
+        if not client:
             client_id = request.POST.get("client")
             if client_id:
-                client = get_object_or_404(ClientModel, pk=client_id)
+                client = get_object_or_404(Client, pk=client_id)
 
         form = PaiementClientForm(request.POST, client=client)
 
@@ -995,13 +1106,22 @@ def paiement_client_create(request, client_pk=None):
                             if f.cleaned_data.get("montant_alloue", 0) > 0
                         ]
 
-                        result = appliquer_paiement_client(paiement, allocations)
+                        if allocations:
+                            # BR-FAC-03: user made explicit choices — honour them.
+                            result = appliquer_paiement_client(paiement, allocations)
+                            mode_label = f"{result['allocations_creees']} facture(s) mise(s) à jour."
+                        else:
+                            # No manual allocations supplied — fall back to FIFO.
+                            result = appliquer_paiement_client_fifo(paiement)
+                            mode_label = (
+                                f"Allocations FIFO appliquées "
+                                f"({result['allocations_creees']} facture(s))."
+                            )
 
                     messages.success(
                         request,
                         f"Paiement de {paiement.montant} DZD enregistré pour "
-                        f"« {paiement.client.nom} ». "
-                        f"{result['allocations_creees']} facture(s) mise(s) à jour.",
+                        f"« {paiement.client.nom} ». {mode_label}",
                     )
                     logger.info(
                         "PaiementClient pk=%s created by '%s' "
@@ -1035,6 +1155,8 @@ def paiement_client_create(request, client_pk=None):
         form = PaiementClientForm(client=client)
         alloc_forms = get_allocation_forms(client) if client else []
 
+    solde = get_client_solde(client) if client else None
+
     return render(
         request,
         "clients/paiement_client_form.html",
@@ -1042,6 +1164,9 @@ def paiement_client_create(request, client_pk=None):
             "form": form,
             "alloc_forms": alloc_forms,
             "client": client,
+            "facture_obj": facture_obj,
+            "facture_reste": facture_reste,
+            "solde": solde,
             "title": "Enregistrer un paiement client",
             "action_label": "Enregistrer le paiement",
         },

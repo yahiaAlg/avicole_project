@@ -4,24 +4,30 @@ clients/signals.py
 Signals for the client AR (accounts-receivable) cycle.
 
 Registered signals:
-  1. pre_save  on BLClient        → cache old statut for transition detection.
-  2. post_save on BLClient        → when statut transitions to LIVRE, decrease
-                                     StockProduitFini for every BL line and
-                                     create a StockMouvement (sortie / bl_client).
-  3. pre_save  on FactureClient   → cache old statut / is_new flag.
-  4. post_save on FactureClient   → on creation:
-                                       a. (BR-FAC-01) compute montant_ht from
-                                          BL line totals, derive montant_tva and
-                                          montant_ttc, initialise reste_a_payer.
-                                       b. (BR-FAC-02 / BR-BLC-03) lock all
-                                          included BLs to STATUT_FACTURE.
+  1. pre_save   on BLClient        → cache old statut for transition detection.
+  2. post_save  on BLClient        → when statut transitions to LIVRE, decrease
+                                      StockProduitFini for every BL line and
+                                      create a StockMouvement (sortie / bl_client).
+  3. pre_save   on FactureClient   → cache old statut / is_new flag.
+  4. post_save  on FactureClient   → on creation: log only (BLs not linked yet).
+  5. m2m_changed on FactureClient.bls.through →
+       after BLs are linked (post_add) on a fresh invoice:
+         a. (BR-FAC-01) compute montant_ht from BL line totals, derive
+            montant_tva and montant_ttc, initialise reste_a_payer.
+         b. (BR-FAC-02 / BR-BLC-03) lock all included BLs to STATUT_FACTURE.
+
+Root-cause fix (créances clients = 0 on dashboard):
+  The view calls facture.save() then form.save_m2m().  The post_save signal
+  on FactureClient fires BEFORE save_m2m() has linked the BLs, so iterating
+  instance.bls.all() yields nothing and montant_ht is computed as 0.
+  Moving the computation to m2m_changed / post_add guarantees the BLs are
+  already in the join table when totals are derived.
 
 Business rules enforced here:
   BR-BLC-01  Stock produits finis decreases ONLY on BL BROUILLON → LIVRE
              transition — never on re-saves of an already-Livré BL.
   BR-BLC-03  BLs are locked (STATUT_FACTURE) as soon as they are included in
-             a FactureClient — the lock is set here in the post_save signal,
-             not by the user.
+             a FactureClient — the lock is set here in the m2m_changed signal.
   BR-FAC-01  montant_ht is computed from BL lines; never entered manually.
              montant_tva = montant_ht × taux_tva / 100 (rounded to 2 d.p.).
              montant_ttc = montant_ht + montant_tva.
@@ -31,7 +37,7 @@ Business rules enforced here:
 import logging
 from decimal import Decimal, ROUND_HALF_UP
 
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_save, pre_save, m2m_changed
 from django.dispatch import receiver
 
 from clients.models import BLClient, FactureClient
@@ -197,47 +203,94 @@ def facture_client_pre_save(sender, instance, **kwargs):
 
 
 # ---------------------------------------------------------------------------
-# Signal 4 — FactureClient: compute totals, lock BLs on creation
+# Signal 4 — FactureClient: log on creation (totals deferred to m2m_changed)
 # ---------------------------------------------------------------------------
 
 
 @receiver(post_save, sender=FactureClient)
 def facture_client_post_save(sender, instance, created, **kwargs):
     """
-    On first creation of a FactureClient:
+    On FactureClient creation, log that the record exists.
 
-      1. (BR-FAC-01) Compute montant_ht as the sum of all BLClientLigne
-         totals for every BL included in this invoice.
-         Derive:
-           montant_tva = montant_ht × taux_tva / 100  (rounded to 2 d.p.)
-           montant_ttc = montant_ht + montant_tva
-         Initialise reste_a_payer = montant_ttc.
-         Persist via a direct UPDATE (update_fields) to avoid re-triggering
-         this signal.
+    NOTE: Do NOT compute montant_ht here.  The view calls facture.save()
+    first, then form.save_m2m() — so at this point the BLs M2M join table
+    is still empty.  Summing BL lines here always yields 0 (root cause of
+    the "créances clients = 0" dashboard bug).
 
-      2. (BR-FAC-02 / BR-BLC-03) Transition all linked BLs to STATUT_FACTURE
-         so they are locked against further modification or re-invoicing.
-
-    On subsequent saves this handler is a no-op; montant_ht is immutable
-    (also enforced in FactureClient.clean()).
+    Financial totals and BL locking are handled in facture_client_bls_changed
+    (m2m_changed / post_add), which fires AFTER save_m2m() has written the
+    join table rows.
     """
     if not created:
         return
 
+    logger.info(
+        "FactureClient pk=%s created (awaiting BL M2M link — "
+        "totals will be computed in m2m_changed).",
+        instance.pk,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Signal 5 — FactureClient.bls M2M: compute totals and lock BLs after link
+# ---------------------------------------------------------------------------
+
+
+@receiver(m2m_changed, sender=FactureClient.bls.through)
+def facture_client_bls_changed(sender, instance, action, **kwargs):
+    """
+    Fires after Django writes the BL join-table rows (action == 'post_add').
+
+    For a freshly-created invoice (montant_ttc == 0 in the DB), this handler:
+
+      1. (BR-FAC-01) Computes montant_ht as the sum of all BLClientLigne
+         totals for every BL now linked to this invoice.
+         Derives:
+           montant_tva = montant_ht × taux_tva / 100  (rounded 2 d.p.)
+           montant_ttc = montant_ht + montant_tva
+         Initialises reste_a_payer = montant_ttc.
+         Persists via a direct UPDATE (update_fields) to avoid re-triggering
+         this signal.
+
+      2. (BR-FAC-02 / BR-BLC-03) Transitions all linked BLs to STATUT_FACTURE
+         so they are locked against further modification or re-invoicing.
+
+    On subsequent M2M changes (e.g. admin edits) the check
+    `db_instance.montant_ttc != 0` makes this a no-op, preserving immutability
+    of the computed totals.
+    """
+    if action != "post_add":
+        return
+
+    # Re-fetch from DB: instance may carry stale in-memory state.
+    try:
+        db_instance = FactureClient.objects.get(pk=instance.pk)
+    except FactureClient.DoesNotExist:
+        return
+
+    # Only run for fresh invoices where totals have not yet been computed.
+    if db_instance.montant_ttc != 0:
+        logger.debug(
+            "facture_client_bls_changed: pk=%s montant_ttc=%s — skipping (already computed).",
+            db_instance.pk,
+            db_instance.montant_ttc,
+        )
+        return
+
     # ── BR-FAC-01: derive financial totals from BL lines ─────────────────
     montant_ht = Decimal("0")
-    for bl in instance.bls.prefetch_related("lignes").all():
+    for bl in db_instance.bls.prefetch_related("lignes").all():
         for ligne in bl.lignes.all():
             montant_ht += ligne.montant_total
 
-    taux_tva = Decimal(str(instance.taux_tva or "0"))
+    taux_tva = Decimal(str(db_instance.taux_tva or "0"))
     montant_tva = (montant_ht * taux_tva / Decimal("100")).quantize(
         Decimal("0.01"), rounding=ROUND_HALF_UP
     )
     montant_ttc = montant_ht + montant_tva
 
     # Persist derived totals; update_fields prevents re-triggering this signal.
-    FactureClient.objects.filter(pk=instance.pk).update(
+    FactureClient.objects.filter(pk=db_instance.pk).update(
         montant_ht=montant_ht,
         montant_tva=montant_tva,
         montant_ttc=montant_ttc,
@@ -245,21 +298,22 @@ def facture_client_post_save(sender, instance, created, **kwargs):
     )
 
     logger.info(
-        "FactureClient pk=%s created. " "montant_ht=%s DZD, TVA=%s%% → TTC=%s DZD.",
-        instance.pk,
+        "FactureClient pk=%s (BLS linked): "
+        "montant_ht=%s DZD, TVA=%s%% → TTC=%s DZD.",
+        db_instance.pk,
         montant_ht,
         taux_tva,
         montant_ttc,
     )
 
     # ── BR-FAC-02 / BR-BLC-03: lock all included BLs ─────────────────────
-    locked_count = instance.bls.exclude(statut=BLClient.STATUT_FACTURE).update(
+    locked_count = db_instance.bls.exclude(statut=BLClient.STATUT_FACTURE).update(
         statut=BLClient.STATUT_FACTURE
     )
 
     if locked_count:
         logger.info(
             "FactureClient pk=%s: locked %d BL(s) to STATUT_FACTURE.",
-            instance.pk,
+            db_instance.pk,
             locked_count,
         )
