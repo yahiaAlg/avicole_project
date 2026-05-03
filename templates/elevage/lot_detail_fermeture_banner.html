@@ -1,0 +1,46 @@
+{# ─────────────────────────────────────────────────────────────────────────── #}
+{# INSERT this block near the top of {% block content %} in lot_detail.html,  #}
+{# BEFORE the KPI cards / main content.                                        #}
+{# It renders only when production_record_valider sets the session flag.       #}
+{# ─────────────────────────────────────────────────────────────────────────── #}
+
+{% if suggest_fermeture %}
+<div id="banner-fermeture"
+     style="display:flex;align-items:flex-start;gap:14px;
+            background:rgba(34,197,94,.08);
+            border:1px solid rgba(34,197,94,.25);
+            border-radius:var(--radius-md);
+            padding:16px 20px;
+            margin-bottom:20px;
+            animation:fadeIn .35s ease;">
+  <i class="bx bxs-check-circle"
+     style="color:#16a34a;font-size:22px;flex-shrink:0;margin-top:1px;"></i>
+  <div style="flex:1;">
+    <div style="font-family:'Nunito',sans-serif;font-weight:800;
+                color:#15803d;font-size:14px;margin-bottom:4px;">
+      Effectif vivant = 0 — Ce lot est prêt à être clôturé.
+    </div>
+    <div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;">
+      Tous les oiseaux ont été abattus ou enregistrés comme mortalité.
+      Vous pouvez encore ajouter des dépenses ou des notes avant de fermer définitivement ce lot.
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      {% if lot.statut == 'ouvert' %}
+      <a href="{% url 'elevage:lot_fermer' lot.pk %}"
+         class="btn-primary"
+         style="font-size:13px;padding:8px 16px;display:inline-flex;align-items:center;gap:6px;">
+        <i class="bx bxs-lock"></i> Clôturer ce lot
+      </a>
+      {% endif %}
+      <button type="button"
+              onclick="document.getElementById('banner-fermeture').remove()"
+              style="background:transparent;border:1px solid var(--border);
+                     color:var(--text-muted);font-size:12px;
+                     border-radius:var(--radius-md);padding:8px 14px;
+                     cursor:pointer;font-family:'Inter',sans-serif;">
+        Ignorer
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %}

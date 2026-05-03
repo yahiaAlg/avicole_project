@@ -226,6 +226,10 @@ def lot_detail(request, pk):
         summary["consommations"], request.GET.get("page_conso"), per_page=10
     )
 
+    # Pick up the zero-effectif closure suggestion set by production_record_valider.
+    session_key = f"suggest_fermeture_lot_{lot.pk}"
+    suggest_fermeture = request.session.pop(session_key, False)
+
     return render(
         request,
         "elevage/lot_detail.html",
@@ -237,6 +241,7 @@ def lot_detail(request, pk):
             "consommations_page": consommations_page,
             "productions": summary["productions"],
             "depenses": summary["depenses"],
+            "suggest_fermeture": suggest_fermeture,
             "title": f"Lot — {lot.designation}",
         },
     )

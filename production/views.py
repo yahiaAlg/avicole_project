@@ -682,6 +682,21 @@ def production_record_valider(request, pk):
             record.lignes.count(),
         )
 
+        # After successful validation, check if the lot is now empty.
+        lot_apres = record.lot
+        if (
+            lot_apres.effectif_vivant <= 0
+            and lot_apres.statut == LotElevage.STATUT_OUVERT
+        ):
+            request.session[f"suggest_fermeture_lot_{lot_apres.pk}"] = True
+            logger.info(
+                "ProductionRecord pk=%s validated: effectif_vivant reached 0 "
+                "for lot pk=%s. Closure suggestion queued.",
+                record.pk,
+                lot_apres.pk,
+            )
+            return redirect("elevage:lot_detail", pk=lot_apres.pk)
+
     except Exception as exc:
         logger.exception("Error validating ProductionRecord pk=%s: %s", pk, exc)
         messages.error(
