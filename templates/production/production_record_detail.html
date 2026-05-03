@@ -26,7 +26,7 @@
 <div class="page-body">
 
   {% if record.statut == "brouillon" %}
-  <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-md);padding:12px 18px;display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+  <div class="alert-banner">
     <i class="bx bxs-error" style="color:#b45309;font-size:16px;flex-shrink:0;"></i>
     <div style="flex:1;font-size:13px;color:var(--text-secondary);">
       Cet enregistrement est en <strong style="color:#b45309;">Brouillon</strong> — le stock produits finis n'a pas encore été mis à jour.
@@ -35,94 +35,56 @@
   </div>
   {% endif %}
 
-  <div class="row g-3">
-
-    <!-- Left: header info -->
-    <div class="col-xl-4">
-      <div class="card mb-3">
-        <div class="card-header-row" style="display:flex;align-items:center;justify-content:space-between;">
-          <div class="section-eyebrow">Entête de production</div>
-          {% if record.statut == "brouillon" %}
-            <span class="pill-warning"><i class="bx bxs-error"></i> Brouillon</span>
-          {% else %}
-            <span class="pill-success"><i class="bx bxs-check-circle"></i> Validé</span>
-          {% endif %}
-        </div>
-        <div style="padding:16px 20px;">
-          <div class="info-row">
-            <span class="info-label">Lot</span>
-            <a href="{% url 'production:production_record_list' %}?lot={{ record.lot.pk }}"
-               style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);font-size:13px;text-decoration:none;">
-              {{ record.lot.designation }}
-            </a>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Bâtiment</span>
-            <span class="info-val">{{ record.lot.batiment }}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Date de production</span>
-            <span class="info-val">{{ record.date_production|date:"d/m/Y" }}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Oiseaux abattus</span>
-            <span class="info-val" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:18px;color:var(--text-primary);">
-              {{ record.nombre_oiseaux_abattus|floatformat:0 }}
-            </span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Poids total (kg)</span>
-            <span class="info-val" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ record.poids_total_kg|floatformat:2 }}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Poids moyen / oiseau (kg)</span>
-            <span class="info-val" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ record.poids_moyen_kg|floatformat:3 }}</span>
-          </div>
-          {% if rendement %}
-          <div class="info-row">
-            <span class="info-label">Rendement abattage</span>
-            <span class="info-val" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">{{ rendement|floatformat:2 }} %</span>
-          </div>
-          {% endif %}
-          <div class="info-row">
-            <span class="info-label">Valeur totale estimée</span>
-            <span class="info-val" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;color:var(--text-primary);">{{ valeur_totale_production|floatformat:0 }} DZD</span>
-          </div>
-          {% if record.notes %}
-          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
-            <div style="font-size:11px;font-weight:600;color:var(--text-muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;">Notes</div>
-            <div style="font-size:13px;color:var(--text-secondary);line-height:1.5;">{{ record.notes }}</div>
-          </div>
-          {% endif %}
-          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text-muted);">
-            Créé par {{ record.created_by|default:"—" }} le {{ record.created_at|date:"d/m/Y" }}
-          </div>
-        </div>
+  <!-- KPI row -->
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-card__label">Oiseaux abattus</div>
+      <div class="kpi-card__value">
+        {{ record.nombre_oiseaux_abattus|floatformat:0 }}
+        <span class="kpi-currency">têtes</span>
       </div>
-
-      <!-- Danger zone: delete (brouillon only) -->
-      {% if record.statut == "brouillon" %}
-      <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:16px 18px;">
-        <div style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;margin-bottom:4px;font-size:13px;">
-          <i class="bx bxs-error me-1"></i> Zone sensible
-        </div>
-        <p style="font-size:12.5px;color:var(--text-secondary);margin:0 0 12px;">
-          Supprimer cet enregistrement (brouillon uniquement). Aucun impact stock.
-        </p>
-        <button type="button" class="btn-danger" id="open-delete-panel" style="font-size:12px;padding:7px 14px;">
-          <i class="bx bx-trash"></i> Supprimer
-        </button>
-      </div>
-      {% endif %}
+      <div class="kpi-card__sub">Lot : {{ record.lot.designation }}</div>
     </div>
+    <div class="kpi-card">
+      <div class="kpi-card__label">Poids total</div>
+      <div class="kpi-card__value">
+        {{ record.poids_total_kg|floatformat:2 }}
+        <span class="kpi-currency">kg</span>
+      </div>
+      <div class="kpi-card__sub">Poids moyen : {{ record.poids_moyen_kg|floatformat:3 }} kg / oiseau</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-card__label">Valeur estimée</div>
+      <div class="kpi-card__value">
+        {{ valeur_totale_production|floatformat:0 }}
+        <span class="kpi-currency">DZD</span>
+      </div>
+      <div class="kpi-card__sub">Coût alloué total</div>
+    </div>
+    <div class="kpi-card {% if rendement %}{% if rendement < 70 %}kpi-card--warning{% endif %}{% endif %}">
+      <div class="kpi-card__label">Rendement abattage</div>
+      <div class="kpi-card__value">
+        {% if rendement %}{{ rendement|floatformat:2 }}<span class="kpi-currency">%</span>
+        {% else %}<span style="color:var(--text-muted);font-size:16px;">N/A</span>{% endif %}
+      </div>
+      <div class="kpi-card__sub">{% if rendement %}Carcasses / poids vif{% else %}Aucune carcasse enregistrée{% endif %}</div>
+    </div>
+  </div>
 
-    <!-- Right: lignes + mouvements -->
-    <div class="col-xl-8">
+  <div class="detail-grid">
 
-      <!-- Lignes de production -->
-      <div class="card mb-3">
+    <!-- Left: tables -->
+    <div class="detail-main">
+
+      <!-- Production lines -->
+      <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow">Produits finis générés</div>
+          <div class="section-eyebrow"><i class="bx bxs-package"></i> Produits finis générés</div>
+          {% if lignes %}
+          <span style="font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;color:var(--text-primary);">
+            Total : {{ valeur_totale_production|floatformat:0 }} DZD
+          </span>
+          {% endif %}
         </div>
         {% if lignes %}
         <div class="table-wrapper">
@@ -147,14 +109,16 @@
                   </a>
                 </td>
                 <td>
-                  {% if ligne.produit_fini.type_produit == "volaille_vivante" %}<span class="pill-success">{{ ligne.produit_fini.get_type_produit_display }}</span>
-                  {% elif ligne.produit_fini.type_produit == "carcasse" %}<span class="pill-info">{{ ligne.produit_fini.get_type_produit_display }}</span>
-                  {% elif ligne.produit_fini.type_produit == "oeufs" %}<span class="pill-warning">{{ ligne.produit_fini.get_type_produit_display }}</span>
-                  {% else %}<span class="pill-neutral">{{ ligne.produit_fini.get_type_produit_display }}</span>{% endif %}
+                  {% with t=ligne.produit_fini.type_produit %}
+                  {% if t == "volaille_vivante" %}<span class="pill-success">{{ ligne.produit_fini.get_type_produit_display }}</span>
+                  {% elif t == "carcasse" %}<span class="pill-info">{{ ligne.produit_fini.get_type_produit_display }}</span>
+                  {% elif t == "oeufs" %}<span class="pill-warning">{{ ligne.produit_fini.get_type_produit_display }}</span>
+                  {% else %}<span class="pill-neutral">{{ ligne.produit_fini.get_type_produit_display }}</span>
+                  {% endif %}
+                  {% endwith %}
                 </td>
                 <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">
-                  {{ ligne.quantite|floatformat:2 }}
-                  <span style="font-size:11px;color:var(--text-muted);"> {{ ligne.produit_fini.unite_mesure }}</span>
+                  {{ ligne.quantite|floatformat:2 }} <span style="font-size:11px;color:var(--text-muted);">{{ ligne.produit_fini.unite_mesure }}</span>
                 </td>
                 <td style="text-align:right;">{{ ligne.poids_unitaire_kg|floatformat:3 }}</td>
                 <td style="text-align:right;">{{ ligne.cout_unitaire_estime|floatformat:4 }}</td>
@@ -163,35 +127,34 @@
               {% endfor %}
             </tbody>
             <tfoot>
-              <tr style="border-top:2px solid var(--border-strong);">
-                <td colspan="5" style="padding:11px 14px;font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);">Total estimé</td>
-                <td style="text-align:right;padding:11px 14px;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);">{{ valeur_totale_production|floatformat:0 }} DZD</td>
+              <tr>
+                <td colspan="5" style="text-align:right;font-size:11.5px;font-weight:600;color:var(--text-muted);padding:10px 14px;">TOTAL ESTIMÉ</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;color:var(--text-primary);padding:10px 14px;">{{ valeur_totale_production|floatformat:0 }} DZD</td>
               </tr>
             </tfoot>
           </table>
         </div>
         {% else %}
-        <div style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px;">
-          Aucune ligne de production.
-          {% if record.statut == "brouillon" %}
-            <a href="{% url 'production:production_record_edit' record.pk %}" style="color:var(--accent-text);">Ajouter des lignes</a>
-          {% endif %}
+        <div class="empty-state">
+          <i class="bx bxs-package empty-state__icon"></i>
+          <div class="empty-state__title">Aucune ligne de production</div>
+          <div style="font-size:13px;">Aucun produit fini enregistré pour cet abattage.</div>
         </div>
         {% endif %}
       </div>
 
-      <!-- Stock mouvements (only if validated) -->
+      <!-- Stock impact (validated only) -->
       {% if record.statut == "valide" and mouvements %}
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow">Impact stock — entrées créées à la validation</div>
+          <div class="section-eyebrow"><i class="bx bx-transfer-alt"></i> Impact stock — Mouvements créés</div>
         </div>
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
                 <th>Produit fini</th>
-                <th style="text-align:right;">Quantité ajoutée</th>
+                <th style="text-align:right;">Quantité</th>
                 <th style="text-align:right;">Stock avant</th>
                 <th style="text-align:right;">Stock après</th>
                 <th>Date</th>
@@ -216,6 +179,91 @@
               {% endfor %}
             </tbody>
           </table>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <!-- Right: aside -->
+    <div class="detail-aside">
+
+      <!-- Entête -->
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bxs-notepad"></i> Entête de production</div>
+          {% if record.statut == "brouillon" %}
+            <span class="pill-warning"><i class="bx bxs-error"></i> Brouillon</span>
+          {% else %}
+            <span class="pill-success"><i class="bx bxs-check-circle"></i> Validé</span>
+          {% endif %}
+        </div>
+        <div class="card-body" style="padding:16px 20px;">
+          <div class="aside-info-row">
+            <span class="aside-info-label">Lot</span>
+            <a href="{% url 'production:production_record_list' %}?lot={{ record.lot.pk }}"
+               style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);font-size:13px;text-decoration:none;">
+              {{ record.lot.designation }}
+            </a>
+          </div>
+          <div class="aside-info-row">
+            <span class="aside-info-label">Bâtiment</span>
+            <span class="aside-info-val">{{ record.lot.batiment }}</span>
+          </div>
+          <div class="aside-info-row">
+            <span class="aside-info-label">Date de production</span>
+            <span class="aside-info-val">{{ record.date_production|date:"d/m/Y" }}</span>
+          </div>
+          <div class="aside-info-row">
+            <span class="aside-info-label">Oiseaux abattus</span>
+            <span class="aside-info-val" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;color:var(--text-primary);">{{ record.nombre_oiseaux_abattus|floatformat:0 }}</span>
+          </div>
+          <div class="aside-info-row">
+            <span class="aside-info-label">Poids total (kg)</span>
+            <span class="aside-info-val" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ record.poids_total_kg|floatformat:2 }}</span>
+          </div>
+          <div class="aside-info-row">
+            <span class="aside-info-label">Poids moyen / oiseau</span>
+            <span class="aside-info-val" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ record.poids_moyen_kg|floatformat:3 }} kg</span>
+          </div>
+          {% if rendement %}
+          <div class="aside-info-row">
+            <span class="aside-info-label">Rendement abattage</span>
+            <span class="aside-info-val" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">{{ rendement|floatformat:2 }} %</span>
+          </div>
+          {% endif %}
+          <div class="aside-info-row">
+            <span class="aside-info-label">Valeur totale estimée</span>
+            <span class="aside-info-val" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);">{{ valeur_totale_production|floatformat:0 }} DZD</span>
+          </div>
+          {% if record.notes %}
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+            <div class="aside-info-label" style="margin-bottom:5px;">Notes</div>
+            <div style="font-size:13px;color:var(--text-secondary);line-height:1.5;">{{ record.notes }}</div>
+          </div>
+          {% endif %}
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text-muted);">
+            Créé par {{ record.created_by|default:"—" }} le {{ record.created_at|date:"d/m/Y" }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      {% if record.statut == "brouillon" %}
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bxs-cog"></i> Actions</div>
+        </div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
+          <a href="{% url 'production:production_record_edit' record.pk %}" class="btn-ghost btn-block">
+            <i class="bx bxs-pencil"></i> Modifier l'enregistrement
+          </a>
+          <button type="button" class="btn-primary btn-block" id="open-validate-panel-aside">
+            <i class="bx bxs-check-circle"></i> Valider et mettre à jour le stock
+          </button>
+          <button type="button" class="btn-danger btn-block" id="open-delete-panel">
+            <i class="bx bx-trash"></i> Supprimer (brouillon)
+          </button>
         </div>
       </div>
       {% endif %}
@@ -278,26 +326,72 @@
 <style>
   .page-body { padding:28px 32px; }
   @media (max-width:768px) { .page-body { padding:20px 16px; } }
-  .mb-3 { margin-bottom:14px!important; }
 
+  /* Alert banner */
+  .alert-banner { background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-md);padding:12px 18px;display:flex;align-items:center;gap:10px;margin-bottom:20px; }
+
+  /* KPI row */
+  .kpi-row { display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px; }
+  @media (max-width:900px) { .kpi-row { grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:540px) { .kpi-row { grid-template-columns:1fr; } }
+  .kpi-card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px; }
+  .kpi-card--warning { border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.03); }
+  .kpi-card__label { font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px; }
+  .kpi-card__value { font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;color:var(--text-primary);line-height:1; }
+  .kpi-currency { font-size:12px;font-weight:500;color:var(--text-muted); }
+  .kpi-card__sub { font-size:11.5px;color:var(--text-muted);margin-top:5px; }
+
+  /* Layout */
+  .detail-grid { display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start; }
+  @media (max-width:900px) { .detail-grid { grid-template-columns:1fr; } }
+  .detail-main { display:flex;flex-direction:column;gap:18px; }
+  .detail-aside { display:flex;flex-direction:column;gap:18px; }
+
+  /* Cards */
   .card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden; }
-  .card-header-row { padding:16px 20px 12px;border-bottom:1px solid var(--border); }
-  .section-eyebrow { font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted); }
+  .card-header-row { padding:14px 20px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between; }
+  .card-body { padding:20px; }
+  .section-eyebrow { font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);display:flex;align-items:center;gap:6px; }
+  .section-eyebrow i { font-size:13px; }
 
-  .info-row { display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border); }
-  .info-row:last-child { border-bottom:none; }
-  .info-label { font-size:12px;font-weight:500;color:var(--text-muted);letter-spacing:.02em; }
-  .info-val { font-size:13px;color:var(--text-secondary); }
+  /* Aside info rows */
+  .aside-info-row { display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border); }
+  .aside-info-row:last-child { border-bottom:none; }
+  .aside-info-label { font-size:11.5px;font-weight:500;color:var(--text-muted); }
+  .aside-info-val { font-size:13px;color:var(--text-secondary); }
 
+  /* Table */
   .table-wrapper { overflow-x:auto; }
   .data-table { width:100%;border-collapse:collapse; }
   .data-table thead th { font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);padding:11px 14px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--bg-surface); }
-  .data-table tbody tr { border-bottom:1px solid var(--border);animation:fadeIn .3s ease both;animation-delay:calc(var(--row-i,0)*35ms);transition:background .12s; }
+  .data-table tbody tr { border-bottom:1px solid var(--border);animation:fadeIn .3s ease both;animation-delay:calc(var(--row-i,0)*30ms);transition:background .12s; }
   .data-table tbody tr:last-child { border-bottom:none; }
   .data-table tbody tr:hover { background:var(--bg-hover); }
   .data-table td { padding:11px 14px;font-size:13px;color:var(--text-secondary);vertical-align:middle; }
-  .data-table tfoot td { background:var(--bg-raised); }
+  .data-table tfoot td { background:var(--bg-raised);border-top:1px solid var(--border); }
 
+  /* Empty states */
+  .empty-state { text-align:center;padding:36px 20px;color:var(--text-muted); }
+  .empty-state__icon { font-size:28px;display:block;margin-bottom:10px;color:var(--border-strong); }
+  .empty-state__title { font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;color:var(--text-secondary);margin-bottom:5px; }
+
+  /* Buttons */
+  .btn-block { width:100%;justify-content:center; }
+  .btn-sm { padding:7px 12px;font-size:12.5px; }
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+  .btn-danger { background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.22);color:#dc2626;font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s; }
+  .btn-danger:hover { background:rgba(239,68,68,.18); }
+
+  /* Pills */
+  .pill-success { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(34,197,94,.14);color:#15803d; }
+  .pill-warning { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(245,158,11,.14);color:#b45309; }
+  .pill-info    { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(56,189,248,.12);color:#0284c7; }
+  .pill-neutral { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(0,0,0,.06);color:var(--text-secondary); }
+
+  /* Confirm panel */
   .confirm-panel { position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:500;display:flex!important;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s ease; }
   .confirm-panel[style*="display:none"] { display:none!important; }
   .confirm-panel__inner { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;max-width:420px;width:100%;display:flex;flex-direction:column;gap:16px;box-shadow:0 8px 32px rgba(0,0,0,.14);animation:fadeIn .2s ease; }
@@ -306,45 +400,31 @@
   .confirm-panel__body { font-size:13px;color:var(--text-secondary); }
   .confirm-panel__actions { display:flex;gap:10px;justify-content:flex-end; }
   .confirm-panel__actions form { margin:0; }
-
-  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s,transform .12s;text-decoration:none; }
-  .btn-primary:hover { opacity:.88;color:#fff; }
-  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s,border-color .12s,color .12s;text-decoration:none; }
-  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
-  .btn-danger { background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.22);color:#dc2626;font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s; }
-  .btn-danger:hover { background:rgba(239,68,68,.18); }
-
-  .pill-success { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(34,197,94,.14);color:#15803d; }
-  .pill-warning { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(245,158,11,.14);color:#b45309; }
-  .pill-info    { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(56,189,248,.12);color:#0284c7; }
-  .pill-neutral { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(0,0,0,.06);color:var(--text-secondary); }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  const validatePanel = document.getElementById('validate-panel');
-  const deletePanel   = document.getElementById('delete-panel');
-  const openValidate  = document.getElementById('open-validate-panel');
-  const openDelete    = document.getElementById('open-delete-panel');
-  const cancelValidate= document.getElementById('cancel-validate-btn');
-  const cancelDelete  = document.getElementById('cancel-delete-btn');
+  const validatePanel  = document.getElementById('validate-panel');
+  const deletePanel    = document.getElementById('delete-panel');
+  const openValidate   = document.getElementById('open-validate-panel');
+  const openValidateAs = document.getElementById('open-validate-panel-aside');
+  const openDelete     = document.getElementById('open-delete-panel');
+  const cancelValidate = document.getElementById('cancel-validate-btn');
+  const cancelDelete   = document.getElementById('cancel-delete-btn');
 
-  function openPanel(panel) { if (panel) panel.style.display = ''; }
-  function closePanel(panel) { if (panel) panel.style.display = 'none'; }
+  function openPanel(p)  { if (p) p.style.display = ''; }
+  function closePanel(p) { if (p) p.style.display = 'none'; }
 
-  if (openValidate)  openValidate.addEventListener('click',  () => openPanel(validatePanel));
-  if (openDelete)    openDelete.addEventListener('click',    () => openPanel(deletePanel));
-  if (cancelValidate)cancelValidate.addEventListener('click',() => closePanel(validatePanel));
-  if (cancelDelete)  cancelDelete.addEventListener('click',  () => closePanel(deletePanel));
+  if (openValidate)   openValidate.addEventListener('click',   () => openPanel(validatePanel));
+  if (openValidateAs) openValidateAs.addEventListener('click', () => openPanel(validatePanel));
+  if (openDelete)     openDelete.addEventListener('click',     () => openPanel(deletePanel));
+  if (cancelValidate) cancelValidate.addEventListener('click', () => closePanel(validatePanel));
+  if (cancelDelete)   cancelDelete.addEventListener('click',   () => closePanel(deletePanel));
 
-  [validatePanel, deletePanel].forEach(function (panel) {
-    if (panel) {
-      panel.addEventListener('click', function (e) {
-        if (e.target === panel) closePanel(panel);
-      });
-    }
+  [validatePanel, deletePanel].forEach(function (p) {
+    if (p) p.addEventListener('click', function (e) { if (e.target === p) closePanel(p); });
   });
 });
 </script>

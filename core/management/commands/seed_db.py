@@ -1181,52 +1181,174 @@ class Command(BaseCommand):
 
     def _seed_productions(self, lots, produits_finis):
         """
-        Create one production record for the closed lot (Lot A).
+        Create two production records:
+          - Lot A (fermé, ~31 days ago) — full harvest covering all product types
+          - Lot B (ouvert, ~5 days ago)  — partial mid-cycle harvest
+
+        FIX: records are created as BROUILLON first, lines are inserted, then
+        the record is transitioned to VALIDE so the post_save signal fires with
+        lines already present in the DB and correctly increments StockProduitFini.
+        The old pattern (create as valide + get_or_create stock manually) left
+        every StockProduitFini at 0 because:
+          1. The signal fired before lines existed → bailed immediately.
+          2. get_or_create found the zero-balance row already created by the
+             ProduitFini signal and did nothing.
         """
         from production.models import ProductionRecord, ProductionLigne
-        from stock.models import StockProduitFini
 
         admin = User.objects.filter(is_superuser=True).first()
+
+        # ── Shortcuts ──────────────────────────────────────────────────
+        pf = produits_finis  # alias for readability
         lot_a = lots.get("Lot Janvier 2025 — Bâtiment A")
-        if not lot_a:
-            return {}
+        lot_b = lots.get("Lot Mars 2025 — Bâtiment B")
 
-        pr, created = ProductionRecord.objects.get_or_create(
-            lot=lot_a,
-            date_production=d(31),
-            defaults=dict(
-                nombre_oiseaux_abattus=4947,  # initial 5000 − 53 deaths
-                poids_total_kg=Decimal("10389.00"),
-                poids_moyen_kg=Decimal("2.100"),
-                statut="valide",
-                created_by=admin,
-            ),
+        productions_created = 0
+
+        # ── Production A — Lot Janvier (fermé) ─────────────────────────
+        # 4 947 birds harvested:  3 000 sold live, 1 947 processed into cuts
+        if lot_a:
+            pr_a, created = ProductionRecord.objects.get_or_create(
+                lot=lot_a,
+                date_production=d(31),
+                defaults=dict(
+                    nombre_oiseaux_abattus=4947,
+                    poids_total_kg=Decimal("10389.00"),
+                    poids_moyen_kg=Decimal("2.100"),
+                    statut=ProductionRecord.STATUT_BROUILLON,  # ← brouillon first
+                    created_by=admin,
+                ),
+            )
+            if created:
+                # All 7 seeded product types represented so the catalogue
+                # looks populated from day one.
+                lines_a = [
+                    # (produit_fini,               qty,              poids_unit, cout_unit)
+                    (
+                        pf["Poulet vivant (plein poids)"],
+                        Decimal("3000"),
+                        Decimal("2.100"),
+                        Decimal("89.00"),
+                    ),
+                    (
+                        pf["Carcasse entière vidée"],
+                        Decimal("800"),
+                        Decimal("1.650"),
+                        Decimal("72.00"),
+                    ),
+                    (
+                        pf["Blanc de poulet"],
+                        Decimal("480"),
+                        Decimal("0.350"),
+                        Decimal("68.00"),
+                    ),
+                    (
+                        pf["Cuisse entière"],
+                        Decimal("600"),
+                        Decimal("0.280"),
+                        Decimal("55.00"),
+                    ),
+                    (
+                        pf["Aile de poulet"],
+                        Decimal("350"),
+                        Decimal("0.180"),
+                        Decimal("42.00"),
+                    ),
+                    (
+                        pf["Foie de poulet"],
+                        Decimal("280"),
+                        Decimal("0.090"),
+                        Decimal("28.00"),
+                    ),
+                    (
+                        pf["Gésier de poulet"],
+                        Decimal("240"),
+                        Decimal("0.075"),
+                        Decimal("22.00"),
+                    ),
+                ]
+                for produit, qty, poids, cout in lines_a:
+                    ProductionLigne.objects.create(
+                        production=pr_a,
+                        produit_fini=produit,
+                        quantite=qty,
+                        poids_unitaire_kg=poids,
+                        cout_unitaire_estime=cout,
+                    )
+                # NOW transition to valide → signal fires with lines in DB
+                pr_a.statut = ProductionRecord.STATUT_VALIDE
+                pr_a.save()
+                productions_created += 1
+
+        # ── Production B — Lot Mars (ouvert, partial harvest) ──────────
+        if lot_b:
+            pr_b, created = ProductionRecord.objects.get_or_create(
+                lot=lot_b,
+                date_production=d(5),
+                defaults=dict(
+                    nombre_oiseaux_abattus=1200,
+                    poids_total_kg=Decimal("2640.00"),
+                    poids_moyen_kg=Decimal("2.200"),
+                    statut=ProductionRecord.STATUT_BROUILLON,
+                    created_by=admin,
+                ),
+            )
+            if created:
+                lines_b = [
+                    (
+                        pf["Carcasse entière vidée"],
+                        Decimal("500"),
+                        Decimal("1.700"),
+                        Decimal("74.00"),
+                    ),
+                    (
+                        pf["Blanc de poulet"],
+                        Decimal("220"),
+                        Decimal("0.360"),
+                        Decimal("70.00"),
+                    ),
+                    (
+                        pf["Cuisse entière"],
+                        Decimal("280"),
+                        Decimal("0.290"),
+                        Decimal("57.00"),
+                    ),
+                    (
+                        pf["Aile de poulet"],
+                        Decimal("160"),
+                        Decimal("0.185"),
+                        Decimal("44.00"),
+                    ),
+                    (
+                        pf["Foie de poulet"],
+                        Decimal("120"),
+                        Decimal("0.092"),
+                        Decimal("29.00"),
+                    ),
+                    (
+                        pf["Gésier de poulet"],
+                        Decimal("100"),
+                        Decimal("0.078"),
+                        Decimal("23.00"),
+                    ),
+                ]
+                for produit, qty, poids, cout in lines_b:
+                    ProductionLigne.objects.create(
+                        production=pr_b,
+                        produit_fini=produit,
+                        quantite=qty,
+                        poids_unitaire_kg=poids,
+                        cout_unitaire_estime=cout,
+                    )
+                pr_b.statut = ProductionRecord.STATUT_VALIDE
+                pr_b.save()
+                productions_created += 1
+
+        self._log(
+            f"ProductionRecords ({productions_created} created / validated, stock updated via signal)",
+            True,
         )
-
-        pf_vivant = produits_finis["Poulet vivant (plein poids)"]
-        pf_carcasse = produits_finis["Carcasse entière vidée"]
-
-        lines = [
-            (pf_vivant, Decimal("3000"), Decimal("2.100"), Decimal("89.00")),
-            (pf_carcasse, Decimal("1947"), Decimal("1.650"), Decimal("72.00")),
-        ]
-        if created:
-            for pf, qty, poids, cout in lines:
-                ProductionLigne.objects.create(
-                    production=pr,
-                    produit_fini=pf,
-                    quantite=qty,
-                    poids_unitaire_kg=poids,
-                    cout_unitaire_estime=cout,
-                )
-                # Seed stock
-                StockProduitFini.objects.get_or_create(
-                    produit_fini=pf,
-                    defaults={"quantite": qty, "cout_moyen_production": cout},
-                )
-
-        self._log("ProductionRecord (1) + 2 lignes", True)
-        return {pr.pk: pr}
+        return {}
 
     # ------------------------------------------------------------------
 
