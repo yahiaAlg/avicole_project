@@ -104,4 +104,10 @@ urlpatterns = [
         views.produit_fini_detail_json,
         name="produit_fini_detail_json",
     ),
+    # Quick-create a ProduitFini from the production record form modal
+    path(
+        "produits/creer-ajax/",
+        views.produit_fini_create_ajax,
+        name="produit_fini_create_ajax",
+    ),
 ]

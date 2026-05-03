@@ -108,7 +108,9 @@ class ProductionLigneForm(forms.ModelForm):
             "cout_unitaire_estime": forms.NumberInput(
                 attrs={"step": "0.0001", "min": "0"}
             ),
-            "notes": forms.Textarea(attrs={"rows": 1}),
+            "notes": forms.Textarea(
+                attrs={"rows": 1, "placeholder": "Optionnel", "class": "notes-input"}
+            ),
         }
 
     def __init__(self, *args, **kwargs):

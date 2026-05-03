@@ -146,7 +146,9 @@
               <div class="col-12">
                 <div class="form-field">
                   <label class="field-label" for="{{ form.notes.id_for_label }}">Notes</label>
-                  {{ form.notes }}
+                  <div class="field-wrap">
+                    {{ form.notes }}
+                  </div>
                   {% if form.notes.errors %}
                     <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.notes.errors.0 }}</div>
                   {% endif %}
@@ -177,7 +179,11 @@
 
             <!-- Header row -->
             <div class="ligne-header">
-              <div class="lg-col lg-produit">Produit fini <span class="required-star">*</span></div>
+              <div class="lg-col lg-produit">Produit fini <span class="required-star">*</span>
+                <button type="button" id="open-produit-modal-hdr" class="btn-new-produit" title="Créer un nouveau produit fini" style="margin-left:6px;">
+                  <i class="bx bx-plus"></i>
+                </button>
+              </div>
               <div class="lg-col lg-qty">Quantité <span class="required-star">*</span></div>
               <div class="lg-col lg-poids">Poids unit. (kg)</div>
               <div class="lg-col lg-cout">Coût unit. (DZD)</div>
@@ -193,7 +199,7 @@
                   <input type="hidden" name="{{ ligne_form.DELETE.html_name }}" value="false" class="delete-flag">
                 {% endif %}
                 <div class="lg-col lg-produit">
-                  <div class="field-wrap">
+                  <div class="field-wrap input-icon-wrap" style="position:relative;">
                     <i class="bx bxs-badge-check field-icon" style="top:12px;transform:none;"></i>
                     {{ ligne_form.produit_fini }}
                   </div>
@@ -243,9 +249,9 @@
               <input type="hidden" name="lignes-__prefix__-id" value="">
               <input type="hidden" name="lignes-__prefix__-DELETE" value="false" class="delete-flag">
               <div class="lg-col lg-produit">
-                <div class="field-wrap">
+                <div class="field-wrap input-icon-wrap" style="position:relative;">
                   <i class="bx bxs-badge-check field-icon" style="top:12px;transform:none;"></i>
-                  <select name="lignes-__prefix__-produit_fini" class="field-input field-select" style="padding-left:36px;">
+                  <select name="lignes-__prefix__-produit_fini" class="field-input field-select" style="padding-left:36px;padding-right:36px;">
                     <option value="">— Produit fini —</option>
                     {% for ligne_form in formset %}{% if forloop.first %}
                       {% for opt in ligne_form.produit_fini %}{{ opt }}{% endfor %}
@@ -301,6 +307,71 @@
         </div>
 
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── Produit fini quick-create modal ────────────────────────────────── -->
+<div id="produit-modal-overlay" class="produit-modal-overlay" style="display:none;" aria-modal="true" role="dialog">
+  <div class="produit-modal">
+    <div class="produit-modal__header">
+      <div class="produit-modal__title">
+        <i class="bx bxs-plus-circle" style="color:var(--accent-text);font-size:17px;"></i>
+        Nouveau produit fini
+      </div>
+      <button type="button" id="produit-modal-close" class="action-btn" title="Fermer">
+        <i class="bx bx-x"></i>
+      </button>
+    </div>
+    <div class="produit-modal__body">
+      <div class="produit-modal__notice">
+        <i class="bx bxs-info-circle" style="color:#3b82f6;font-size:14px;flex-shrink:0;margin-top:1px;"></i>
+        <span>Le produit sera ajouté au catalogue et sélectionné automatiquement dans la ligne courante.</span>
+      </div>
+      <div class="im-grid">
+        <div class="im-field im-field--full">
+          <label class="im-label">Désignation <span class="im-req">*</span></label>
+          <input type="text" id="pm-designation" placeholder="Ex : Carcasse entière 1,8 kg" autocomplete="off">
+          <div class="im-error" id="pm-err-designation" style="display:none;"></div>
+        </div>
+        <div class="im-field">
+          <label class="im-label">Type de produit <span class="im-req">*</span></label>
+          <select id="pm-type">
+            <option value="">— choisir —</option>
+            <option value="volaille_vivante">Volaille vivante</option>
+            <option value="carcasse">Carcasse entière</option>
+            <option value="decoupe">Découpe</option>
+            <option value="abats">Abats</option>
+            <option value="oeufs">Œufs</option>
+            <option value="autre">Autre</option>
+          </select>
+          <div class="im-error" id="pm-err-type" style="display:none;"></div>
+        </div>
+        <div class="im-field">
+          <label class="im-label">Unité de mesure <span class="im-req">*</span></label>
+          <select id="pm-unite">
+            <option value="">— choisir —</option>
+            <option value="unite">Unité / Tête</option>
+            <option value="kg">Kilogramme (kg)</option>
+            <option value="plateau">Plateau</option>
+            <option value="caisse">Caisse</option>
+            <option value="paquet">Paquet</option>
+          </select>
+          <div class="im-error" id="pm-err-unite" style="display:none;"></div>
+        </div>
+        <div class="im-field">
+          <label class="im-label">Prix vente défaut (DZD)</label>
+          <input type="number" id="pm-prix" value="0" step="0.01" min="0" placeholder="0">
+        </div>
+      </div>
+      <div class="im-error im-error--global" id="pm-err-global" style="display:none;"></div>
+    </div>
+    <div class="produit-modal__footer">
+      <button type="button" class="btn-ghost btn-sm" id="produit-modal-cancel">Annuler</button>
+      <button type="button" class="btn-primary btn-sm" id="produit-modal-submit">
+        <i class="bx bx-check"></i>
+        <span id="pm-submit-label">Créer le produit</span>
+      </button>
     </div>
   </div>
 </div>
@@ -380,8 +451,70 @@
     font-family:'Inter',sans-serif;font-size:12.5px;
     padding:9px 10px;resize:none;
     transition:border-color .15s,box-shadow .15s;
+    display:block;
+    box-sizing:border-box;
   }
   .notes-input:focus { border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);outline:none; }
+
+  /* header form notes textarea */
+  .field-wrap textarea {
+    width:100%;background:var(--bg-surface);border:1px solid var(--border);
+    border-radius:var(--radius-md);color:var(--text-primary);
+    font-family:'Inter',sans-serif;font-size:13.5px;
+    padding:11px 13px;resize:vertical;
+    transition:border-color .15s,box-shadow .15s;
+    display:block; box-sizing:border-box;
+  }
+  .field-wrap textarea:focus { border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);outline:none; }
+
+  .btn-new-produit {
+    display:inline-flex;align-items:center;justify-content:center;
+    width:22px;height:22px;border-radius:var(--radius-sm);
+    border:1px solid var(--accent);background:transparent;
+    color:var(--accent-text);font-size:13px;cursor:pointer;
+    transition:background .12s,color .12s;vertical-align:middle;padding:0;
+  }
+  .btn-new-produit:hover { background:var(--accent);color:#fff; }
+  .btn-row-produit {
+    position:absolute;right:6px;top:50%;transform:translateY(-50%);z-index:2;
+    width:20px;height:20px;font-size:12px;padding:0;
+  }
+
+  /* Modal */
+  .produit-modal-overlay {
+    position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .produit-modal {
+    background:var(--bg-surface);border:1px solid var(--border);
+    border-radius:var(--radius-lg);width:480px;max-width:95vw;
+    box-shadow:0 20px 60px rgba(0,0,0,.3);
+  }
+  .produit-modal__header {
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 20px;border-bottom:1px solid var(--border);
+  }
+  .produit-modal__title { display:flex;align-items:center;gap:8px;font-family:'Nunito',sans-serif;font-weight:700;font-size:14px;color:var(--text-primary); }
+  .produit-modal__body { padding:20px;display:flex;flex-direction:column;gap:16px; }
+  .produit-modal__footer { display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border); }
+  .produit-modal__notice { display:flex;align-items:flex-start;gap:8px;background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.18);border-radius:var(--radius-md);padding:10px 14px;font-size:12.5px;color:var(--text-secondary);line-height:1.5; }
+
+  .im-grid { display:grid;grid-template-columns:1fr 1fr;gap:12px; }
+  .im-field { display:flex;flex-direction:column;gap:5px; }
+  .im-field--full { grid-column:1/-1; }
+  .im-label { font-size:12px;font-weight:500;color:var(--text-secondary); }
+  .im-req { color:#dc2626; }
+  .im-grid input,.im-grid select {
+    background:var(--bg-surface);border:1px solid var(--border);
+    border-radius:var(--radius-md);color:var(--text-primary);
+    font-family:'Inter',sans-serif;font-size:13px;
+    padding:9px 11px;width:100%;transition:border-color .15s,box-shadow .15s;
+  }
+  .im-grid input:focus,.im-grid select:focus { border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);outline:none; }
+  .im-input--error { border-color:#dc2626!important; }
+  .im-error { display:flex;align-items:center;gap:4px;font-size:11.5px;color:#dc2626; }
+  .im-error--global { background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius-md);padding:8px 12px; }
+  .btn-sm { padding:7px 14px!important;font-size:12.5px!important; }
 
   .form-footer { display:flex;align-items:center;gap:12px;padding:20px 0 4px;flex-wrap:wrap; }
 
@@ -532,6 +665,106 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   }
+
+  // ── Produit fini quick-create modal ──────────────────────────────────
+  (function () {
+    var AJAX_URL = '{% url "production:produit_fini_create_ajax" %}';
+    var CSRF     = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    var overlay     = document.getElementById('produit-modal-overlay');
+    var closeBtn    = document.getElementById('produit-modal-close');
+    var cancelBtn   = document.getElementById('produit-modal-cancel');
+    var submitBtn   = document.getElementById('produit-modal-submit');
+    var submitLabel = document.getElementById('pm-submit-label');
+    var hdrBtn      = document.getElementById('open-produit-modal-hdr');
+    var ligneRowsEl = document.getElementById('ligne-rows');
+    var addBtnEl    = document.getElementById('add-ligne-btn');
+    if (!overlay || !submitBtn) return;
+    var _targetRow = null;
+
+    function clearModal() {
+      ['pm-designation','pm-type','pm-unite'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) { el.value = ''; el.classList.remove('im-input--error'); }
+      });
+      var prix = document.getElementById('pm-prix'); if (prix) prix.value = '0';
+      ['pm-err-designation','pm-err-type','pm-err-unite','pm-err-global'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) { el.style.display = 'none'; el.textContent = ''; }
+      });
+      submitLabel.textContent = 'Créer le produit'; submitBtn.disabled = false;
+    }
+
+    function openModal(targetRow) { _targetRow = targetRow || null; clearModal(); overlay.style.display = 'flex'; setTimeout(function() { var d = document.getElementById('pm-designation'); if (d) d.focus(); }, 80); }
+    function closeModal() { overlay.style.display = 'none'; _targetRow = null; }
+
+    if (hdrBtn)    hdrBtn.addEventListener('click', function() { openModal(null); });
+    if (closeBtn)  closeBtn.addEventListener('click', closeModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) closeModal(); });
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && overlay.style.display !== 'none') closeModal(); });
+
+    function addRowTrigger(row) {
+      var wrap = row.querySelector('.input-icon-wrap');
+      if (!wrap || wrap.dataset.pmTrigger) return;
+      wrap.dataset.pmTrigger = '1';
+      var btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'btn-new-produit btn-row-produit';
+      btn.title = 'Créer un produit fini et le sélectionner ici';
+      btn.innerHTML = '<i class="bx bx-plus"></i>';
+      wrap.appendChild(btn);
+      btn.addEventListener('click', function() { openModal(row); });
+    }
+
+    if (ligneRowsEl) {
+      ligneRowsEl.querySelectorAll('.ligne-row').forEach(addRowTrigger);
+      ligneRowsEl.addEventListener('click', function(e) { var row = e.target.closest('.ligne-row'); if (row) addRowTrigger(row); });
+    }
+    if (addBtnEl) { addBtnEl.addEventListener('click', function() { setTimeout(function() { if (ligneRowsEl) ligneRowsEl.querySelectorAll('.ligne-row').forEach(addRowTrigger); }, 80); }); }
+
+    submitBtn.addEventListener('click', function() {
+      var ok = true;
+      [['pm-designation','pm-err-designation'],['pm-type','pm-err-type'],['pm-unite','pm-err-unite']].forEach(function(pair) {
+        var inp = document.getElementById(pair[0]), err = document.getElementById(pair[1]);
+        if (!inp || !inp.value.trim()) { if (inp) inp.classList.add('im-input--error'); if (err) { err.textContent = 'Ce champ est requis.'; err.style.display = 'flex'; } ok = false; }
+        else { if (inp) inp.classList.remove('im-input--error'); if (err) err.style.display = 'none'; }
+      });
+      if (!ok) return;
+      submitBtn.disabled = true; submitLabel.textContent = 'Création…';
+      var fd = new FormData();
+      fd.append('csrfmiddlewaretoken', CSRF);
+      fd.append('designation',       document.getElementById('pm-designation').value.trim());
+      fd.append('type_produit',      document.getElementById('pm-type').value);
+      fd.append('unite_mesure',      document.getElementById('pm-unite').value);
+      fd.append('prix_vente_defaut', document.getElementById('pm-prix').value || '0');
+      fd.append('actif', 'on');
+      fetch(AJAX_URL, { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (!data.ok) {
+            var fm = { designation:['pm-designation','pm-err-designation'], type_produit:['pm-type','pm-err-type'], unite_mesure:['pm-unite','pm-err-unite'] };
+            Object.keys(data.errors || {}).forEach(function(field) {
+              var msg = (data.errors[field] || []).join(' ');
+              if (fm[field]) { var inp=document.getElementById(fm[field][0]),err=document.getElementById(fm[field][1]); if(inp)inp.classList.add('im-input--error'); if(err){err.textContent=msg;err.style.display='flex';} }
+              else { var g=document.getElementById('pm-err-global'); if(g){g.textContent=msg;g.style.display='flex';} }
+            });
+            submitBtn.disabled = false; submitLabel.textContent = 'Créer le produit'; return;
+          }
+          document.querySelectorAll('select[name$="-produit_fini"]').forEach(function(sel) {
+            var opt = document.createElement('option'); opt.value = data.pk; opt.text = data.label; sel.appendChild(opt);
+          });
+          var targetSel = null;
+          if (_targetRow) { targetSel = _targetRow.querySelector('select[name$="-produit_fini"]'); }
+          else if (ligneRowsEl) { var rows = ligneRowsEl.querySelectorAll('.ligne-row'); if (rows.length) targetSel = rows[rows.length-1].querySelector('select[name$="-produit_fini"]'); }
+          if (targetSel) { targetSel.value = data.pk; targetSel.dispatchEvent(new Event('change', {bubbles:true})); }
+          closeModal();
+        })
+        .catch(function(err) {
+          console.error('produit_fini_create_ajax:', err);
+          var g = document.getElementById('pm-err-global'); if(g){g.textContent='Erreur réseau.';g.style.display='flex';}
+          submitBtn.disabled = false; submitLabel.textContent = 'Créer le produit';
+        });
+    });
+  })(); /* end modal IIFE */
 
 });
 </script>

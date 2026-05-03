@@ -355,23 +355,60 @@ class PaiementClientAllocationForm(forms.ModelForm):
     payment creation page.  The view iterates over submitted allocations and
     calls facture.recalculer_solde() for each.
 
+    montant_alloue = 0 means "skip this invoice" (FIFO fallback applies when
+    ALL rows are 0).  The model has MinValueValidator(0.01) for DB integrity,
+    so we override the field here to permit 0 at the form layer.
+
     montant_alloue must not exceed the invoice's reste_a_payer, and the sum
     of all allocations must not exceed the payment total (validated in the view).
     """
+
+    # Override to allow 0 — model has MinValueValidator(0.01) for DB integrity,
+    # but 0 at form level simply means "don't allocate to this invoice".
+    montant_alloue = forms.DecimalField(
+        min_value=Decimal("0"),
+        decimal_places=2,
+        max_digits=14,
+        required=False,
+        initial=Decimal("0"),
+        widget=forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+    )
 
     class Meta:
         model = PaiementClientAllocation
         fields = ["facture", "montant_alloue"]
         widgets = {
-            "montant_alloue": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
             "facture": forms.HiddenInput(),
         }
 
+    def _post_clean(self):
+        """
+        ModelForm._post_clean() runs model-level validators (including the
+        MinValueValidator(0.01) on PaiementClientAllocation.montant_alloue)
+        even when the field is overridden in the form.  Since 0 is a valid
+        sentinel meaning "skip this invoice", we suppress that specific error.
+        """
+        super()._post_clean()
+        self._errors.pop("montant_alloue", None)
+
     def clean_montant_alloue(self):
-        montant = self.cleaned_data.get("montant_alloue", Decimal("0"))
+        montant = self.cleaned_data.get("montant_alloue") or Decimal("0")
         if montant < 0:
             raise ValidationError("Le montant alloué ne peut pas être négatif.")
         return montant
+
+    def clean(self):
+        cleaned = super().clean()
+        facture = cleaned.get("facture")
+        montant = cleaned.get("montant_alloue") or Decimal("0")
+
+        # Only validate over-allocation when the user actually entered an amount.
+        if facture and montant > 0 and montant > facture.reste_a_payer:
+            raise ValidationError(
+                f"Le montant alloué ({montant} DZD) dépasse le reste à payer "
+                f"de la facture {facture.reference} ({facture.reste_a_payer} DZD)."
+            )
+        return cleaned
 
     def clean(self):
         cleaned = super().clean()

@@ -1028,6 +1028,10 @@
         <i class="bx bx-refresh"></i>
         <span class="nav-link-label">Production</span>
       </a>
+      <a href="{% url 'production:produit_fini_list' %}" class="nav-link {% block nav_produits_finis %}{% endblock %}">
+        <i class="bx bxs-badge-check"></i>
+        <span class="nav-link-label">Catalogue produits finis</span>
+      </a>
 
       <!-- Stock -->
       <div class="nav-group-label">Stock</div>

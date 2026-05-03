@@ -170,6 +170,49 @@ def produit_fini_create(request):
 
 
 # ===========================================================================
+# ProduitFini — AJAX quick-create (used by the production record form modal)
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def produit_fini_create_ajax(request):
+    """
+    POST-only endpoint: create a ProduitFini from the inline modal on the
+    production record form and return JSON so the form can inject the new
+    option into every produit_fini select without a full page reload.
+
+    Returns:
+        {"ok": true,  "pk": <int>, "label": "<str>"}
+        {"ok": false, "errors": {field: [msg, ...]}}
+    """
+    if request.method != "POST":
+        return JsonResponse(
+            {"ok": False, "errors": {"__all__": ["Méthode non autorisée."]}}, status=405
+        )
+
+    form = ProduitFiniForm(request.POST)
+    if form.is_valid():
+        produit = form.save()
+        logger.info(
+            "ProduitFini pk=%s ('%s') created via AJAX by '%s'.",
+            produit.pk,
+            produit.designation,
+            request.user,
+        )
+        return JsonResponse(
+            {
+                "ok": True,
+                "pk": produit.pk,
+                "label": str(produit),
+                "designation": produit.designation,
+                "prix_vente_defaut": str(produit.prix_vente_defaut),
+            }
+        )
+    else:
+        return JsonResponse({"ok": False, "errors": form.errors}, status=400)
+
+
+# ===========================================================================
 # ProduitFini — Detail
 # ===========================================================================
 
