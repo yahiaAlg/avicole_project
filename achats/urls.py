@@ -44,6 +44,11 @@ urlpatterns = [
         name="bl_fournisseur_delete",
     ),
     path(
+        "bls/<int:pk>/changer-statut/",
+        views.bl_fournisseur_change_statut,
+        name="bl_fournisseur_change_statut",
+    ),
+    path(
         "bls/<int:pk>/imprimer/",
         views.bl_fournisseur_print,
         name="bl_fournisseur_print",

@@ -36,6 +36,19 @@
     </div>
     {% endif %}
 
+    {% if facture_obj %}
+    <!-- Facture context banner -->
+    <div class="notice-banner" style="background:rgba(56,189,248,.07);border-color:rgba(56,189,248,.25);">
+      <i class="bx bxs-file-txt" style="flex-shrink:0;color:#0284c7;"></i>
+      <span>
+        Règlement pré-rempli pour la facture
+        <strong style="color:#0284c7;">{{ facture_obj.reference }}</strong>
+        — Reste à payer : <strong>{{ facture_obj.reste_a_payer|floatformat:0 }} DZD</strong>.
+        Le FIFO s'applique à toutes les factures ouvertes du fournisseur.
+      </span>
+    </div>
+    {% endif %}
+
     {% if form.non_field_errors %}
     <div class="form-error-banner">
       <i class="bx bxs-error-circle"></i>
@@ -75,10 +88,7 @@
             <label for="{{ form.date_reglement.id_for_label }}" class="field-label">
               Date du règlement <span class="required-star">*</span>
             </label>
-            <div class="input-icon-wrap">
-              <i class="bx bxs-calendar"></i>
-              {{ form.date_reglement }}
-            </div>
+            {{ form.date_reglement }}
             {% if form.date_reglement.errors %}
             <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.date_reglement.errors.0 }}</div>
             {% endif %}
@@ -112,6 +122,9 @@
               Référence (n° chèque / virement)
             </label>
             {{ form.reference_paiement }}
+            <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">
+              Auto-généré : REF-{MODE}-{DATE}-{HEURE}. Modifiable.
+            </div>
             {% if form.reference_paiement.errors %}
             <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.reference_paiement.errors.0 }}</div>
             {% endif %}
@@ -381,26 +394,91 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  var montantInput = document.querySelector('[name="montant"]');
-  var fifoPreview = document.getElementById('fifo-preview');
-  var fifoRows = document.getElementById('fifo-rows');
-  var fifoFooter = document.getElementById('fifo-footer');
-  var submitBtn = document.getElementById('submit-btn');
-  var debtFill = document.getElementById('debt-fill');
 
-  // Collect open invoices from aside
-  var openInvoices = [];
+  // ── Field references ──────────────────────────────────────────────────────
+  var dateInput      = document.querySelector('[name="date_reglement"]');
+  var modeSelect     = document.querySelector('[name="mode_paiement"]');
+  var montantInput   = document.querySelector('[name="montant"]');
+  var refInput       = document.querySelector('[name="reference_paiement"]');
+  var fifoPreview    = document.getElementById('fifo-preview');
+  var fifoRows       = document.getElementById('fifo-rows');
+  var fifoFooter     = document.getElementById('fifo-footer');
+  var submitBtn      = document.getElementById('submit-btn');
+  var debtFill       = document.getElementById('debt-fill');
+
+  // ── 1. Pre-populate date with today ──────────────────────────────────────
+  if (dateInput && !dateInput.value) {
+    var today = new Date();
+    var yyyy  = today.getFullYear();
+    var mm    = String(today.getMonth() + 1).padStart(2, '0');
+    var dd    = String(today.getDate()).padStart(2, '0');
+    dateInput.value = yyyy + '-' + mm + '-' + dd;   // HTML date input expects YYYY-MM-DD
+  }
+
+  // ── 2. Auto-generate payment reference ───────────────────────────────────
+  var MODE_INITIALS = {
+    'especes' : 'ESP',
+    'cheque'  : 'CHQ',
+    'virement': 'VIR',
+    'autre'   : 'AUT'
+  };
+
+  function buildRef() {
+    var mode   = modeSelect ? modeSelect.value : '';
+    var prefix = MODE_INITIALS[mode] || 'REG';
+    var now    = new Date();
+    var datePart = String(now.getFullYear())
+                 + String(now.getMonth() + 1).padStart(2, '0')
+                 + String(now.getDate()).padStart(2, '0');
+    var timePart = String(now.getHours()).padStart(2, '0')
+                 + String(now.getMinutes()).padStart(2, '0')
+                 + String(now.getSeconds()).padStart(2, '0');
+    return 'REF-' + prefix + '-' + datePart + '-' + timePart;
+  }
+
+  // Set initial ref only if field is empty (don't overwrite user edits)
+  if (refInput && !refInput.value) {
+    refInput.value = buildRef();
+  }
+
+  // Regenerate ref when mode changes (but only if the ref still looks auto-generated)
+  function isAutoRef(val) {
+    return /^REF-(ESP|CHQ|VIR|AUT|REG)-\d{8}-\d{6}$/.test(val);
+  }
+  if (modeSelect) {
+    modeSelect.addEventListener('change', function () {
+      if (refInput && isAutoRef(refInput.value)) {
+        refInput.value = buildRef();
+      }
+    });
+  }
+
+  // ── 3. Pre-populate montant ───────────────────────────────────────────────
+  // Priority: facture.reste_a_payer (when coming from a specific invoice)
+  // Fallback: dette_globale (total open debt for the supplier)
+  var factureReste = {% if facture_reste %}{{ facture_reste }}{% else %}null{% endif %};
+  var dette = {% if solde %}{{ solde.dette_globale|default:0 }}{% else %}0{% endif %};
+  var initialMontant = (factureReste !== null && factureReste > 0) ? factureReste : dette;
+
+  if (montantInput && !montantInput.value && initialMontant > 0) {
+    montantInput.value = Number(initialMontant).toFixed(2);
+    // Trigger FIFO simulation on load
+    setTimeout(function () {
+      var initVal = parseFloat(montantInput.value);
+      if (initVal > 0) simulateFifo(initVal);
+    }, 100);
+  }
+
+  // ── 4. FIFO simulation ────────────────────────────────────────────────────  var openInvoices = [];
   document.querySelectorAll('.fifo-open-item').forEach(function (el) {
     openInvoices.push({
-      pk: el.dataset.pk,
-      ref: el.dataset.ref,
+      pk   : el.dataset.pk,
+      ref  : el.dataset.ref,
       reste: parseFloat(el.dataset.reste) || 0,
-      date: el.dataset.date,
-      el: el
+      date : el.dataset.date,
+      el   : el
     });
   });
-
-  var dette = {% if solde %}{{ solde.dette_globale|default:0 }}{% else %}0{% endif %};
 
   function formatDZD(n) {
     return Math.round(n).toLocaleString('fr-DZ') + ' DZD';
@@ -412,7 +490,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!fifoPreview || !fifoRows) return;
     if (!montant || montant <= 0) {
       fifoPreview.style.display = 'none';
-      submitBtn.disabled = false;
+      submitBtn && (submitBtn.disabled = false);
       resetItemHighlights();
       return;
     }
@@ -426,15 +504,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
     openInvoices.forEach(function (inv) {
       if (remaining <= 0) return;
-      var alloue = Math.min(remaining, inv.reste);
-      remaining -= alloue;
+      var alloue    = Math.min(remaining, inv.reste);
+      remaining    -= alloue;
       var isFullPaid = alloue >= inv.reste;
-      var pillHtml = isFullPaid
+      var pillHtml   = isFullPaid
         ? '<span class="pill-success">Payée</span>'
         : '<span class="pill-warning">Part. payée</span>';
       html += '<div class="fifo-preview__row">';
-      html += '<span class="fifo-preview__ref">' + inv.ref + '<span style="font-size:10.5px;color:var(--text-muted);margin-left:6px;">' + inv.date + '</span></span>';
-      html += '<span class="fifo-preview__amount" style="color:var(--accent-text);">' + formatDZD(alloue) + '</span>';
+      html += '<span class="fifo-preview__ref">' + inv.ref
+            + '<span style="font-size:10.5px;color:var(--text-muted);margin-left:6px;">'
+            + inv.date + '</span></span>';
+      html += '<span class="fifo-preview__amount" style="color:var(--accent-text);">'
+            + formatDZD(alloue) + '</span>';
       html += pillHtml;
       html += '</div>';
       if (inv.el) {
@@ -448,26 +529,24 @@ document.addEventListener('DOMContentLoaded', function () {
     fifoRows.innerHTML = html || '<div style="font-size:13px;color:var(--text-muted);padding:6px 0;">Aucune facture ouverte — tout le montant sera un acompte.</div>';
 
     var footerHtml = '';
-    var newDette = Math.max(0, dette - (montant - surplus));
-    footerHtml += 'Nouvelle dette estimée : <strong>' + formatDZD(newDette) + '</strong>';
+    var newDette   = Math.max(0, dette - (montant - surplus));
+    footerHtml    += 'Nouvelle dette estimée : <strong>' + formatDZD(newDette) + '</strong>';
     if (surplus > 0) {
-      footerHtml += '<div class="fifo-acompte-note"><i class="bx bxs-piggy-bank"></i> Surplus de ' + formatDZD(surplus) + ' → Acompte fournisseur (BR-REG-04)</div>';
+      footerHtml += '<div class="fifo-acompte-note"><i class="bx bxs-piggy-bank"></i> Surplus de '
+                  + formatDZD(surplus) + ' → Acompte fournisseur (BR-REG-04)</div>';
     }
     fifoFooter.innerHTML = footerHtml;
 
-    // Update debt bar
     if (debtFill && dette > 0) {
       var pct = Math.max(0, Math.min(100, (newDette / dette) * 100));
       debtFill.style.width = pct + '%';
-      debtFill.className = 'debt-bar__fill' + (pct > 85 ? ' crit' : pct > 60 ? ' warn' : '');
+      debtFill.className   = 'debt-bar__fill' + (pct > 85 ? ' crit' : pct > 60 ? ' warn' : '');
     }
   }
 
   function resetItemHighlights() {
     openInvoices.forEach(function (inv) {
-      if (inv.el) {
-        inv.el.classList.remove('fifo-open-item--allocated', 'fifo-open-item--partial');
-      }
+      if (inv.el) inv.el.classList.remove('fifo-open-item--allocated', 'fifo-open-item--partial');
     });
   }
 
@@ -475,14 +554,10 @@ document.addEventListener('DOMContentLoaded', function () {
     montantInput.addEventListener('input', function () {
       clearTimeout(debounceTimer);
       var val = parseFloat(montantInput.value);
-      if (!val || val <= 0) {
-        fifoPreview.style.display = 'none';
-        resetItemHighlights();
-        return;
-      }
+      if (!val || val <= 0) { fifoPreview.style.display = 'none'; resetItemHighlights(); return; }
       debounceTimer = setTimeout(function () { simulateFifo(val); }, 400);
     });
-    // Run on load if value present (e.g. form validation redisplay)
+    // Run on load if value already present (form re-display after validation error)
     var initVal = parseFloat(montantInput.value);
     if (initVal > 0) simulateFifo(initVal);
   }

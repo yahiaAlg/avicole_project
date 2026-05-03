@@ -17,7 +17,7 @@ SECRET_KEY = os.environ.get(
     "django-insecure-^88h91wsno7&^(geg9fq3u$3-pld*db8s%67rcyj59(=wxst4d",
 )
 
-DEBUG = os.environ.get("DEBUG", "False") == "True"
+DEBUG = os.environ.get("DEBUG", "True") == "True"
 
 ALLOWED_HOSTS = os.environ.get(
     "ALLOWED_HOSTS", "* avicole-farming-erp-webapp.onrender.com localhost 127.0.0.1"
@@ -132,6 +132,11 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Compress and cache-bust static files (gzip + unique filename hashes)
 STORAGES = {
+    # Default file storage (media uploads — must be present when STORAGES is defined)
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    # Static files served by WhiteNoise with compression + cache-busting
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },

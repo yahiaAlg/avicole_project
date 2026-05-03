@@ -25,7 +25,7 @@ Business rules enforced here:
 import logging
 from decimal import Decimal
 
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_save, pre_save, m2m_changed
 from django.dispatch import receiver
 
 from achats.models import BLFournisseur, FactureFournisseur, ReglementFournisseur
@@ -37,7 +37,10 @@ logger = logging.getLogger(__name__)
 # Helper: stock entry for one BL line
 # ---------------------------------------------------------------------------
 
-def _enregistrer_entree_stock_ligne(ligne, date_bl, created_by, reference_label, reference_id):
+
+def _enregistrer_entree_stock_ligne(
+    ligne, date_bl, created_by, reference_label, reference_id
+):
     """
     Increase StockIntrant balance and recompute PMP for a single BL line.
     Create a StockMouvement (entree) for audit.
@@ -96,6 +99,7 @@ def _enregistrer_entree_stock_ligne(ligne, date_bl, created_by, reference_label,
 # ---------------------------------------------------------------------------
 # Signal 1 & 2 — BLFournisseur: cache old status, trigger stock on RECU
 # ---------------------------------------------------------------------------
+
 
 @receiver(pre_save, sender=BLFournisseur)
 def bl_fournisseur_pre_save(sender, instance, **kwargs):
@@ -169,6 +173,7 @@ def bl_fournisseur_post_save(sender, instance, created, **kwargs):
 #            BR-FAF-03, BR-BLF-02)
 # ---------------------------------------------------------------------------
 
+
 @receiver(pre_save, sender=FactureFournisseur)
 def facture_fournisseur_pre_save(sender, instance, **kwargs):
     """
@@ -190,18 +195,45 @@ def facture_fournisseur_pre_save(sender, instance, **kwargs):
 @receiver(post_save, sender=FactureFournisseur)
 def facture_fournisseur_post_save(sender, instance, created, **kwargs):
     """
-    On first creation of a FactureFournisseur:
-      1. (BR-FAF-01) Compute montant_total from the associated BL lignes and
-         persist it.  This overwrites any value mistakenly set on the form.
-      2. (BR-FAF-03 / BR-BLF-02) Transition all linked BLs to STATUT_FACTURE
-         so they are locked against further modification or re-invoicing.
-      3. Initialise reste_a_payer = montant_total.
-
-    On subsequent saves this handler is a no-op; montant_total is immutable
-    (enforced also in FactureFournisseur.clean()).
+    On creation, mark the instance so the m2m_changed handler knows to act.
+    NOTE: Do NOT compute montant_total here — Django saves M2M relations
+    *after* post_save, so instance.bls.all() would be empty at this point.
+    All BL-dependent work is handled in facture_fournisseur_bls_changed.
     """
     if not created:
         return
+    instance._just_created = True
+    logger.info(
+        "FactureFournisseur pk=%s created. Awaiting M2M BL linkage.",
+        instance.pk,
+    )
+
+
+@receiver(m2m_changed, sender=FactureFournisseur.bls.through)
+def facture_fournisseur_bls_changed(sender, instance, action, pk_set, **kwargs):
+    """
+    Fires after BLs are attached to a FactureFournisseur via M2M.
+
+    BR-FAF-01 : compute montant_total from BL lines (now they are linked).
+    BR-FAF-03 / BR-BLF-02 : lock all included BLs to STATUT_FACTURE.
+    BR-REG initialise reste_a_payer = montant_total.
+
+    Guard: only act when the facture's montant_total is still 0 (i.e. this
+    is the first M2M population after creation — not a later admin edit).
+    """
+    if action != "post_add" or not pk_set:
+        return
+    if not isinstance(instance, FactureFournisseur):
+        return
+
+    # Only process freshly-created factures (montant_total == 0 in DB).
+    db_row = (
+        FactureFournisseur.objects.filter(pk=instance.pk)
+        .values("montant_total")
+        .first()
+    )
+    if not db_row or db_row["montant_total"] != Decimal("0"):
+        return  # Already computed — skip.
 
     # BR-FAF-01: derive montant_total from BL lines.
     montant_total = Decimal("0")
@@ -209,22 +241,22 @@ def facture_fournisseur_post_save(sender, instance, created, **kwargs):
         for ligne in bl.lignes.all():
             montant_total += ligne.montant_total
 
-    # Persist derived totals (update_fields avoids re-triggering this signal).
+    # Persist derived totals via UPDATE (avoids re-triggering post_save).
     FactureFournisseur.objects.filter(pk=instance.pk).update(
         montant_total=montant_total,
         reste_a_payer=montant_total,
     )
-
     logger.info(
-        "FactureFournisseur pk=%s created. montant_total computed: %s DZD.",
+        "FactureFournisseur pk=%s: BLs linked via M2M. "
+        "montant_total computed: %s DZD.",
         instance.pk,
         montant_total,
     )
 
     # BR-FAF-03 / BR-BLF-02: lock all included BLs.
-    locked_count = instance.bls.exclude(
+    locked_count = instance.bls.exclude(statut=BLFournisseur.STATUT_FACTURE).update(
         statut=BLFournisseur.STATUT_FACTURE
-    ).update(statut=BLFournisseur.STATUT_FACTURE)
+    )
 
     if locked_count:
         logger.info(
@@ -237,6 +269,7 @@ def facture_fournisseur_post_save(sender, instance, created, **kwargs):
 # ---------------------------------------------------------------------------
 # Signal 4 — ReglementFournisseur: FIFO allocation (BR-REG-03 / BR-REG-04)
 # ---------------------------------------------------------------------------
+
 
 @receiver(post_save, sender=ReglementFournisseur)
 def reglement_fournisseur_post_save(sender, instance, created, **kwargs):

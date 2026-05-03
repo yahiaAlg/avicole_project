@@ -304,6 +304,41 @@ def bl_fournisseur_detail(request, pk):
     lignes = bl.lignes.select_related("intrant__stock").all()
     factures = bl.factures.order_by("-date_facture")
 
+    # Determine admin status: staff OR profile role == "admin"
+    try:
+        is_admin = request.user.is_staff or request.user.profile.role == "admin"
+    except Exception:
+        is_admin = request.user.is_staff
+
+    # Statuts the user may switch to (FACTURE is system-only)
+    STATUT_TRANSITIONS = {
+        BLFournisseur.STATUT_BROUILLON: [
+            (BLFournisseur.STATUT_RECU, "Marquer comme Reçu"),
+            (BLFournisseur.STATUT_LITIGE, "Signaler en litige"),
+        ],
+        BLFournisseur.STATUT_RECU: [
+            (BLFournisseur.STATUT_LITIGE, "Signaler en litige"),
+            (BLFournisseur.STATUT_BROUILLON, "Repasser en Brouillon"),
+        ],
+        BLFournisseur.STATUT_LITIGE: [
+            (BLFournisseur.STATUT_RECU, "Marquer comme Reçu"),
+            (BLFournisseur.STATUT_BROUILLON, "Repasser en Brouillon"),
+        ],
+        BLFournisseur.STATUT_FACTURE: [],
+    }
+
+    next_statut_label = None
+    next_statut_value = None
+    if bl.statut == BLFournisseur.STATUT_BROUILLON:
+        next_statut_value = BLFournisseur.STATUT_RECU
+        next_statut_label = "Marquer comme Reçu"
+    elif bl.statut == BLFournisseur.STATUT_RECU:
+        next_statut_value = BLFournisseur.STATUT_LITIGE
+        next_statut_label = "Signaler en litige"
+    elif bl.statut == BLFournisseur.STATUT_LITIGE:
+        next_statut_value = BLFournisseur.STATUT_RECU
+        next_statut_label = "Marquer comme Reçu"
+
     return render(
         request,
         "achats/bl_fournisseur_detail.html",
@@ -313,8 +348,96 @@ def bl_fournisseur_detail(request, pk):
             "factures": factures,
             "montant_total": bl.montant_total,
             "title": f"BL {bl.reference}",
+            "is_admin": is_admin,
+            "statut_transitions": STATUT_TRANSITIONS.get(bl.statut, []),
+            "next_statut_value": next_statut_value,
+            "next_statut_label": next_statut_label,
         },
     )
+
+
+# ===========================================================================
+# BL Fournisseur — Change Statut
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def bl_fournisseur_change_statut(request, pk):
+    """
+    Change the statut of a BLFournisseur from the detail page.
+
+    Allowed transitions (FACTURE is system-only — set by invoice signal):
+      brouillon → recu | litige
+      recu      → litige | brouillon
+      litige    → recu  | brouillon
+      facture   → (none — locked)
+
+    Admins (is_staff or profile.role=="admin") may choose any allowed target
+    via the 'statut' POST field.  Regular users send a fixed 'next_statut'
+    field pre-filled by the template button.
+    """
+    bl = get_object_or_404(BLFournisseur, pk=pk)
+
+    if bl.est_verrouille:
+        messages.error(
+            request,
+            f"BR-BLF-02 : le BL {bl.reference} est verrouillé (Facturé) "
+            "et ne peut pas être modifié.",
+        )
+        return redirect("achats:bl_fournisseur_detail", pk=pk)
+
+    ALLOWED_TARGETS = {
+        BLFournisseur.STATUT_BROUILLON: {
+            BLFournisseur.STATUT_RECU,
+            BLFournisseur.STATUT_LITIGE,
+        },
+        BLFournisseur.STATUT_RECU: {
+            BLFournisseur.STATUT_LITIGE,
+            BLFournisseur.STATUT_BROUILLON,
+        },
+        BLFournisseur.STATUT_LITIGE: {
+            BLFournisseur.STATUT_RECU,
+            BLFournisseur.STATUT_BROUILLON,
+        },
+        BLFournisseur.STATUT_FACTURE: set(),
+    }
+
+    try:
+        is_admin = request.user.is_staff or request.user.profile.role == "admin"
+    except Exception:
+        is_admin = request.user.is_staff
+
+    new_statut = (
+        request.POST.get("statut") if is_admin else request.POST.get("next_statut")
+    )
+
+    allowed = ALLOWED_TARGETS.get(bl.statut, set())
+    if new_statut not in allowed:
+        messages.error(
+            request,
+            f"Transition de statut invalide : « {bl.get_statut_display()} » "
+            f"→ « {new_statut} » non autorisée.",
+        )
+        return redirect("achats:bl_fournisseur_detail", pk=pk)
+
+    old_display = bl.get_statut_display()
+    bl.statut = new_statut
+    bl.save(update_fields=["statut", "updated_at"])
+
+    new_display = bl.get_statut_display()
+    messages.success(
+        request,
+        f"Statut du BL {bl.reference} changé : {old_display} → {new_display}.",
+    )
+    logger.info(
+        "BLFournisseur pk=%s statut changed %s → %s by '%s'.",
+        pk,
+        old_display,
+        new_display,
+        request.user,
+    )
+    return redirect("achats:bl_fournisseur_detail", pk=pk)
 
 
 # ===========================================================================
@@ -705,12 +828,30 @@ def reglement_fournisseur_create(request):
     automatically via the post_save signal after the record is committed.
 
     BR-REG-06: règlements are immutable — no edit view is provided.
+
+    Optional GET params:
+      ?fournisseur=<pk>  — pre-select supplier
+      ?facture=<pk>      — pre-fill montant with facture.reste_a_payer
     """
     # Pre-select supplier via ?fournisseur=<pk>
     fournisseur_pk = request.GET.get("fournisseur", "")
     fournisseur = None
     if fournisseur_pk:
         fournisseur = get_object_or_404(Fournisseur, pk=fournisseur_pk, actif=True)
+
+    # Optional facture context — pre-fill montant with reste_a_payer
+    facture_pk = request.GET.get("facture", "")
+    facture_obj = None
+    facture_reste = None
+    if facture_pk:
+        try:
+            facture_obj = FactureFournisseur.objects.get(pk=facture_pk)
+            facture_reste = facture_obj.reste_a_payer
+            # Auto-resolve fournisseur from facture if not already set
+            if not fournisseur and facture_obj.fournisseur.actif:
+                fournisseur = facture_obj.fournisseur
+        except FactureFournisseur.DoesNotExist:
+            pass
 
     if request.method == "POST":
         form = ReglementFournisseurForm(request.POST, fournisseur=fournisseur)
@@ -765,6 +906,8 @@ def reglement_fournisseur_create(request):
             "form": form,
             "fournisseur": fournisseur,
             "solde": solde,
+            "facture_obj": facture_obj,
+            "facture_reste": facture_reste,
             "title": "Nouveau règlement fournisseur",
             "action_label": "Enregistrer le règlement",
         },

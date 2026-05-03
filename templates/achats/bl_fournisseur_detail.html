@@ -237,13 +237,65 @@
           <i class="bx bxs-pencil"></i> Modifier
         </a>
         {% endif %}
-        <a href="{% url 'achats:facture_fournisseur_create' %}?fournisseur={{ bl.fournisseur.pk }}" class="btn-ghost" style="width:100%;justify-content:center;">
+
+        {# ── Invoice button: active only when statut == recu ── #}
+        {% if bl.statut == "recu" %}
+        <a href="{% url 'achats:facture_fournisseur_create' %}?fournisseur={{ bl.fournisseur.pk }}" class="btn-success" style="width:100%;justify-content:center;">
           <i class="bx bxs-file-txt"></i> Créer une facture
         </a>
+        {% else %}
+        <span class="btn-ghost btn-disabled" style="width:100%;justify-content:center;cursor:not-allowed;opacity:.45;" title="{% if bl.statut == 'brouillon' %}Le BL doit être au statut « Reçu » pour créer une facture.{% elif bl.statut == 'litige' %}Résolvez le litige avant de facturer.{% else %}Ce BL est déjà facturé.{% endif %}">
+          <i class="bx bxs-file-txt"></i> Créer une facture
+        </span>
+        {% endif %}
+
         <a href="{% url 'achats:bl_fournisseur_list' %}?fournisseur={{ bl.fournisseur.pk }}" class="btn-ghost" style="width:100%;justify-content:center;">
           <i class="bx bxs-truck"></i> BLs du fournisseur
         </a>
       </div>
+
+      {# ── Status change widget ── #}
+      {% if not bl.est_verrouille %}
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+        <div style="font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">
+          Changer le statut
+        </div>
+
+        {% if is_admin %}
+        {# Admin: select dropdown with all allowed targets #}
+        <form method="post" action="{% url 'achats:bl_fournisseur_change_statut' bl.pk %}">
+          {% csrf_token %}
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <select name="statut" class="statut-select">
+              {% for val, label in statut_transitions %}
+              <option value="{{ val }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="btn-statut" style="width:100%;justify-content:center;">
+              <i class="bx bxs-transfer-alt"></i> Appliquer
+            </button>
+          </div>
+        </form>
+
+        {% elif next_statut_value %}
+        {# Non-admin: single "next step" button #}
+        <form method="post" action="{% url 'achats:bl_fournisseur_change_statut' bl.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="next_statut" value="{{ next_statut_value }}">
+          <button type="submit" class="{% if next_statut_value == 'recu' %}btn-statut-recu{% elif next_statut_value == 'litige' %}btn-statut-litige{% else %}btn-statut{% endif %}" style="width:100%;justify-content:center;">
+            {% if next_statut_value == "recu" %}
+              <i class="bx bxs-check-circle"></i>
+            {% elif next_statut_value == "litige" %}
+              <i class="bx bxs-error"></i>
+            {% else %}
+              <i class="bx bxs-transfer-alt"></i>
+            {% endif %}
+            {{ next_statut_label }}
+          </button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
 
       {% if bl.statut == "brouillon" %}
       <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
@@ -407,6 +459,51 @@
     cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
   }
   .btn-danger:hover { background: rgba(239,68,68,.18); }
+
+  .btn-success {
+    background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.3);
+    color: #15803d; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px;
+    border-radius: var(--radius-md); padding: 10px 18px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s; text-decoration: none;
+  }
+  .btn-success:hover { background: rgba(34,197,94,.2); color: #15803d; }
+  .btn-disabled { pointer-events: none; }
+
+  .statut-select {
+    width: 100%; padding: 8px 10px; font-size: 13px;
+    border: 1px solid var(--border); border-radius: var(--radius-md);
+    background: var(--bg-surface); color: var(--text-primary);
+    outline: none;
+  }
+  .statut-select:focus { border-color: var(--accent); }
+
+  .btn-statut {
+    background: rgba(99,102,241,.1); border: 1px solid rgba(99,102,241,.25);
+    color: #4f46e5; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px;
+    border-radius: var(--radius-md); padding: 9px 16px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s;
+  }
+  .btn-statut:hover { background: rgba(99,102,241,.18); }
+
+  .btn-statut-recu {
+    background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.25);
+    color: #15803d; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px;
+    border-radius: var(--radius-md); padding: 9px 16px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s;
+  }
+  .btn-statut-recu:hover { background: rgba(34,197,94,.2); }
+
+  .btn-statut-litige {
+    background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2);
+    color: #dc2626; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px;
+    border-radius: var(--radius-md); padding: 9px 16px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s;
+  }
+  .btn-statut-litige:hover { background: rgba(239,68,68,.15); }
 
   .confirm-panel {
     position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 500;

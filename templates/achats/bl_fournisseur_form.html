@@ -841,39 +841,40 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     }
   }
-});
+
   /* ── Intrant modal ── */
   (function () {
-    const AJAX_URL      = '{% url "intrants:intrant_create_ajax" %}';
-    const CSRF          = document.querySelector('[name=csrfmiddlewaretoken]').value;
-    // Supplier pk may be in the fournisseur select or a hidden input
+    var AJAX_URL   = '{% url "intrants:intrant_create_ajax" %}';
+    var CSRF       = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
     function getFournisseurPk() {
-      const sel = document.getElementById('id_fournisseur');
-      if (sel) return sel.value;
-      const hid = document.querySelector('input[name="fournisseur"]');
-      if (hid) return hid.value;
+      var sel = document.getElementById('id_fournisseur');
+      if (sel && sel.value) return sel.value;
+      var hid = document.querySelector('input[name="fournisseur"]');
+      if (hid && hid.value) return hid.value;
       {% if fournisseur %}return '{{ fournisseur.pk }}';{% else %}return '';{% endif %}
     }
 
-    const overlay     = document.getElementById('intrant-modal-overlay');
-    const closeBtn    = document.getElementById('intrant-modal-close');
-    const cancelBtn   = document.getElementById('intrant-modal-cancel');
-    const submitBtn   = document.getElementById('intrant-modal-submit');
-    const submitLabel = document.getElementById('im-submit-label');
-    const hdrBtn      = document.getElementById('open-intrant-modal-hdr');
+    var overlay     = document.getElementById('intrant-modal-overlay');
+    var closeBtn    = document.getElementById('intrant-modal-close');
+    var cancelBtn   = document.getElementById('intrant-modal-cancel');
+    var submitBtn   = document.getElementById('intrant-modal-submit');
+    var submitLabel = document.getElementById('im-submit-label');
+    var hdrBtn      = document.getElementById('open-intrant-modal-hdr');
 
-    // The row whose intrant <select> we should update after creation
-    let _targetRow = null;
+    if (!overlay || !submitBtn) return; // safety guard
+
+    var _targetRow = null;
 
     function clearModal() {
-      ['im-designation','im-categorie','im-unite'].forEach(function(id){
-        const el = document.getElementById(id);
+      ['im-designation','im-categorie','im-unite'].forEach(function(id) {
+        var el = document.getElementById(id);
         if (el) { el.value = ''; el.classList.remove('im-input--error'); }
       });
-      const seuil = document.getElementById('im-seuil');
+      var seuil = document.getElementById('im-seuil');
       if (seuil) seuil.value = '0';
-      ['im-err-designation','im-err-categorie','im-err-unite','im-err-global'].forEach(function(id){
-        const el = document.getElementById(id);
+      ['im-err-designation','im-err-categorie','im-err-unite','im-err-global'].forEach(function(id) {
+        var el = document.getElementById(id);
         if (el) { el.style.display = 'none'; el.textContent = ''; }
       });
       submitLabel.textContent = 'Créer l\'intrant';
@@ -884,8 +885,10 @@ document.addEventListener('DOMContentLoaded', function () {
       _targetRow = targetRow || null;
       clearModal();
       overlay.style.display = 'flex';
-      const desEl = document.getElementById('im-designation');
-      if (desEl) setTimeout(function(){ desEl.focus(); }, 80);
+      setTimeout(function() {
+        var d = document.getElementById('im-designation');
+        if (d) d.focus();
+      }, 80);
     }
 
     function closeModal() {
@@ -893,66 +896,63 @@ document.addEventListener('DOMContentLoaded', function () {
       _targetRow = null;
     }
 
-    if (hdrBtn) hdrBtn.addEventListener('click', function(){ openModal(null); });
+    if (hdrBtn)   hdrBtn.addEventListener('click', function() { openModal(null); });
     if (closeBtn) closeBtn.addEventListener('click', closeModal);
     if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
-    overlay.addEventListener('click', function(e){ if (e.target === overlay) closeModal(); });
-    document.addEventListener('keydown', function(e){
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) closeModal(); });
+    document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape' && overlay.style.display !== 'none') closeModal();
     });
 
-    // Each row gets a small "+" link inside the intrant select wrapper
+    /* Per-row "+" trigger injected into each intrant select wrapper */
     function addRowTrigger(row) {
-      const wrap = row.querySelector('.input-icon-wrap');
+      var wrap = row.querySelector('.input-icon-wrap');
       if (!wrap || wrap.dataset.imTrigger) return;
       wrap.dataset.imTrigger = '1';
-      const btn = document.createElement('button');
+      wrap.style.position = 'relative';
+      var btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'btn-new-intrant btn-row-intrant';
       btn.title = 'Créer un intrant et le sélectionner ici';
       btn.innerHTML = '<i class="bx bx-plus"></i>';
       btn.style.cssText = 'position:absolute;right:6px;top:50%;transform:translateY(-50%);z-index:2;padding:2px 6px;';
-      wrap.style.position = 'relative';
       wrap.appendChild(btn);
-      btn.addEventListener('click', function(){ openModal(row); });
+      btn.addEventListener('click', function() { openModal(row); });
     }
 
-    tbody.querySelectorAll('.ligne-row').forEach(addRowTrigger);
-
-    // Hook into add-line so new rows also get the trigger
-    const _origAddLine = addBtn.onclick;
-    addBtn.addEventListener('click', function(){
-      setTimeout(function(){
-        tbody.querySelectorAll('.ligne-row').forEach(addRowTrigger);
-      }, 50);
-    });
-
-    // Also add trigger after formset clone (MutationObserver)
-    const obs = new MutationObserver(function(mutations){
-      mutations.forEach(function(m){
-        m.addedNodes.forEach(function(n){
-          if (n.classList && n.classList.contains('ligne-row')) addRowTrigger(n);
-        });
+    /* Bind triggers on existing rows and on newly added rows */
+    if (tbody) {
+      tbody.querySelectorAll('.ligne-row').forEach(addRowTrigger);
+      tbody.addEventListener('click', function(e) {
+        /* catch newly added rows that haven't been bound yet */
+        var row = e.target.closest('.ligne-row');
+        if (row) addRowTrigger(row);
       });
-    });
-    obs.observe(tbody, { childList: true });
+    }
+    if (addBtn) {
+      addBtn.addEventListener('click', function() {
+        setTimeout(function() {
+          if (tbody) tbody.querySelectorAll('.ligne-row').forEach(addRowTrigger);
+        }, 60);
+      });
+    }
 
-    // Submit
-    submitBtn.addEventListener('click', function(){
-      // Client-side required check
-      let ok = true;
+    /* Submit handler */
+    submitBtn.addEventListener('click', function() {
+      /* Client-side validation */
+      var ok = true;
       [['im-designation','im-err-designation'],
-       ['im-categorie','im-err-categorie'],
-       ['im-unite','im-err-unite']].forEach(function(pair){
-        const inp = document.getElementById(pair[0]);
-        const err = document.getElementById(pair[1]);
-        if (!inp.value.trim()) {
-          inp.classList.add('im-input--error');
-          err.textContent = 'Ce champ est requis.'; err.style.display = 'flex';
+       ['im-categorie',  'im-err-categorie'],
+       ['im-unite',      'im-err-unite']].forEach(function(pair) {
+        var inp = document.getElementById(pair[0]);
+        var err = document.getElementById(pair[1]);
+        if (!inp || !inp.value.trim()) {
+          if (inp) inp.classList.add('im-input--error');
+          if (err) { err.textContent = 'Ce champ est requis.'; err.style.display = 'flex'; }
           ok = false;
         } else {
           inp.classList.remove('im-input--error');
-          err.style.display = 'none';
+          if (err) err.style.display = 'none';
         }
       });
       if (!ok) return;
@@ -960,37 +960,35 @@ document.addEventListener('DOMContentLoaded', function () {
       submitBtn.disabled = true;
       submitLabel.textContent = 'Création…';
 
-      const body = new FormData();
-      body.append('csrfmiddlewaretoken', CSRF);
-      body.append('designation', document.getElementById('im-designation').value.trim());
-      body.append('categorie', document.getElementById('im-categorie').value);
-      body.append('unite_mesure', document.getElementById('im-unite').value);
-      body.append('seuil_alerte', document.getElementById('im-seuil').value || '0');
-      body.append('actif', 'on');
-      const fPk = getFournisseurPk();
-      if (fPk) body.append('fournisseur_pk', fPk);
+      var fd = new FormData();
+      fd.append('csrfmiddlewaretoken', CSRF);
+      fd.append('designation',  document.getElementById('im-designation').value.trim());
+      fd.append('categorie',    document.getElementById('im-categorie').value);
+      fd.append('unite_mesure', document.getElementById('im-unite').value);
+      fd.append('seuil_alerte', document.getElementById('im-seuil').value || '0');
+      fd.append('actif', 'on');
+      var fPk = getFournisseurPk();
+      if (fPk) fd.append('fournisseur_pk', fPk);
 
-      fetch(AJAX_URL, { method: 'POST', body: body })
-        .then(function(r){ return r.json(); })
-        .then(function(data){
+      fetch(AJAX_URL, { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
           if (!data.ok) {
-            // Map server errors back to fields
-            const fieldMap = {
-              designation: ['im-designation','im-err-designation'],
-              categorie:   ['im-categorie','im-err-categorie'],
-              unite_mesure:['im-unite','im-err-unite'],
+            var fieldMap = {
+              designation:  ['im-designation',  'im-err-designation'],
+              categorie:    ['im-categorie',    'im-err-categorie'],
+              unite_mesure: ['im-unite',        'im-err-unite'],
             };
-            let hasGlobal = false;
-            Object.keys(data.errors || {}).forEach(function(field){
-              const msg = data.errors[field].join(' ');
+            Object.keys(data.errors || {}).forEach(function(field) {
+              var msg = data.errors[field].join(' ');
               if (fieldMap[field]) {
-                document.getElementById(fieldMap[field][0]).classList.add('im-input--error');
-                const errEl = document.getElementById(fieldMap[field][1]);
-                errEl.textContent = msg; errEl.style.display = 'flex';
+                var inp = document.getElementById(fieldMap[field][0]);
+                var err = document.getElementById(fieldMap[field][1]);
+                if (inp) inp.classList.add('im-input--error');
+                if (err) { err.textContent = msg; err.style.display = 'flex'; }
               } else {
-                const g = document.getElementById('im-err-global');
-                g.textContent = msg; g.style.display = 'flex';
-                hasGlobal = true;
+                var g = document.getElementById('im-err-global');
+                if (g) { g.textContent = msg; g.style.display = 'flex'; }
               }
             });
             submitBtn.disabled = false;
@@ -998,45 +996,48 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
           }
 
-          // Inject the new option into ALL intrant selects on the page
-          const allSelects = document.querySelectorAll('select[name$="-intrant"]');
-          const newOpt = document.createElement('option');
-          newOpt.value = data.pk;
-          newOpt.text  = data.label;
-
-          allSelects.forEach(function(sel){
-            sel.appendChild(newOpt.cloneNode(true));
+          /* Inject new <option> into every intrant select */
+          document.querySelectorAll('select[name$="-intrant"]').forEach(function(sel) {
+            var opt = document.createElement('option');
+            opt.value = data.pk;
+            opt.text  = data.label;
+            sel.appendChild(opt);
           });
 
-          // Select it in the target row (or the last row if opened from header)
-          const targetSel = _targetRow
-            ? _targetRow.querySelector('select[name$="-intrant"]')
-            : tbody.querySelector('.ligne-row:last-child select[name$="-intrant"]');
+          /* Select it in the target row */
+          var targetSel = null;
+          if (_targetRow) {
+            targetSel = _targetRow.querySelector('select[name$="-intrant"]');
+          } else if (tbody) {
+            var rows = tbody.querySelectorAll('.ligne-row');
+            if (rows.length) targetSel = rows[rows.length - 1].querySelector('select[name$="-intrant"]');
+          }
 
           if (targetSel) {
             targetSel.value = data.pk;
-            // Set price to 0 on the target row
-            const targetRow = targetSel.closest('.ligne-row');
+            var targetRow = targetSel.closest('.ligne-row');
             if (targetRow) {
-              const puEl = targetRow.querySelector('input[name$="-prix_unitaire"]');
-              if (puEl) puEl.value = '0';
-              // Trigger stock hint fetch (price stays 0 as there's no history)
+              var puEl = targetRow.querySelector('input[name$="-prix_unitaire"]');
+              if (puEl) { puEl.value = '0.0000'; puEl.dispatchEvent(new Event('input', { bubbles: true })); }
+              /* update stock hint */
               fetchIntrantHint(targetSel, targetRow, false);
             }
-            // Dispatch change so recalcTotals runs
             targetSel.dispatchEvent(new Event('change', { bubbles: true }));
           }
 
           closeModal();
         })
-        .catch(function(){
-          const g = document.getElementById('im-err-global');
-          g.textContent = 'Erreur réseau. Veuillez réessayer.';
-          g.style.display = 'flex';
+        .catch(function(err) {
+          console.error('intrant_create_ajax error:', err);
+          var g = document.getElementById('im-err-global');
+          if (g) { g.textContent = 'Erreur réseau. Veuillez réessayer.'; g.style.display = 'flex'; }
           submitBtn.disabled = false;
           submitLabel.textContent = 'Créer l\'intrant';
         });
     });
-  })();
+
+  })(); /* end modal IIFE */
+
+}); /* end DOMContentLoaded */
 </script>
 {% endblock %}
