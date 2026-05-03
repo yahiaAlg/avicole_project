@@ -111,7 +111,12 @@
       height: var(--topbar-h);
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
+      text-decoration: none;
+      cursor: pointer;
     }
+    .sidebar-brand:hover .sidebar-brand__icon { background: var(--accent); }
+    .sidebar-brand:hover .sidebar-brand__icon i { color: #fff; }
+    .sidebar-brand:hover .brand-text { color: var(--accent-text); }
     .sidebar-brand__icon {
       width: 32px; height: 32px;
       background: var(--accent-dim);
@@ -998,12 +1003,12 @@
   <nav class="sidebar" aria-label="Navigation principale">
 
     <!-- Brand -->
-    <div class="sidebar-brand">
+    <a href="{% url 'core:dashboard' %}" class="sidebar-brand">
       <div class="sidebar-brand__icon">
         <i class="bxs-leaf bx"></i>
       </div>
       <span class="brand-text">Élevage Avicole</span>
-    </div>
+    </a>
 
     <!-- Navigation -->
     <div class="sidebar-nav">
