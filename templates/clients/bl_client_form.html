@@ -358,6 +358,55 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+  // ── Pre-populate date + reference on new BL forms only ────────────────
+  const refInput  = document.getElementById('id_reference');
+  const dateInput = document.getElementById('id_date_bl');
+  const clientSel = document.getElementById('id_client');
+
+  const isNewForm = refInput && !refInput.value;
+
+  // 1. Date → today
+  if (isNewForm && dateInput && !dateInput.value) {
+    const today = new Date();
+    const yyyy  = today.getFullYear();
+    const mm    = String(today.getMonth() + 1).padStart(2, '0');
+    const dd    = String(today.getDate()).padStart(2, '0');
+    dateInput.value = `${yyyy}-${mm}-${dd}`;
+  }
+
+  // 2. Reference → BLC-{INITIALS}-{DDMMYYYY}
+  function buildRef() {
+    if (!isNewForm || !refInput || refInput.dataset.manual) return;
+
+    let datePart = '';
+    if (dateInput && dateInput.value) {
+      const [y, m, d] = dateInput.value.split('-');
+      datePart = `${d}${m}${y}`;
+    }
+
+    let initials = '';
+    if (clientSel && clientSel.tagName === 'SELECT' && clientSel.value) {
+      const label = clientSel.options[clientSel.selectedIndex]?.text || '';
+      initials = label.trim().split(/\s+/).map(w => w[0]?.toUpperCase() || '').join('');
+    } else {
+      initials = refInput.dataset.clientInitials || '';
+    }
+
+    refInput.value = ['BLC', initials, datePart].filter(Boolean).join('-');
+  }
+
+  {% if client %}
+  if (refInput) refInput.dataset.clientInitials =
+    '{{ client.nom|escapejs }}'.trim().split(/\s+/).map(w => w[0]?.toUpperCase() || '').join('');
+  {% endif %}
+
+  buildRef();
+
+  if (dateInput) dateInput.addEventListener('change', buildRef);
+  if (clientSel && clientSel.tagName === 'SELECT') clientSel.addEventListener('change', buildRef);
+  if (refInput) refInput.addEventListener('input', function () { refInput.dataset.manual = '1'; });
+  // ── End pre-population ─────────────────────────────────────────────────
+
   const totalFormsInput = document.querySelector('[name$="-TOTAL_FORMS"]');
   const tbody           = document.getElementById('formset-container');
   const emptyTemplate   = document.getElementById('empty-form-template');
@@ -410,8 +459,13 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (!hint) return;
-        hint.textContent = 'Dispo\u202f: ' + stock.toLocaleString('fr-DZ') + '\u00a0' + (data.unite_mesure || '');
-        hint.classList.toggle('over', qty > stock);
+        if (qty > 0 && qty > stock) {
+          hint.textContent = '\u26a0\ufe0f Insuffisant \u2014 Dispo\u202f: ' + stock.toLocaleString('fr-DZ') + '\u00a0' + (data.unite_mesure || '');
+          hint.classList.add('over');
+        } else {
+          hint.textContent = 'Dispo\u202f: ' + stock.toLocaleString('fr-DZ') + '\u00a0' + (data.unite_mesure || '');
+          hint.classList.remove('over');
+        }
       })
       .catch(() => { if (hint) hint.textContent = ''; });
   }

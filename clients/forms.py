@@ -140,7 +140,7 @@ class BLClientLigneForm(forms.ModelForm):
         model = BLClientLigne
         fields = ["produit_fini", "quantite", "prix_unitaire", "notes"]
         widgets = {
-            "quantite": forms.NumberInput(attrs={"step": "0.001", "min": "0.001"}),
+            "quantite": forms.NumberInput(attrs={"step": "1", "min": "1"}),
             "prix_unitaire": forms.NumberInput(attrs={"step": "0.0001", "min": "0"}),
             "notes": forms.Textarea(attrs={"rows": 1}),
         }
@@ -192,7 +192,7 @@ BLClientLigneFormSet = inlineformset_factory(
     BLClientLigne,
     form=BLClientLigneForm,
     formset=BaseBLClientLigneFormSet,
-    extra=3,
+    extra=1,
     min_num=1,
     validate_min=True,
     can_delete=True,
