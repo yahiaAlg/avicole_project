@@ -120,26 +120,18 @@ def bl_fournisseur_pre_save(sender, instance, **kwargs):
         instance._old_statut = None
 
 
-@receiver(post_save, sender=BLFournisseur)
-def bl_fournisseur_post_save(sender, instance, created, **kwargs):
+def traiter_entrees_stock_bl(instance):
     """
-    When a BLFournisseur transitions to STATUT_RECU, process every ligne:
-      - Increase StockIntrant.quantite
-      - Recompute StockIntrant.prix_moyen_pondere (PMP / weighted average cost)
-      - Create a StockMouvement of type ENTREE
+    Process stock entries for all lines of a BLFournisseur that is in STATUT_RECU.
 
-    A BL already in RECU (or FACTURE) that is saved again without a status
-    change is ignored — this prevents double-counting on incidental saves.
+    This is the shared implementation called both by the post_save signal
+    (statut-change path) and directly from the create/edit views (where lines
+    are saved *after* the BL header, so the signal fires too early).
+
+    It is idempotent-safe when called from the view immediately after formset
+    save, because the signal guard (``_stock_already_processed``) prevents the
+    signal handler from running a second time for the same save cycle.
     """
-    old_statut = getattr(instance, "_old_statut", None)
-    is_transitioning_to_recu = (
-        instance.statut == BLFournisseur.STATUT_RECU
-        and old_statut != BLFournisseur.STATUT_RECU
-    )
-
-    if not is_transitioning_to_recu:
-        return
-
     lignes = instance.lignes.select_related("intrant").all()
 
     if not lignes.exists():
@@ -151,8 +143,7 @@ def bl_fournisseur_post_save(sender, instance, created, **kwargs):
         return
 
     logger.info(
-        "BLFournisseur pk=%s (%s) transitioned to RECU. "
-        "Processing %d ligne(s) for stock entry.",
+        "BLFournisseur pk=%s (%s) processing %d ligne(s) for stock entry.",
         instance.pk,
         instance.reference,
         lignes.count(),
@@ -166,6 +157,42 @@ def bl_fournisseur_post_save(sender, instance, created, **kwargs):
             reference_label=instance.reference,
             reference_id=instance.pk,
         )
+
+    # Mark so the post_save signal skips duplicate processing in the same cycle.
+    instance._stock_already_processed = True
+
+
+@receiver(post_save, sender=BLFournisseur)
+def bl_fournisseur_post_save(sender, instance, created, **kwargs):
+    """
+    When a BLFournisseur transitions to STATUT_RECU, process every ligne:
+      - Increase StockIntrant.quantite
+      - Recompute StockIntrant.prix_moyen_pondere (PMP / weighted average cost)
+      - Create a StockMouvement of type ENTREE
+
+    NOTE: When a BL is *created* with statut=RECU via the create view, lines
+    are saved by the formset *after* this signal fires, so ``instance.lignes``
+    is empty here.  The view calls ``traiter_entrees_stock_bl`` explicitly
+    after formset.save() for that case.  The ``_stock_already_processed`` flag
+    prevents double-counting when both paths are active.
+
+    A BL already in RECU (or FACTURE) that is saved again without a status
+    change is ignored — this prevents double-counting on incidental saves.
+    """
+    # Skip if the view already processed stock entries after formset save.
+    if getattr(instance, "_stock_already_processed", False):
+        return
+
+    old_statut = getattr(instance, "_old_statut", None)
+    is_transitioning_to_recu = (
+        instance.statut == BLFournisseur.STATUT_RECU
+        and old_statut != BLFournisseur.STATUT_RECU
+    )
+
+    if not is_transitioning_to_recu:
+        return
+
+    traiter_entrees_stock_bl(instance)
 
 
 # ---------------------------------------------------------------------------

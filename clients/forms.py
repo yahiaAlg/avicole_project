@@ -111,11 +111,12 @@ class BLClientForm(forms.ModelForm):
         if self.instance and self.instance.est_verrouille:
             for field in self.fields.values():
                 field.disabled = True
+        self.future_date_warning = False
 
     def clean_date_bl(self):
         date = self.cleaned_data["date_bl"]
         if date > datetime.date.today():
-            raise ValidationError("La date du BL ne peut pas être dans le futur.")
+            self.future_date_warning = True
         return date
 
     def clean(self):
@@ -333,6 +334,7 @@ class PaiementClientForm(forms.ModelForm):
         if client:
             self.fields["client"].initial = client
             self.fields["client"].widget = forms.HiddenInput()
+        self.future_date_warning = False
 
     def clean_montant(self):
         montant = self.cleaned_data["montant"]
@@ -343,7 +345,7 @@ class PaiementClientForm(forms.ModelForm):
     def clean_date_paiement(self):
         date = self.cleaned_data["date_paiement"]
         if date > datetime.date.today():
-            raise ValidationError("La date du paiement ne peut pas être dans le futur.")
+            self.future_date_warning = True
         return date
 
 

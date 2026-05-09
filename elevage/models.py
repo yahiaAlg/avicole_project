@@ -136,10 +136,18 @@ class LotElevage(models.Model):
 
     @property
     def duree_elevage(self):
-        """Days from opening to closure (or today if still open)."""
+        """Days from opening to closure (or latest recorded activity if still open)."""
         from datetime import date
+        from django.db.models import Max
 
-        end = self.date_fermeture or date.today()
+        if self.date_fermeture:
+            end = self.date_fermeture
+        else:
+            latest_mortalite = self.mortalites.aggregate(m=Max("date"))["m"]
+            latest_conso = self.consommations.aggregate(m=Max("date"))["m"]
+            candidates = [d for d in (latest_mortalite, latest_conso) if d is not None]
+            end = max(candidates) if candidates else date.today()
+
         return (end - self.date_ouverture).days
 
     @property

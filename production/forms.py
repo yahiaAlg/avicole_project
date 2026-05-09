@@ -69,6 +69,7 @@ class ProductionRecordForm(forms.ModelForm):
             self._lot = lot
         else:
             self._lot = None
+        self.future_date_warning = False
 
     def clean(self):
         cleaned = super().clean()
@@ -77,10 +78,7 @@ class ProductionRecordForm(forms.ModelForm):
         date_prod = cleaned.get("date_production")
 
         if date_prod and date_prod > datetime.date.today():
-            self.add_error(
-                "date_production",
-                "La date de production ne peut pas être dans le futur.",
-            )
+            self.future_date_warning = True
 
         if lot and nombre:
             effectif = lot.effectif_vivant

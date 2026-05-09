@@ -71,6 +71,7 @@
           <div class="form-field">
             <label class="form-label" for="{{ form.date_bl.id_for_label }}">Date du BL *</label>
             {{ form.date_bl }}
+            {% if form.future_date_warning %}<div class="field-warning"><i class="bx bxs-info-circle"></i> La date est dans le futur — vérifiez avant de valider.</div>{% endif %}
             {% for err in form.date_bl.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
           </div>
 
@@ -313,6 +314,7 @@
   input[name$="-DELETE"] { display: none; }
 
   .field-error { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #dc2626; margin-top: 2px; }
+  .field-warning { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #d97706; margin-top: 2px; }
   .form-error-banner { background: rgba(239,68,68,.06); border: 1px solid rgba(239,68,68,.18); border-radius: var(--radius-md); padding: 10px 14px; font-size: 13px; color: #dc2626; display: flex; align-items: center; gap: 8px; margin-top: 14px; }
   .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
 

@@ -65,8 +65,10 @@
     <form method="post" id="reglement-form">
       {% csrf_token %}
 
-      <!-- Hidden fournisseur -->
+      {% if fournisseur %}
+      <!-- Hidden fournisseur (pre-set from URL context) -->
       {{ form.fournisseur }}
+      {% endif %}
 
       <div class="form-card">
         <div class="form-card__title"><i class="bx bxs-coin"></i> Détails du règlement</div>
@@ -116,6 +118,17 @@
             {% if form.montant.errors %}
             <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.montant.errors.0 }}</div>
             {% endif %}
+            <!-- Live debt-remaining indicator -->
+            <div id="debt-live-wrap" style="display:none;margin-top:10px;">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">
+                <span id="debt-live-label" style="font-size:11.5px;color:var(--text-muted);"></span>
+                <span id="debt-live-remaining" style="font-family:Nunito,sans-serif;font-weight:800;font-size:13px;"></span>
+              </div>
+              <div style="height:6px;background:var(--bg-hover);border-radius:6px;overflow:hidden;">
+                <div id="debt-live-bar" style="height:100%;border-radius:6px;width:100%;transition:width .3s ease,background .3s ease;"></div>
+              </div>
+              <div id="debt-live-msg" style="font-size:11.5px;margin-top:5px;display:flex;align-items:center;gap:5px;"></div>
+            </div>
           </div>
           <div class="field-group">
             <label for="{{ form.reference_paiement.id_for_label }}" class="field-label">
@@ -469,7 +482,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }, 100);
   }
 
-  // ── 4. FIFO simulation ────────────────────────────────────────────────────  var openInvoices = [];
+  // ── 4. FIFO simulation ────────────────────────────────────────────────────
+  var openInvoices = [];
   document.querySelectorAll('.fifo-open-item').forEach(function (el) {
     openInvoices.push({
       pk   : el.dataset.pk,
@@ -480,8 +494,174 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
+  // ── 5. Supplier-change: live AJAX debt fetch ──────────────────────────────
+  var fournisseurSelect = document.querySelector('[name="fournisseur"]');
+  var formAside = document.querySelector('.form-aside');
+
+  function renderAside(data) {
+    var dette_val = parseFloat(data.dette_globale) || 0;
+    var acompte_val = parseFloat(data.acompte_disponible) || 0;
+    var html = '<div class="aside-card aside-card--debt">';
+    html += '<div class="aside-card__title"><i class="bx bx-hourglass"></i> Situation du fournisseur</div>';
+    html += '<div class="debt-metric">';
+    html += '<div class="debt-metric__label">Dette globale</div>';
+    html += '<div class="debt-metric__val ' + (dette_val > 0 ? 'val-red' : '') + '">' + Math.round(dette_val).toLocaleString('fr-DZ') + ' DZD</div>';
+    html += '</div>';
+    if (dette_val > 0) {
+      html += '<div class="debt-bar-wrap"><div class="debt-bar__track"><div class="debt-bar__fill" id="debt-fill" style="width:100%;"></div></div></div>';
+    }
+    html += '<div class="summary-row"><span class="summary-label">Acompte disponible</span><span class="summary-val" style="color:var(--accent-text);">' + Math.round(acompte_val).toLocaleString('fr-DZ') + ' DZD</span></div>';
+    if (data.nb_factures_retard > 0) {
+      html += '<div class="summary-row" style="color:#dc2626;"><span class="summary-label" style="color:#dc2626;">Factures en retard</span><span class="summary-val" style="color:#dc2626;">' + data.nb_factures_retard + '</span></div>';
+    }
+    html += '</div>';
+
+    if (data.factures_ouvertes && data.factures_ouvertes.length > 0) {
+      html += '<div class="aside-card">';
+      html += '<div class="aside-card__title"><i class="bx bxs-file-txt"></i> Factures ouvertes (ordre FIFO)</div>';
+      html += '<div class="fifo-open-list" id="open-invoices">';
+      data.factures_ouvertes.forEach(function (f) {
+        html += '<div class="fifo-open-item" data-pk="' + f.pk + '" data-ref="' + f.reference + '" data-reste="' + f.reste_a_payer + '" data-date="' + f.date_facture + '">';
+        html += '<div class="fifo-open-item__ref">' + f.reference + '</div>';
+        html += '<div class="fifo-open-item__meta">' + f.date_facture + (f.est_en_retard ? ' <span style="color:#dc2626;font-size:10px;"> · En retard</span>' : '') + '</div>';
+        html += '<div class="fifo-open-item__reste">' + Math.round(parseFloat(f.reste_a_payer)).toLocaleString('fr-DZ') + ' DZD</div>';
+        html += '</div>';
+      });
+      html += '</div></div>';
+    } else {
+      html += '<div class="notice-banner notice-banner--success" style="margin-top:0;">';
+      html += '<i class="bx bxs-check-circle" style="flex-shrink:0;color:#15803d;"></i>';
+      html += '<span>Aucune <strong>facture ouverte</strong>. Le montant sera un <strong>acompte</strong> (BR-REG-04).</span>';
+      html += '</div>';
+    }
+
+    if (formAside) formAside.innerHTML = html;
+
+    // Re-bind debtFill after DOM rebuild
+    debtFill = document.getElementById('debt-fill');
+
+    // Rebuild openInvoices from newly rendered DOM
+    openInvoices = [];
+    document.querySelectorAll('.fifo-open-item').forEach(function (el) {
+      openInvoices.push({
+        pk   : el.dataset.pk,
+        ref  : el.dataset.ref,
+        reste: parseFloat(el.dataset.reste) || 0,
+        date : el.dataset.date,
+        el   : el
+      });
+    });
+  }
+
+  function loadSupplierDebt(pk) {
+    if (!pk) {
+      dette = 0;
+      openInvoices = [];
+      if (formAside) {
+        formAside.innerHTML = '<div class="aside-card"><div class="aside-card__title"><i class="bx bx-info-circle"></i> Allocation FIFO</div>'
+          + '<div style="font-size:12px;color:var(--text-muted);line-height:1.6;">Sélectionnez un fournisseur pour voir sa situation financière.</div></div>';
+      }
+      updateDebtLive(0);
+      if (fifoPreview) fifoPreview.style.display = 'none';
+      return;
+    }
+    fetch('/achats/fournisseurs/' + pk + '/dette.json', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        dette = parseFloat(data.dette_globale) || 0;
+        renderAside(data);
+
+        // Pre-populate montant with dette_globale
+        if (montantInput && dette > 0) {
+          montantInput.value = dette.toFixed(2);
+        } else if (montantInput) {
+          montantInput.value = '';
+        }
+
+        var val = parseFloat(montantInput ? montantInput.value : 0) || 0;
+        updateDebtLive(val);
+        if (val > 0) simulateFifo(val);
+        else if (fifoPreview) fifoPreview.style.display = 'none';
+      })
+      .catch(function (e) { console.error('dette.json error', e); });
+  }
+
+  if (fournisseurSelect) {
+    fournisseurSelect.addEventListener('change', function () {
+      loadSupplierDebt(this.value || null);
+    });
+    // If there's already a value selected on load (e.g. form re-display after error)
+    if (fournisseurSelect.value) {
+      loadSupplierDebt(fournisseurSelect.value);
+    }
+  }
+
   function formatDZD(n) {
     return Math.round(n).toLocaleString('fr-DZ') + ' DZD';
+  }
+
+  // ── Live debt-remaining indicator (instant, no debounce) ─────────────────
+  var debtLiveWrap      = document.getElementById('debt-live-wrap');
+  var debtLiveBar       = document.getElementById('debt-live-bar');
+  var debtLiveRemaining = document.getElementById('debt-live-remaining');
+  var debtLiveLabel     = document.getElementById('debt-live-label');
+  var debtLiveMsg       = document.getElementById('debt-live-msg');
+
+  function updateDebtLive(montant) {
+    if (!debtLiveWrap || dette <= 0) return;
+    var val = montant || 0;
+    var newDette = Math.max(0, dette - val);
+    var covered  = Math.min(val, dette);
+    var pct      = dette > 0 ? Math.min(100, (covered / dette) * 100) : 0;
+
+    debtLiveWrap.style.display = 'block';
+
+    // Bar colour: green when fully covered, amber when partial, red when nothing entered
+    var barColor = pct >= 100 ? '#16a34a' : pct > 0 ? '#f59e0b' : '#ef4444';
+    debtLiveBar.style.width      = Math.max(pct, 0) + '%';
+    debtLiveBar.style.background = barColor;
+
+    // Label + remaining amount
+    if (pct >= 100) {
+      debtLiveLabel.textContent     = 'Dette entièrement couverte';
+      debtLiveLabel.style.color     = '#16a34a';
+      debtLiveRemaining.textContent = '0 DZD';
+      debtLiveRemaining.style.color = '#16a34a';
+    } else if (val > 0) {
+      debtLiveLabel.textContent     = 'Reste à payer après règlement';
+      debtLiveLabel.style.color     = 'var(--text-muted)';
+      debtLiveRemaining.textContent = formatDZD(newDette);
+      debtLiveRemaining.style.color = '#b45309';
+    } else {
+      debtLiveLabel.textContent     = 'Dette totale';
+      debtLiveLabel.style.color     = 'var(--text-muted)';
+      debtLiveRemaining.textContent = formatDZD(dette);
+      debtLiveRemaining.style.color = '#dc2626';
+    }
+
+    // Soft status message
+    var msgIcon, msgText, msgColor;
+    if (pct >= 100 && val > dette) {
+      var surplus = val - dette;
+      msgIcon  = 'bx-piggy-bank';
+      msgText  = 'Surplus de ' + formatDZD(surplus) + ' → Acompte fournisseur (BR-REG-04)';
+      msgColor = '#7c3aed';
+    } else if (pct >= 100) {
+      msgIcon  = 'bxs-check-circle';
+      msgText  = 'Ce règlement solde toutes les factures ouvertes';
+      msgColor = '#16a34a';
+    } else if (pct > 0) {
+      var pctInt = Math.round(pct);
+      msgIcon  = 'bx-transfer';
+      msgText  = pctInt + ' % de la dette couverte — ' + formatDZD(covered) + ' alloué(s)';
+      msgColor = '#b45309';
+    } else {
+      msgIcon  = 'bxs-error-circle';
+      msgText  = 'Saisissez un montant pour voir l\u2019impact sur la dette';
+      msgColor = 'var(--text-muted)';
+    }
+    debtLiveMsg.innerHTML = '<i class="bx ' + msgIcon + '" style="color:' + msgColor + ';font-size:13px;flex-shrink:0;"></i>'
+                          + '<span style="color:' + msgColor + ';">' + msgText + '</span>';
   }
 
   var debounceTimer = null;
@@ -552,14 +732,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (montantInput) {
     montantInput.addEventListener('input', function () {
-      clearTimeout(debounceTimer);
       var val = parseFloat(montantInput.value);
+      updateDebtLive(val > 0 ? val : 0);      // instant — no debounce
+      clearTimeout(debounceTimer);
       if (!val || val <= 0) { fifoPreview.style.display = 'none'; resetItemHighlights(); return; }
       debounceTimer = setTimeout(function () { simulateFifo(val); }, 400);
     });
     // Run on load if value already present (form re-display after validation error)
     var initVal = parseFloat(montantInput.value);
+    updateDebtLive(initVal > 0 ? initVal : 0);
     if (initVal > 0) simulateFifo(initVal);
+  } else {
+    // No amount yet but debt exists — show the empty state bar
+    updateDebtLive(0);
   }
 });
 </script>

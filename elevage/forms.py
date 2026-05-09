@@ -82,12 +82,14 @@ class LotFermetureForm(forms.Form):
         required=False,
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.future_date_warning = False
+
     def clean_date_fermeture(self):
         date = self.cleaned_data["date_fermeture"]
         if date > datetime.date.today():
-            raise ValidationError(
-                "La date de fermeture ne peut pas être dans le futur."
-            )
+            self.future_date_warning = True
         return date
 
 

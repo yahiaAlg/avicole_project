@@ -84,6 +84,9 @@
                     <i class="bx bxs-calendar field-icon"></i>
                     {{ form.date_production }}
                   </div>
+                  {% if form.future_date_warning %}
+                    <div class="field-warning"><i class="bx bxs-info-circle"></i> La date est dans le futur — vérifiez avant de valider.</div>
+                  {% endif %}
                   {% if form.date_production.errors %}
                     <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.date_production.errors.0 }}</div>
                   {% endif %}
@@ -390,6 +393,7 @@
   .field-wrap:focus-within .field-icon { color:var(--accent-text); }
   .field-hint { font-size:11.5px;color:var(--text-muted); }
   .field-error { display:flex;align-items:center;gap:4px;font-size:12px;color:#dc2626;margin-top:2px; }
+  .field-warning { display:flex;align-items:center;gap:4px;font-size:12px;color:#d97706;margin-top:2px; }
 
   .field-wrap input,
   .field-wrap select {

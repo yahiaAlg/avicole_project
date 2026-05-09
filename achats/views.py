@@ -168,6 +168,14 @@ def bl_fournisseur_create(request, fournisseur_pk=None):
                     bl.save()
                     formset.instance = bl
                     formset.save()
+                    # If the BL was created directly with statut=RECU, the
+                    # post_save signal fired before lines existed (lines are
+                    # saved by formset.save() above).  Process stock entries
+                    # now that all lines are persisted.
+                    if bl.statut == BLFournisseur.STATUT_RECU:
+                        from achats.signals import traiter_entrees_stock_bl
+
+                        traiter_entrees_stock_bl(bl)
 
                 messages.success(
                     request,
@@ -1120,11 +1128,22 @@ def fournisseur_dette_json(request, pk):
         from achats.utils import get_fournisseur_solde
 
         solde = get_fournisseur_solde(fournisseur)
+        factures_list = [
+            {
+                "pk": f.pk,
+                "reference": f.reference,
+                "reste_a_payer": str(f.reste_a_payer),
+                "date_facture": f.date_facture.strftime("%d/%m/%Y"),
+                "est_en_retard": f.est_en_retard,
+            }
+            for f in solde["factures_ouvertes"]
+        ]
         data = {
             "dette_globale": str(solde["dette_globale"]),
             "acompte_disponible": str(solde["acompte_disponible"]),
-            "nb_factures_ouvertes": solde["factures_ouvertes"].count(),
+            "nb_factures_ouvertes": len(factures_list),
             "nb_factures_retard": solde["nb_factures_retard"],
+            "factures_ouvertes": factures_list,
         }
     except Exception as exc:
         logger.exception("fournisseur_dette_json error for pk=%s: %s", pk, exc)

@@ -375,22 +375,49 @@ def bl_client_create(request, client_pk=None):
                     # Auto-generate reference if blank
                     if not bl.reference:
                         bl.reference = generer_reference_bl_client()
+                    # Honour the chosen statut but guard LIVRE with a stock check.
+                    # Previously this was hardcoded to BROUILLON, which silently
+                    # ignored the user's LIVRE selection and never deducted stock.
+                    wanted_statut = bl.statut  # value from form
                     bl.statut = BLClient.STATUT_BROUILLON
                     bl.save()
 
                     formset.instance = bl
-                    formset.save()
+                    formset.save()  # lines must exist before stock check
 
-                messages.success(
-                    request,
-                    f"BL Client « {bl.reference} » créé (brouillon). "
-                    "Validez-le pour déduire le stock.",
+                    if wanted_statut == BLClient.STATUT_LIVRE:
+                        lignes = bl.lignes.select_related("produit_fini__stock").all()
+                        insuffisant = []
+                        for ligne in lignes:
+                            dispo = ligne.produit_fini.quantite_en_stock
+                            if ligne.quantite > dispo:
+                                insuffisant.append(
+                                    f"« {ligne.produit_fini.designation} » : "
+                                    f"demandé {ligne.quantite}, disponible {dispo} "
+                                    f"{ligne.produit_fini.unite_mesure}"
+                                )
+                        if insuffisant:
+                            raise ValueError(
+                                "BR-BLC-02 : stock insuffisant — "
+                                + " | ".join(insuffisant)
+                            )
+                        # Transition triggers the post_save signal → stock deducted.
+                        bl.statut = BLClient.STATUT_LIVRE
+                        bl.save(update_fields=["statut", "updated_at"])
+
+                success_msg = (
+                    f"BL Client « {bl.reference} » créé et livré. "
+                    "Le stock produits finis a été mis à jour."
+                    if bl.statut == BLClient.STATUT_LIVRE
+                    else f"BL Client « {bl.reference} » créé (brouillon). "
+                    "Validez-le pour déduire le stock."
                 )
+                messages.success(request, success_msg)
                 logger.info(
-                    "BLClient pk=%s ('%s') created (BROUILLON) by '%s' "
-                    "(client pk=%s).",
+                    "BLClient pk=%s ('%s') created (%s) by '%s' (client pk=%s).",
                     bl.pk,
                     bl.reference,
+                    bl.statut,
                     request.user,
                     bl.client_id,
                 )
@@ -499,8 +526,32 @@ def bl_client_edit(request, pk):
         if form.is_valid() and formset.is_valid():
             try:
                 with transaction.atomic():
-                    form.save()
+                    new_statut = form.cleaned_data.get("statut")
+                    transitioning_to_livre = (
+                        new_statut == BLClient.STATUT_LIVRE
+                        and bl.statut != BLClient.STATUT_LIVRE
+                    )
+                    # Save lines FIRST so the post_save signal (fired by
+                    # form.save below) reads the updated quantities, not
+                    # the stale pre-edit DB rows.
                     formset.save()
+                    if transitioning_to_livre:
+                        lignes = bl.lignes.select_related("produit_fini__stock").all()
+                        insuffisant = []
+                        for ligne in lignes:
+                            dispo = ligne.produit_fini.quantite_en_stock
+                            if ligne.quantite > dispo:
+                                insuffisant.append(
+                                    f"« {ligne.produit_fini.designation} » : "
+                                    f"demandé {ligne.quantite}, disponible {dispo} "
+                                    f"{ligne.produit_fini.unite_mesure}"
+                                )
+                        if insuffisant:
+                            raise ValueError(
+                                "BR-BLC-02 : stock insuffisant — "
+                                + " | ".join(insuffisant)
+                            )
+                    form.save()  # signal fires here; lines already up-to-date
 
                 messages.success(request, f"BL Client « {bl.reference} » mis à jour.")
                 logger.info("BLClient pk=%s updated by '%s'.", bl.pk, request.user)
