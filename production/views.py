@@ -924,11 +924,16 @@ def produit_fini_detail_json(request, pk):
     try:
         p = ProduitFini.objects.get(pk=pk, actif=True)
         stock = p.quantite_en_stock
+        try:
+            cmp = float(p.stock.cout_moyen_production)
+        except Exception:
+            cmp = 0.0
         return JsonResponse(
             {
                 "quantite": float(stock),
                 "unite_mesure": p.unite_mesure,
                 "prix_vente_defaut": float(p.prix_vente_defaut),
+                "cout_moyen_production": cmp,
             }
         )
     except ProduitFini.DoesNotExist:

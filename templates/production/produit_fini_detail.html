@@ -305,6 +305,74 @@
       </div>
       {% endif %}
 
+      <!-- ── Calculateur de marge ──────────────────────────────────── -->
+      <div class="card calc-card">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bx-trending-up"></i> Calculateur de marge</div>
+        </div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:14px;">
+
+          <!-- Base price display -->
+          <div class="calc-base-row">
+            <div class="calc-base-item">
+              <span class="calc-base-label">Coût moyen prod.</span>
+              <span class="calc-base-val" id="calc-cmp">
+                {% if stock %}{{ stock.cout_moyen_production|floatformat:2 }}{% else %}0.00{% endif %}
+              </span>
+              <span class="calc-base-unit">DZD / {{ produit.unite_mesure }}</span>
+            </div>
+            <div class="calc-base-arrow">→</div>
+            <div class="calc-base-item">
+              <span class="calc-base-label">Prix vente actuel</span>
+              <span class="calc-base-val">{{ produit.prix_vente_defaut|floatformat:2 }}</span>
+              <span class="calc-base-unit">DZD</span>
+            </div>
+          </div>
+
+          {% if stock and stock.cout_moyen_production > 0 %}
+          <!-- Current margin indicator -->
+          <div class="calc-current-marge" id="current-marge-display">
+            <div class="calc-marge-bar-wrap">
+              <div class="calc-marge-bar" id="calc-marge-bar"></div>
+            </div>
+            <div class="calc-marge-label">
+              Marge actuelle : <strong id="calc-marge-pct-current"></strong>
+              (<strong id="calc-marge-dzd-current"></strong> DZD / {{ produit.unite_mesure }})
+            </div>
+          </div>
+          {% endif %}
+
+          <div style="border-top:1px solid var(--border);padding-top:14px;">
+            <div style="font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Simuler une marge</div>
+            <!-- Marge % -->
+            <div class="calc-field">
+              <label class="calc-label">Marge %</label>
+              <div class="calc-input-wrap">
+                <i class="bx bx-trending-up calc-icon"></i>
+                <input type="number" id="calc-marge-pct" step="0.01" min="0" placeholder="ex : 30" class="calc-input">
+              </div>
+            </div>
+            <div class="calc-ou">ou</div>
+            <!-- Marge DZD -->
+            <div class="calc-field">
+              <label class="calc-label">Marge DZD / {{ produit.unite_mesure }}</label>
+              <div class="calc-input-wrap">
+                <i class="bx bxs-coin calc-icon"></i>
+                <input type="number" id="calc-marge-dzd" step="0.01" min="0" placeholder="ex : 200" class="calc-input">
+              </div>
+            </div>
+          </div>
+
+          <!-- Result -->
+          <div id="calc-result" class="calc-result" style="display:none;">
+            <div class="calc-result__label">Prix de vente suggéré</div>
+            <div class="calc-result__val" id="calc-result-val">—</div>
+            <div class="calc-result__sub" id="calc-result-sub"></div>
+          </div>
+
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -424,7 +492,31 @@
   .pill-neutral { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(0,0,0,.06);color:var(--text-secondary); }
   .unit-badge { font-size:11px;font-weight:500;background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-sm);padding:2px 8px;color:var(--text-muted); }
 
-  /* Confirm panel */
+  /* Profit calculator */
+  .calc-card {}
+  .calc-base-row { display:flex;align-items:center;gap:8px;background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px; }
+  .calc-base-item { flex:1;display:flex;flex-direction:column;gap:2px;min-width:0; }
+  .calc-base-label { font-size:9.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted); }
+  .calc-base-val { font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary); }
+  .calc-base-unit { font-size:10px;color:var(--text-muted); }
+  .calc-base-arrow { font-size:14px;color:var(--text-muted);flex-shrink:0; }
+  .calc-current-marge { display:flex;flex-direction:column;gap:6px; }
+  .calc-marge-bar-wrap { height:5px;background:var(--bg-raised);border-radius:99px;overflow:hidden; }
+  .calc-marge-bar { height:100%;background:linear-gradient(90deg,var(--accent),#86efac);border-radius:99px;transition:width .4s ease;width:0; }
+  .calc-marge-label { font-size:11.5px;color:var(--text-secondary); }
+  .calc-field { display:flex;flex-direction:column;gap:4px;margin-bottom:8px; }
+  .calc-label { font-size:11px;font-weight:500;color:var(--text-muted); }
+  .calc-input-wrap { position:relative; }
+  .calc-icon { position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--text-muted);pointer-events:none; }
+  .calc-input { width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13px;padding:8px 10px 8px 30px;transition:border-color .15s,box-shadow .15s;box-sizing:border-box; }
+  .calc-input:focus { border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);outline:none; }
+  .calc-input[disabled] { opacity:.4;cursor:not-allowed; }
+  .calc-ou { font-size:11px;font-weight:600;color:var(--text-muted);text-align:center;margin:2px 0 10px; }
+  .calc-result { background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.22);border-radius:var(--radius-md);padding:14px 16px;text-align:center;animation:slideIn .25s ease; }
+  .calc-result__label { font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px; }
+  .calc-result__val { font-family:'Nunito',sans-serif;font-weight:800;font-size:26px;color:var(--accent-text);line-height:1; }
+  .calc-result__sub { font-size:11.5px;color:var(--text-muted);margin-top:5px; }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-5px)} to{opacity:1;transform:translateY(0)} }
   .confirm-panel { position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:500;display:flex!important;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s ease; }
   .confirm-panel[style*="display:none"] { display:none!important; }
   .confirm-panel__inner { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;max-width:420px;width:100%;display:flex;flex-direction:column;gap:16px;box-shadow:0 8px 32px rgba(0,0,0,.14); }
@@ -471,4 +563,80 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 {% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // ── Current margin display ──────────────────────────────────────────
+  var cmpEl   = document.getElementById('calc-cmp');
+  var barEl   = document.getElementById('calc-marge-bar');
+  var pctCurr = document.getElementById('calc-marge-pct-current');
+  var dzdCurr = document.getElementById('calc-marge-dzd-current');
+  var pvDflt  = {{ produit.prix_vente_defaut|floatformat:4 }};
+
+  if (cmpEl) {
+    var cmp = parseFloat(cmpEl.textContent) || 0;
+    if (cmp > 0 && pvDflt > 0) {
+      var margeDzd = pvDflt - cmp;
+      var margePct = (margeDzd / cmp * 100);
+      if (pctCurr) pctCurr.textContent = margePct.toFixed(1) + ' %';
+      if (dzdCurr) dzdCurr.textContent = margeDzd.toFixed(2);
+      if (barEl) {
+        var barWidth = Math.min(100, Math.max(0, margePct));
+        barEl.style.width = barWidth + '%';
+        barEl.style.background = margePct < 0 ? '#dc2626' : margePct < 10 ? '#f59e0b' : 'linear-gradient(90deg,var(--accent),#86efac)';
+      }
+    }
+  }
+
+  // ── Simulator ──────────────────────────────────────────────────────
+  var calcPct    = document.getElementById('calc-marge-pct');
+  var calcDzd    = document.getElementById('calc-marge-dzd');
+  var calcResult = document.getElementById('calc-result');
+  var calcVal    = document.getElementById('calc-result-val');
+  var calcSub    = document.getElementById('calc-result-sub');
+  if (!calcPct || !calcDzd) return;
+
+  var base = cmpEl ? (parseFloat(cmpEl.textContent) || 0) : 0;
+
+  function computeCalc() {
+    var pct = parseFloat(calcPct.value);
+    var dzd = parseFloat(calcDzd.value);
+    var result = null;
+
+    if (!isNaN(pct) && calcPct.value !== '') {
+      result = base + (base * pct / 100);
+    } else if (!isNaN(dzd) && calcDzd.value !== '') {
+      result = base + dzd;
+    }
+
+    if (result !== null && base > 0) {
+      calcVal.textContent = result.toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' DZD';
+      var mPct = ((result - base) / base * 100).toFixed(1);
+      var mDzd = (result - base).toFixed(2);
+      calcSub.textContent = '+ ' + mPct + ' % de marge   (+' + mDzd + ' DZD / {{ produit.unite_mesure }})';
+      calcResult.style.display = '';
+      // Update bar dynamically
+      if (barEl) {
+        barEl.style.width = Math.min(100, Math.max(0, parseFloat(mPct))) + '%';
+        barEl.style.background = parseFloat(mPct) < 0 ? '#dc2626' : parseFloat(mPct) < 10 ? '#f59e0b' : 'linear-gradient(90deg,var(--accent),#86efac)';
+      }
+    } else if (base <= 0) {
+      calcResult.style.display = 'none';
+    } else {
+      calcResult.style.display = 'none';
+    }
+  }
+
+  calcPct.addEventListener('input', function () {
+    if (this.value !== '') { calcDzd.disabled = true; calcDzd.value = ''; }
+    else calcDzd.disabled = false;
+    computeCalc();
+  });
+  calcDzd.addEventListener('input', function () {
+    if (this.value !== '') { calcPct.disabled = true; calcPct.value = ''; }
+    else calcPct.disabled = false;
+    computeCalc();
+  });
+});
+</script>
 {% endblock %}

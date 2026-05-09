@@ -88,6 +88,67 @@
               {% endif %}
             </div>
 
+            <!-- ── Simulateur de marge ────────────────────────────── -->
+            <div class="form-field marge-section">
+              <label class="field-label">
+                <i class="bx bx-trending-up" style="font-size:12px;color:var(--accent-text);"></i>
+                Simulateur de marge (facultatif)
+              </label>
+
+              <!-- Row 1: cost base -->
+              <div class="marge-row marge-row--base">
+                <div class="marge-col marge-col--full">
+                  <span class="marge-sublabel">Coût de base (DZD) <span class="marge-sublabel-hint">— coût de revient unitaire estimé</span></span>
+                  <div class="field-wrap">
+                    <i class="bx bxs-layer field-icon"></i>
+                    <input type="number" id="cout-base" class="field-input" step="0.01" min="0" placeholder="ex : 450">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Row 2: margin inputs + computed price -->
+              <div class="marge-row">
+                <div class="marge-col">
+                  <span class="marge-sublabel">Marge %</span>
+                  <div class="field-wrap">
+                    <i class="bx bx-trending-up field-icon"></i>
+                    <input type="number" id="marge-pct" class="field-input" step="0.01" min="0" max="9999" placeholder="ex : 25">
+                  </div>
+                </div>
+                <div class="marge-ou">ou</div>
+                <div class="marge-col">
+                  <span class="marge-sublabel">Marge DZD</span>
+                  <div class="field-wrap">
+                    <i class="bx bxs-coin field-icon"></i>
+                    <input type="number" id="marge-dzd" class="field-input" step="0.01" min="0" placeholder="ex : 150">
+                  </div>
+                </div>
+                <div class="marge-eq">=</div>
+                <div class="marge-col marge-col--result">
+                  <span class="marge-sublabel">Prix suggéré</span>
+                  <div class="field-wrap">
+                    <i class="bx bxs-purchase-tag field-icon" style="color:var(--accent-text);"></i>
+                    <input type="text" id="prix-calc" class="field-input prix-calc-input" readonly placeholder="—">
+                    <span class="prix-unit-badge">DZD</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Soft notification / apply -->
+              <div id="marge-notification" class="marge-notification" style="display:none;">
+                <i class="bx bxs-purchase-tag"></i>
+                <span id="marge-notif-text"></span>
+                <button type="button" id="apply-marge-btn" class="marge-apply-btn">
+                  <i class="bx bx-check"></i> Appliquer au prix de vente
+                </button>
+              </div>
+
+              <!-- Warning: no cost base -->
+              <div id="marge-no-base-warn" class="marge-warn" style="display:none;">
+                <i class="bx bx-error-circle"></i> Saisissez d'abord le coût de base pour calculer un prix de vente.
+              </div>
+            </div>
+
             <!-- Actif -->
             <div class="form-field-check">
               {{ form.actif }}
@@ -121,6 +182,93 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const prixInput  = document.getElementById('{{ form.prix_vente_defaut.id_for_label }}');
+  const coutBase   = document.getElementById('cout-base');
+  const margePct   = document.getElementById('marge-pct');
+  const margeDzd   = document.getElementById('marge-dzd');
+  const prixCalc   = document.getElementById('prix-calc');
+  const notif      = document.getElementById('marge-notification');
+  const notifText  = document.getElementById('marge-notif-text');
+  const applyBtn   = document.getElementById('apply-marge-btn');
+  const noBaseWarn = document.getElementById('marge-no-base-warn');
+  if (!prixInput || !coutBase || !margePct || !margeDzd) return;
+
+  let notifTimer = null;
+
+  function getCout() { return parseFloat(coutBase.value) || 0; }
+
+  function computeAndShow() {
+    const cout = getCout();
+    const pct  = parseFloat(margePct.value);
+    const dzd  = parseFloat(margeDzd.value);
+    const hasMargin = (!isNaN(pct) && margePct.value !== '') || (!isNaN(dzd) && margeDzd.value !== '');
+
+    // Warn when margin is entered but no cost base
+    if (hasMargin && cout <= 0) {
+      noBaseWarn.style.display = 'flex';
+      prixCalc.value = '';
+      notif.style.display = 'none';
+      return;
+    }
+    noBaseWarn.style.display = 'none';
+
+    let result = null;
+    if (!isNaN(pct) && margePct.value !== '') {
+      result = cout + (cout * pct / 100);
+    } else if (!isNaN(dzd) && margeDzd.value !== '') {
+      result = cout + dzd;
+    }
+
+    if (result !== null && cout > 0) {
+      const formatted = result.toFixed(2);
+      const margeAbs  = (result - cout).toFixed(2);
+      const margePctDisplay = ((result - cout) / cout * 100).toFixed(1);
+      prixCalc.value = formatted;
+      notifText.textContent =
+        'Prix suggéré : ' + parseFloat(formatted).toLocaleString('fr-FR', {minimumFractionDigits:2}) + ' DZD'
+        + '  (marge : ' + parseFloat(margeAbs).toLocaleString('fr-FR', {minimumFractionDigits:2}) + ' DZD / ' + margePctDisplay + ' %)';
+      notif.style.display = 'flex';
+      if (notifTimer) clearTimeout(notifTimer);
+    } else {
+      prixCalc.value = '';
+      notif.style.display = 'none';
+    }
+  }
+
+  // Mutual disabling of margin inputs
+  margePct.addEventListener('input', function () {
+    if (this.value !== '') { margeDzd.disabled = true; margeDzd.value = ''; }
+    else margeDzd.disabled = false;
+    computeAndShow();
+  });
+  margeDzd.addEventListener('input', function () {
+    if (this.value !== '') { margePct.disabled = true; margePct.value = ''; }
+    else margePct.disabled = false;
+    computeAndShow();
+  });
+  coutBase.addEventListener('input', computeAndShow);
+
+  // Apply button: write computed price into prix_vente_defaut
+  if (applyBtn) {
+    applyBtn.addEventListener('click', function () {
+      const val = prixCalc.value;
+      if (!val) return;
+      prixInput.value = parseFloat(val).toFixed(2);
+      prixInput.dispatchEvent(new Event('input'));
+      // Flash feedback on target field
+      prixInput.style.borderColor = 'var(--accent)';
+      prixInput.style.boxShadow   = '0 0 0 3px var(--accent-glow)';
+      setTimeout(() => { prixInput.style.borderColor = ''; prixInput.style.boxShadow = ''; }, 1200);
+      notifTimer = setTimeout(() => { notif.style.display = 'none'; }, 2500);
+    });
+  }
+});
+</script>
 {% endblock %}
 
 {% block extra_css %}
@@ -178,7 +326,26 @@
   .form-field-check input[type="checkbox"] { width:16px;height:16px;accent-color:var(--accent);cursor:pointer; }
   .check-label { font-size:13px;color:var(--text-secondary);cursor:pointer; }
 
-  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s,transform .12s;text-decoration:none; }
+  .marge-section { background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px 16px;display:flex;flex-direction:column;gap:12px; }
+  .marge-row { display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap; }
+  .marge-col { display:flex;flex-direction:column;gap:5px;flex:1;min-width:110px; }
+  .marge-col--result .field-wrap { position:relative; }
+  .marge-sublabel { font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted); }
+  .marge-ou { font-size:11px;font-weight:600;color:var(--text-muted);padding-bottom:10px;align-self:flex-end; }
+  .marge-eq { font-size:16px;font-weight:700;color:var(--accent-text);padding-bottom:8px;align-self:flex-end; }
+  .prix-calc-input { background:var(--bg-surface)!important;border-color:rgba(34,197,94,.3)!important;color:var(--accent-text)!important;font-family:'Nunito',sans-serif!important;font-weight:700!important;cursor:default!important;padding-right:48px!important; }
+  .prix-unit-badge { position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:600;color:var(--text-muted);background:var(--bg-raised);border:1px solid var(--border);border-radius:4px;padding:1px 5px;pointer-events:none; }
+  .marge-notification { display:flex;align-items:center;gap:10px;background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.22);border-radius:var(--radius-md);padding:10px 14px;font-size:12.5px;color:var(--text-secondary);animation:slideIn .25s ease both; }
+  .marge-notification i { color:var(--accent-text);font-size:15px;flex-shrink:0; }
+  .marge-apply-btn { margin-left:auto;flex-shrink:0;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:5px 11px;font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:opacity .15s; }
+  .marge-apply-btn:hover { opacity:.85; }
+  .marge-row--base { margin-bottom:2px; }
+  .marge-col--full { flex:1 1 100%; min-width:0; }
+  .marge-sublabel-hint { font-weight:400;letter-spacing:0;text-transform:none;opacity:.7;font-size:10px; }
+  .marge-warn { display:flex;align-items:center;gap:6px;font-size:12px;color:#b45309;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.28);border-radius:var(--radius-sm);padding:7px 11px; }
+  .marge-warn i { font-size:14px;flex-shrink:0; }
+  input[disabled] { opacity:.45!important;cursor:not-allowed!important; }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
   .btn-primary:hover { opacity:.88;color:#fff; }
   .btn-primary:active { transform:scale(.99); }
   .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s,border-color .12s,color .12s;text-decoration:none; }
