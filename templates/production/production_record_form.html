@@ -194,7 +194,7 @@
               <div class="lg-col lg-qty">Quantité <span class="required-star">*</span></div>
               <div class="lg-col lg-poids">Poids unit. (kg)</div>
               <div class="lg-col lg-marge">Marge <span class="marge-toggle-hint">sur coût</span></div>
-              <div class="lg-col lg-pvente">Prix vente <span style="font-size:9px;opacity:.6;">(calculé)</span></div>
+              <div class="lg-col lg-pvente">Coût → Vente <span style="font-size:9px;opacity:.6;">(calculé)</span></div>
               <div class="lg-col lg-notes">Notes</div>
               <div class="lg-col lg-del"></div>
             </div>
@@ -234,17 +234,18 @@
                 <div class="lg-col lg-marge">
                   <div class="marge-dual-wrap">
                     <div class="field-wrap marge-half-wrap">
-                      <input type="number" class="field-input marge-pct-input" step="0.01" min="0" max="9999"
+                      <input type="number" class="field-input marge-pct-input" step="0.01" min="-9999" max="9999"
                              placeholder="%" title="Marge %">
                     </div>
                     <div class="marge-dual-sep">ou</div>
                     <div class="field-wrap marge-half-wrap">
-                      <input type="number" class="field-input marge-dzd-input" step="0.01" min="0"
+                      <input type="number" class="field-input marge-dzd-input" step="0.01"
                              placeholder="DZD" title="Marge DZD">
                     </div>
                   </div>
+                  <div class="marge-cout-hint pvd-hint-text"></div>
                 </div>
-                <!-- Suggested selling price (readonly) -->
+                <!-- Prix vente (readonly) -->
                 <div class="lg-col lg-pvente">
                   <div class="field-wrap pvente-wrap">
                     <i class="bx bxs-purchase-tag field-icon" style="top:12px;transform:none;color:var(--accent-text);"></i>
@@ -297,15 +298,16 @@
               <div class="lg-col lg-marge">
                 <div class="marge-dual-wrap">
                   <div class="field-wrap marge-half-wrap">
-                    <input type="number" class="field-input marge-pct-input" step="0.01" min="0" max="9999" placeholder="%" title="Marge %">
+                    <input type="number" class="field-input marge-pct-input" step="0.01" min="-9999" max="9999" placeholder="%" title="Marge %">
                   </div>
                   <div class="marge-dual-sep">ou</div>
                   <div class="field-wrap marge-half-wrap">
-                    <input type="number" class="field-input marge-dzd-input" step="0.01" min="0" placeholder="DZD" title="Marge DZD">
+                    <input type="number" class="field-input marge-dzd-input" step="0.01" placeholder="DZD" title="Marge DZD">
                   </div>
                 </div>
+                <div class="marge-cout-hint pvd-hint-text"></div>
               </div>
-              <!-- Suggested selling price (readonly) -->
+              <!-- Prix vente (readonly) -->
               <div class="lg-col lg-pvente">
                 <div class="field-wrap pvente-wrap">
                   <i class="bx bxs-purchase-tag field-icon" style="top:12px;transform:none;color:var(--accent-text);"></i>
@@ -590,6 +592,15 @@
   .ligne-row .pvente-display[data-updated="1"] { animation:priceFlash .5s ease; }
   @keyframes priceFlash { 0%{background:rgba(34,197,94,.18)!important} 100%{background:rgba(34,197,94,.04)!important} }
 
+  /* ── Marge cost hint ──────────────────────────────────────────── */
+  .marge-cout-hint {
+    font-size:10px;color:var(--text-muted);margin-top:4px;
+    padding-left:2px;font-style:italic;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    min-height:14px;
+  }
+  .marge-cout-hint.has-data { color:var(--text-secondary); font-style:normal; }
+
   /* Compact inputs inside ligne rows */
   .ligne-row .field-wrap input,
   .ligne-row .field-wrap select {
@@ -790,9 +801,9 @@ document.addEventListener('DOMContentLoaded', function () {
     var pventeDisp = row.querySelector('.pvente-display');
     var notifDot   = row.querySelector('.pvente-notif-dot');
     var produitSel = row.querySelector('select[name$="-produit_fini"]');
+    var coutHint   = row.querySelector('.marge-cout-hint');
     if (!pctInput || !dzdInput || !pventeDisp) return;
 
-    // coutBase = CMP if available, else prix_vente_defaut (new product, no production yet)
     var coutBase = 0;
 
     function recompute() {
@@ -810,19 +821,36 @@ document.addEventListener('DOMContentLoaded', function () {
         setTimeout(function() { delete pventeDisp.dataset.updated; }, 600);
         if (notifDot) notifDot.style.display = '';
       } else {
-        pventeDisp.value = coutBase > 0 ? '' : '';
+        pventeDisp.value = '';
         if (notifDot) notifDot.style.display = 'none';
       }
     }
 
     function onDataLoaded(entry) {
-      if (!entry) { coutBase = 0; return; }
-      // Prefer CMP; fall back to prix_vente_defaut if product never produced yet
+      if (!entry) {
+        coutBase = 0;
+        if (coutHint) { coutHint.textContent = ''; coutHint.classList.remove('has-data'); }
+        return;
+      }
       coutBase = entry.cmp > 0 ? entry.cmp : entry.pvd;
-      // Show tooltip on the cost column to indicate which base is being used
-      var mageWrap = row.querySelector('.lg-marge');
-      if (mageWrap) {
-        mageWrap.title = entry.cmp > 0
+
+      // Pre-fill % with natural margin (pvd vs cost) only if field is untouched
+      if (coutBase > 0 && entry.pvd > 0 && pctInput.value === '') {
+        var naturalPct = ((entry.pvd - coutBase) / coutBase) * 100;
+        pctInput.value = parseFloat(naturalPct.toFixed(2));
+        dzdInput.disabled = true;
+      }
+
+      // Cost hint beneath the margin inputs
+      if (coutHint) {
+        var baseLabel = entry.cmp > 0 ? 'CMP' : 'prix défaut';
+        coutHint.textContent = 'Coût : ' + coutBase.toFixed(2) + ' DZD (' + baseLabel + ')';
+        coutHint.classList.add('has-data');
+      }
+
+      var margeWrap = row.querySelector('.lg-marge');
+      if (margeWrap) {
+        margeWrap.title = entry.cmp > 0
           ? 'Base : coût moy. prod. ' + entry.cmp.toFixed(2) + ' DZD'
           : 'Base : prix vente défaut ' + entry.pvd.toFixed(2) + ' DZD (CMP non dispo)';
       }
