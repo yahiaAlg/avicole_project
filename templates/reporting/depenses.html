@@ -232,19 +232,7 @@
   </div>
 </div>
 
-<script id="depense-data" type="application/json">
-{
-  "categories": {
-    "labels": [{% for c in summary.par_categorie %}"{{ c.categorie.libelle|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
-    "values": [{% for c in summary.par_categorie %}{{ c.total|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}],
-    "pcts":   [{% for c in summary.par_categorie %}{{ c.pct }}{% if not forloop.last %},{% endif %}{% endfor %}]
-  },
-  "modes": {
-    "labels": [{% for m in summary.par_mode_paiement %}"{{ m.label|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
-    "values": [{% for m in summary.par_mode_paiement %}{{ m.total|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}]
-  }
-}
-</script>
+<script id="depense-data" type="application/json">{{ chart_json|safe }}</script>
 {% endblock %}
 
 {% block extra_js %}

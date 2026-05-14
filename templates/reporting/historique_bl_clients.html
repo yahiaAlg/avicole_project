@@ -198,21 +198,7 @@
 </div>
 
 <!-- Chart data embedded -->
-<script id="bl-data" type="application/json">
-{
-  "statuts": {
-    "brouillon": 0{% for bl in page.object_list %}{% if bl.statut == "brouillon" %}{# count via JS #}{% endif %}{% endfor %},
-    "livre": 0,
-    "facture": 0,
-    "litige": 0
-  },
-  "rows": [
-    {% for bl in page.object_list %}
-    {"statut":"{{ bl.statut }}","client":"{{ bl.client.nom|escapejs }}","montant":{{ bl.montant_total|floatformat:2 }}}{% if not forloop.last %},{% endif %}
-    {% endfor %}
-  ]
-}
-</script>
+<script id="bl-data" type="application/json">{{ chart_json|safe }}</script>
 {% endblock %}
 
 {% block extra_js %}

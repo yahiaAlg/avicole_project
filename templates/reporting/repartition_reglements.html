@@ -133,18 +133,7 @@
   </div>
 </div>
 
-<script id="chart-data" type="application/json">
-{
-  "modes": {
-    "labels": [{% for m in mode_totals %}"{{ m.label|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
-    "values": [{% for m in mode_totals %}{{ m.total|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}]
-  },
-  "suppliers": {
-    "labels": [{% for s in supplier_totals %}"{{ s.reglement__fournisseur__nom|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
-    "values": [{% for s in supplier_totals %}{{ s.total_alloue|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}]
-  }
-}
-</script>
+<script id="chart-data" type="application/json">{{ chart_json|safe }}</script>
 {% endblock %}
 
 {% block extra_js %}

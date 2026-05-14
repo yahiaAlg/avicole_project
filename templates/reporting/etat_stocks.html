@@ -275,14 +275,7 @@
 {% endif %}
 {% endif %}
 
-<script id="stocks-data" type="application/json">
-{
-  "intrants_labels": [{% for s in stocks_intrants|slice:":10" %}"{{ s.intrant.designation|truncatechars:20|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
-  "intrants_values": [{% for s in stocks_intrants|slice:":10" %}{{ s.valeur_stock|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}],
-  "donut_labels": ["Stock المدخلات","Stock المنتجات النهائية"],
-  "donut_values": [{{ valeur_intrants|floatformat:2 }}, {{ valeur_produits|floatformat:2 }}]
-}
-</script>
+<script id="stocks-data" type="application/json">{{ chart_json|safe }}</script>
 {% endblock %}
 
 {% block extra_js %}

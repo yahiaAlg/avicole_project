@@ -277,14 +277,7 @@
   </div>
 </div>
 
-<script id="cashflow-data" type="application/json">
-{
-  "encaissements": {{ summary.total_encaissements|floatformat:2 }},
-  "reglements":    {{ summary.total_reglements_fournisseurs|floatformat:2 }},
-  "depenses":      {{ summary.total_depenses|floatformat:2 }},
-  "solde":         {{ summary.solde_net|floatformat:2 }}
-}
-</script>
+<script id="cashflow-data" type="application/json">{{ chart_json|safe }}</script>
 {% endblock %}
 
 {% block extra_js %}

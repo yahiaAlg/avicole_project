@@ -180,20 +180,7 @@
 </div>
 
 <!-- Allocation data embedded for JS -->
-<script id="alloc-data" type="application/json">
-{
-  {% for reg_id, allocs in allocations_map.items %}
-  "{{ reg_id }}": [
-    {% for a in allocs %}
-    {
-      "facture": "{{ a.facture.reference|escapejs }}",
-      "montant": {{ a.montant_alloue|floatformat:2 }}
-    }{% if not forloop.last %},{% endif %}
-    {% endfor %}
-  ]{% if not forloop.last %},{% endif %}
-  {% endfor %}
-}
-</script>
+<script id="alloc-data" type="application/json">{{ alloc_json|safe }}</script>
 {% endblock %}
 
 {% block extra_js %}

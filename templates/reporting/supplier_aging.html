@@ -181,23 +181,7 @@
 {% endif %}
 
 <!-- Chart data embedded as JSON -->
-<script id="aging-data" type="application/json">
-{
-  "labels": [{% for b in buckets %}"{{ b.fournisseur.nom|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
-  "current": [{% for b in buckets %}{{ b.current|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}],
-  "d30":     [{% for b in buckets %}{{ b.1_30|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}],
-  "d60":     [{% for b in buckets %}{{ b.31_60|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}],
-  "d90":     [{% for b in buckets %}{{ b.61_90|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}],
-  "over90":  [{% for b in buckets %}{{ b.over_90|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}],
-  "totaux": {
-    "current": {{ totaux.current|floatformat:2 }},
-    "d30":     {{ totaux.1_30|floatformat:2 }},
-    "d60":     {{ totaux.31_60|floatformat:2 }},
-    "d90":     {{ totaux.61_90|floatformat:2 }},
-    "over90":  {{ totaux.over_90|floatformat:2 }}
-  }
-}
-</script>
+<script id="aging-data" type="application/json">{{ chart_json|safe }}</script>
 {% endblock %}
 
 {% block extra_js %}

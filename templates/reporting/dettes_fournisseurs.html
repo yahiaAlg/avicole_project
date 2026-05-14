@@ -157,13 +157,7 @@
   </div>
 </div>
 
-<script id="dette-data" type="application/json">
-{
-  "labels": [{% for r in rows|slice:":10" %}"{{ r.fournisseur.nom|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
-  "values": [{% for r in rows|slice:":10" %}{{ r.dette_globale|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}],
-  "retard": [{% for r in rows|slice:":10" %}{{ r.nb_retard }}{% if not forloop.last %},{% endif %}{% endfor %}]
-}
-</script>
+<script id="dette-data" type="application/json">{{ chart_json|safe }}</script>
 {% endblock %}
 
 {% block extra_js %}

@@ -330,15 +330,7 @@
 </div>
 {% endif %}
 
-<script id="rentabilite-data" type="application/json">
-{
-  "labels": [{% for r in lot_rows %}"{{ r.lot.designation|truncatechars:20|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
-  "revenus": [{% for r in lot_rows %}{{ r.revenus_ventes|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}],
-  "couts_intrants": [{% for r in lot_rows %}{{ r.cout_total_intrants|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}],
-  "couts_depenses": [{% for r in lot_rows %}{{ r.cout_total_depenses|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}],
-  "marges": [{% for r in lot_rows %}{{ r.marge_brute|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}]
-}
-</script>
+<script id="rentabilite-data" type="application/json">{{ chart_json|safe }}</script>
 {% endblock %}
 
 {% block extra_js %}

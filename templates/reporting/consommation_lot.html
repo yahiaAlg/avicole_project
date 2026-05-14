@@ -153,12 +153,7 @@
   </div>
 </div>
 
-<script id="conso-data" type="application/json">
-{
-  "labels": [{% for row in par_intrant %}"{{ row.intrant__designation|truncatechars:18|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
-  "values": [{% for row in par_intrant %}{{ row.total_quantite|floatformat:3 }}{% if not forloop.last %},{% endif %}{% endfor %}]
-}
-</script>
+<script id="conso-data" type="application/json">{{ chart_json|safe }}</script>
 {% endblock %}
 
 {% block extra_js %}

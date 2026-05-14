@@ -211,9 +211,7 @@
 </div>
 
 <!-- Embedded chart data -->
-<script id="conso-data" type="application/json">
-[{% for c in summary.consommations %}{"date":"{{ c.date|date:'d/m/Y' }}","intrant":"{{ c.intrant.designation|escapejs }}","categorie":"{{ c.intrant.categorie.libelle|escapejs }}","categorie_code":"{{ c.intrant.categorie.code|escapejs }}","quantite":{{ c.quantite|floatformat:3 }},"unite":"{{ c.intrant.unite_mesure|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]
-</script>
+<script id="conso-data" type="application/json">{{ conso_json|safe }}</script>
 {% endblock %}
 
 {% block extra_js %}

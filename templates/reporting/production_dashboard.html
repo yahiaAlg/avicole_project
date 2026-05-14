@@ -182,15 +182,7 @@
   </div>
 </div>
 
-<script id="prod-data" type="application/json">
-{
-  "lots": [{% for r in rows %}"{{ r.lot.designation|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
-  "abattus": [{% for r in rows %}{{ r.nb_oiseaux_abattus }}{% if not forloop.last %},{% endif %}{% endfor %}],
-  "poids_total": [{% for r in rows %}{{ r.poids_total_kg|floatformat:3 }}{% if not forloop.last %},{% endif %}{% endfor %}],
-  "poids_moyen": [{% for r in rows %}{{ r.poids_moyen_kg|floatformat:3 }}{% if not forloop.last %},{% endif %}{% endfor %}],
-  "cout": [{% for r in rows %}{{ r.cout_total_dzd|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}]
-}
-</script>
+<script id="prod-data" type="application/json">{{ chart_json|safe }}</script>
 {% endblock %}
 
 {% block extra_js %}

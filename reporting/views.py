@@ -31,6 +31,7 @@ Access levels (spec §9.12):
 
 import csv
 import datetime
+import json
 import logging
 from decimal import Decimal
 
@@ -308,6 +309,25 @@ def rapport_supplier_aging(request):
 
     fournisseurs = Fournisseur.objects.filter(actif=True).order_by("nom")
 
+    chart_json = json.dumps(
+        {
+            "labels": [b["fournisseur"].nom for b in buckets],
+            "current": [float(b["current"]) for b in buckets],
+            "d30": [float(b["1_30"]) for b in buckets],
+            "d60": [float(b["31_60"]) for b in buckets],
+            "d90": [float(b["61_90"]) for b in buckets],
+            "over90": [float(b["over_90"]) for b in buckets],
+            "totaux": {
+                "current": float(totaux["current"]),
+                "d30": float(totaux["1_30"]),
+                "d60": float(totaux["31_60"]),
+                "d90": float(totaux["61_90"]),
+                "over90": float(totaux["over_90"]),
+            },
+        },
+        ensure_ascii=False,
+    )
+
     return render(
         request,
         "reporting/supplier_aging.html",
@@ -318,6 +338,7 @@ def rapport_supplier_aging(request):
             "fournisseurs": fournisseurs,
             "fournisseur_pk": fournisseur_pk,
             "fournisseur_obj": fournisseur_obj,
+            "chart_json": chart_json,
         },
     )
 
@@ -405,6 +426,17 @@ def rapport_historique_reglements(request):
     ).select_related("facture"):
         allocations_map.setdefault(alloc.reglement_id, []).append(alloc)
 
+    alloc_json = json.dumps(
+        {
+            str(reg_id): [
+                {"facture": a.facture.reference, "montant": float(a.montant_alloue)}
+                for a in allocs
+            ]
+            for reg_id, allocs in allocations_map.items()
+        },
+        ensure_ascii=False,
+    )
+
     return render(
         request,
         "reporting/historique_reglements.html",
@@ -418,7 +450,7 @@ def rapport_historique_reglements(request):
             "mode_choices": ReglementFournisseur.MODE_CHOICES,
             "date_debut": date_debut,
             "date_fin": date_fin,
-            "allocations_map": allocations_map,
+            "alloc_json": alloc_json,
         },
     )
 
@@ -519,19 +551,35 @@ def rapport_repartition_reglements(request):
     fournisseurs = Fournisseur.objects.filter(actif=True).order_by("nom")
     page = _paginate(qs, request.GET.get("page"))
 
+    supplier_totals_list = list(supplier_totals)
+    chart_json = json.dumps(
+        {
+            "modes": {
+                "labels": [m["label"] for m in mode_totals_display],
+                "values": [float(m["total"]) for m in mode_totals_display],
+            },
+            "suppliers": {
+                "labels": [s["reglement__fournisseur__nom"] for s in supplier_totals_list],
+                "values": [float(s["total_alloue"]) for s in supplier_totals_list],
+            },
+        },
+        ensure_ascii=False,
+    )
+
     return render(
         request,
         "reporting/repartition_reglements.html",
         {
             "title": "توزيع التسويات",
             "page": page,
-            "supplier_totals": supplier_totals,
+            "supplier_totals": supplier_totals_list,
             "mode_totals": mode_totals_display,
             "grand_total": grand_total,
             "fournisseurs": fournisseurs,
             "fournisseur_pk": fournisseur_pk,
             "date_debut": date_debut,
             "date_fin": date_fin,
+            "chart_json": chart_json,
         },
     )
 
@@ -649,6 +697,16 @@ def rapport_dettes_fournisseurs(request):
         ]
         return _csv_response("dettes_fournisseurs", headers, csv_rows)
 
+    top10 = rows[:10]
+    chart_json = json.dumps(
+        {
+            "labels": [r["fournisseur"].nom for r in top10],
+            "values": [float(r["dette_globale"]) for r in top10],
+            "retard": [r["nb_retard"] for r in top10],
+        },
+        ensure_ascii=False,
+    )
+
     return render(
         request,
         "reporting/dettes_fournisseurs.html",
@@ -658,6 +716,7 @@ def rapport_dettes_fournisseurs(request):
             "grand_total_dette": grand_total_dette,
             "today": today,
             "q": q,
+            "chart_json": chart_json,
         },
     )
 
@@ -787,6 +846,17 @@ def rapport_rentabilite_lot(request):
 
     lots_all = LotElevage.objects.order_by("-date_ouverture")
 
+    chart_json = json.dumps(
+        {
+            "labels": [r["lot"].designation[:20] for r in lot_rows],
+            "revenus": [float(r["revenus_ventes"]) for r in lot_rows],
+            "couts_intrants": [float(r["cout_total_intrants"]) for r in lot_rows],
+            "couts_depenses": [float(r["cout_total_depenses"]) for r in lot_rows],
+            "marges": [float(r["marge_brute"]) for r in lot_rows],
+        },
+        ensure_ascii=False,
+    )
+
     return render(
         request,
         "reporting/rentabilite_lot.html",
@@ -802,6 +872,7 @@ def rapport_rentabilite_lot(request):
             "statut_choices": LotElevage.STATUT_CHOICES,
             "date_debut": date_debut,
             "date_fin": date_fin,
+            "chart_json": chart_json,
         },
     )
 
@@ -881,6 +952,15 @@ def rapport_cash_flow(request):
 
         return _csv_response("resume_tresorerie", headers, rows)
 
+    chart_json = json.dumps(
+        {
+            "encaissements": float(summary["total_encaissements"]),
+            "reglements": float(summary["total_reglements_fournisseurs"]),
+            "depenses": float(summary["total_depenses"]),
+            "solde": float(summary["solde_net"]),
+        }
+    )
+
     return render(
         request,
         "reporting/cash_flow.html",
@@ -890,6 +970,7 @@ def rapport_cash_flow(request):
             "date_debut": date_debut,
             "date_fin": date_fin,
             "today": today,
+            "chart_json": chart_json,
         },
     )
 
@@ -1008,6 +1089,19 @@ def rapport_etat_stocks(request):
 
     categories = CategorieIntrant.objects.filter(actif=True).order_by("libelle")
 
+    # Build chart data using json.dumps to guarantee valid JSON regardless of
+    # Django locale settings (which format Decimals as "0,00" in fr locale).
+    top10 = stocks_intrants[:10]
+    chart_json = json.dumps(
+        {
+            "intrants_labels": [s.intrant.designation[:20] for s in top10],
+            "intrants_values": [float(s.valeur_stock) for s in top10],
+            "donut_labels": ["Stock المدخلات", "Stock المنتجات النهائية"],
+            "donut_values": [float(valeur_intrants), float(valeur_produits)],
+        },
+        ensure_ascii=False,
+    )
+
     return render(
         request,
         "reporting/etat_stocks.html",
@@ -1030,6 +1124,7 @@ def rapport_etat_stocks(request):
             "nb_alerte_produits": sum(
                 1 for s in stocks_produits if s.en_alerte and s.quantite > 0
             ),
+            "chart_json": chart_json,
         },
     )
 
@@ -1119,13 +1214,23 @@ def rapport_consommation_lot(request):
     ).select_related("categorie")
     categories = CategorieIntrant.objects.filter(actif=True)
 
+    par_intrant_list = list(par_intrant)
+
+    chart_json = json.dumps(
+        {
+            "labels": [r["intrant__designation"][:18] for r in par_intrant_list],
+            "values": [float(r["total_quantite"]) for r in par_intrant_list],
+        },
+        ensure_ascii=False,
+    )
+
     return render(
         request,
         "reporting/consommation_lot.html",
         {
             "title": "الاستهلاك حسب الدفعة",
             "page": page,
-            "par_intrant": par_intrant,
+            "par_intrant": par_intrant_list,
             "nb_total": nb_total,
             "lots": lots,
             "intrants": intrants,
@@ -1135,6 +1240,7 @@ def rapport_consommation_lot(request):
             "categorie_pk": categorie_pk,
             "date_debut": date_debut,
             "date_fin": date_fin,
+            "chart_json": chart_json,
         },
     )
 
@@ -1215,6 +1321,25 @@ def rapport_creances_clients(request):
 
     clients = Client.objects.filter(actif=True).order_by("nom")
 
+    chart_json = json.dumps(
+        {
+            "labels": [b["client"].nom for b in buckets],
+            "current": [float(b["current"]) for b in buckets],
+            "d30": [float(b["1_30"]) for b in buckets],
+            "d60": [float(b["31_60"]) for b in buckets],
+            "d90": [float(b["61_90"]) for b in buckets],
+            "over90": [float(b["over_90"]) for b in buckets],
+            "totaux": {
+                "current": float(totaux["current"]),
+                "d30": float(totaux["1_30"]),
+                "d60": float(totaux["31_60"]),
+                "d90": float(totaux["61_90"]),
+                "over90": float(totaux["over_90"]),
+            },
+        },
+        ensure_ascii=False,
+    )
+
     return render(
         request,
         "reporting/creances_clients.html",
@@ -1225,6 +1350,7 @@ def rapport_creances_clients(request):
             "clients": clients,
             "client_pk": client_pk,
             "client_obj": client_obj,
+            "chart_json": chart_json,
         },
     )
 
@@ -1298,6 +1424,20 @@ def rapport_historique_bl_clients(request):
     page = _paginate(qs, request.GET.get("page"))
     clients = Client.objects.filter(actif=True).order_by("nom")
 
+    chart_json = json.dumps(
+        {
+            "rows": [
+                {
+                    "statut": bl.statut,
+                    "client": bl.client.nom,
+                    "montant": float(bl.montant_total),
+                }
+                for bl in page.object_list
+            ]
+        },
+        ensure_ascii=False,
+    )
+
     return render(
         request,
         "reporting/historique_bl_clients.html",
@@ -1312,6 +1452,7 @@ def rapport_historique_bl_clients(request):
             "date_debut": date_debut,
             "date_fin": date_fin,
             "q": q,
+            "chart_json": chart_json,
         },
     )
 
@@ -1373,6 +1514,17 @@ def rapport_production_dashboard(request):
         ]
         return _csv_response("tableau_bord_production", headers, csv_rows)
 
+    chart_json = json.dumps(
+        {
+            "lots": [r["lot"].designation for r in rows],
+            "abattus": [r["nb_oiseaux_abattus"] for r in rows],
+            "poids_total": [float(r["poids_total_kg"]) for r in rows],
+            "poids_moyen": [float(r["poids_moyen_kg"]) for r in rows],
+            "cout": [float(r["cout_total_dzd"]) for r in rows],
+        },
+        ensure_ascii=False,
+    )
+
     return render(
         request,
         "reporting/production_dashboard.html",
@@ -1383,6 +1535,7 @@ def rapport_production_dashboard(request):
             "date_debut": date_debut,
             "date_fin": date_fin,
             "today": today,
+            "chart_json": chart_json,
         },
     )
 
@@ -1462,6 +1615,21 @@ def rapport_depenses(request):
     categories = CategorieDepense.objects.filter(actif=True).order_by("libelle")
     lots = LotElevage.objects.order_by("-date_ouverture")
 
+    chart_json = json.dumps(
+        {
+            "categories": {
+                "labels": [c["categorie"].libelle for c in summary["par_categorie"]],
+                "values": [float(c["total"]) for c in summary["par_categorie"]],
+                "pcts": [float(c["pct"]) for c in summary["par_categorie"]],
+            },
+            "modes": {
+                "labels": [m["label"] for m in summary["par_mode_paiement"]],
+                "values": [float(m["total"]) for m in summary["par_mode_paiement"]],
+            },
+        },
+        ensure_ascii=False,
+    )
+
     return render(
         request,
         "reporting/depenses.html",
@@ -1475,6 +1643,7 @@ def rapport_depenses(request):
             "lot_pk": lot_pk,
             "date_debut": date_debut,
             "date_fin": date_fin,
+            "chart_json": chart_json,
         },
     )
 
@@ -1514,6 +1683,21 @@ def rapport_consommation_lot_detail(request, lot_pk):
             f"consommation_{lot.designation.replace(' ', '_')}", headers, rows
         )
 
+    conso_json = json.dumps(
+        [
+            {
+                "date": c.date.strftime("%d/%m/%Y"),
+                "intrant": c.intrant.designation,
+                "categorie": c.intrant.categorie.libelle,
+                "categorie_code": c.intrant.categorie.code,
+                "quantite": float(c.quantite),
+                "unite": c.intrant.unite_mesure,
+            }
+            for c in summary["consommations"]
+        ],
+        ensure_ascii=False,
+    )
+
     return render(
         request,
         "reporting/consommation_lot_detail.html",
@@ -1521,6 +1705,7 @@ def rapport_consommation_lot_detail(request, lot_pk):
             "title": f"الاستهلاك — {lot.designation}",
             "lot": lot,
             "summary": summary,
+            "conso_json": conso_json,
         },
     )
 
