@@ -944,7 +944,7 @@ class Command(BaseCommand):
             defaults=dict(
                 fournisseur=fournisseurs["Techno-Avicole Services"],
                 date_facture=d(15),
-                date_echeance=d(0),
+                date_echeance=d(1),
                 type_facture="service",
                 montant_total=Decimal("45000.00"),
                 montant_regle=Decimal("0"),
@@ -1451,7 +1451,7 @@ class Command(BaseCommand):
             defaults=dict(
                 client=clients["Marché de Gros Setifien"],
                 date_facture=d(27),
-                date_echeance=d(0),
+                date_echeance=d(1),
                 montant_ht=mt1_ht,
                 taux_tva=tva,
                 montant_tva=tva_amt(mt1_ht, tva),

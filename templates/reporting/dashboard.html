@@ -195,7 +195,7 @@ a.alert-metric{text-decoration:none;cursor:pointer;display:flex;}
 <div class="dash-grid-2 mb-2">
   <div class="section-card">
     <div class="section-card__head">
-      <span class="section-card__title">ديون الموردين par Ancienneté</span>
+      <span class="section-card__title">ديون الموردين حسب القِدَم</span>
       <a href="{% url 'reporting:supplier_aging' %}" style="font-size:11px;color:var(--accent-text);display:flex;align-items:center;gap:3px;">تقرير <i class="bx bx-right-arrow-alt"></i></a>
     </div>
     <div class="section-card__body">
@@ -204,7 +204,7 @@ a.alert-metric{text-decoration:none;cursor:pointer;display:flex;}
   </div>
   <div class="section-card">
     <div class="section-card__head">
-      <span class="section-card__title">حقوق العملاء par Ancienneté</span>
+      <span class="section-card__title">حقوق العملاء حسب القِدَم</span>
       <a href="{% url 'reporting:creances_clients' %}" style="font-size:11px;color:var(--accent-text);display:flex;align-items:center;gap:3px;">تقرير <i class="bx bx-right-arrow-alt"></i></a>
     </div>
     <div class="section-card__body">
@@ -275,7 +275,7 @@ a.alert-metric{text-decoration:none;cursor:pointer;display:flex;}
 
 <!-- ── ALL REPORT CARDS ───────────────────────────────────────── -->
 {% if is_financial %}
-<div class="section-eyebrow">تقريرs Financiers — Fournisseurs</div>
+<div class="section-eyebrow">التقارير المالية — الموردون</div>
 <div class="report-grid mb-4">
   <a href="{% url 'reporting:supplier_aging' %}" class="report-card">
     <div class="report-card__icon ic-amber"><i class="bx bx-hourglass"></i></div>
@@ -311,7 +311,7 @@ a.alert-metric{text-decoration:none;cursor:pointer;display:flex;}
   </a>
 </div>
 
-<div class="section-eyebrow">تقريرs Financiers — Clients</div>
+<div class="section-eyebrow">التقارير المالية — العملاء</div>
 <div class="report-grid mb-4">
   <a href="{% url 'reporting:creances_clients' %}" class="report-card">
     <div class="report-card__icon ic-amber"><i class="bx bxs-group"></i></div>
@@ -332,7 +332,7 @@ a.alert-metric{text-decoration:none;cursor:pointer;display:flex;}
   <a href="{% url 'reporting:depenses' %}" class="report-card">
     <div class="report-card__icon ic-orange"><i class="bx bxs-wallet"></i></div>
     <div class="report-card__content">
-      <div class="report-card__title">تقرير des Dépenses</div>
+      <div class="report-card__title">تقرير المصاريف</div>
       <div class="report-card__desc">المصاريف التشغيلية حسب الفئة وطريقة الدفع والدفعة المخصصة.</div>
     </div>
     <i class="bx bx-right-arrow-alt report-card__arrow"></i>
@@ -373,8 +373,8 @@ a.alert-metric{text-decoration:none;cursor:pointer;display:flex;}
   <a href="{% url 'reporting:consommation_lot' %}" class="report-card">
     <div class="report-card__icon ic-teal"><i class="bx bxs-droplet"></i></div>
     <div class="report-card__content">
-      <div class="report-card__title">الاستهلاك par Lot</div>
-      <div class="report-card__desc">التفاصيل consommation aliments + médicaments par lot, intrant et période.</div>
+      <div class="report-card__title">الاستهلاك حسب الدفعة</div>
+      <div class="report-card__desc">تفاصيل استهلاك الأعلاف والأدوية حسب الدفعة والمدخل والفترة.</div>
     </div>
     <i class="bx bx-right-arrow-alt report-card__arrow"></i>
   </a>
@@ -394,24 +394,7 @@ a.alert-metric{text-decoration:none;cursor:pointer;display:flex;}
     </div>
     <i class="bx bx-right-arrow-alt report-card__arrow"></i>
   </a>
-  {% if not is_financial %}
-  <a href="{% url 'reporting:rentabilite_lot' %}" class="report-card">
-    <div class="report-card__icon ic-purple"><i class="bx bxs-bar-chart-alt-2"></i></div>
-    <div class="report-card__content">
-      <div class="report-card__title">الربحية حسب الدفعة</div>
-      <div class="report-card__desc">مؤشرات أداء حسب الدفعة: معدل النفوق، معامل التحويل، استهلاك الأعلاف، الإيرادات، الهامش الإجمالي.</div>
-    </div>
-    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
-  </a>
-  <a href="{% url 'reporting:production_dashboard' %}" class="report-card">
-    <div class="report-card__icon ic-green"><i class="bx bx-refresh"></i></div>
-    <div class="report-card__content">
-      <div class="report-card__title">لوحة تحكم الإنتاج</div>
-      <div class="report-card__desc">الطيور المذبوحة، الوزن الإجمالي، متوسط الوزن والتكلفة التقديرية لكل دفعة.</div>
-    </div>
-    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
-  </a>
-  {% endif %}
+
 </div>
 
 {% endblock %}
@@ -475,20 +458,6 @@ document.addEventListener('DOMContentLoaded', function () {
       const fcEl = document.getElementById('kpi-fc-retard');
       if (ffEl) ffEl.textContent = d.nb_factures_fournisseur_retard ?? '—';
       if (fcEl) fcEl.textContent = d.nb_factures_client_retard ?? '—';
-
-      // Update AJAX-computed financial cards with fresh data
-      const detteEl2 = document.getElementById('kpi-dette-total');
-      const detteSub2 = document.getElementById('kpi-dette-sub');
-      const crEl2 = document.getElementById('kpi-creances-total');
-      const crSub2 = document.getElementById('kpi-creances-sub');
-      if (detteEl2) detteEl2.textContent = fmt(d.dette_fournisseurs_totale) + ' DZD';
-      if (detteSub2) detteSub2.textContent = d.nb_factures_fournisseur_retard > 0
-        ? d.nb_factures_fournisseur_retard + ' فاتورة (فواتير) متأخرة'
-        : 'لا فواتير متأخرة';
-      if (crEl2) crEl2.textContent = fmt(d.creances_clients_totale) + ' DZD';
-      if (crSub2) crSub2.textContent = d.nb_factures_client_retard > 0
-        ? d.nb_factures_client_retard + ' فاتورة (فواتير) عميل متأخرة'
-        : 'لا حقوق مستحقة';
 
       // Update period label
       const pLabel = document.getElementById('period-label');
