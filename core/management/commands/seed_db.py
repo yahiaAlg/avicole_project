@@ -1,18 +1,17 @@
 """
 management/commands/seed_db.py
 
-Comprehensive database population command for the Élevage Avicole system.
+أمر تعبئة قاعدة البيانات الشامل لنظام تربية الدواجن.
 
-Usage:
-    python manage.py seed_db                    # full seed (idempotent)
-    python manage.py seed_db --mode minimal     # master-data only (no operational records)
-    python manage.py seed_db --mode demo        # full demo data (default)
-    python manage.py seed_db --clear            # wipe operational data then re-seed
-    python manage.py seed_db --clear --all      # wipe EVERYTHING (including master data) then re-seed
+الاستخدام:
+    python manage.py seed_db                    # تعبئة كاملة (آمن للتكرار)
+    python manage.py seed_db --mode minimal     # البيانات الأساسية فقط (بدون سجلات تشغيلية)
+    python manage.py seed_db --mode demo        # بيانات تجريبية كاملة (الافتراضي)
+    python manage.py seed_db --clear            # مسح البيانات التشغيلية ثم إعادة التعبئة
+    python manage.py seed_db --clear --all      # مسح كل شيء (بما في ذلك البيانات الأساسية) ثم إعادة التعبئة
 
-Idempotent: safe to run multiple times — uses get_or_create everywhere.
-All monetary amounts are in DZD. Dates are relative to today so the demo
-always feels current.
+آمن للتكرار: يستخدم get_or_create في كل مكان.
+جميع المبالغ المالية بالدينار الجزائري (DZD). التواريخ نسبية إلى اليوم.
 """
 
 from __future__ import annotations
@@ -49,27 +48,25 @@ def rnd(lo: float, hi: float, decimals: int = 2) -> Decimal:
 
 
 class Command(BaseCommand):
-    help = (
-        "Seed the database with master data and (optionally) demo operational records."
-    )
+    help = "تعبئة قاعدة البيانات بالبيانات الأساسية وسجلات تجريبية اختيارية."
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--mode",
             choices=["minimal", "demo"],
             default="demo",
-            help="'minimal' = master data only; 'demo' = full operational demo data.",
+            help="'minimal' = البيانات الأساسية فقط؛ 'demo' = بيانات تجريبية كاملة.",
         )
         parser.add_argument(
             "--clear",
             action="store_true",
-            help="Delete existing operational data before seeding.",
+            help="حذف البيانات التشغيلية الحالية قبل التعبئة.",
         )
         parser.add_argument(
             "--all",
             action="store_true",
             dest="clear_all",
-            help="Together with --clear: also delete master data (categories, users, etc.).",
+            help="مع --clear: يحذف أيضاً البيانات الأساسية (التصنيفات، المستخدمون، إلخ).",
         )
 
     # ------------------------------------------------------------------
@@ -84,7 +81,9 @@ class Command(BaseCommand):
             self._clear(all_data=clear_all)
 
         self.stdout.write(
-            self.style.MIGRATE_HEADING("\n=== ÉLEVAGE AVICOLE — Database Seed ===\n")
+            self.style.MIGRATE_HEADING(
+                "\n=== تربية الدواجن — تعبئة قاعدة البيانات ===\n"
+            )
         )
 
         # ── Master data (always seeded) ──────────────────────────────────
@@ -314,22 +313,20 @@ class Command(BaseCommand):
         from intrants.models import CategorieIntrant
 
         seeds = [
-            dict(code="ALIMENT", libelle="Aliment", consommable_en_lot=True, ordre=1),
+            dict(code="ALIMENT", libelle="علف", consommable_en_lot=True, ordre=1),
             dict(
                 code="POUSSIN",
-                libelle="Poussin (Volaille vivante)",
+                libelle="كتكوت (دواجن حية)",
                 consommable_en_lot=False,
                 ordre=2,
             ),
             dict(
                 code="MEDICAMENT",
-                libelle="Médicament / Vétérinaire",
+                libelle="دواء / بيطري",
                 consommable_en_lot=True,
                 ordre=3,
             ),
-            dict(
-                code="AUTRE", libelle="Autre intrant", consommable_en_lot=False, ordre=4
-            ),
+            dict(code="AUTRE", libelle="مدخل آخر", consommable_en_lot=False, ordre=4),
         ]
         result = {}
         for s in seeds:
@@ -344,11 +341,11 @@ class Command(BaseCommand):
         from intrants.models import TypeFournisseur
 
         seeds = [
-            dict(code="ALIMENTS", libelle="Aliments", ordre=1),
-            dict(code="POUSSINS", libelle="Poussins", ordre=2),
-            dict(code="MEDICAMENTS", libelle="Médicaments / Vétérinaires", ordre=3),
-            dict(code="SERVICES", libelle="Services", ordre=4),
-            dict(code="AUTRE", libelle="Autre", ordre=5),
+            dict(code="ALIMENTS", libelle="أعلاف", ordre=1),
+            dict(code="POUSSINS", libelle="كتاكيت", ordre=2),
+            dict(code="MEDICAMENTS", libelle="أدوية / بيطريين", ordre=3),
+            dict(code="SERVICES", libelle="خدمات", ordre=4),
+            dict(code="AUTRE", libelle="أخرى", ordre=5),
         ]
         result = {}
         for s in seeds:
@@ -363,51 +360,51 @@ class Command(BaseCommand):
         seeds = [
             dict(
                 code="SALAIRES",
-                libelle="Salaires & Main-d'œuvre",
+                libelle="الرواتب والأجور",
                 ordre=1,
-                description="Salaires des ouvriers et journaliers",
+                description="رواتب العمال والعمال اليوميين",
             ),
             dict(
                 code="ENERGIE",
-                libelle="Énergie (Électricité / Gaz)",
+                libelle="الطاقة (كهرباء / غاز)",
                 ordre=2,
-                description="Factures d'électricité, gaz, fioul chauffage",
+                description="فواتير الكهرباء والغاز ووقود التدفئة",
             ),
             dict(
                 code="MAINTENANCE",
-                libelle="Maintenance & Réparations",
+                libelle="الصيانة والإصلاحات",
                 ordre=3,
-                description="Réparations équipements, bâtiments",
+                description="إصلاح المعدات والمباني",
             ),
             dict(
                 code="TRANSPORT",
-                libelle="Transport & Carburant",
+                libelle="النقل والوقود",
                 ordre=4,
-                description="Carburant véhicules de livraison",
+                description="وقود مركبات التوصيل",
             ),
             dict(
                 code="VETERINAIRE",
-                libelle="Frais Vétérinaires",
+                libelle="المصاريف البيطرية",
                 ordre=5,
-                description="Honoraires vétérinaires (hors médicaments)",
+                description="أتعاب البيطريين (باستثناء الأدوية)",
             ),
             dict(
                 code="FOURNITURES",
-                libelle="Fournitures & Emballages",
+                libelle="اللوازم والتغليف",
                 ordre=6,
-                description="Sacs, caisses, packaging, fournitures bureau",
+                description="أكياس، صناديق، تغليف، لوازم مكتبية",
             ),
             dict(
                 code="TAXES",
-                libelle="Taxes & Impôts",
+                libelle="الضرائب والرسوم",
                 ordre=7,
-                description="Taxes locales, patente, droits divers",
+                description="الضرائب المحلية، الرسوم التجارية، الحقوق المتنوعة",
             ),
             dict(
                 code="DIVERS",
-                libelle="Dépenses diverses",
+                libelle="مصاريف متنوعة",
                 ordre=8,
-                description="Toute dépense non couverte ci-dessus",
+                description="كل مصروف غير مشمول في الفئات أعلاه",
             ),
         ]
         result = {}
@@ -534,22 +531,22 @@ class Command(BaseCommand):
             dict(
                 nom="Bâtiment A",
                 capacite=5000,
-                description="Poulailler principal — ventilation dynamique",
+                description="الحظيرة الرئيسية — تهوية ميكانيكية",
             ),
             dict(
                 nom="Bâtiment B",
                 capacite=4000,
-                description="Poulailler secondaire — ventilation naturelle",
+                description="الحظيرة الثانوية — تهوية طبيعية",
             ),
             dict(
                 nom="Bâtiment C",
                 capacite=6000,
-                description="Nouveau poulailler — isolation renforcée",
+                description="حظيرة جديدة — عزل مُحسَّن",
             ),
             dict(
                 nom="Dépôt Aliments",
                 capacite=None,
-                description="Entrepôt stockage aliments et intrants",
+                description="مستودع تخزين الأعلاف والمدخلات",
             ),
         ]
         result = {}
@@ -567,7 +564,7 @@ class Command(BaseCommand):
             dict(
                 code="ALIM-DEM",
                 cat="ALIMENT",
-                designation="Aliment Démarrage 1er Âge (0–14j)",
+                designation="علف البداية — الطور الأول (0–14 يوم)",
                 unite="sac",
                 seuil=10,
                 fnoms=["ONAB Setifien", "Proxi-Aliments Boumerdès"],
@@ -575,7 +572,7 @@ class Command(BaseCommand):
             dict(
                 code="ALIM-CRO",
                 cat="ALIMENT",
-                designation="Aliment Croissance 2ème Âge (15–28j)",
+                designation="علف النمو — الطور الثاني (15–28 يوم)",
                 unite="sac",
                 seuil=15,
                 fnoms=["ONAB Setifien", "Proxi-Aliments Boumerdès"],
@@ -583,7 +580,7 @@ class Command(BaseCommand):
             dict(
                 code="ALIM-FIN",
                 cat="ALIMENT",
-                designation="Aliment Finition 3ème Âge (29j+)",
+                designation="علف التسمين — الطور الثالث (29 يوم فأكثر)",
                 unite="sac",
                 seuil=20,
                 fnoms=["ONAB Setifien"],
@@ -592,7 +589,7 @@ class Command(BaseCommand):
             dict(
                 code="POUSS-R308",
                 cat="POUSSIN",
-                designation="Poussin Ross 308 (1 jour)",
+                designation="كتكوت روس 308 (يوم واحد)",
                 unite="unite",
                 seuil=100,
                 fnoms=["Couvoirs du Centre — CCA"],
@@ -600,7 +597,7 @@ class Command(BaseCommand):
             dict(
                 code="POUSS-C500",
                 cat="POUSSIN",
-                designation="Poussin Cobb 500 (1 jour)",
+                designation="كتكوت كوب 500 (يوم واحد)",
                 unite="unite",
                 seuil=100,
                 fnoms=["Couvoirs du Centre — CCA"],
@@ -609,7 +606,7 @@ class Command(BaseCommand):
             dict(
                 code="MED-NEWC",
                 cat="MEDICAMENT",
-                designation="Vaccin Newcastle (Hitchner B1)",
+                designation="لقاح نيوكاسل (هيتشنر B1)",
                 unite="dose",
                 seuil=500,
                 fnoms=["Sanofi Algérie (Vétérinaire)"],
@@ -617,7 +614,7 @@ class Command(BaseCommand):
             dict(
                 code="MED-GCOR",
                 cat="MEDICAMENT",
-                designation="Vaccin Gumboro (IBD Intermediate)",
+                designation="لقاح غامبورو (IBD متوسط)",
                 unite="dose",
                 seuil=500,
                 fnoms=["Sanofi Algérie (Vétérinaire)"],
@@ -625,7 +622,7 @@ class Command(BaseCommand):
             dict(
                 code="MED-AMOX",
                 cat="MEDICAMENT",
-                designation="Amoxicilline 50% poudre",
+                designation="أموكسيسيلين 50% مسحوق",
                 unite="g",
                 seuil=200,
                 fnoms=["Sanofi Algérie (Vétérinaire)"],
@@ -633,7 +630,7 @@ class Command(BaseCommand):
             dict(
                 code="MED-VITA",
                 cat="MEDICAMENT",
-                designation="Vitamines + Électrolytes (complexe)",
+                designation="فيتامينات + إلكتروليتات (مركّب)",
                 unite="litre",
                 seuil=5,
                 fnoms=["Sanofi Algérie (Vétérinaire)"],
@@ -642,7 +639,7 @@ class Command(BaseCommand):
             dict(
                 code="AUT-LITIERE",
                 cat="AUTRE",
-                designation="Litière (copeaux de bois)",
+                designation="فراش (نشارة خشب)",
                 unite="sac",
                 seuil=20,
                 fnoms=[],
@@ -672,40 +669,38 @@ class Command(BaseCommand):
 
         specs = [
             dict(
-                designation="Poulet vivant (plein poids)",
+                designation="دجاج حي (الوزن الكامل)",
                 type_produit="volaille_vivante",
                 unite="unite",
                 prix=480,
             ),
             dict(
-                designation="Carcasse entière vidée",
+                designation="جثة كاملة منزوعة الأحشاء",
                 type_produit="carcasse",
                 unite="kg",
                 prix=750,
             ),
             dict(
-                designation="Blanc de poulet",
+                designation="صدر دجاج",
                 type_produit="decoupe",
                 unite="kg",
                 prix=1100,
             ),
             dict(
-                designation="Cuisse entière",
+                designation="فخذ كامل",
                 type_produit="decoupe",
                 unite="kg",
                 prix=780,
             ),
             dict(
-                designation="Aile de poulet",
+                designation="جناح دجاج",
                 type_produit="decoupe",
                 unite="kg",
                 prix=620,
             ),
+            dict(designation="كبد دجاج", type_produit="abats", unite="kg", prix=420),
             dict(
-                designation="Foie de poulet", type_produit="abats", unite="kg", prix=420
-            ),
-            dict(
-                designation="Gésier de poulet",
+                designation="قانصة دجاج",
                 type_produit="abats",
                 unite="kg",
                 prix=350,
@@ -1225,43 +1220,43 @@ class Command(BaseCommand):
                 lines_a = [
                     # (produit_fini,               qty,              poids_unit, cout_unit)
                     (
-                        pf["Poulet vivant (plein poids)"],
+                        pf["دجاج حي (الوزن الكامل)"],
                         Decimal("3000"),
                         Decimal("2.100"),
                         Decimal("89.00"),
                     ),
                     (
-                        pf["Carcasse entière vidée"],
+                        pf["جثة كاملة منزوعة الأحشاء"],
                         Decimal("800"),
                         Decimal("1.650"),
                         Decimal("72.00"),
                     ),
                     (
-                        pf["Blanc de poulet"],
+                        pf["صدر دجاج"],
                         Decimal("480"),
                         Decimal("0.350"),
                         Decimal("68.00"),
                     ),
                     (
-                        pf["Cuisse entière"],
+                        pf["فخذ كامل"],
                         Decimal("600"),
                         Decimal("0.280"),
                         Decimal("55.00"),
                     ),
                     (
-                        pf["Aile de poulet"],
+                        pf["جناح دجاج"],
                         Decimal("350"),
                         Decimal("0.180"),
                         Decimal("42.00"),
                     ),
                     (
-                        pf["Foie de poulet"],
+                        pf["كبد دجاج"],
                         Decimal("280"),
                         Decimal("0.090"),
                         Decimal("28.00"),
                     ),
                     (
-                        pf["Gésier de poulet"],
+                        pf["قانصة دجاج"],
                         Decimal("240"),
                         Decimal("0.075"),
                         Decimal("22.00"),
@@ -1296,37 +1291,37 @@ class Command(BaseCommand):
             if created:
                 lines_b = [
                     (
-                        pf["Carcasse entière vidée"],
+                        pf["جثة كاملة منزوعة الأحشاء"],
                         Decimal("500"),
                         Decimal("1.700"),
                         Decimal("74.00"),
                     ),
                     (
-                        pf["Blanc de poulet"],
+                        pf["صدر دجاج"],
                         Decimal("220"),
                         Decimal("0.360"),
                         Decimal("70.00"),
                     ),
                     (
-                        pf["Cuisse entière"],
+                        pf["فخذ كامل"],
                         Decimal("280"),
                         Decimal("0.290"),
                         Decimal("57.00"),
                     ),
                     (
-                        pf["Aile de poulet"],
+                        pf["جناح دجاج"],
                         Decimal("160"),
                         Decimal("0.185"),
                         Decimal("44.00"),
                     ),
                     (
-                        pf["Foie de poulet"],
+                        pf["كبد دجاج"],
                         Decimal("120"),
                         Decimal("0.092"),
                         Decimal("29.00"),
                     ),
                     (
-                        pf["Gésier de poulet"],
+                        pf["قانصة دجاج"],
                         Decimal("100"),
                         Decimal("0.078"),
                         Decimal("23.00"),
@@ -1357,8 +1352,8 @@ class Command(BaseCommand):
         from stock.models import StockProduitFini
 
         admin = User.objects.filter(is_superuser=True).first()
-        vivant = produits_finis["Poulet vivant (plein poids)"]
-        carcasse = produits_finis["Carcasse entière vidée"]
+        vivant = produits_finis["دجاج حي (الوزن الكامل)"]
+        carcasse = produits_finis["جثة كاملة منزوعة الأحشاء"]
         marche = clients["Marché de Gros Setifien"]
         palmier = clients["Restaurant Le Palmier"]
         amrane = clients["Boucherie Amrane & Fils"]
