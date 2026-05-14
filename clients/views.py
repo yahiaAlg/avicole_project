@@ -89,8 +89,7 @@ def _assert_bl_editable(bl, request):
     if bl.est_verrouille:
         messages.error(
             request,
-            f"BR-BLC-03 : le BL « {bl.reference} » est au statut Facturé "
-            "et ne peut plus être modifié.",
+            f"BR-BLC-03: وصل التسليم « {bl.reference} » في حالة مفوترة ولا يمكن تعديله.",
         )
         return False
     return True
@@ -141,7 +140,7 @@ def client_list(request):
             "actif_param": actif_param,
             "q": q,
             "type_client_filter": type_client,
-            "title": "Clients",
+            "title": "العملاء",
         },
     )
 
@@ -158,7 +157,7 @@ def client_create(request):
         if form.is_valid():
             try:
                 client = form.save()
-                messages.success(request, f"Client « {client.nom} » créé avec succès.")
+                messages.success(request, f"تم إنشاء العميل « {client.nom} » بنجاح.")
                 logger.info(
                     "Client pk=%s ('%s') created by '%s'.",
                     client.pk,
@@ -168,9 +167,9 @@ def client_create(request):
                 return redirect("clients:client_detail", pk=client.pk)
             except Exception as exc:
                 logger.exception("Error creating Client: %s", exc)
-                messages.error(request, f"Erreur lors de la création : {exc}")
+                messages.error(request, f"خطأ أثناء الإنشاء: {exc}")
         else:
-            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
         form = ClientForm()
 
@@ -179,8 +178,8 @@ def client_create(request):
         "clients/client_form.html",
         {
             "form": form,
-            "title": "Nouveau client",
-            "action_label": "Créer le client",
+            "title": "عميل جديد",
+            "action_label": "إنشاء العميل",
         },
     )
 
@@ -216,7 +215,7 @@ def client_detail(request, pk):
             "bls_recents": bls_recents,
             "factures_ouvertes": factures_ouvertes,
             "paiements_recents": paiements_recents,
-            "title": f"Client — {client.nom}",
+            "title": f"العميل — {client.nom}",
         },
     )
 
@@ -235,14 +234,14 @@ def client_edit(request, pk):
         if form.is_valid():
             try:
                 form.save()
-                messages.success(request, f"Client « {client.nom} » mis à jour.")
+                messages.success(request, f"تم تحديث العميل « {client.nom} ».")
                 logger.info("Client pk=%s updated by '%s'.", client.pk, request.user)
                 return redirect("clients:client_detail", pk=client.pk)
             except Exception as exc:
                 logger.exception("Error updating Client pk=%s: %s", pk, exc)
-                messages.error(request, f"Erreur lors de la mise à jour : {exc}")
+                messages.error(request, f"خطأ أثناء التحديث: {exc}")
         else:
-            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
         form = ClientForm(instance=client)
 
@@ -252,8 +251,8 @@ def client_edit(request, pk):
         {
             "form": form,
             "client": client,
-            "title": f"Modifier — {client.nom}",
-            "action_label": "Enregistrer les modifications",
+            "title": f"تعديل — {client.nom}",
+            "action_label": "حفظ التعديلات",
         },
     )
 
@@ -272,8 +271,8 @@ def client_toggle_active(request, pk):
     client = get_object_or_404(Client, pk=pk)
     client.actif = not client.actif
     client.save(update_fields=["actif", "updated_at"])
-    state = "activé" if client.actif else "désactivé"
-    messages.success(request, f"Client « {client.nom} » {state}.")
+    state = "مفعَّل" if client.actif else "معطَّل"
+    messages.success(request, f"العميل « {client.nom} » {state}.")
     logger.info(
         "Client pk=%s toggled actif=%s by '%s'.",
         client.pk,
@@ -340,7 +339,7 @@ def bl_client_list(request):
             "q": q,
             "date_debut": date_debut,
             "date_fin": date_fin,
-            "title": "BL Clients",
+            "title": "وصولات تسليم العملاء",
         },
     )
 
@@ -406,11 +405,9 @@ def bl_client_create(request, client_pk=None):
                         bl.save(update_fields=["statut", "updated_at"])
 
                 success_msg = (
-                    f"BL Client « {bl.reference} » créé et livré. "
-                    "Le stock produits finis a été mis à jour."
+                    f"تم إنشاء وصل تسليم العميل « {bl.reference} » وتسليمه. تم تحديث مخزون المنتجات التامة."
                     if bl.statut == BLClient.STATUT_LIVRE
-                    else f"BL Client « {bl.reference} » créé (brouillon). "
-                    "Validez-le pour déduire le stock."
+                    else f"تم إنشاء وصل تسليم العميل « {bl.reference} » (مسودة). يرجى التحقق منه لخصم المخزون."
                 )
                 messages.success(request, success_msg)
                 logger.info(
@@ -425,11 +422,11 @@ def bl_client_create(request, client_pk=None):
 
             except Exception as exc:
                 logger.exception("Error creating BLClient: %s", exc)
-                messages.error(request, f"Erreur lors de la création : {exc}")
+                messages.error(request, f"خطأ أثناء الإنشاء: {exc}")
         else:
             messages.error(
                 request,
-                "Veuillez corriger les erreurs ci-dessous (entête et/ou lignes).",
+                "يرجى تصحيح الأخطاء في رأس النموذج و/أو السطور.",
             )
     else:
         initial = {}
@@ -448,8 +445,8 @@ def bl_client_create(request, client_pk=None):
             "form": form,
             "formset": formset,
             "client": client,
-            "title": "Nouveau BL Client",
-            "action_label": "Enregistrer (brouillon)",
+            "title": "وصل تسليم جديد",
+            "action_label": "حفظ (مسودة)",
         },
     )
 
@@ -498,7 +495,7 @@ def bl_client_detail(request, pk):
             "statut_transitions": statut_transitions,
             "next_statut_value": next_statut_value,
             "next_statut_label": next_statut_label,
-            "title": f"BL Client — {bl.reference}",
+            "title": f"وصل تسليم العميل — {bl.reference}",
         },
     )
 
@@ -553,17 +550,19 @@ def bl_client_edit(request, pk):
                             )
                     form.save()  # signal fires here; lines already up-to-date
 
-                messages.success(request, f"BL Client « {bl.reference} » mis à jour.")
+                messages.success(
+                    request, f"تم تحديث وصل تسليم العميل « {bl.reference} »."
+                )
                 logger.info("BLClient pk=%s updated by '%s'.", bl.pk, request.user)
                 return redirect("clients:bl_client_detail", pk=bl.pk)
 
             except Exception as exc:
                 logger.exception("Error updating BLClient pk=%s: %s", pk, exc)
-                messages.error(request, f"Erreur lors de la mise à jour : {exc}")
+                messages.error(request, f"خطأ أثناء التحديث: {exc}")
         else:
             messages.error(
                 request,
-                "Veuillez corriger les erreurs ci-dessous (entête et/ou lignes).",
+                "يرجى تصحيح الأخطاء في رأس النموذج و/أو السطور.",
             )
     else:
         form = BLClientForm(instance=bl, client=bl.client)
@@ -577,8 +576,8 @@ def bl_client_edit(request, pk):
             "formset": formset,
             "bl": bl,
             "client": bl.client,
-            "title": f"Modifier BL — {bl.reference}",
-            "action_label": "Enregistrer les modifications",
+            "title": f"تعديل وصل الاستلام — {bl.reference}",
+            "action_label": "حفظ التعديلات",
         },
     )
 
@@ -606,8 +605,7 @@ def bl_client_valider(request, pk):
     if bl.statut != BLClient.STATUT_BROUILLON:
         messages.warning(
             request,
-            f"Le BL « {bl.reference} » est au statut « {bl.get_statut_display()} » "
-            "et ne peut pas être re-validé.",
+            f"وصل التسليم « {bl.reference} » في حالة « {bl.get_statut_display()} » ولا يمكن إعادة التحقق منه.",
         )
         return redirect("clients:bl_client_detail", pk=bl.pk)
 
@@ -615,8 +613,7 @@ def bl_client_valider(request, pk):
     if not lignes.exists():
         messages.error(
             request,
-            f"Impossible de valider le BL « {bl.reference} » : "
-            "aucune ligne produit enregistrée.",
+            f"تعذّر التحقق من وصل التسليم « {bl.reference} »: لا توجد سطور منتجات مسجّلة.",
         )
         return redirect("clients:bl_client_detail", pk=bl.pk)
 
@@ -635,7 +632,7 @@ def bl_client_valider(request, pk):
         if insuffisant:
             messages.error(
                 request,
-                "BR-BLC-02 : stock insuffisant pour les produits suivants — "
+                "BR-BLC-02: مخزون غير كافٍ للمنتجات التالية — "
                 + " | ".join(insuffisant),
             )
             return redirect("clients:bl_client_detail", pk=bl.pk)
@@ -647,8 +644,7 @@ def bl_client_valider(request, pk):
 
             messages.success(
                 request,
-                f"BL Client « {bl.reference} » validé (Livré). "
-                "Le stock produits finis a été mis à jour.",
+                f"تم التحقق من وصل التسليم « {bl.reference} » (مُسلَّم). تم تحديث مخزون المنتجات التامة.",
             )
             logger.info(
                 "BLClient pk=%s ('%s') validated to LIVRE by '%s'.",
@@ -659,7 +655,7 @@ def bl_client_valider(request, pk):
 
         except Exception as exc:
             logger.exception("Error validating BLClient pk=%s: %s", pk, exc)
-            messages.error(request, f"Erreur lors de la validation : {exc}")
+            messages.error(request, f"خطأ أثناء التحقق: {exc}")
 
     return redirect("clients:bl_client_detail", pk=bl.pk)
 
@@ -696,8 +692,7 @@ def bl_client_change_statut(request, pk):
     if bl.statut == BLClient.STATUT_FACTURE:
         messages.error(
             request,
-            f"BR-BLC-03 : le BL « {bl.reference} » est verrouillé (Facturé) "
-            "et ne peut pas être modifié manuellement.",
+            f"BR-BLC-03: وصل التسليم « {bl.reference} » مقفل (مفوتر) ولا يمكن تعديله يدويًا.",
         )
         return redirect("clients:bl_client_detail", pk=bl.pk)
 
@@ -705,8 +700,7 @@ def bl_client_change_statut(request, pk):
     if new_statut not in allowed:
         messages.error(
             request,
-            f"Transition non autorisée : {bl.get_statut_display()} → {new_statut}. "
-            "Pour valider un BL, utilisez le bouton « Valider ».",
+            f"تحويل الحالة غير مسموح به: {bl.get_statut_display()} ← {new_statut}. لتأكيد وصل التسليم، استخدم زر « تأكيد ».",
         )
         return redirect("clients:bl_client_detail", pk=bl.pk)
 
@@ -717,7 +711,7 @@ def bl_client_change_statut(request, pk):
         new_label = bl.get_statut_display()
         messages.success(
             request,
-            f"BL « {bl.reference} » : statut mis à jour ({old_label} → {new_label}).",
+            f"وصل التسليم « {bl.reference} »: تم تحديث الحالة ({old_label} ← {new_label}).",
         )
         logger.info(
             "BLClient pk=%s statut changed '%s' → '%s' by '%s'.",
@@ -750,8 +744,7 @@ def bl_client_delete(request, pk):
     if bl.statut != BLClient.STATUT_BROUILLON:
         messages.error(
             request,
-            f"Seuls les BLs en brouillon peuvent être supprimés. "
-            f"Le BL « {bl.reference} » est au statut « {bl.get_statut_display()} ».",
+            f"يمكن حذف وصولات التسليم في حالة المسودة فقط. وصل التسليم « {bl.reference} » في حالة « {bl.get_statut_display()} ».",
         )
         return redirect("clients:bl_client_detail", pk=bl.pk)
 
@@ -759,11 +752,11 @@ def bl_client_delete(request, pk):
     client_pk = bl.client_id
     try:
         bl.delete()
-        messages.success(request, f"BL Client « {reference} » supprimé.")
+        messages.success(request, f"تم حذف وصل تسليم العميل « {reference} ».")
         logger.info("BLClient '%s' deleted by '%s'.", reference, request.user)
     except Exception as exc:
         logger.exception("Error deleting BLClient pk=%s: %s", pk, exc)
-        messages.error(request, f"Erreur lors de la suppression : {exc}")
+        messages.error(request, f"خطأ أثناء الحذف: {exc}")
         return redirect("clients:bl_client_detail", pk=pk)
 
     return redirect("clients:client_detail", pk=client_pk)
@@ -789,7 +782,7 @@ def bl_client_print(request, pk):
     if bl.statut == BLClient.STATUT_BROUILLON:
         messages.warning(
             request,
-            "Un BL en brouillon ne peut pas être imprimé. " "Validez-le d'abord.",
+            "لا يمكن طباعة وصل تسليم في حالة المسودة. يرجى التحقق منه أولًا.",
         )
         return redirect("clients:bl_client_detail", pk=bl.pk)
 
@@ -878,7 +871,7 @@ def facture_client_list(request):
             "date_debut": date_debut,
             "date_fin": date_fin,
             "totals": totals,
-            "title": "Factures Clients",
+            "title": "فواتير العملاء",
         },
     )
 
@@ -927,8 +920,7 @@ def facture_client_create(request, client_pk=None):
 
                 messages.success(
                     request,
-                    f"Facture Client « {facture.reference} » créée. "
-                    f"Montant TTC : {facture.montant_ttc} DZD.",
+                    f"تم إنشاء فاتورة العميل « {facture.reference} ». إجمالي المبلغ شامل الضريبة: {facture.montant_ttc} دج.",
                 )
                 logger.info(
                     "FactureClient pk=%s ('%s') created by '%s' (client pk=%s).",
@@ -941,9 +933,9 @@ def facture_client_create(request, client_pk=None):
 
             except Exception as exc:
                 logger.exception("Error creating FactureClient: %s", exc)
-                messages.error(request, f"Erreur lors de la création : {exc}")
+                messages.error(request, f"خطأ أثناء الإنشاء: {exc}")
         else:
-            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
         initial = {}
         if not client_pk:
@@ -956,8 +948,8 @@ def facture_client_create(request, client_pk=None):
         {
             "form": form,
             "client": client,
-            "title": "Nouvelle Facture Client",
-            "action_label": "Créer la facture",
+            "title": "فاتورة عميل جديدة",
+            "action_label": "إنشاء الفاتورة",
         },
     )
 
@@ -985,7 +977,7 @@ def facture_client_detail(request, pk):
             "facture": facture,
             "bls": bls,
             "allocations": allocations,
-            "title": f"Facture — {facture.reference}",
+            "title": f"فاتورة — {facture.reference}",
         },
     )
 
@@ -1076,7 +1068,7 @@ def paiement_client_list(request):
             "date_debut": date_debut,
             "date_fin": date_fin,
             "total": total,
-            "title": "Paiements Clients",
+            "title": "مدفوعات العملاء",
         },
     )
 
@@ -1171,8 +1163,7 @@ def paiement_client_create(request, client_pk=None):
 
                     messages.success(
                         request,
-                        f"Paiement de {paiement.montant} DZD enregistré pour "
-                        f"« {paiement.client.nom} ». {mode_label}",
+                        f"تم تسجيل دفعة بقيمة {paiement.montant} دج لـ « {paiement.client.nom} ». {mode_label}",
                     )
                     logger.info(
                         "PaiementClient pk=%s created by '%s' "
@@ -1189,18 +1180,18 @@ def paiement_client_create(request, client_pk=None):
                     messages.error(request, f"Erreur d'allocation : {exc}")
                 except Exception as exc:
                     logger.exception("Error creating PaiementClient: %s", exc)
-                    messages.error(request, f"Erreur lors de l'enregistrement : {exc}")
+                    messages.error(request, f"خطأ أثناء التسجيل: {exc}")
             else:
                 messages.error(
                     request,
-                    "Veuillez corriger les erreurs dans les allocations.",
+                    "يرجى تصحيح الأخطاء في التوزيعات.",
                 )
         else:
             # Rebuild allocation forms with POST data for re-display
             alloc_forms = []
             if client:
                 alloc_forms = get_allocation_forms(client, data=request.POST)
-            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
 
     else:
         form = PaiementClientForm(client=client)
@@ -1218,8 +1209,8 @@ def paiement_client_create(request, client_pk=None):
             "facture_obj": facture_obj,
             "facture_reste": facture_reste,
             "solde": solde,
-            "title": "Enregistrer un paiement client",
-            "action_label": "Enregistrer le paiement",
+            "title": "تسجيل دفعة عميل",
+            "action_label": "حفظ الدفعة",
         },
     )
 
@@ -1245,7 +1236,7 @@ def paiement_client_detail(request, pk):
         {
             "paiement": paiement,
             "allocations": allocations,
-            "title": f"Paiement — {paiement.client.nom} — {paiement.date_paiement}",
+            "title": f"دفعة — {paiement.client.nom} — {paiement.date_paiement}",
         },
     )
 
@@ -1355,7 +1346,7 @@ def clients_dashboard(request):
             "paiements_recents": paiements_recents,
             "aging_buckets": aging_buckets,
             "nb_clients_actifs": nb_clients_actifs,
-            "title": "Tableau de bord — Clients",
+            "title": "لوحة تحكم — العملاء",
         },
     )
 

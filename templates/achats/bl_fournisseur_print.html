@@ -1,17 +1,17 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BL {{ bl.reference }} — {{ bl.fournisseur.nom }}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Nunito:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       background: #f4f6f4;
       color: #111;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Tajawal', 'Inter', sans-serif;
       font-size: 13px;
     }
     .no-print-bar {
@@ -30,7 +30,7 @@
     .btn-print:hover { opacity: .88; }
     .btn-back {
       background: transparent; border: 1px solid rgba(0,0,0,.12);
-      color: #3d5242; font-family: 'Inter', sans-serif; font-size: 13px;
+      color: #3d5242; font-family: 'Tajawal', 'Inter', sans-serif; font-size: 13px;
       border-radius: 8px; padding: 8px 14px;
       cursor: pointer; text-decoration: none;
       display: inline-flex; align-items: center; gap: 6px;
@@ -61,7 +61,7 @@
       color: #111; margin-bottom: 4px;
     }
     .company-meta { font-size: 11px; color: #555; line-height: 1.7; }
-    .doc-title-block { text-align: right; }
+    .doc-title-block { text-align: left; }
     .doc-title {
       font-family: 'Nunito', sans-serif;
       font-size: 22px; font-weight: 800;
@@ -144,7 +144,7 @@
     }
 
     @media print {
-      body { background: #fff; }
+      body { background: #fff; direction: rtl; }
       .no-print { display: none !important; }
       .print-preview {
         margin: 0; padding: 24px 32px;
@@ -157,9 +157,9 @@
 
 <!-- On-screen toolbar -->
 <div class="no-print no-print-bar">
-  <a href="javascript:history.back()" class="btn-back">← Retour</a>
-  <span>BL {{ bl.reference }}</span>
-  <button class="btn-print" onclick="window.print()">🖨 Imprimer</button>
+  <a href="javascript:history.back()" class="btn-back">رجوع →</a>
+  <span>وصل {{ bl.reference }}</span>
+  <button class="btn-print" onclick="window.print()">🖨 طباعة</button>
 </div>
 
 <div class="print-preview">
@@ -173,18 +173,18 @@
       <div class="company-name">{{ company.nom }}</div>
       <div class="company-meta">
         {{ company.adresse }}{% if company.wilaya %} — {{ company.wilaya }}{% endif %}<br>
-        {% if company.telephone %}Tél : {{ company.telephone }}{% if company.telephone_2 %} / {{ company.telephone_2 }}{% endif %}<br>{% endif %}
-        {% if company.nif %}NIF : {{ company.nif }}{% if company.rc %} — RC : {{ company.rc }}{% endif %}{% endif %}
+        {% if company.telephone %}هاتف: {{ company.telephone }}{% if company.telephone_2 %} / {{ company.telephone_2 }}{% endif %}<br>{% endif %}
+        {% if company.nif %}الرقم الضريبي: {{ company.nif }}{% if company.rc %} — س.ت: {{ company.rc }}{% endif %}{% endif %}
       </div>
     </div>
     <div class="doc-title-block">
-      <div class="doc-title">BON DE LIVRAISON</div>
+      <div class="doc-title">وصل تسليم</div>
       <div class="doc-ref">{{ bl.reference }}</div>
       <div style="margin-top:8px;">
-        {% if bl.statut == "brouillon" %}<span class="status-badge status-brouillon">Brouillon</span>
-        {% elif bl.statut == "recu" %}<span class="status-badge status-recu">Reçu</span>
-        {% elif bl.statut == "facture" %}<span class="status-badge status-facture">Facturé</span>
-        {% elif bl.statut == "litige" %}<span class="status-badge status-litige">En litige</span>
+        {% if bl.statut == "brouillon" %}<span class="status-badge status-brouillon">مسودة</span>
+        {% elif bl.statut == "recu" %}<span class="status-badge status-recu">مستلم</span>
+        {% elif bl.statut == "facture" %}<span class="status-badge status-facture">مفوتر</span>
+        {% elif bl.statut == "litige" %}<span class="status-badge status-litige">في نزاع</span>
         {% endif %}
       </div>
     </div>
@@ -193,16 +193,16 @@
   <!-- Meta info -->
   <div class="meta-grid">
     <div class="meta-box">
-      <div class="meta-label">Fournisseur</div>
+      <div class="meta-label">المورد</div>
       <div class="meta-val">{{ bl.fournisseur.nom }}</div>
       {% if bl.fournisseur.adresse %}<div style="font-size:12px;color:#555;margin-top:3px;">{{ bl.fournisseur.adresse }}</div>{% endif %}
       {% if bl.fournisseur.telephone %}<div style="font-size:12px;color:#555;">{{ bl.fournisseur.telephone }}</div>{% endif %}
     </div>
     <div class="meta-box">
-      <div class="meta-label">Informations du BL</div>
-      <div class="meta-val">Date : {{ bl.date_bl|date:"d/m/Y" }}</div>
+      <div class="meta-label">معلومات الوصل</div>
+      <div class="meta-val">التاريخ: {{ bl.date_bl|date:"d/m/Y" }}</div>
       {% if bl.reference_fournisseur %}
-      <div style="font-size:12px;color:#555;margin-top:3px;">Réf. fournisseur : {{ bl.reference_fournisseur }}</div>
+      <div style="font-size:12px;color:#555;margin-top:3px;">مرجع المورد: {{ bl.reference_fournisseur }}</div>
       {% endif %}
     </div>
   </div>
@@ -212,12 +212,12 @@
     <thead>
       <tr>
         <th>#</th>
-        <th>Désignation</th>
-        <th>Catégorie</th>
-        <th>Unité</th>
-        <th style="text-align:right;">Quantité</th>
-        <th style="text-align:right;">Prix unitaire</th>
-        <th style="text-align:right;">Montant (DZD)</th>
+        <th>التسمية</th>
+        <th>الفئة</th>
+        <th>الوحدة</th>
+        <th style="text-align:right;">الكمية</th>
+        <th style="text-align:right;">سعر الوحدة</th>
+        <th style="text-align:right;">المبلغ (دج)</th>
       </tr>
     </thead>
     <tbody>
@@ -235,7 +235,7 @@
     </tbody>
     <tfoot>
       <tr>
-        <td colspan="6" style="text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#555;">Total général</td>
+        <td colspan="6" style="text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#555;">المجموع الإجمالي</td>
         <td>{{ montant_total|floatformat:0 }} DZD</td>
       </tr>
     </tfoot>
@@ -244,7 +244,7 @@
   <!-- Notes -->
   {% if bl.notes_reception %}
   <div style="margin-top:20px;padding:12px 14px;background:#f8f9f8;border-radius:6px;border:1px solid #e5e7e5;">
-    <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#7a8c78;margin-bottom:5px;">Notes de réception</div>
+    <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#7a8c78;margin-bottom:5px;">ملاحظات الاستلام</div>
     <div style="font-size:12.5px;color:#333;line-height:1.5;">{{ bl.notes_reception }}</div>
   </div>
   {% endif %}

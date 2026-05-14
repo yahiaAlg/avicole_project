@@ -18,10 +18,10 @@ from django.db import models
 from django.core.validators import MinValueValidator
 from django.conf import settings
 
-
 # ---------------------------------------------------------------------------
 # Client master record
 # ---------------------------------------------------------------------------
+
 
 class Client(models.Model):
     """
@@ -30,47 +30,46 @@ class Client(models.Model):
 
     Clients are soft-deleted via `actif = False`; never hard-deleted.
     """
-    nom = models.CharField(max_length=255, verbose_name="Nom du client")
-    adresse = models.TextField(verbose_name="Adresse", blank=True)
-    wilaya = models.CharField(max_length=100, verbose_name="Wilaya", blank=True)
-    telephone = models.CharField(max_length=30, verbose_name="Téléphone", blank=True)
-    telephone_2 = models.CharField(
-        max_length=30, verbose_name="Téléphone 2", blank=True
-    )
-    email = models.EmailField(verbose_name="Email", blank=True)
+
+    nom = models.CharField(max_length=255, verbose_name="اسم العميل")
+    adresse = models.TextField(verbose_name="العنوان", blank=True)
+    wilaya = models.CharField(max_length=100, verbose_name="الولاية", blank=True)
+    telephone = models.CharField(max_length=30, verbose_name="الهاتف", blank=True)
+    telephone_2 = models.CharField(max_length=30, verbose_name="الهاتف 2", blank=True)
+    email = models.EmailField(verbose_name="البريد الإلكتروني", blank=True)
     nif = models.CharField(max_length=50, verbose_name="NIF", blank=True)
     rc = models.CharField(max_length=50, verbose_name="RC", blank=True)
     contact_nom = models.CharField(
-        max_length=150, verbose_name="Nom du contact", blank=True
+        max_length=150, verbose_name="اسم جهة الاتصال", blank=True
     )
     TYPE_CHOICES = [
-        ("grossiste", "Grossiste"),
-        ("detaillant", "Détaillant"),
-        ("restauration", "Restauration / Hôtellerie"),
-        ("particulier", "Particulier"),
-        ("autre", "Autre"),
+        ("grossiste", "تاجر جملة"),
+        ("detaillant", "تاجر تجزئة"),
+        ("restauration", "مطاعم / فندقة"),
+        ("particulier", "فرد"),
+        ("autre", "أخرى"),
     ]
     type_client = models.CharField(
         max_length=20,
         choices=TYPE_CHOICES,
         default="grossiste",
-        verbose_name="Type de client",
+        verbose_name="نوع العميل",
     )
     plafond_credit = models.DecimalField(
         max_digits=14,
         decimal_places=2,
         default=0,
-        verbose_name="Plafond de crédit (DZD)",
-        help_text="0 = pas de limite configurée.",
+        verbose_name="سقف الائتمان (د.ج)",
+        help_text="0 = لا يوجد حد محدد.",
     )
-    actif = models.BooleanField(default=True, verbose_name="Actif")
-    notes = models.TextField(verbose_name="Notes", blank=True)
+    actif = models.BooleanField(default=True, verbose_name="نشط")
+    notes = models.TextField(verbose_name="ملاحظات", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Client"
-        verbose_name_plural = "Clients"
+        verbose_name = "عميل"
+        verbose_name_plural = "العملاء"
         ordering = ["nom"]
 
     def __str__(self):
@@ -107,6 +106,7 @@ class Client(models.Model):
 # BL Client  (delivery note — client side)
 # ---------------------------------------------------------------------------
 
+
 class BLClient(models.Model):
     """
     Client delivery note.  Each validated BL deducts quantities from
@@ -118,43 +118,42 @@ class BLClient(models.Model):
       facture    — included in a FactureClient; locked (BR-BLC-03)
       litige     — flagged disputed; excluded from invoice creation
     """
+
     STATUT_BROUILLON = "brouillon"
     STATUT_LIVRE = "livre"
     STATUT_FACTURE = "facture"
     STATUT_LITIGE = "litige"
 
     STATUT_CHOICES = [
-        (STATUT_BROUILLON, "Brouillon"),
-        (STATUT_LIVRE, "Livré"),
-        (STATUT_FACTURE, "Facturé"),
-        (STATUT_LITIGE, "En litige"),
+        (STATUT_BROUILLON, "مسودة"),
+        (STATUT_LIVRE, "تم التسليم"),
+        (STATUT_FACTURE, "مفوتر"),
+        (STATUT_LITIGE, "في نزاع"),
     ]
 
     reference = models.CharField(
-        max_length=50, unique=True, verbose_name="Référence BL"
+        max_length=50, unique=True, verbose_name="مرجع وصل التسليم"
     )
     client = models.ForeignKey(
         Client,
         on_delete=models.PROTECT,
         related_name="bls_client",
-        verbose_name="Client",
+        verbose_name="العميل",
     )
-    date_bl = models.DateField(verbose_name="Date du BL")
-    adresse_livraison = models.TextField(
-        blank=True, verbose_name="Adresse de livraison"
-    )
+    date_bl = models.DateField(verbose_name="تاريخ وصل التسليم")
+    adresse_livraison = models.TextField(blank=True, verbose_name="عنوان التسليم")
     statut = models.CharField(
         max_length=20,
         choices=STATUT_CHOICES,
         default=STATUT_BROUILLON,
-        verbose_name="Statut",
+        verbose_name="الحالة",
     )
     signe_par = models.CharField(
         max_length=150,
         blank=True,
-        verbose_name="Signé par (réceptionnaire)",
+        verbose_name="موقّع من قبل (المستلم)",
     )
-    notes = models.TextField(blank=True, verbose_name="Notes")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -166,8 +165,8 @@ class BLClient(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "BL Client"
-        verbose_name_plural = "BL Clients"
+        verbose_name = "وصل تسليم العميل"
+        verbose_name_plural = "وصولات تسليم العملاء"
         ordering = ["-date_bl", "-created_at"]
 
     def __str__(self):
@@ -192,37 +191,38 @@ class BLClientLigne(models.Model):
     on BLClientLigne triggers the StockProduitFini decrease and logs a
     StockMouvement (sortie, source = bl_client).
     """
+
     bl = models.ForeignKey(
         BLClient,
         on_delete=models.CASCADE,
         related_name="lignes",
-        verbose_name="BL Client",
+        verbose_name="وصل تسليم العميل",
     )
     produit_fini = models.ForeignKey(
         "production.ProduitFini",
         on_delete=models.PROTECT,
         related_name="lignes_bl_client",
-        verbose_name="Produit fini",
+        verbose_name="المنتج النهائي",
     )
     quantite = models.DecimalField(
         max_digits=12,
         decimal_places=3,
-        verbose_name="Quantité",
+        verbose_name="الكمية",
         validators=[MinValueValidator(0.001)],
     )
     prix_unitaire = models.DecimalField(
         max_digits=12,
         decimal_places=4,
         default=0,
-        verbose_name="Prix unitaire (DZD)",
+        verbose_name="سعر الوحدة (د.ج)",
         validators=[MinValueValidator(0)],
-        help_text="Pré-rempli depuis prix_vente_defaut du produit fini.",
+        help_text="يُملأ مسبقاً من سعر البيع الافتراضي للمنتج النهائي.",
     )
-    notes = models.TextField(blank=True, verbose_name="Notes")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
 
     class Meta:
-        verbose_name = "Ligne BL Client"
-        verbose_name_plural = "Lignes BL Client"
+        verbose_name = "سطر وصل تسليم العميل"
+        verbose_name_plural = "أسطر وصل تسليم العملاء"
 
     def __str__(self):
         return (
@@ -239,6 +239,7 @@ class BLClientLigne(models.Model):
 # Facture Client  (AR invoice)
 # ---------------------------------------------------------------------------
 
+
 class FactureClient(models.Model):
     """
     Client invoice aggregating one or more validated (Livré) BL Clients.
@@ -249,83 +250,84 @@ class FactureClient(models.Model):
 
     TVA is stored separately to support future rate changes; may be 0.
     """
+
     STATUT_NON_PAYEE = "non_payee"
     STATUT_PARTIELLEMENT_PAYEE = "partiellement_payee"
     STATUT_PAYEE = "payee"
     STATUT_EN_LITIGE = "en_litige"
 
     STATUT_CHOICES = [
-        (STATUT_NON_PAYEE, "Non payée"),
-        (STATUT_PARTIELLEMENT_PAYEE, "Partiellement payée"),
-        (STATUT_PAYEE, "Payée"),
-        (STATUT_EN_LITIGE, "En litige"),
+        (STATUT_NON_PAYEE, "غير مدفوعة"),
+        (STATUT_PARTIELLEMENT_PAYEE, "مدفوعة جزئياً"),
+        (STATUT_PAYEE, "مدفوعة"),
+        (STATUT_EN_LITIGE, "في نزاع"),
     ]
 
     reference = models.CharField(
-        max_length=50, unique=True, verbose_name="Référence facture"
+        max_length=50, unique=True, verbose_name="مرجع الفاتورة"
     )
     client = models.ForeignKey(
         Client,
         on_delete=models.PROTECT,
         related_name="factures_client",
-        verbose_name="Client",
+        verbose_name="العميل",
     )
     # BLs linked at creation; locked afterwards (mirrors BR-FAF-03 logic)
     bls = models.ManyToManyField(
         BLClient,
         blank=True,
         related_name="factures",
-        verbose_name="BL inclus",
+        verbose_name="وصولات التسليم المضمنة",
     )
-    date_facture = models.DateField(verbose_name="Date de la facture")
+    date_facture = models.DateField(verbose_name="تاريخ الفاتورة")
     date_echeance = models.DateField(
-        null=True, blank=True, verbose_name="Date d'échéance"
+        null=True, blank=True, verbose_name="تاريخ الاستحقاق"
     )
     # Auto-computed from BL lines at invoice creation; stored for performance.
     montant_ht = models.DecimalField(
         max_digits=14,
         decimal_places=2,
         default=0,
-        verbose_name="Montant HT (DZD)",
+        verbose_name="المبلغ قبل الضريبة (د.ج)",
     )
     taux_tva = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         default=0,
-        verbose_name="Taux TVA (%)",
-        help_text="0 si exonéré.",
+        verbose_name="نسبة الضريبة على القيمة المضافة (%)",
+        help_text="0 إذا كان معفى.",
     )
     montant_tva = models.DecimalField(
         max_digits=14,
         decimal_places=2,
         default=0,
-        verbose_name="Montant TVA (DZD)",
+        verbose_name="مبلغ الضريبة على القيمة المضافة (د.ج)",
     )
     montant_ttc = models.DecimalField(
         max_digits=14,
         decimal_places=2,
         default=0,
-        verbose_name="Montant TTC (DZD)",
+        verbose_name="المبلغ شامل الضريبة (د.ج)",
     )
     montant_regle = models.DecimalField(
         max_digits=14,
         decimal_places=2,
         default=0,
-        verbose_name="Montant réglé (DZD)",
+        verbose_name="المبلغ المسدد (د.ج)",
     )
     reste_a_payer = models.DecimalField(
         max_digits=14,
         decimal_places=2,
         default=0,
-        verbose_name="Reste à payer (DZD)",
+        verbose_name="المبلغ المتبقي (د.ج)",
     )
     statut = models.CharField(
         max_length=25,
         choices=STATUT_CHOICES,
         default=STATUT_NON_PAYEE,
-        verbose_name="Statut",
+        verbose_name="الحالة",
     )
-    notes = models.TextField(blank=True, verbose_name="Notes")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -337,15 +339,12 @@ class FactureClient(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Facture Client"
-        verbose_name_plural = "Factures Clients"
+        verbose_name = "فاتورة العميل"
+        verbose_name_plural = "فواتير العملاء"
         ordering = ["-date_facture"]
 
     def __str__(self):
-        return (
-            f"{self.reference} — {self.client.nom} — "
-            f"{self.montant_ttc} DZD"
-        )
+        return f"{self.reference} — {self.client.nom} — " f"{self.montant_ttc} DZD"
 
     def recalculer_solde(self):
         """
@@ -381,6 +380,7 @@ class FactureClient(models.Model):
 # Paiement Client
 # ---------------------------------------------------------------------------
 
+
 class PaiementClient(models.Model):
     """
     A payment amount recorded against a client.
@@ -391,43 +391,44 @@ class PaiementClient(models.Model):
 
     Records are immutable after creation.
     """
+
     MODE_ESPECES = "especes"
     MODE_CHEQUE = "cheque"
     MODE_VIREMENT = "virement"
     MODE_AUTRE = "autre"
 
     MODE_CHOICES = [
-        (MODE_ESPECES, "Espèces"),
-        (MODE_CHEQUE, "Chèque"),
-        (MODE_VIREMENT, "Virement bancaire"),
-        (MODE_AUTRE, "Autre"),
+        (MODE_ESPECES, "نقداً"),
+        (MODE_CHEQUE, "شيك"),
+        (MODE_VIREMENT, "تحويل بنكي"),
+        (MODE_AUTRE, "أخرى"),
     ]
 
     client = models.ForeignKey(
         Client,
         on_delete=models.PROTECT,
         related_name="paiements",
-        verbose_name="Client",
+        verbose_name="العميل",
     )
-    date_paiement = models.DateField(verbose_name="Date du paiement")
+    date_paiement = models.DateField(verbose_name="تاريخ الدفع")
     montant = models.DecimalField(
         max_digits=14,
         decimal_places=2,
-        verbose_name="Montant (DZD)",
+        verbose_name="المبلغ (د.ج)",
         validators=[MinValueValidator(0.01)],
     )
     mode_paiement = models.CharField(
         max_length=20,
         choices=MODE_CHOICES,
         default=MODE_ESPECES,
-        verbose_name="Mode de paiement",
+        verbose_name="طريقة الدفع",
     )
     reference_paiement = models.CharField(
         max_length=100,
         blank=True,
-        verbose_name="Référence (n° chèque / virement)",
+        verbose_name="المرجع (رقم الشيك / التحويل)",
     )
-    notes = models.TextField(blank=True, verbose_name="Notes")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -438,22 +439,17 @@ class PaiementClient(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "Paiement Client"
-        verbose_name_plural = "Paiements Clients"
+        verbose_name = "دفع العميل"
+        verbose_name_plural = "مدفوعات العملاء"
         ordering = ["-date_paiement", "-created_at"]
 
     def __str__(self):
-        return (
-            f"Paiement {self.client.nom} — "
-            f"{self.montant} DZD ({self.date_paiement})"
-        )
+        return f"دفع {self.client.nom} — " f"{self.montant} DZD ({self.date_paiement})"
 
     @property
     def montant_alloue(self):
         """Sum of amounts already allocated to invoices."""
-        result = self.allocations.aggregate(total=models.Sum("montant_alloue"))[
-            "total"
-        ]
+        result = self.allocations.aggregate(total=models.Sum("montant_alloue"))["total"]
         return result or 0
 
     @property
@@ -468,28 +464,29 @@ class PaiementClientAllocation(models.Model):
     Created by the view when the user selects invoices to pay (BR-FAC-03).
     Never edited after creation.
     """
+
     paiement = models.ForeignKey(
         PaiementClient,
         on_delete=models.PROTECT,
         related_name="allocations",
-        verbose_name="Paiement",
+        verbose_name="الدفع",
     )
     facture = models.ForeignKey(
         FactureClient,
         on_delete=models.PROTECT,
         related_name="allocations",
-        verbose_name="Facture",
+        verbose_name="الفاتورة",
     )
     montant_alloue = models.DecimalField(
         max_digits=14,
         decimal_places=2,
-        verbose_name="Montant alloué (DZD)",
+        verbose_name="المبلغ المخصص (د.ج)",
         validators=[MinValueValidator(0.01)],
     )
 
     class Meta:
-        verbose_name = "Allocation Paiement Client"
-        verbose_name_plural = "Allocations Paiements Clients"
+        verbose_name = "تخصيص دفع العميل"
+        verbose_name_plural = "تخصيصات مدفوعات العملاء"
 
     def __str__(self):
         return (

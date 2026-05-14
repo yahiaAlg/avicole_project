@@ -71,7 +71,7 @@ def _assert_brouillon(record, request):
     if record.statut == ProductionRecord.STATUT_VALIDE:
         messages.error(
             request,
-            f"Cet enregistrement de production est validé et ne peut plus être modifié.",
+            f"تم التحقق من سجل الإنتاج هذا ولا يمكن تعديله.",
         )
         return False
     return True
@@ -117,7 +117,7 @@ def produit_fini_list(request):
             "type_produit": type_produit,
             "actif_param": actif_param,
             "type_choices": ProduitFini.TYPE_CHOICES,
-            "title": "Catalogue — Produits finis",
+            "title": "كتالوج — المنتجات النهائية",
         },
     )
 
@@ -141,7 +141,7 @@ def produit_fini_create(request):
                 produit = form.save()
                 messages.success(
                     request,
-                    f"Produit fini « {produit.designation} » créé avec succès.",
+                    f"تم إنشاء المنتج النهائي « {produit.designation} » بنجاح.",
                 )
                 logger.info(
                     "ProduitFini pk=%s ('%s') created by '%s'.",
@@ -152,9 +152,9 @@ def produit_fini_create(request):
                 return redirect("production:produit_fini_detail", pk=produit.pk)
             except Exception as exc:
                 logger.exception("Error creating ProduitFini: %s", exc)
-                messages.error(request, f"Erreur lors de la création : {exc}")
+                messages.error(request, f"خطأ أثناء الإنشاء: {exc}")
         else:
-            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
         form = ProduitFiniForm()
 
@@ -163,8 +163,8 @@ def produit_fini_create(request):
         "production/produit_fini_form.html",
         {
             "form": form,
-            "title": "Nouveau produit fini",
-            "action_label": "Créer",
+            "title": "منتج نهائي جديد",
+            "action_label": "إنشاء",
         },
     )
 
@@ -187,7 +187,7 @@ def produit_fini_create_ajax(request):
     """
     if request.method != "POST":
         return JsonResponse(
-            {"ok": False, "errors": {"__all__": ["Méthode non autorisée."]}}, status=405
+            {"ok": False, "errors": {"__all__": ["الطريقة غير مسموح بها."]}}, status=405
         )
 
     form = ProduitFiniForm(request.POST)
@@ -252,7 +252,7 @@ def produit_fini_detail(request, pk):
             "stock": stock,
             "mouvements": mouvements,
             "lignes_recentes": lignes_recentes,
-            "title": f"Produit fini — {produit.designation}",
+            "title": f"المنتج النهائي — {produit.designation}",
         },
     )
 
@@ -272,7 +272,7 @@ def produit_fini_edit(request, pk):
             try:
                 form.save()
                 messages.success(
-                    request, f"Produit fini « {produit.designation} » mis à jour."
+                    request, f"تم تحديث المنتج النهائي « {produit.designation} »."
                 )
                 logger.info(
                     "ProduitFini pk=%s updated by '%s'.", produit.pk, request.user
@@ -280,9 +280,9 @@ def produit_fini_edit(request, pk):
                 return redirect("production:produit_fini_detail", pk=produit.pk)
             except Exception as exc:
                 logger.exception("Error updating ProduitFini pk=%s: %s", pk, exc)
-                messages.error(request, f"Erreur lors de la mise à jour : {exc}")
+                messages.error(request, f"خطأ أثناء التحديث: {exc}")
         else:
-            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
         form = ProduitFiniForm(instance=produit)
 
@@ -292,8 +292,8 @@ def produit_fini_edit(request, pk):
         {
             "form": form,
             "produit": produit,
-            "title": f"Modifier — {produit.designation}",
-            "action_label": "Enregistrer les modifications",
+            "title": f"تعديل — {produit.designation}",
+            "action_label": "حفظ التعديلات",
         },
     )
 
@@ -310,8 +310,8 @@ def produit_fini_toggle_active(request, pk):
     produit = get_object_or_404(ProduitFini, pk=pk)
     produit.actif = not produit.actif
     produit.save(update_fields=["actif"])
-    state = "activé" if produit.actif else "désactivé"
-    messages.success(request, f"Produit fini « {produit.designation} » {state}.")
+    state = "مفعَّل" if produit.actif else "معطَّل"
+    messages.success(request, f"المنتج النهائي « {produit.designation} » {state}.")
     logger.info(
         "ProduitFini pk=%s set actif=%s by '%s'.",
         produit.pk,
@@ -389,7 +389,7 @@ def production_record_list(request):
             "nb_brouillons": nb_brouillons,
             "nb_valides": nb_valides,
             "statut_choices": ProductionRecord.STATUT_CHOICES,
-            "title": "Enregistrements de production",
+            "title": "سجلات الإنتاج",
         },
     )
 
@@ -435,9 +435,7 @@ def production_record_create(request, lot_pk=None):
 
                 messages.success(
                     request,
-                    f"Enregistrement de production créé (brouillon) pour le lot "
-                    f"« {record.lot.designation} » — {record.date_production}. "
-                    "Vérifiez les lignes puis validez pour mettre à jour le stock.",
+                    f"تم إنشاء سجل الإنتاج (مسودة) للدفعة « {record.lot.designation} » — {record.date_production}. راجع السطور ثم احقق السجل لتحديث المخزون.",
                 )
                 logger.info(
                     "ProductionRecord pk=%s created (BROUILLON) by '%s' "
@@ -452,11 +450,11 @@ def production_record_create(request, lot_pk=None):
 
             except Exception as exc:
                 logger.exception("Error creating ProductionRecord: %s", exc)
-                messages.error(request, f"Erreur lors de la création : {exc}")
+                messages.error(request, f"خطأ أثناء الإنشاء: {exc}")
         else:
             messages.error(
                 request,
-                "Veuillez corriger les erreurs ci-dessous (entête et/ou lignes).",
+                "يرجى تصحيح الأخطاء في رأس النموذج و/أو السطور.",
             )
     else:
         form = ProductionRecordForm(lot=lot)
@@ -473,8 +471,8 @@ def production_record_create(request, lot_pk=None):
             "form": form,
             "formset": formset,
             "lot": lot,
-            "title": "Nouveau enregistrement de production",
-            "action_label": "Enregistrer (brouillon)",
+            "title": "سجل إنتاج جديد",
+            "action_label": "حفظ (مسودة)",
         },
     )
 
@@ -530,7 +528,7 @@ def production_record_detail(request, pk):
             "rendement": rendement,
             "mouvements": mouvements,
             "valeur_totale_production": valeur_totale_production,
-            "title": f"Production — {record.lot.designation} — {record.date_production}",
+            "title": f"الإنتاج — {record.lot.designation} — {record.date_production}",
         },
     )
 
@@ -565,7 +563,7 @@ def production_record_edit(request, pk):
 
                 messages.success(
                     request,
-                    f"Enregistrement de production du {record.date_production} mis à jour.",
+                    f"تم تحديث سجل الإنتاج بتاريخ {record.date_production}.",
                 )
                 logger.info(
                     "ProductionRecord pk=%s updated by '%s'.", record.pk, request.user
@@ -574,11 +572,11 @@ def production_record_edit(request, pk):
 
             except Exception as exc:
                 logger.exception("Error updating ProductionRecord pk=%s: %s", pk, exc)
-                messages.error(request, f"Erreur lors de la mise à jour : {exc}")
+                messages.error(request, f"خطأ أثناء التحديث: {exc}")
         else:
             messages.error(
                 request,
-                "Veuillez corriger les erreurs ci-dessous (entête et/ou lignes).",
+                "يرجى تصحيح الأخطاء في رأس النموذج و/أو السطور.",
             )
     else:
         form = ProductionRecordForm(instance=record, lot=record.lot)
@@ -592,8 +590,8 @@ def production_record_edit(request, pk):
             "formset": formset,
             "record": record,
             "lot": record.lot,
-            "title": f"Modifier — Production {record.date_production}",
-            "action_label": "Enregistrer les modifications",
+            "title": f"تعديل — إنتاج {record.date_production}",
+            "action_label": "حفظ التعديلات",
         },
     )
 
@@ -629,8 +627,7 @@ def production_record_valider(request, pk):
     if not record.lignes.exists():
         messages.error(
             request,
-            "Impossible de valider un enregistrement sans lignes de production. "
-            "Ajoutez au moins un produit fini avant de valider.",
+            "لا يمكن التحقق من سجل بدون سطور إنتاج. أضف منتجًا نهائيًا واحدًا على الأقل قبل التحقق.",
         )
         return redirect("production:production_record_detail", pk=record.pk)
 
@@ -645,9 +642,7 @@ def production_record_valider(request, pk):
             if record.nombre_oiseaux_abattus > effectif:
                 messages.error(
                     request,
-                    f"Impossible de valider : le nombre d'oiseaux abattus "
-                    f"({record.nombre_oiseaux_abattus}) dépasse l'effectif vivant "
-                    f"actuel du lot ({effectif}). Modifiez l'enregistrement.",
+                    f"تعذّر التحقق: عدد الطيور المذبوحة ({record.nombre_oiseaux_abattus}) يتجاوز التعداد الحي ({effectif}). يرجى تعديل السجل.",
                 )
                 return redirect("production:production_record_detail", pk=record.pk)
 
@@ -669,8 +664,7 @@ def production_record_valider(request, pk):
 
         messages.success(
             request,
-            f"Production du {record.date_production} validée. "
-            f"Stock produits finis mis à jour pour {record.lignes.count()} produit(s).",
+            f"تم التحقق من إنتاج {record.date_production}. تم تحديث مخزون المنتجات النهائية لـ {record.lignes.count()} منتج.",
         )
         logger.info(
             "ProductionRecord pk=%s validated by '%s' "
@@ -701,7 +695,7 @@ def production_record_valider(request, pk):
         logger.exception("Error validating ProductionRecord pk=%s: %s", pk, exc)
         messages.error(
             request,
-            f"Erreur lors de la validation : {exc}",
+            f"خطأ أثناء التحقق: {exc}",
         )
 
     return redirect("production:production_record_detail", pk=record.pk)
@@ -732,12 +726,12 @@ def production_record_delete(request, pk):
         record.delete()
         messages.success(
             request,
-            f"Enregistrement de production du {date_ref} (lot « {lot_ref} ») supprimé.",
+            f"تم حذف سجل الإنتاج بتاريخ {date_ref} (الدفعة « {lot_ref} »).",
         )
         logger.info("ProductionRecord pk=%s deleted by '%s'.", pk, request.user)
     except Exception as exc:
         logger.exception("Error deleting ProductionRecord pk=%s: %s", pk, exc)
-        messages.error(request, f"Erreur lors de la suppression : {exc}")
+        messages.error(request, f"خطأ أثناء الحذف: {exc}")
         return redirect("production:production_record_detail", pk=pk)
 
     return redirect("production:production_record_list")
@@ -834,7 +828,7 @@ def production_dashboard(request):
             "revenu_potentiel": revenu_potentiel,
             "nb_en_alerte": nb_en_alerte,
             "lots_actifs": lots_actifs,
-            "title": "Tableau de bord — Production",
+            "title": "لوحة تحكم — الإنتاج",
         },
     )
 
@@ -937,7 +931,7 @@ def produit_fini_detail_json(request, pk):
             }
         )
     except ProduitFini.DoesNotExist:
-        return JsonResponse({"error": "not found"}, status=404)
+        return JsonResponse({"error": "غير موجود"}, status=404)
 
 
 # ===========================================================================

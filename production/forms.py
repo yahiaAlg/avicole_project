@@ -115,7 +115,7 @@ class ProductionLigneForm(forms.ModelForm):
                 attrs={"step": "0.0001", "min": "0"}
             ),
             "notes": forms.Textarea(
-                attrs={"rows": 1, "placeholder": "Optionnel", "class": "notes-input"}
+                attrs={"rows": 1, "placeholder": "اختياري", "class": "notes-input"}
             ),
         }
 

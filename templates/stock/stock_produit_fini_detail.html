@@ -1,24 +1,24 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Stock — {{ produit_fini.designation }} — Élevage Avicole{% endblock %}
+{% block title %}مخزون — {{ produit_fini.designation }} — تربية الدواجن{% endblock %}
 
 {% block nav_stock_produits %}active{% endblock %}
 
 {% block page_title %}{{ produit_fini.designation }}{% endblock %}
 {% block page_sub_text %}
   {{ produit_fini.get_type_produit_display }} —
-  {% if stock.en_alerte %}<span style="color:#dc2626;"><i class="bx bxs-bell" style="font-size:12px;"></i> Sous le seuil d'alerte</span>
-  {% else %}<span style="color:var(--accent-text);">Stock normal</span>{% endif %}
+  {% if stock.en_alerte %}<span style="color:#dc2626;"><i class="bx bxs-bell" style="font-size:12px;"></i> دون عتبة التنبيه</span>
+  {% else %}<span style="color:var(--accent-text);">مخزون طبيعي</span>{% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'stock:stock_produit_fini_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Stock Produits Finis
+    <i class="bx bx-arrow-back"></i> مخزون المنتجات النهائية
   </a>
   {% if not request.user.profile.role == 'viewer' %}
   <a href="{% url 'stock:stock_ajustement_create' %}?segment=produit_fini&produit_fini={{ produit_fini.pk }}" class="btn-primary">
-    <i class="bx bxs-pencil"></i> Ajustement manuel
+    <i class="bx bxs-pencil"></i> تسوية يدوية
   </a>
   {% endif %}
 {% endblock %}
@@ -29,39 +29,39 @@
   <!-- KPI row -->
   <div class="kpi-row">
     <div class="kpi-card {% if stock.en_alerte %}kpi-card--danger{% endif %}">
-      <div class="kpi-label">STOCK ACTUEL</div>
+      <div class="kpi-label">المخزون الحالي</div>
       <div class="kpi-value">
         {{ stock.quantite|floatformat:2 }}
         <span class="kpi-unit">{{ produit_fini.unite_mesure }}</span>
       </div>
       <div class="kpi-sub">
-        {% if stock.en_alerte %}<span style="color:#dc2626;"><i class="bx bxs-bell"></i> Sous le seuil</span>
-        {% else %}Solde disponible{% endif %}
+        {% if stock.en_alerte %}<span style="color:#dc2626;"><i class="bx bxs-bell"></i> دون العتبة</span>
+        {% else %}الرصيد المتاح{% endif %}
       </div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">COÛT MOYEN PRODUCTION</div>
+      <div class="kpi-label">متوسط تكلفة الإنتاج</div>
       <div class="kpi-value">
         {{ stock.cout_moyen_production|floatformat:2 }}
-        <span class="kpi-unit">DZD / {{ produit_fini.unite_mesure }}</span>
+        <span class="kpi-unit">دج / {{ produit_fini.unite_mesure }}</span>
       </div>
-      <div class="kpi-sub">Coût de revient moyen</div>
+      <div class="kpi-sub">متوسط سعر التكلفة</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">VALEUR EN STOCK</div>
+      <div class="kpi-label">قيمة المخزون</div>
       <div class="kpi-value">
         {{ stock.valeur_stock|floatformat:0 }}
-        <span class="kpi-unit">DZD</span>
+        <span class="kpi-unit">دج</span>
       </div>
-      <div class="kpi-sub">Qté × Coût moyen</div>
+      <div class="kpi-sub">الكمية × متوسط التكلفة</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">SEUIL D'ALERTE</div>
+      <div class="kpi-label">حد التنبيه</div>
       <div class="kpi-value">
         {{ stock.seuil_alerte|floatformat:2 }}
         <span class="kpi-unit">{{ produit_fini.unite_mesure }}</span>
       </div>
-      <div class="kpi-sub">Déclenchement alerte</div>
+      <div class="kpi-sub">حد إطلاق التنبيه</div>
     </div>
   </div>
 
@@ -71,9 +71,9 @@
     <div class="detail-main">
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bx-transfer"></i> Historique des mouvements</div>
+          <div class="section-eyebrow"><i class="bx bx-transfer"></i> سجل الحركات</div>
           <a href="{% url 'stock:stock_mouvement_list' %}?q={{ produit_fini.designation }}&segment=produit_fini" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;text-decoration:none;">
-            Voir tout <i class="bx bx-right-arrow-alt"></i>
+            عرض الكل <i class="bx bx-right-arrow-alt"></i>
           </a>
         </div>
         {% if mouvements %}
@@ -81,14 +81,14 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Type</th>
-                <th>Source</th>
-                <th>Quantité</th>
-                <th>Avant</th>
-                <th>Après</th>
-                <th>Référence</th>
-                <th>Par</th>
+                <th>التاريخ</th>
+                <th>النوع</th>
+                <th>المصدر</th>
+                <th>الكمية</th>
+                <th>قبل</th>
+                <th>بعد</th>
+                <th>المرجع</th>
+                <th>بواسطة</th>
               </tr>
             </thead>
             <tbody>
@@ -97,11 +97,11 @@
                 <td style="white-space:nowrap;color:var(--text-muted);font-size:12px;">{{ m.date_mouvement|date:"d/m/Y" }}</td>
                 <td>
                   {% if m.type_mouvement == 'entree' %}
-                    <span class="pill-success"><i class="bx bx-trending-up"></i> Entrée</span>
+                    <span class="pill-success"><i class="bx bx-trending-up"></i> دخول</span>
                   {% elif m.type_mouvement == 'sortie' %}
-                    <span class="pill-danger"><i class="bx bx-trending-down"></i> Sortie</span>
+                    <span class="pill-danger"><i class="bx bx-trending-down"></i> خروج</span>
                   {% else %}
-                    <span class="pill-warning"><i class="bx bx-transfer"></i> Ajust.</span>
+                    <span class="pill-warning"><i class="bx bx-transfer"></i> تسوية</span>
                   {% endif %}
                 </td>
                 <td style="font-size:12px;color:var(--text-muted);">{{ m.get_source_display }}</td>
@@ -125,8 +125,8 @@
         {% else %}
         <div class="empty-state">
           <i class="bx bx-transfer empty-state__icon"></i>
-          <div class="empty-state__title">Aucun mouvement enregistré</div>
-          <div class="empty-state__body">Les mouvements apparaîtront dès la validation d'une production ou d'une livraison client.</div>
+          <div class="empty-state__title">لا توجد حركات مسجلة</div>
+          <div class="empty-state__body">ستظهر الحركات عند التحقق من إنتاج أو تسليم عميل.</div>
         </div>
         {% endif %}
       </div>
@@ -137,35 +137,35 @@
 
       <div class="card mb-3">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-badge-check"></i> Fiche produit</div>
+          <div class="section-eyebrow"><i class="bx bxs-badge-check"></i> بطاقة المنتج</div>
         </div>
         <div class="info-list">
           <div class="info-row">
-            <span class="info-label">Désignation</span>
+            <span class="info-label">التسمية</span>
             <span class="info-value" style="font-weight:700;">{{ produit_fini.designation }}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Type</span>
+            <span class="info-label">النوع</span>
             <span class="info-value"><span class="pill-type">{{ produit_fini.get_type_produit_display }}</span></span>
           </div>
           <div class="info-row">
-            <span class="info-label">Unité</span>
+            <span class="info-label">الوحدة</span>
             <span class="info-value"><span class="unit-badge">{{ produit_fini.get_unite_mesure_display }}</span></span>
           </div>
           <div class="info-row">
-            <span class="info-label">Prix vente défaut</span>
-            <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ produit_fini.prix_vente_defaut|floatformat:2 }} DZD</span>
+            <span class="info-label">سعر البيع الافتراضي</span>
+            <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ produit_fini.prix_vente_defaut|floatformat:2 }} دج</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Statut</span>
+            <span class="info-label">الحالة</span>
             <span class="info-value">
-              {% if produit_fini.actif %}<span class="pill-success"><i class="bx bxs-check-circle"></i> Actif</span>
-              {% else %}<span class="pill-neutral"><i class="bx bx-block"></i> Inactif</span>{% endif %}
+              {% if produit_fini.actif %}<span class="pill-success"><i class="bx bxs-check-circle"></i> نشط</span>
+              {% else %}<span class="pill-neutral"><i class="bx bx-block"></i> غير نشط</span>{% endif %}
             </span>
           </div>
           {% if produit_fini.notes %}
           <div class="info-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
-            <span class="info-label">Notes</span>
+            <span class="info-label">ملاحظات</span>
             <span class="info-value" style="font-size:12.5px;color:var(--text-muted);">{{ produit_fini.notes }}</span>
           </div>
           {% endif %}
@@ -174,10 +174,10 @@
 
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-spreadsheet"></i> Ajustements récents</div>
+          <div class="section-eyebrow"><i class="bx bxs-spreadsheet"></i> التسويات الأخيرة</div>
           {% if not request.user.profile.role == 'viewer' %}
           <a href="{% url 'stock:stock_ajustement_create' %}?segment=produit_fini&produit_fini={{ produit_fini.pk }}" class="btn-ghost btn-sm">
-            <i class="bx bx-plus"></i> Nouveau
+            <i class="bx bx-plus"></i> جديد
           </a>
           {% endif %}
         </div>
@@ -186,11 +186,11 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Avant</th>
-                <th>Après</th>
+                <th>التاريخ</th>
+                <th>قبل</th>
+                <th>بعد</th>
                 <th>Δ</th>
-                <th>Par</th>
+                <th>بواسطة</th>
               </tr>
             </thead>
             <tbody>
@@ -215,7 +215,7 @@
         {% else %}
         <div class="empty-state" style="padding:24px 20px;">
           <i class="bx bxs-spreadsheet empty-state__icon" style="font-size:24px;margin-bottom:8px;"></i>
-          <div class="empty-state__title" style="font-size:13px;">Aucun ajustement</div>
+          <div class="empty-state__title" style="font-size:13px;">لا توجد تسويات</div>
         </div>
         {% endif %}
       </div>
@@ -227,6 +227,13 @@
 
 {% block extra_css %}
 <style>
+  /* ─── RTL / Arabic ─── */
+  .page-body { direction:rtl;font-family:'Tajawal','Inter',sans-serif; }
+  .data-table th, .data-table td { text-align:right; }
+  .section-eyebrow { letter-spacing:0; }
+  .kpi-label { letter-spacing:0; }
+  .info-value { text-align:left; }
+
   .page-body { padding:28px 32px; }
   @media(max-width:768px) { .page-body { padding:20px 16px; } }
 

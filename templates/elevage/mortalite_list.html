@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Mortalités — Élevage Avicole{% endblock %}
+{% block title %}النفوق — تربية الدواجن{% endblock %}
 
 {% block nav_lots %}active{% endblock %}
 
-{% block page_title %}Mortalités{% endblock %}
+{% block page_title %}النفوق{% endblock %}
 {% block page_sub_text %}
-  {% if total_mortalite %}{{ total_mortalite|floatformat:0 }} mort{{ total_mortalite|pluralize }} enregistré{{ total_mortalite|pluralize }}{% if date_debut or date_fin %} sur la période filtrée{% endif %}{% else %}Historique des mortalités — tous lots{% endif %}
+  {% if total_mortalite %}{{ total_mortalite|floatformat:0 }} نافق مسجل{% if date_debut or date_fin %} خلال الفترة المحددة{% endif %}{% else %}سجل النفوق — جميع الأفواج{% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'elevage:lot_list' %}" class="btn-ghost">
-    <i class="bx bxs-grid-alt"></i> Lots d'élevage
+    <i class="bx bxs-grid-alt"></i> أفواج التربية
   </a>
 {% endblock %}
 
@@ -26,7 +26,7 @@
       <div class="mort-kpi-icon"><i class="bx bxs-heart"></i></div>
       <div>
         <div class="mort-kpi-val">{{ total_mortalite|floatformat:0 }}</div>
-        <div class="mort-kpi-label">Total morts {% if date_debut or date_fin %}(période filtrée){% else %}(tous enregistrements){% endif %}</div>
+        <div class="mort-kpi-label">إجمالي النافقين {% if date_debut or date_fin %}(الفترة المحددة){% else %}(جميع السجلات){% endif %}</div>
       </div>
     </div>
   </div>
@@ -36,39 +36,39 @@
   <div class="card filter-bar mb-3">
     <form method="get" id="filter-form" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 18px;">
 
-      <!-- Search -->
+      <!-- بحث -->
       <div style="flex:1;min-width:200px;position:relative;">
-        <i class="bx bx-search" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;"></i>
-        <input type="text" name="q" value="{{ q }}" placeholder="Lot, cause…" class="filter-input" style="padding-left:40px;">
+        <i class="bx bx-search" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;"></i>
+        <input type="text" name="q" value="{{ q }}" placeholder="الفوج، السبب…" class="filter-input" style="padding-right:40px;padding-left:13px;">
       </div>
 
-      <!-- Lot filter -->
+      <!-- فلتر الفوج -->
       <div style="position:relative;min-width:180px;">
-        <i class="bx bxs-grid-alt" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;"></i>
-        <select name="lot" id="select-lot" class="filter-input" style="padding-left:40px;">
-          <option value="">Tous les lots</option>
+        <i class="bx bxs-grid-alt" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;"></i>
+        <select name="lot" id="select-lot" class="filter-input" style="padding-right:40px;padding-left:13px;">
+          <option value="">جميع الأفواج</option>
           {% for l in lots %}
           <option value="{{ l.pk }}" {% if lot_pk == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.designation }}</option>
           {% endfor %}
         </select>
       </div>
 
-      <!-- Date début -->
+      <!-- تاريخ البداية -->
       <div style="position:relative;min-width:150px;">
-        <i class="bx bxs-calendar" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;pointer-events:none;"></i>
-        <input type="date" name="date_debut" value="{{ date_debut }}" class="filter-input" style="padding-left:40px;" title="Date début">
+        <i class="bx bxs-calendar" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;pointer-events:none;"></i>
+        <input type="date" name="date_debut" value="{{ date_debut }}" class="filter-input" style="padding-right:40px;padding-left:13px;" title="تاريخ البداية">
       </div>
 
-      <!-- Date fin -->
+      <!-- تاريخ النهاية -->
       <div style="position:relative;min-width:150px;">
-        <i class="bx bxs-calendar-check" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;pointer-events:none;"></i>
-        <input type="date" name="date_fin" value="{{ date_fin }}" class="filter-input" style="padding-left:40px;" title="Date fin">
+        <i class="bx bxs-calendar-check" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;pointer-events:none;"></i>
+        <input type="date" name="date_fin" value="{{ date_fin }}" class="filter-input" style="padding-right:40px;padding-left:13px;" title="تاريخ النهاية">
       </div>
 
-      <button type="submit" class="btn-ghost"><i class="bx bxs-filter-alt"></i> Filtrer</button>
+      <button type="submit" class="btn-ghost"><i class="bx bxs-filter-alt"></i> تصفية</button>
       {% if q or lot_pk or date_debut or date_fin %}
       <a href="{% url 'elevage:mortalite_list' %}" class="btn-ghost" style="color:#dc2626;border-color:rgba(239,68,68,.2);">
-        <i class="bx bx-x"></i> Réinitialiser
+        <i class="bx bx-x"></i> إعادة تعيين
       </a>
       {% endif %}
     </form>
@@ -78,7 +78,7 @@
   <div class="card">
     <div class="card-header-row">
       <div class="section-eyebrow">
-        {% if page.paginator.count %}{{ page.paginator.count }} enregistrement{{ page.paginator.count|pluralize }}{% else %}Aucun résultat{% endif %}
+        {% if page.paginator.count %}{{ page.paginator.count }} سجل{% else %}لا توجد نتائج{% endif %}
       </div>
     </div>
 
@@ -87,12 +87,12 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Lot</th>
-            <th style="text-align:right;">Nombre de morts</th>
-            <th>Cause</th>
-            <th>Notes</th>
-            <th style="text-align:right;">Actions</th>
+            <th>التاريخ</th>
+            <th>الفوج</th>
+            <th style="text-align:right;">عدد النافقين</th>
+            <th>السبب</th>
+            <th>ملاحظات</th>
+            <th style="text-align:right;">إجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -107,7 +107,7 @@
                 {{ mort.lot.designation }}
               </a>
               {% if mort.lot.statut == 'ferme' %}
-              <span class="pill-neutral" style="margin-left:6px;font-size:10px;"><i class="bx bxs-lock"></i> Clôturé</span>
+              <span class="pill-neutral" style="margin-left:6px;font-size:10px;"><i class="bx bxs-lock"></i> مغلق</span>
               {% endif %}
             </td>
             <td style="text-align:right;">
@@ -121,18 +121,18 @@
             </td>
             <td>
               <div class="actions-cell">
-                <a href="{% url 'elevage:lot_detail' mort.lot.pk %}" class="action-btn" title="Voir le lot">
+                <a href="{% url 'elevage:lot_detail' mort.lot.pk %}" class="action-btn" title="عرض الفوج">
                   <i class="bx bxs-show"></i>
                 </a>
                 {% if mort.lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
-                <a href="{% url 'elevage:mortalite_edit' mort.pk %}" class="action-btn" title="Modifier">
+                <a href="{% url 'elevage:mortalite_edit' mort.pk %}" class="action-btn" title="تعديل">
                   <i class="bx bxs-pencil"></i>
                 </a>
                 <button type="button" class="action-btn action-btn--danger"
                   data-mort-pk="{{ mort.pk }}"
                   data-mort-date="{{ mort.date|date:'d/m/Y' }}"
                   data-mort-nombre="{{ mort.nombre }}"
-                  title="Supprimer">
+                  title="حذف">
                   <i class="bx bxs-trash"></i>
                 </button>
                 {% endif %}
@@ -152,7 +152,7 @@
         <i class="bx bx-chevron-left"></i>
       </a>
       {% endif %}
-      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      <span class="page-info">الصفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
       {% if page.has_next %}
       <a href="?{% if q %}q={{ q }}&{% endif %}{% if lot_pk %}lot={{ lot_pk }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ page.next_page_number }}" class="page-btn">
         <i class="bx bx-chevron-right"></i>
@@ -164,11 +164,11 @@
     {% else %}
     <div style="text-align:center;padding:52px 20px;color:var(--text-muted);">
       <i class="bx bxs-heart" style="font-size:34px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
-      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
-        {% if q or lot_pk or date_debut or date_fin %}Aucune mortalité ne correspond aux filtres{% else %}Aucune mortalité enregistrée{% endif %}
+      <div style="font-family:'Tajawal',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
+        {% if q or lot_pk or date_debut or date_fin %}لا يوجد نفوق يطابق عوامل التصفية{% else %}لا يوجد نفوق مسجل{% endif %}
       </div>
       <div style="font-size:13px;">
-        {% if q or lot_pk or date_debut or date_fin %}Essayez de modifier vos critères.{% else %}Les mortalités s'enregistrent depuis la fiche d'un lot ouvert.{% endif %}
+        {% if q or lot_pk or date_debut or date_fin %}حاول تعديل معايير البحث.{% else %}يتم تسجيل النفوق من صفحة الفوج المفتوح.{% endif %}
       </div>
     </div>
     {% endif %}
@@ -184,19 +184,19 @@
         <i class="bx bxs-trash" style="color:#dc2626;font-size:18px;"></i>
       </div>
       <div>
-        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);">Supprimer cet enregistrement</div>
+        <div style="font-family:'Tajawal',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);">حذف هذا السجل</div>
         <div id="delete-panel-sub" style="font-size:12px;color:var(--text-muted);margin-top:2px;"></div>
       </div>
     </div>
     <p style="font-size:13px;color:var(--text-secondary);margin-bottom:20px;">
-      Cette action est irréversible. L'effectif vivant du lot sera recalculé.
+      هذا الإجراء لا يمكن التراجع عنه. سيتم إعادة حساب عدد الطيور الحية للفوج.
     </p>
     <div style="display:flex;gap:10px;">
-      <button type="button" id="delete-cancel-btn" class="btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
+      <button type="button" id="delete-cancel-btn" class="btn-ghost" style="flex:1;justify-content:center;">إلغاء</button>
       <form id="delete-form" method="post" style="flex:1;">
         {% csrf_token %}
         <button type="submit" class="btn-danger" style="width:100%;justify-content:center;">
-          <i class="bx bxs-trash"></i> Supprimer
+          <i class="bx bxs-trash"></i> حذف
         </button>
       </form>
     </div>
@@ -368,7 +368,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const pk     = btn.dataset.mortPk;
       const date   = btn.dataset.mortDate;
       const nombre = btn.dataset.mortNombre;
-      subLabel.textContent = nombre + ' mort(s) le ' + date;
+      subLabel.textContent = nombre + ' نافق بتاريخ ' + date;
       deleteForm.action = '/api/elevage/mortalites/' + pk + '/supprimer/';
       overlay.style.display = 'flex';
     });

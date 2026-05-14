@@ -78,9 +78,9 @@ def login_view(request):
                 logger.info("User '%s' logged in.", user.username)
                 return redirect(next_url if next_url else "core:dashboard")
             else:
-                error = "Ce compte est désactivé. Contactez un administrateur."
+                error = "هذا الحساب معطَّل. يرجى التواصل مع المسؤول."
         else:
-            error = "Nom d'utilisateur ou mot de passe incorrect."
+            error = "اسم المستخدم أو كلمة المرور غير صحيحة."
 
     return render(
         request,
@@ -98,7 +98,7 @@ def logout_view(request):
     """POST-only logout (CSRF-protected)."""
     logger.info("User '%s' logged out.", request.user.username)
     logout(request)
-    messages.success(request, "Vous avez été déconnecté avec succès.")
+    messages.success(request, "تم تسجيل الخروج بنجاح.")
     return redirect("core:login")
 
 
@@ -281,14 +281,14 @@ def company_info_view(request):
             form.save()
             messages.success(
                 request,
-                "Informations de l'entreprise mises à jour avec succès.",
+                "تم تحديث معلومات الشركة بنجاح.",
             )
             logger.info("CompanyInfo updated by user '%s'.", request.user.username)
             return redirect("core:company_info")
         else:
             messages.error(
                 request,
-                "Veuillez corriger les erreurs dans le formulaire.",
+                "يرجى تصحيح الأخطاء في النموذج.",
             )
     else:
         form = CompanyInfoForm(instance=instance)
@@ -299,7 +299,7 @@ def company_info_view(request):
         {
             "form": form,
             "instance": instance,
-            "title": "Informations de l'entreprise",
+            "title": "معلومات الشركة",
         },
     )
 
@@ -322,7 +322,7 @@ def user_list(request):
         "core/user_list.html",
         {
             "users": users,
-            "title": "Gestion des utilisateurs",
+            "title": "إدارة المستخدمين",
         },
     )
 
@@ -340,7 +340,7 @@ def user_create(request):
             user = form.save()
             messages.success(
                 request,
-                f"L'utilisateur « {user.username} » a été créé avec succès.",
+                f"تم إنشاء المستخدم « {user.username} » بنجاح.",
             )
             logger.info(
                 "User '%s' created by '%s'.",
@@ -349,7 +349,7 @@ def user_create(request):
             )
             return redirect("core:user_list")
         else:
-            messages.error(request, "Veuillez corriger les erreurs dans le formulaire.")
+            messages.error(request, "يرجى تصحيح الأخطاء في النموذج.")
     else:
         form = UserCreateForm()
 
@@ -358,8 +358,8 @@ def user_create(request):
         "core/user_form.html",
         {
             "form": form,
-            "title": "Créer un utilisateur",
-            "action_label": "Créer",
+            "title": "إنشاء مستخدم",
+            "action_label": "إنشاء",
         },
     )
 
@@ -379,7 +379,7 @@ def user_edit(request, pk):
             form.save()
             messages.success(
                 request,
-                f"L'utilisateur « {target_user.username} » a été mis à jour avec succès.",
+                f"تم تحديث المستخدم « {target_user.username} » بنجاح.",
             )
             logger.info(
                 "User '%s' edited by '%s'.",
@@ -388,7 +388,7 @@ def user_edit(request, pk):
             )
             return redirect("core:user_list")
         else:
-            messages.error(request, "Veuillez corriger les erreurs dans le formulaire.")
+            messages.error(request, "يرجى تصحيح الأخطاء في النموذج.")
     else:
         form = UserUpdateForm(instance=target_user)
 
@@ -398,8 +398,8 @@ def user_edit(request, pk):
         {
             "form": form,
             "target_user": target_user,
-            "title": f"Modifier l'utilisateur « {target_user.username} »",
-            "action_label": "Enregistrer",
+            "title": f"تعديل المستخدم « {target_user.username} »",
+            "action_label": "حفظ",
         },
     )
 
@@ -417,7 +417,7 @@ def user_toggle_active(request, pk):
     if target_user == request.user:
         messages.error(
             request,
-            "Vous ne pouvez pas désactiver votre propre compte.",
+            "لا يمكنك تعطيل حسابك الخاص.",
         )
         return redirect("core:user_list")
 
@@ -427,7 +427,7 @@ def user_toggle_active(request, pk):
     if target_user.is_active:
         messages.success(
             request,
-            f"Le compte de « {target_user.username} » a été activé.",
+            f"تم تفعيل حساب « {target_user.username} ».",
         )
         logger.info(
             "User '%s' activated by '%s'.",
@@ -437,7 +437,7 @@ def user_toggle_active(request, pk):
     else:
         messages.warning(
             request,
-            f"Le compte de « {target_user.username} » a été désactivé.",
+            f"تم تعطيل حساب « {target_user.username} ».",
         )
         logger.info(
             "User '%s' deactivated by '%s'.",
@@ -466,7 +466,7 @@ def user_password_change(request, pk):
     if not (is_admin(request.user) or request.user == target_user):
         messages.error(
             request,
-            "Vous n'avez pas la permission de modifier ce mot de passe.",
+            "ليس لديك صلاحية تغيير كلمة المرور هذه.",
         )
         return redirect("core:dashboard")
 
@@ -479,7 +479,7 @@ def user_password_change(request, pk):
                 update_session_auth_hash(request, target_user)
             messages.success(
                 request,
-                f"Le mot de passe de « {target_user.username} » a été modifié avec succès.",
+                f"تم تغيير كلمة مرور « {target_user.username} » بنجاح.",
             )
             logger.info(
                 "Password changed for user '%s' by '%s'.",
@@ -490,7 +490,7 @@ def user_password_change(request, pk):
                 "core:user_list" if is_admin(request.user) else "core:dashboard"
             )
         else:
-            messages.error(request, "Veuillez corriger les erreurs dans le formulaire.")
+            messages.error(request, "يرجى تصحيح الأخطاء في النموذج.")
     else:
         form = PasswordChangeForm(user=target_user)
 
@@ -500,7 +500,7 @@ def user_password_change(request, pk):
         {
             "form": form,
             "target_user": target_user,
-            "title": f"Changer le mot de passe — {target_user.username}",
+            "title": f"تغيير كلمة المرور — {target_user.username}",
         },
     )
 
@@ -537,10 +537,10 @@ def profile_view(request):
                 profile.save(update_fields=["telephone", "notes", "updated_at"])
             except UserProfile.DoesNotExist:
                 pass
-            messages.success(request, "Votre profil a été mis à jour.")
+            messages.success(request, "تم تحديث ملفك الشخصي.")
             return redirect("core:profile")
         else:
-            messages.error(request, "Veuillez corriger les erreurs dans le formulaire.")
+            messages.error(request, "يرجى تصحيح الأخطاء في النموذج.")
     else:
         form = UserUpdateForm(instance=target_user)
         # Disable role field for non-admins.
@@ -553,6 +553,6 @@ def profile_view(request):
         {
             "form": form,
             "target_user": target_user,
-            "title": "Mon profil",
+            "title": "ملفي الشخصي",
         },
     )

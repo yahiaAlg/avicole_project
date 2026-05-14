@@ -7,17 +7,17 @@
 
 {% block page_title %}{{ title }}{% endblock %}
 {% block page_sub_text %}
-  {% if client %}{{ client.nom }}{% else %}Sélectionner un client{% endif %}
+  {% if client %}{{ client.nom }}{% else %}اختر عميلاً{% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
   {% if client %}
   <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour à la fiche
+    <i class="bx bx-arrow-back"></i> العودة إلى الملف
   </a>
   {% else %}
   <a href="{% url 'clients:paiement_client_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour
+    <i class="bx bx-arrow-back"></i> رجوع
   </a>
   {% endif %}
 {% endblock %}
@@ -36,7 +36,7 @@
         {% if client.wilaya %}<div class="client-banner__sub">{{ client.wilaya }}</div>{% endif %}
       </div>
       <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost btn-sm">
-        <i class="bx bx-user"></i> Fiche client
+        <i class="bx bx-user"></i> ملف العميل
       </a>
     </div>
     {% endif %}
@@ -45,10 +45,10 @@
     <div class="notice-banner" style="background:rgba(34,197,94,.07);border-color:rgba(34,197,94,.22);">
       <i class="bx bxs-receipt" style="flex-shrink:0;color:#16a34a;"></i>
       <span>
-        Paiement initié depuis la facture
+        دفعة مُبادَرة من الفاتورة
         <strong style="color:#15803d;">{{ facture_obj.reference }}</strong>
-        — Reste à payer : <strong>{{ facture_obj.reste_a_payer|floatformat:0 }} DZD</strong>.
-        Le montant est pré-rempli ci-dessous. Allouez manuellement ou laissez tout à 0 pour l'allocation FIFO automatique.
+        — المتبقي للدفع : <strong>{{ facture_obj.reste_a_payer|floatformat:0 }} DZD</strong>.
+        المبلغ مُعبأ مسبقاً أدناه. خصّص يدوياً أو اتركه كله على 0 للتخصيص التلقائي FIFO.
       </span>
     </div>
     {% endif %}
@@ -62,7 +62,7 @@
 
     <div class="notice-banner">
       <i class="bx bxs-lock" style="flex-shrink:0;color:#b45309;"></i>
-      <span><strong>Note :</strong> Les paiements sont <strong>immuables</strong> après enregistrement. Vérifiez le montant et le client avant de soumettre.</span>
+      <span><strong>ملاحظة :</strong> الدفعات <strong>غير قابلة للتعديل</strong> بعد التسجيل. تحقق من المبلغ والعميل قبل الإرسال.</span>
     </div>
 
     <form method="post" id="paiement-form">
@@ -70,7 +70,7 @@
       {% if client %}{{ form.client }}{% endif %}
 
       <div class="form-card">
-        <div class="form-card__title"><i class="bx bxs-wallet"></i> Détails du paiement</div>
+        <div class="form-card__title"><i class="bx bxs-wallet"></i> تفاصيل الدفعة</div>
 
         {% if not client %}
         <div class="field-group">
@@ -82,13 +82,13 @@
 
         <div class="form-row-2">
           <div class="field-group">
-            <label for="{{ form.date_paiement.id_for_label }}" class="field-label">Date du paiement <span class="required-star">*</span></label>
+            <label for="{{ form.date_paiement.id_for_label }}" class="field-label">تاريخ الدفعة <span class="required-star">*</span></label>
             {{ form.date_paiement }}
             {% if form.future_date_warning %}<div class="field-warning"><i class="bx bxs-info-circle"></i> La date est dans le futur — vérifiez avant de valider.</div>{% endif %}
             {% if form.date_paiement.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.date_paiement.errors.0 }}</div>{% endif %}
           </div>
           <div class="field-group">
-            <label for="{{ form.mode_paiement.id_for_label }}" class="field-label">Mode de paiement <span class="required-star">*</span></label>
+            <label for="{{ form.mode_paiement.id_for_label }}" class="field-label">طريقة الدفع <span class="required-star">*</span></label>
             {{ form.mode_paiement }}
             {% if form.mode_paiement.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.mode_paiement.errors.0 }}</div>{% endif %}
           </div>
@@ -96,7 +96,7 @@
 
         <div class="form-row-2">
           <div class="field-group">
-            <label for="{{ form.montant.id_for_label }}" class="field-label">Montant (DZD) <span class="required-star">*</span></label>
+            <label for="{{ form.montant.id_for_label }}" class="field-label">المبلغ (دج) <span class="required-star">*</span></label>
             <div class="input-icon-wrap">
               <i class="bx bxs-coin"></i>
               {{ form.montant }}
@@ -104,15 +104,15 @@
             {% if form.montant.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.montant.errors.0 }}</div>{% endif %}
           </div>
           <div class="field-group">
-            <label for="{{ form.reference_paiement.id_for_label }}" class="field-label">Référence (n° chèque / virement)</label>
+            <label for="{{ form.reference_paiement.id_for_label }}" class="field-label">المرجع (رقم الشيك / التحويل)</label>
             {{ form.reference_paiement }}
-            <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">Auto-généré : REF-{MODE}-{DATE}-{HEURE}. Modifiable.</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">مولَّد تلقائياً: REF-{النوع}-{التاريخ}-{الوقت}. قابل للتعديل.</div>
             {% if form.reference_paiement.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.reference_paiement.errors.0 }}</div>{% endif %}
           </div>
         </div>
 
         <div class="field-group">
-          <label for="{{ form.notes.id_for_label }}" class="field-label">Notes</label>
+          <label for="{{ form.notes.id_for_label }}" class="field-label">ملاحظات</label>
           {{ form.notes }}
           {% if form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.notes.errors.0 }}</div>{% endif %}
         </div>
@@ -121,9 +121,9 @@
       <!-- Manual allocation card (BR-FAC-03) -->
       {% if alloc_forms %}
       <div class="form-card alloc-card">
-        <div class="form-card__title"><i class="bx bx-file"></i> Allocation manuelle aux factures <span class="alloc-mode-badge" id="alloc-mode-badge">FIFO auto</span></div>
+        <div class="form-card__title"><i class="bx bx-file"></i> التخصيص اليدوي للفواتير <span class="alloc-mode-badge" id="alloc-mode-badge">FIFO تلقائي</span></div>
         <div class="form-hint" style="margin-bottom:14px;">
-          Saisissez les montants à imputer sur chaque facture. <strong>Laissez tout à 0</strong> pour appliquer l'allocation FIFO automatique (plus ancienne → plus récente). <span style="color:var(--text-muted);">(BR-FAC-03)</span>
+          Saisissez les montants à imputer sur chaque facture. <strong>Laissez tout à 0</strong> pour appliquer l'allocation FIFO تلقائيmatique (plus ancienne → plus récente). <span style="color:var(--text-muted);">(BR-FAC-03)</span>
         </div>
 
         <div class="alloc-list">
@@ -136,18 +136,18 @@
                 <span class="alloc-date">{{ alloc_form.facture_instance.date_facture|date:"d/m/Y" }}</span>
               </div>
               <div>
-                {% if alloc_form.facture_instance.statut == 'non_payee' %}<span class="pill-danger">Non payée</span>
-                {% elif alloc_form.facture_instance.statut == 'partiellement_payee' %}<span class="pill-warning">Part. payée</span>
+                {% if alloc_form.facture_instance.statut == 'non_payee' %}<span class="pill-danger">غير مدفوعة</span>
+                {% elif alloc_form.facture_instance.statut == 'partiellement_payee' %}<span class="pill-warning">مدفوعة جزئياً</span>
                 {% endif %}
               </div>
             </div>
             <div class="alloc-body">
               <div class="alloc-rap">
-                <span class="alloc-rap-label">Reste à payer</span>
+                <span class="alloc-rap-label">المتبقي للدفع</span>
                 <span class="alloc-rap-val">{{ alloc_form.facture_instance.reste_a_payer|floatformat:0 }} DZD</span>
               </div>
               <div class="alloc-input-group">
-                <span class="alloc-input-label">Montant alloué (DZD)</span>
+                <span class="alloc-input-label">المبلغ المخصص (DZD)</span>
                 {{ alloc_form.montant_alloue }}
                 {% for err in alloc_form.montant_alloue.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
                 {% for err in alloc_form.non_field_errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
@@ -159,7 +159,7 @@
 
         <div class="alloc-summary" id="alloc-summary">
           <i class="bx bx-calculator" style="color:var(--text-muted);"></i>
-          Total alloué manuellement : <strong id="alloc-total">0</strong> DZD
+          إجمالي المخصص manuellement : <strong id="alloc-total">0</strong> DZD
         </div>
       </div>
       {% endif %}
@@ -167,7 +167,7 @@
       <!-- FIFO preview block -->
       <div class="fifo-preview" id="fifo-preview" style="display:none;">
         <div class="fifo-preview__header">
-          <i class="bx bx-transfer"></i> <span id="fifo-preview-label">Simulation d'allocation FIFO</span>
+          <i class="bx bx-transfer"></i> <span id="fifo-preview-label">محاكاة توزيع FIFO</span>
         </div>
         <div id="fifo-rows"></div>
         <div class="fifo-preview__footer" id="fifo-footer"></div>
@@ -176,15 +176,15 @@
       {% if client and solde and not solde.factures_ouvertes %}
       <div class="notice-banner notice-banner--success">
         <i class="bx bxs-check-circle" style="flex-shrink:0;color:#15803d;"></i>
-        <span>Ce client n'a <strong>aucune facture ouverte</strong>. Le paiement sera enregistré sans allocation.</span>
+        <span>هذا العميل لا يملك <strong>أي فاتورة مفتوحة</strong>. ستُسجَّل الدفعة دون تخصيص.</span>
       </div>
       {% endif %}
 
       <div class="form-actions">
         {% if client %}
-        <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost">Annuler</a>
+        <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost">إلغاء</a>
         {% else %}
-        <a href="{% url 'clients:paiement_client_list' %}" class="btn-ghost">Annuler</a>
+        <a href="{% url 'clients:paiement_client_list' %}" class="btn-ghost">إلغاء</a>
         {% endif %}
         <button type="submit" class="btn-primary" id="submit-btn">
           <i class="bx bxs-wallet"></i> {{ action_label }}
@@ -197,9 +197,9 @@
   <div class="form-aside">
     {% if client and solde %}
     <div class="aside-card aside-card--creance">
-      <div class="aside-card__title"><i class="bx bx-hourglass"></i> Situation du client</div>
+      <div class="aside-card__title"><i class="bx bx-hourglass"></i> وضعية العميل</div>
       <div class="debt-metric">
-        <div class="debt-metric__label">Créances totales</div>
+        <div class="debt-metric__label">إجمالي الديون</div>
         <div class="debt-metric__val {% if solde.creance_globale > 0 %}val-orange{% endif %}">
           {{ solde.creance_globale|floatformat:0 }} DZD
         </div>
@@ -212,12 +212,12 @@
       </div>
       {% endif %}
       <div class="summary-row">
-        <span class="summary-label">Total encaissé (historique)</span>
+        <span class="summary-label">إجمالي المحصَّل (تاريخياً)</span>
         <span class="summary-val">{{ solde.total_paiements|floatformat:0 }} DZD</span>
       </div>
       {% if solde.nb_factures_retard > 0 %}
       <div class="summary-row">
-        <span class="summary-label" style="color:#dc2626;">Factures en retard</span>
+        <span class="summary-label" style="color:#dc2626;">فواتير متأخرة</span>
         <span class="summary-val" style="color:#dc2626;">{{ solde.nb_factures_retard }}</span>
       </div>
       {% endif %}
@@ -225,7 +225,7 @@
 
     {% if solde.factures_ouvertes %}
     <div class="aside-card">
-      <div class="aside-card__title"><i class="bx bxs-file-txt"></i> Factures ouvertes (ordre FIFO)</div>
+      <div class="aside-card__title"><i class="bx bxs-file-txt"></i> الفواتير المفتوحة (ترتيب FIFO)</div>
       <div class="fifo-open-list" id="open-invoices">
         {% for f in solde.factures_ouvertes %}
         <div class="fifo-open-item"
@@ -235,7 +235,7 @@
              data-date="{{ f.date_facture|date:'d/m/Y' }}">
           <div class="fifo-open-item__ref">{{ f.reference }}</div>
           <div class="fifo-open-item__meta">{{ f.date_facture|date:"d/m/Y" }}
-            {% if f.date_echeance %}{% now "Y-m-d" as today_str %}{% if f.date_echeance|date:"Y-m-d" < today_str %}<span style="color:#dc2626;font-size:10px;"> · En retard</span>{% endif %}{% endif %}
+            {% if f.date_echeance %}{% now "Y-m-d" as today_str %}{% if f.date_echeance|date:"Y-m-d" < today_str %}<span style="color:#dc2626;font-size:10px;"> · متأخرة</span>{% endif %}{% endif %}
           </div>
           <div class="fifo-open-item__reste">{{ f.reste_a_payer|floatformat:0 }} DZD</div>
         </div>
@@ -246,9 +246,9 @@
 
     {% else %}
     <div class="aside-card">
-      <div class="aside-card__title"><i class="bx bx-info-circle"></i> Allocation FIFO</div>
+      <div class="aside-card__title"><i class="bx bx-info-circle"></i> توزيع FIFO</div>
       <div style="font-size:12px;color:var(--text-muted);line-height:1.6;">
-        Après enregistrement, l'allocation FIFO s'applique automatiquement aux factures ouvertes les plus anciennes en premier.
+        بعد التسجيل، يُطبَّق توزيع FIFO تلقائياً على أقدم الفواتير المفتوحة أولاً.
       </div>
     </div>
     {% endif %}
@@ -323,8 +323,8 @@
     border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow);
   }
   .input-icon-wrap { position: relative; display: flex; align-items: center; }
-  .input-icon-wrap > i { position: absolute; left: 12px; font-size: 15px; color: var(--text-muted); pointer-events: none; z-index: 1; }
-  .input-icon-wrap input { padding-left: 38px; width: 100%; }
+  .input-icon-wrap > i { position: absolute; right: 12px; font-size: 15px; color: var(--text-muted); pointer-events: none; z-index: 1; }
+  .input-icon-wrap input { padding-right: 38px; padding-left: 13px; width: 100%; }
 
   .fifo-preview {
     background: var(--bg-raised); border: 1px solid var(--border-strong);
@@ -502,10 +502,10 @@ document.addEventListener('DOMContentLoaded', function () {
     // Update mode badge
     if (modeBadge) {
       if (manualTotal > 0) {
-        modeBadge.textContent = 'Manuelle';
+        modeBadge.textContent = 'يدوي';
         modeBadge.classList.add('manual');
       } else {
-        modeBadge.textContent = 'FIFO auto';
+        modeBadge.textContent = 'FIFO تلقائي';
         modeBadge.classList.remove('manual');
       }
     }
@@ -552,8 +552,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // Update header label to clarify context
     if (fifoLabel) {
       fifoLabel.textContent = manAllocated > 0
-        ? 'Simulation FIFO pour le montant non alloué (' + fmtDZD(remaining) + ')'
-        : 'Simulation d\'allocation FIFO automatique';
+        ? 'محاكاة FIFO للمبلغ غير المخصص (' + fmtDZD(remaining) + ')'
+        : 'Simulation d\'allocation FIFO تلقائيmatique';
     }
 
     var rem = remaining, html = '';
@@ -568,7 +568,7 @@ document.addEventListener('DOMContentLoaded', function () {
         + '<span class="fifo-preview__ref">' + inv.ref
         + '<span style="font-size:10.5px;color:var(--text-muted);margin-left:6px;">' + inv.date + '</span></span>'
         + '<span class="fifo-preview__amount" style="color:var(--accent-text);">' + fmtDZD(alloue) + '</span>'
-        + (full ? '<span class="pill-success">Soldée</span>' : '<span class="pill-warning">Part. payée</span>')
+        + (full ? '<span class="pill-success">Soldée</span>' : '<span class="pill-warning">مدفوعة جزئياً</span>')
         + '</div>';
       if (inv.el) {
         inv.el.classList.toggle('fifo-open-item--allocated', full);
@@ -581,7 +581,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var allocated = remaining - rem;
     var newCreance = Math.max(0, creanceGlobale - manAllocated - allocated);
     var footer = 'Créance restante estimée : <strong>' + fmtDZD(newCreance) + '</strong>';
-    if (rem > 0) footer += '<div style="font-size:12px;color:#b45309;margin-top:6px;"><i class="bx bxs-info-circle"></i> Surplus de ' + fmtDZD(rem) + ' — aucune facture ouverte pour l\'absorber.</div>';
+    if (rem > 0) footer += '<div style="font-size:12px;color:#b45309;margin-top:6px;"><i class="bx bxs-info-circle"></i> فائض ' + fmtDZD(rem) + ' — aucune facture ouverte pour l\'absorber.</div>';
     fifoFooter.innerHTML = footer;
 
     if (creanceFill && creanceGlobale > 0) {

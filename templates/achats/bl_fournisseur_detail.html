@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
 
 {% block nav_bl_fournisseur %}active{% endblock %}
 
@@ -10,11 +10,11 @@
 
 {% block topbar_actions %}
   <a href="{% url 'achats:bl_fournisseur_print' bl.pk %}" class="btn-ghost" target="_blank">
-    <i class="bx bxs-printer"></i> Imprimer
+    <i class="bx bxs-printer"></i> طباعة
   </a>
   {% if not bl.est_verrouille %}
   <a href="{% url 'achats:bl_fournisseur_edit' bl.pk %}" class="btn-primary">
-    <i class="bx bxs-pencil"></i> Modifier
+    <i class="bx bxs-pencil"></i> تعديل
   </a>
   {% endif %}
 {% endblock %}
@@ -23,7 +23,7 @@
 {% if bl.est_verrouille %}
 <div style="background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:20px;">
   <i class="bx bxs-file-txt" style="color:var(--accent-text);font-size:15px;"></i>
-  <span style="font-size:13px;color:var(--text-secondary);">Ce BL est <strong style="color:var(--accent-text);">verrouillé (Facturé)</strong> — il est lié à une ou plusieurs factures fournisseurs.</span>
+  <span style="font-size:13px;color:var(--text-secondary);">هذا الوصل <strong style="color:var(--accent-text);">مقفل (مفوتر)</strong> — وهو مرتبط بفاتورة مورد واحدة أو أكثر.</span>
 </div>
 {% endif %}
 
@@ -39,64 +39,64 @@
           <div class="ic-box ic-blue"><i class="bx bxs-truck"></i></div>
           <div>
             <div class="detail-card__title">{{ bl.reference }}</div>
-            <div style="font-size:12px;color:var(--text-muted);">Bon de livraison fournisseur</div>
+            <div style="font-size:12px;color:var(--text-muted);">وصل تسليم المورد</div>
           </div>
         </div>
         <div>
           {% if bl.statut == "brouillon" %}
-            <span class="pill-warning"><i class="bx bxs-edit-alt"></i> Brouillon</span>
+            <span class="pill-warning"><i class="bx bxs-edit-alt"></i> مسودة</span>
           {% elif bl.statut == "recu" %}
-            <span class="pill-info"><i class="bx bxs-check-circle"></i> Reçu</span>
+            <span class="pill-info"><i class="bx bxs-check-circle"></i> مستلم</span>
           {% elif bl.statut == "facture" %}
-            <span class="pill-success"><i class="bx bxs-file-txt"></i> Facturé</span>
+            <span class="pill-success"><i class="bx bxs-file-txt"></i> مفوتر</span>
           {% elif bl.statut == "litige" %}
-            <span class="pill-danger"><i class="bx bxs-error"></i> En litige</span>
+            <span class="pill-danger"><i class="bx bxs-error"></i> في نزاع</span>
           {% endif %}
         </div>
       </div>
 
       <div class="info-grid">
         <div class="info-item">
-          <div class="info-label">Fournisseur</div>
+          <div class="info-label">المورد</div>
           <div class="info-val">
             <a href="{% url 'achats:fournisseur_tableau_de_bord' bl.fournisseur.pk %}" class="ref-link">{{ bl.fournisseur.nom }}</a>
           </div>
         </div>
         <div class="info-item">
-          <div class="info-label">Date du BL</div>
+          <div class="info-label">تاريخ الوصل</div>
           <div class="info-val">{{ bl.date_bl|date:"d/m/Y" }}</div>
         </div>
         <div class="info-item">
-          <div class="info-label">Réf. fournisseur</div>
+          <div class="info-label">مرجع المورد</div>
           <div class="info-val">{{ bl.reference_fournisseur|default:"—" }}</div>
         </div>
         <div class="info-item">
-          <div class="info-label">Pièce jointe</div>
+          <div class="info-label">المرفقات</div>
           <div class="info-val">
             {% if bl.a_piece_jointe %}
               <a href="{{ bl.piece_jointe.url }}" target="_blank" style="color:var(--accent-text);display:inline-flex;align-items:center;gap:4px;font-size:13px;">
-                <i class="bx bx-paperclip"></i> Voir la pièce jointe
+                <i class="bx bx-paperclip"></i> عرض المرفق
               </a>
             {% else %}
               <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#dc2626;">
-                <i class="bx bx-paperclip"></i> Sans pièce jointe
+                <i class="bx bx-paperclip"></i> بدون مرفق
               </span>
             {% endif %}
           </div>
         </div>
         <div class="info-item">
-          <div class="info-label">Créé par</div>
+          <div class="info-label">تم الإنشاء بواسطة</div>
           <div class="info-val">{{ bl.created_by.get_full_name|default:bl.created_by.username|default:"—" }}</div>
         </div>
         <div class="info-item">
-          <div class="info-label">Créé le</div>
+          <div class="info-label">تاريخ الإنشاء</div>
           <div class="info-val" style="color:var(--text-muted);">{{ bl.created_at|date:"d/m/Y" }}</div>
         </div>
       </div>
 
       {% if bl.notes_reception %}
       <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
-        <div class="info-label" style="margin-bottom:5px;">Notes de réception</div>
+        <div class="info-label" style="margin-bottom:5px;">ملاحظات الاستلام</div>
         <div style="font-size:13px;color:var(--text-secondary);line-height:1.5;">{{ bl.notes_reception }}</div>
       </div>
       {% endif %}
@@ -107,7 +107,7 @@
       <div class="detail-card__header">
         <div style="display:flex;align-items:center;gap:8px;">
           <div class="ic-box ic-green"><i class="bx bxs-cube-alt"></i></div>
-          <span class="detail-card__title">Lignes d'intrants</span>
+          <span class="detail-card__title">خطوط المدخلات</span>
         </div>
         <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--accent-text);">
           {{ montant_total|floatformat:0 }} DZD
@@ -118,8 +118,8 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th>Intrant</th>
-              <th>Catégorie</th>
+              <th>المدخل</th>
+              <th>الفئة</th>
               <th style="text-align:right;">Quantité</th>
               <th style="text-align:right;">Prix unitaire</th>
               <th style="text-align:right;">Montant</th>
@@ -147,7 +147,7 @@
             {% empty %}
             <tr>
               <td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px;">
-                Aucune ligne enregistrée.
+                لا توجد خطوط مسجلة.
               </td>
             </tr>
             {% endfor %}
@@ -156,7 +156,7 @@
           <tfoot>
             <tr style="background:var(--bg-raised);">
               <td colspan="4" style="text-align:right;font-size:12px;font-weight:600;color:var(--text-muted);padding:12px 14px;">
-                TOTAL BL
+                إجمالي الوصل
               </td>
               <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--accent-text);padding:12px 14px;">
                 {{ montant_total|floatformat:0 }} DZD
@@ -175,17 +175,17 @@
       <div class="detail-card__header">
         <div style="display:flex;align-items:center;gap:8px;">
           <div class="ic-box ic-amber"><i class="bx bxs-file-txt"></i></div>
-          <span class="detail-card__title">Factures liées</span>
+          <span class="detail-card__title">الفواتير المرتبطة</span>
         </div>
       </div>
       <div class="table-wrapper">
         <table class="data-table">
           <thead>
             <tr>
-              <th>Référence</th>
-              <th>Date</th>
-              <th>Montant total</th>
-              <th>Reste à payer</th>
+              <th>المرجع</th>
+              <th>التاريخ</th>
+              <th>المبلغ الإجمالي</th>
+              <th>المبلغ المتبقي</th>
               <th>Statut</th>
               <th></th>
             </tr>
@@ -204,13 +204,13 @@
                 {% endif %}
               </td>
               <td>
-                {% if f.statut == "non_paye" %}<span class="pill-danger">Non payée</span>
-                {% elif f.statut == "partiellement_paye" %}<span class="pill-warning">Part. payée</span>
-                {% elif f.statut == "paye" %}<span class="pill-success">Payée</span>
-                {% elif f.statut == "en_litige" %}<span class="pill-danger">En litige</span>
+                {% if f.statut == "non_paye" %}<span class="pill-danger">غير مدفوعة</span>
+                {% elif f.statut == "partiellement_paye" %}<span class="pill-warning">مدفوعة جزئيًا</span>
+                {% elif f.statut == "paye" %}<span class="pill-success">مدفوعة</span>
+                {% elif f.statut == "en_litige" %}<span class="pill-danger">في نزاع</span>
                 {% endif %}
               </td>
-              <td><a href="{% url 'achats:facture_fournisseur_detail' f.pk %}" class="action-btn" title="Voir"><i class="bx bxs-show"></i></a></td>
+              <td><a href="{% url 'achats:facture_fournisseur_detail' f.pk %}" class="action-btn" title="عرض"><i class="bx bxs-show"></i></a></td>
             </tr>
             {% endfor %}
           </tbody>
@@ -226,31 +226,31 @@
     <div class="detail-card">
       <div class="detail-card__header">
         <div class="ic-box ic-green"><i class="bx bxs-zap"></i></div>
-        <span class="detail-card__title">Actions rapides</span>
+        <span class="detail-card__title">إجراءات سريعة</span>
       </div>
       <div style="display:flex;flex-direction:column;gap:8px;">
         <a href="{% url 'achats:bl_fournisseur_print' bl.pk %}" class="btn-ghost" style="width:100%;justify-content:center;" target="_blank">
-          <i class="bx bxs-printer"></i> Imprimer le BL
+          <i class="bx bxs-printer"></i> طباعة الوصل
         </a>
         {% if not bl.est_verrouille %}
         <a href="{% url 'achats:bl_fournisseur_edit' bl.pk %}" class="btn-primary" style="width:100%;justify-content:center;">
-          <i class="bx bxs-pencil"></i> Modifier
+          <i class="bx bxs-pencil"></i> تعديل
         </a>
         {% endif %}
 
         {# ── Invoice button: active only when statut == recu ── #}
         {% if bl.statut == "recu" %}
         <a href="{% url 'achats:facture_fournisseur_create' %}?fournisseur={{ bl.fournisseur.pk }}" class="btn-success" style="width:100%;justify-content:center;">
-          <i class="bx bxs-file-txt"></i> Créer une facture
+          <i class="bx bxs-file-txt"></i> إنشاء فاتورة
         </a>
         {% else %}
-        <span class="btn-ghost btn-disabled" style="width:100%;justify-content:center;cursor:not-allowed;opacity:.45;" title="{% if bl.statut == 'brouillon' %}Le BL doit être au statut « Reçu » pour créer une facture.{% elif bl.statut == 'litige' %}Résolvez le litige avant de facturer.{% else %}Ce BL est déjà facturé.{% endif %}">
-          <i class="bx bxs-file-txt"></i> Créer une facture
+        <span class="btn-ghost btn-disabled" style="width:100%;justify-content:center;cursor:not-allowed;opacity:.45;" title="{% if bl.statut == 'brouillon' %}يجب أن يكون الوصل بحالة «مستلم» لإنشاء فاتورة.{% elif bl.statut == 'litige' %}حل النزاع قبل الفوترة.{% else %}هذا الوصل مفوتر بالفعل.{% endif %}">
+          <i class="bx bxs-file-txt"></i> إنشاء فاتورة
         </span>
         {% endif %}
 
         <a href="{% url 'achats:bl_fournisseur_list' %}?fournisseur={{ bl.fournisseur.pk }}" class="btn-ghost" style="width:100%;justify-content:center;">
-          <i class="bx bxs-truck"></i> BLs du fournisseur
+          <i class="bx bxs-truck"></i> وصولات المورد
         </a>
       </div>
 
@@ -258,7 +258,7 @@
       {% if not bl.est_verrouille %}
       <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
         <div style="font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">
-          Changer le statut
+          تغيير الحالة
         </div>
 
         {% if is_admin %}
@@ -272,7 +272,7 @@
               {% endfor %}
             </select>
             <button type="submit" class="btn-statut" style="width:100%;justify-content:center;">
-              <i class="bx bxs-transfer-alt"></i> Appliquer
+              <i class="bx bxs-transfer-alt"></i> تطبيق
             </button>
           </div>
         </form>
@@ -301,11 +301,11 @@
       <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
         <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:14px 16px;">
           <div style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;margin-bottom:6px;font-size:13px;">
-            <i class="bx bxs-error me-1"></i> Zone sensible
+            <i class="bx bxs-error me-1"></i> منطقة حرجة
           </div>
-          <p style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;">Supprimer ce BL Brouillon définitivement.</p>
+          <p style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;">حذف هذا الوصل المسودة نهائيًا.</p>
           <button type="button" class="btn-danger" style="width:100%;justify-content:center;font-size:12px;" id="detail-delete-btn">
-            <i class="bx bxs-trash"></i> Supprimer
+            <i class="bx bxs-trash"></i> حذف
           </button>
         </div>
       </div>
@@ -321,14 +321,14 @@
   <div class="confirm-panel__inner">
     <div class="confirm-panel__icon"><i class="bx bxs-trash"></i></div>
     <div>
-      <div class="confirm-panel__title">Supprimer le BL ?</div>
-      <div class="confirm-panel__body">Le BL <strong>{{ bl.reference }}</strong> sera définitivement supprimé. Cette action est irréversible.</div>
+      <div class="confirm-panel__title">حذف وصل التسليم؟</div>
+      <div class="confirm-panel__body">سيتم حذف الوصل <strong>{{ bl.reference }}</strong> نهائيًا. هذه العملية لا يمكن التراجع عنها.</div>
     </div>
     <div class="confirm-panel__actions">
-      <button type="button" id="confirm-cancel-btn" class="btn-ghost">Annuler</button>
+      <button type="button" id="confirm-cancel-btn" class="btn-ghost">إلغاء</button>
       <form method="post" action="{% url 'achats:bl_fournisseur_delete' bl.pk %}">
         {% csrf_token %}
-        <button type="submit" class="btn-danger"><i class="bx bxs-trash"></i> Supprimer</button>
+        <button type="submit" class="btn-danger"><i class="bx bxs-trash"></i> حذف</button>
       </form>
     </div>
   </div>

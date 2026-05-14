@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Nouvelle Facture — Choisir un fournisseur — Élevage Avicole{% endblock %}
+{% block title %}فاتورة جديدة — اختيار المورد — تربية الدواجن{% endblock %}
 
 {% block nav_factures_fournisseurs %}active{% endblock %}
 
-{% block page_title %}Nouvelle Facture Fournisseur{% endblock %}
-{% block page_sub_text %}Étape 1 — Sélectionner un fournisseur{% endblock %}
+{% block page_title %}فاتورة مورد جديدة{% endblock %}
+{% block page_sub_text %}الخطوة 1 — اختيار المورد{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'achats:facture_fournisseur_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour
+    <i class="bx bx-arrow-back"></i> رجوع
   </a>
 {% endblock %}
 
@@ -20,8 +20,8 @@
     <div class="step-header">
       <div class="step-badge">1</div>
       <div>
-        <div class="step-title">Choisir le fournisseur</div>
-        <div class="step-sub">Sélectionnez le fournisseur pour filtrer ses BLs en statut Reçu.</div>
+        <div class="step-title">اختيار المورد</div>
+        <div class="step-sub">اختر المورد لتصفية وصولات الاستلام الخاصة به.</div>
       </div>
     </div>
 
@@ -41,18 +41,18 @@
             <span style="color:{% if f.dette_globale > 0 %}#dc2626{% else %}var(--accent-text){% endif %};">
               {{ f.dette_globale|floatformat:0 }} DZD
             </span>
-            <span style="color:var(--text-muted);font-size:11px;"> dette</span>
+            <span style="color:var(--text-muted);font-size:11px;"> دين</span>
           </div>
         </div>
-        <i class="bx bx-chevron-right fournisseur-card__arrow"></i>
+        <i class="bx bx-chevron-left fournisseur-card__arrow"></i>
       </a>
       {% endfor %}
     </div>
     {% else %}
     <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
       <i class="bx bxs-building" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
-      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">Aucun fournisseur actif</div>
-      <div style="font-size:13px;">Créez d'abord un fournisseur dans le module Fournisseurs.</div>
+      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">لا يوجد مورد نشط</div>
+      <div style="font-size:13px;">أنشئ موردًا أولاً في قسم الموردين.</div>
     </div>
     {% endif %}
   </div>
@@ -116,7 +116,7 @@
   .fournisseur-card:hover {
     border-color: var(--accent);
     background: var(--accent-dim);
-    transform: translateX(3px);
+    transform: translateX(-3px);
   }
   .fournisseur-card__avatar {
     width: 40px; height: 40px;

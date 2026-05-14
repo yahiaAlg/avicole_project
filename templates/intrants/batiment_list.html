@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Bâtiments — Élevage Avicole{% endblock %}
+{% block title %}المباني — تربية الدواجن{% endblock %}
 
 {% block nav_batiments %}active{% endblock %}
 
-{% block page_title %}Bâtiments{% endblock %}
-{% block page_sub_text %}{{ batiments|length }} bâtiment{{ batiments|length|pluralize }} configuré{{ batiments|length|pluralize }}{% endblock %}
+{% block page_title %}المباني{% endblock %}
+{% block page_sub_text %}{{ batiments|length }} مبنى مُهيَّأ{% endblock %}
 
 {% block topbar_actions %}
   {% if request.user.profile.role == 'admin' %}
   <a href="{% url 'intrants:batiment_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouveau bâtiment
+    <i class="bx bx-plus"></i> مبنى جديد
   </a>
   {% endif %}
 {% endblock %}
@@ -21,7 +21,7 @@
 
   <div class="card">
     <div class="card-header-row">
-      <div class="section-eyebrow">Bâtiments d'élevage</div>
+      <div class="section-eyebrow">مباني التربية</div>
     </div>
 
     {% if batiments %}
@@ -29,11 +29,11 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Nom / Numéro</th>
-            <th>Capacité (têtes)</th>
-            <th>Description</th>
-            <th>Statut</th>
-            {% if request.user.profile.role == 'admin' %}<th style="text-align:right;">Actions</th>{% endif %}
+            <th>الاسم / الرقم</th>
+            <th>الطاقة الاستيعابية (رأس)</th>
+            <th>الوصف</th>
+            <th>الحالة</th>
+            {% if request.user.profile.role == 'admin' %}<th style="text-align:left;">الإجراءات</th>{% endif %}
           </tr>
         </thead>
         <tbody>
@@ -48,7 +48,7 @@
             <td>
               {% if bat.capacite %}
                 <span style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ bat.capacite|floatformat:0 }}</span>
-                <span style="font-size:11px;color:var(--text-muted);margin-left:3px;">têtes</span>
+                <span style="font-size:11px;color:var(--text-muted);margin-left:3px;">رأس</span>
               {% else %}
                 <span style="color:var(--text-muted);font-size:12px;">—</span>
               {% endif %}
@@ -62,15 +62,15 @@
             </td>
             <td>
               {% if bat.actif %}
-                <span class="pill-success"><i class="bx bxs-check-circle"></i> Actif</span>
+                <span class="pill-success"><i class="bx bxs-check-circle"></i> نشط</span>
               {% else %}
-                <span class="pill-neutral"><i class="bx bx-block"></i> Inactif</span>
+                <span class="pill-neutral"><i class="bx bx-block"></i> غير نشط</span>
               {% endif %}
             </td>
             {% if request.user.profile.role == 'admin' %}
             <td>
               <div class="actions-cell">
-                <a href="{% url 'intrants:batiment_edit' bat.pk %}" class="action-btn" title="Modifier">
+                <a href="{% url 'intrants:batiment_edit' bat.pk %}" class="action-btn" title="تعديل">
                   <i class="bx bxs-pencil"></i>
                 </a>
                 <button type="button"
@@ -78,7 +78,7 @@
                   data-toggle-item="{{ bat.pk }}"
                   data-libelle="{{ bat.nom }}"
                   data-active="{{ bat.actif|yesno:'true,false' }}"
-                  title="{% if bat.actif %}Désactiver{% else %}Activer{% endif %}">
+                  title="{% if bat.actif %}تعطيل{% else %}تفعيل{% endif %}">
                   <i class="bx {% if bat.actif %}bx-block{% else %}bxs-check-circle{% endif %}"></i>
                 </button>
               </div>
@@ -93,12 +93,12 @@
     <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
       <i class="bx bxs-home" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
       <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
-        Aucun bâtiment
+        لا توجد مباني
       </div>
-      <div style="font-size:13px;">Créez le premier bâtiment d'élevage.</div>
+      <div style="font-size:13px;">أنشئ أول مبنى تربية.</div>
       {% if request.user.profile.role == 'admin' %}
       <a href="{% url 'intrants:batiment_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
-        <i class="bx bx-plus"></i> Créer
+        <i class="bx bx-plus"></i> إنشاء
       </a>
       {% endif %}
     </div>
@@ -112,13 +112,13 @@
         <i class="bx bx-block"></i>
       </div>
       <div>
-        <div class="confirm-panel__title" id="confirm-title">Désactiver le bâtiment ?</div>
+        <div class="confirm-panel__title" id="confirm-title">تعطيل المبنى؟</div>
         <div class="confirm-panel__body" id="confirm-body">
-          Le bâtiment <strong id="confirm-libelle"></strong> sera désactivé.
+          سيتم تعطيل المبنى <strong id="confirm-libelle"></strong>.
         </div>
       </div>
       <div class="confirm-panel__actions">
-        <button type="button" id="confirm-cancel-btn" class="btn-ghost">Annuler</button>
+        <button type="button" id="confirm-cancel-btn" class="btn-ghost">إلغاء</button>
         <form id="confirm-toggle-form" method="post" action="">
           {% csrf_token %}
           <button type="submit" id="confirm-submit-btn" class="btn-danger">Confirmer</button>
@@ -132,17 +132,17 @@
 
 {% block extra_css %}
 <style>
-  .card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden; }
+  .card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;direction:rtl; }
   .card-header-row { padding:18px 22px 14px;border-bottom:1px solid var(--border); }
-  .section-eyebrow { font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted); }
+  .section-eyebrow { font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted); }
   .table-wrapper { overflow-x:auto; }
   .data-table { width:100%;border-collapse:collapse; }
-  .data-table thead th { font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);padding:11px 14px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--bg-surface); }
+  .data-table thead th { font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);padding:11px 14px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--bg-surface);text-align:right; }
   .data-table tbody tr { border-bottom:1px solid var(--border);animation:fadeIn .3s ease both;animation-delay:calc(var(--row-i,0)*35ms);transition:background .12s; }
   .data-table tbody tr:last-child { border-bottom:none; }
   .data-table tbody tr:hover { background:var(--bg-hover); }
   .data-table tbody tr.row-inactive { opacity:.55; }
-  .data-table td { padding:13px 14px;font-size:13px;color:var(--text-secondary);vertical-align:middle; }
+  .data-table td { padding:13px 14px;font-size:13px;color:var(--text-secondary);vertical-align:middle;text-align:right; }
 
   .bat-icon {
     width:30px;height:30px;border-radius:var(--radius-sm);
@@ -203,16 +203,16 @@ document.addEventListener('DOMContentLoaded', function () {
       if (isActive) {
         panelIcon.className = 'confirm-panel__icon';
         panelIcon.innerHTML = '<i class="bx bx-block"></i>';
-        panelTitle.textContent = 'Désactiver le bâtiment ?';
-        panelBody.innerHTML = 'Le bâtiment <strong>' + libelle + '</strong> sera désactivé.';
-        submitBtn.textContent = 'Désactiver';
+        panelTitle.textContent = 'تعطيل المبنى؟';
+        panelBody.innerHTML = 'سيتم تعطيل المبنى <strong>' + libelle + '</strong>.';
+        submitBtn.textContent = 'تعطيل';
         submitBtn.className = 'btn-danger';
       } else {
         panelIcon.className = 'confirm-panel__icon activate';
         panelIcon.innerHTML = '<i class="bx bxs-check-circle"></i>';
-        panelTitle.textContent = 'Activer le bâtiment ?';
-        panelBody.innerHTML = 'Le bâtiment <strong>' + libelle + '</strong> sera activé.';
-        submitBtn.textContent = 'Activer';
+        panelTitle.textContent = 'تفعيل المبنى؟';
+        panelBody.innerHTML = 'سيتم تفعيل المبنى <strong>' + libelle + '</strong>.';
+        submitBtn.textContent = 'تفعيل';
         submitBtn.className = 'btn-success';
       }
       panel.style.display = '';

@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Nouvelle Facture Fournisseur — Élevage Avicole{% endblock %}
+{% block title %}فاتورة مورد جديدة — تربية الدواجن{% endblock %}
 
 {% block nav_factures_fournisseurs %}active{% endblock %}
 
-{% block page_title %}Nouvelle Facture Fournisseur{% endblock %}
+{% block page_title %}فاتورة مورد جديدة{% endblock %}
 {% block page_sub_text %}
-  {% if fournisseur %}Étape 2 — {{ fournisseur.nom }}{% else %}Nouvelle facture{% endif %}
+  {% if fournisseur %}الخطوة 2 — {{ fournisseur.nom }}{% else %}فاتورة جديدة{% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'achats:facture_fournisseur_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour
+    <i class="bx bx-arrow-back"></i> رجوع
   </a>
 {% endblock %}
 
@@ -33,13 +33,13 @@
         {% endif %}
       </div>
       <div class="supplier-banner__debt">
-        <div class="supplier-banner__debt-label">Dette globale</div>
+        <div class="supplier-banner__debt-label">الديون الإجمالية</div>
         <div class="supplier-banner__debt-val {% if fournisseur.dette_globale > 0 %}debt-red{% endif %}">
           {{ fournisseur.dette_globale|floatformat:0 }} DZD
         </div>
       </div>
       <a href="{% url 'achats:facture_fournisseur_create' %}" class="btn-ghost btn-sm">
-        <i class="bx bx-refresh"></i> Changer
+        <i class="bx bx-refresh"></i> تغيير
       </a>
     </div>
     {% endif %}
@@ -60,11 +60,11 @@
 
       <!-- Section: Identification -->
       <div class="form-card">
-        <div class="form-card__title"><i class="bx bxs-file-txt"></i> Identification</div>
+        <div class="form-card__title"><i class="bx bxs-file-txt"></i> التعريف</div>
         <div class="form-row-2">
           <div class="field-group">
             <label for="{{ form.reference.id_for_label }}" class="field-label">
-              Référence facture <span class="required-star">*</span>
+              مرجع الفاتورة <span class="required-star">*</span>
             </label>
             {{ form.reference }}
             {% if form.reference.errors %}
@@ -73,7 +73,7 @@
           </div>
           <div class="field-group">
             <label for="{{ form.type_facture.id_for_label }}" class="field-label">
-              Type de facture <span class="required-star">*</span>
+              نوع الفاتورة <span class="required-star">*</span>
             </label>
             {{ form.type_facture }}
             {% if form.type_facture.errors %}
@@ -84,7 +84,7 @@
         <div class="form-row-2">
           <div class="field-group">
             <label for="{{ form.date_facture.id_for_label }}" class="field-label">
-              Date de la facture <span class="required-star">*</span>
+              تاريخ الفاتورة <span class="required-star">*</span>
             </label>
             <div class="input-icon-wrap">
               <i class="bx bxs-calendar"></i>
@@ -96,7 +96,7 @@
           </div>
           <div class="field-group">
             <label for="{{ form.date_echeance.id_for_label }}" class="field-label">
-              Date d'échéance
+              تاريخ الاستحقاق
             </label>
             <div class="input-icon-wrap">
               <i class="bx bxs-calendar"></i>
@@ -110,7 +110,7 @@
         <div class="form-row-2">
           <div class="field-group">
             <label for="{{ form.statut.id_for_label }}" class="field-label">
-              Statut <span class="required-star">*</span>
+              الحالة <span class="required-star">*</span>
             </label>
             {{ form.statut }}
             {% if form.statut.errors %}
@@ -118,15 +118,15 @@
             {% endif %}
           </div>
           <div class="field-group">
-            <label class="field-label">Montant total (calculé)</label>
+            <label class="field-label">المبلغ الإجمالي (محسوب)</label>
             <div class="readonly-value" id="montant-total-display">— DZD</div>
             <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
-              <i class="bx bx-info-circle"></i> Calculé automatiquement depuis les BLs sélectionnés
+              <i class="bx bx-info-circle"></i> يُحسب تلقائيًا من وصولات الاستلام المختارة
             </div>
           </div>
         </div>
         <div class="field-group">
-          <label for="{{ form.notes.id_for_label }}" class="field-label">Notes</label>
+          <label for="{{ form.notes.id_for_label }}" class="field-label">ملاحظات</label>
           {{ form.notes }}
           {% if form.notes.errors %}
           <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.notes.errors.0 }}</div>
@@ -137,8 +137,8 @@
       <!-- Section: BL Selection -->
       {% if fournisseur %}
       <div class="form-card">
-        <div class="form-card__title"><i class="bx bxs-truck"></i> BLs à inclure
-          <span style="font-size:11px;font-weight:400;color:var(--text-muted);margin-left:8px;">Sélectionnez un ou plusieurs BLs au statut Reçu</span>
+        <div class="form-card__title"><i class="bx bxs-truck"></i> وصولات الاستلام للإضافة
+          <span style="font-size:11px;font-weight:400;color:var(--text-muted);margin-right:8px;">اختر وصلاً أو أكثر بحالة مُستلم</span>
         </div>
         {% if form.bls.errors %}
         <div class="field-error" style="margin-bottom:12px;"><i class="bx bxs-x-circle"></i> {{ form.bls.errors.0 }}</div>
@@ -155,7 +155,7 @@
               <div class="bl-select-item__meta">
                 {{ bl.date_bl|date:"d/m/Y" }}
                 {% if bl.reference_fournisseur %} · Réf. four. : {{ bl.reference_fournisseur }}{% endif %}
-                · {{ bl.lignes.count }} ligne{{ bl.lignes.count|pluralize }}
+                · {{ bl.lignes.count }} سطر
               </div>
             </div>
             <div class="bl-select-item__amount">{{ bl.montant_total|floatformat:0 }} DZD</div>
@@ -165,9 +165,9 @@
         {% else %}
         <div style="text-align:center;padding:28px 16px;color:var(--text-muted);">
           <i class="bx bxs-truck" style="font-size:28px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
-          <div style="font-size:13px;">Aucun BL au statut <strong>Reçu</strong> pour ce fournisseur.</div>
+          <div style="font-size:13px;">لا توجد وصولات بحالة <strong>مُستلم</strong> لهذا المورد.</div>
           <a href="{% url 'achats:bl_fournisseur_create' %}" class="btn-ghost" style="margin-top:12px;display:inline-flex;">
-            <i class="bx bx-plus"></i> Créer un BL
+            <i class="bx bx-plus"></i> إنشاء وصل
           </a>
         </div>
         {% endif %}
@@ -177,11 +177,11 @@
       <!-- Service type warning (BR-AP/dépense separation) -->
       <div class="service-warning" id="service-warning" style="display:none;">
         <i class="bx bxs-error" style="color:#b45309;flex-shrink:0;"></i>
-        <span>Ce type de facture est <strong>Service</strong> — elle n'impacte pas le stock. Vérifiez qu'il ne s'agit pas d'une dépense opérationnelle à enregistrer dans le module <strong>Dépenses</strong>.</span>
+        <span>هذا النوع من الفاتورة <strong>خدمة</strong> — لا يؤثر على المخزون. تحقق مما إذا كان مصروفاً تشغيلياً يجب تسجيله في قسم <strong>المصاريف</strong>.</span>
       </div>
 
       <div class="form-actions">
-        <a href="{% url 'achats:facture_fournisseur_list' %}" class="btn-ghost">Annuler</a>
+        <a href="{% url 'achats:facture_fournisseur_list' %}" class="btn-ghost">إلغاء</a>
         <button type="submit" class="btn-primary" id="submit-btn" {% if not bls_recu and fournisseur %}disabled{% endif %}>
           <i class="bx bxs-file-txt"></i> {{ action_label }}
         </button>
@@ -192,35 +192,35 @@
   <!-- Right column: summary sidebar -->
   <div class="form-aside">
     <div class="aside-card">
-      <div class="aside-card__title"><i class="bx bx-info-circle"></i> Récapitulatif</div>
+      <div class="aside-card__title"><i class="bx bx-info-circle"></i> الملخص</div>
       <div class="summary-row">
-        <span class="summary-label">Fournisseur</span>
+        <span class="summary-label">المورد</span>
         <span class="summary-val">{% if fournisseur %}{{ fournisseur.nom }}{% else %}—{% endif %}</span>
       </div>
       <div class="summary-row">
-        <span class="summary-label">BLs sélectionnés</span>
+        <span class="summary-label">الوصولات المختارة</span>
         <span class="summary-val" id="bl-count-display">0</span>
       </div>
       <div class="summary-row">
-        <span class="summary-label">Montant total calculé</span>
+        <span class="summary-label">المبلغ الإجمالي المحسوب</span>
         <span class="summary-val summary-val--accent" id="aside-total-display">0 DZD</span>
       </div>
       <hr style="border:none;border-top:1px solid var(--border);margin:10px 0;">
       <div style="font-size:11.5px;color:var(--text-muted);line-height:1.6;">
         <i class="bx bxs-info-circle" style="color:var(--accent-text);"></i>
-        Le montant total sera <strong>calculé automatiquement</strong> depuis les lignes des BLs sélectionnés (BR-FAF-01). Les BLs inclus passeront au statut <strong>Facturé</strong> et seront verrouillés.
+        سيُحسب المبلغ الإجمالي <strong>تلقائيًا</strong> من أسطر وصولات الاستلام المختارة. ستنتقل الوصولات المضمنة إلى حالة <strong>مفوترة</strong> وستُقفل.
       </div>
     </div>
 
     {% if fournisseur and fournisseur.dette_globale > 0 %}
     <div class="aside-card aside-card--warning">
-      <div class="aside-card__title"><i class="bx bx-hourglass"></i> Situation actuelle</div>
+      <div class="aside-card__title"><i class="bx bx-hourglass"></i> الوضع الحالي</div>
       <div class="summary-row">
-        <span class="summary-label">Dette globale</span>
+        <span class="summary-label">الديون الإجمالية</span>
         <span class="summary-val" style="color:#dc2626;font-weight:700;">{{ fournisseur.dette_globale|floatformat:0 }} DZD</span>
       </div>
       <div class="summary-row">
-        <span class="summary-label">Acompte disponible</span>
+        <span class="summary-label">السلفة المتاحة</span>
         <span class="summary-val" style="color:var(--accent-text);">{{ fournisseur.acompte_disponible|floatformat:0 }} DZD</span>
       </div>
     </div>
@@ -263,7 +263,7 @@
   .supplier-banner__info { flex: 1; }
   .supplier-banner__name { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px; color: var(--text-primary); }
   .supplier-banner__type { font-size: 11.5px; color: var(--text-muted); }
-  .supplier-banner__debt { text-align: right; }
+  .supplier-banner__debt { text-align: left; }
   .supplier-banner__debt-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); }
   .supplier-banner__debt-val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px; color: var(--text-primary); }
   .supplier-banner__debt-val.debt-red { color: #dc2626; }
@@ -320,7 +320,8 @@
   }
   .form-card input[type="date"],
   .input-icon-wrap input[type="date"] {
-    padding-left: 38px;
+    padding-right: 38px;
+    padding-left: 13px;
   }
   .form-card input:focus,
   .form-card select:focus,
@@ -330,7 +331,7 @@
   }
   .input-icon-wrap { position: relative; display: flex; align-items: center; }
   .input-icon-wrap > i {
-    position: absolute; left: 12px; font-size: 15px;
+    position: absolute; right: 12px; font-size: 15px;
     color: var(--text-muted); pointer-events: none; z-index: 1;
   }
   .input-icon-wrap input { width: 100%; }
@@ -386,7 +387,7 @@
 
   /* Form actions */
   .form-actions {
-    display: flex; justify-content: flex-end; gap: 10px;
+    display: flex; justify-content: flex-start; gap: 10px;
     padding-top: 4px;
   }
 
@@ -448,7 +449,7 @@ document.addEventListener('DOMContentLoaded', function () {
   {% endfor %}
 
   function formatNum(n) {
-    return Math.round(n).toLocaleString('fr-DZ') + ' DZD';
+    return Math.round(n).toLocaleString('ar-DZ') + ' دج';
   }
 
   function updateTotal() {

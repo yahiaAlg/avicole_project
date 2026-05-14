@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Balance Fournisseur par Ancienneté — Élevage Avicole{% endblock %}
+{% block title %}رصيد الموردين حسب الأقدمية — تربية الدواجن{% endblock %}
 {% block nav_rapports %}active{% endblock %}
 
-{% block page_title %}Balance Fournisseur par Ancienneté{% endblock %}
+{% block page_title %}رصيد الموردين حسب الأقدمية{% endblock %}
 {% block page_sub_text %}
   {% if fournisseur_obj %}{{ fournisseur_obj.nom }} — {% endif %}
-  {{ buckets|length }} fournisseur(s) avec dette en cours
+  {{ buckets|length }} مورد(ون) بدين جارٍ
 {% endblock %}
 {% block topbar_actions %}
 <a href="?{% if fournisseur_pk %}fournisseur={{ fournisseur_pk }}&{% endif %}export=csv" class="btn-ghost btn-sm">
-  <i class="bx bxs-spreadsheet"></i> Exporter CSV
+  <i class="bx bxs-spreadsheet"></i> تصدير CSV
 </a>
 <a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm">
-  <i class="bx bx-arrow-back"></i> Rapports
+  <i class="bx bx-arrow-back"></i> التقارير
 </a>
 {% endblock %}
 
@@ -39,15 +39,15 @@
       <div class="input-wrapper" style="flex:1;min-width:200px;">
         <i class="bx bxs-building input-icon"></i>
         <select name="fournisseur" class="field-input has-icon" onchange="this.form.submit()">
-          <option value="">Tous les fournisseurs</option>
+          <option value="">جميع الموردين</option>
           {% for f in fournisseurs %}
           <option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.nom }}</option>
           {% endfor %}
         </select>
       </div>
-      <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> Filtrer</button>
+      <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> تصفية</button>
       {% if fournisseur_pk %}
-      <a href="{% url 'reporting:supplier_aging' %}" class="btn-ghost btn-sm">Réinitialiser</a>
+      <a href="{% url 'reporting:supplier_aging' %}" class="btn-ghost btn-sm">إعادة تعيين</a>
       {% endif %}
     </form>
   </div>
@@ -59,28 +59,28 @@
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-green"><i class="bx bxs-check-circle"></i></div>
-      <div class="metric-label">Courant (non échu)</div>
+      <div class="metric-label">الجاري (غير مستحق)</div>
       <div class="metric-value sm">{{ totaux.current|floatformat:0 }} <small style="font-size:13px;font-weight:400;">DZD</small></div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-amber"><i class="bx bx-hourglass"></i></div>
-      <div class="metric-label">1–30 jours</div>
+      <div class="metric-label">1–30 يوم</div>
       <div class="metric-value sm" style="color:#b45309;">{{ totaux.1_30|floatformat:0 }} <small style="font-size:13px;font-weight:400;">DZD</small></div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-orange"><i class="bx bxs-error"></i></div>
-      <div class="metric-label">31–90 jours</div>
+      <div class="metric-label">31–90 يوم</div>
       <div class="metric-value sm" style="color:#ea580c;">{{ totaux.31_60|floatformat:0 }} <small style="font-size:13px;font-weight:400;">DZD</small></div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-red"><i class="bx bxs-error-circle"></i></div>
-      <div class="metric-label">+90 jours (critique)</div>
+      <div class="metric-label">+90 يوم (حرج)</div>
       <div class="metric-value sm" style="color:#dc2626;">{{ totaux.over_90|floatformat:0 }} <small style="font-size:13px;font-weight:400;">DZD</small></div>
     </div>
   </div>
@@ -91,7 +91,7 @@
   <div class="col-xl-8">
     <div class="section-card">
       <div class="section-card__head">
-        <span class="section-card__title">Répartition par Ancienneté — par Fournisseur</span>
+        <span class="section-card__title">التوزيع حسب الأقدمية — حسب المورد</span>
       </div>
       <div class="section-card__body">
         <div class="chart-wrap"><canvas id="agingChart"></canvas></div>
@@ -102,11 +102,11 @@
   <div class="col-xl-4">
     <div class="section-card" style="height:100%;">
       <div class="section-card__head">
-        <span class="section-card__title">Total Général</span>
+        <span class="section-card__title">المجموع العام</span>
       </div>
       <div class="section-card__body">
         <div style="margin-bottom:14px;">
-          <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:4px;">Dette totale</div>
+          <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:4px;">إجمالي الديون</div>
           <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:26px;color:#dc2626;">{{ totaux.total|floatformat:0 }} DZD</div>
         </div>
         <div class="chart-wrap" style="height:180px;"><canvas id="bucketDonut"></canvas></div>
@@ -118,21 +118,21 @@
 <!-- Table -->
 <div class="section-card">
   <div class="section-card__head">
-    <span class="section-card__title">Détail par Fournisseur</span>
-    <span style="font-size:12px;color:var(--text-muted);">{{ buckets|length }} fournisseur(s)</span>
+    <span class="section-card__title">التفاصيل حسب المورد</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ buckets|length }} مورد(ون)</span>
   </div>
   <div class="section-card__body no-pad">
     <div style="overflow-x:auto;">
       <table class="table-base">
         <thead>
           <tr>
-            <th>Fournisseur</th>
-            <th style="text-align:right;">Courant</th>
-            <th style="text-align:right;">1–30 j</th>
-            <th style="text-align:right;">31–60 j</th>
-            <th style="text-align:right;">61–90 j</th>
-            <th style="text-align:right;">> 90 j</th>
-            <th style="text-align:right;">Total</th>
+            <th>المورد</th>
+            <th style="text-align:right;">الجاري</th>
+            <th style="text-align:right;">1–30 ي</th>
+            <th style="text-align:right;">31–60 ي</th>
+            <th style="text-align:right;">61–90 ي</th>
+            <th style="text-align:right;">> 90 ي</th>
+            <th style="text-align:right;">المجموع</th>
           </tr>
         </thead>
         <tbody>
@@ -152,7 +152,7 @@
         </tbody>
         <tfoot>
           <tr class="tfoot-row">
-            <td style="font-weight:700;color:var(--text-primary);">TOTAL GÉNÉRAL</td>
+            <td style="font-weight:700;color:var(--text-primary);">المجموع العام</td>
             <td class="aging-cell cur">{{ totaux.current|floatformat:0 }}</td>
             <td class="aging-cell d30">{{ totaux.1_30|floatformat:0 }}</td>
             <td class="aging-cell d60">{{ totaux.31_60|floatformat:0 }}</td>
@@ -171,9 +171,9 @@
   <div class="section-card__body">
     <div class="empty-state">
       <i class="bx bxs-check-circle empty-state__icon" style="color:#15803d;"></i>
-      <div class="empty-state__title">Aucune dette en cours</div>
+      <div class="empty-state__title">لا توجد ديون جارية</div>
       <div class="empty-state__text">
-        {% if fournisseur_obj %}{{ fournisseur_obj.nom }} n'a aucune facture impayée.{% else %}Tous les fournisseurs sont à jour.{% endif %}
+        {% if fournisseur_obj %}{{ fournisseur_obj.nom }} ليس لديه أي فاتورة غير مدفوعة.{% else %}جميع الموردين محدَّثون.{% endif %}
       </div>
     </div>
   </div>
@@ -221,11 +221,11 @@ document.addEventListener('DOMContentLoaded', function () {
       data: {
         labels: d.labels,
         datasets: [
-          { label: 'Courant', data: d.current, backgroundColor: '#22c55e', borderRadius: 0, stack: 'a' },
-          { label: '1–30 j', data: d.d30, backgroundColor: '#f59e0b', borderRadius: 0, stack: 'a' },
-          { label: '31–60 j', data: d.d60, backgroundColor: '#fb923c', borderRadius: 0, stack: 'a' },
-          { label: '61–90 j', data: d.d90, backgroundColor: '#ef4444', borderRadius: 0, stack: 'a' },
-          { label: '> 90 j', data: d.over90, backgroundColor: '#991b1b', borderRadius: 4, borderSkipped: false, stack: 'a' },
+          { label: 'الجاري', data: d.current, backgroundColor: '#22c55e', borderRadius: 0, stack: 'a' },
+          { label: '1–30 ي', data: d.d30, backgroundColor: '#f59e0b', borderRadius: 0, stack: 'a' },
+          { label: '31–60 ي', data: d.d60, backgroundColor: '#fb923c', borderRadius: 0, stack: 'a' },
+          { label: '61–90 ي', data: d.d90, backgroundColor: '#ef4444', borderRadius: 0, stack: 'a' },
+          { label: '> 90 ي', data: d.over90, backgroundColor: '#991b1b', borderRadius: 4, borderSkipped: false, stack: 'a' },
         ]
       },
       options: {
@@ -233,7 +233,7 @@ document.addEventListener('DOMContentLoaded', function () {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }, tooltip: tooltipCfg },
         scales: {
-          x: { stacked: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: v => (v/1000).toFixed(0)+'k' } },
+          x: { stacked: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: v => (v/1000).toFixed(0)+'ألف' } },
           y: { stacked: true, grid: { display: false }, ticks: { color: '#7a8c78', font: { size: 11 } } }
         }
       }
@@ -248,7 +248,7 @@ document.addEventListener('DOMContentLoaded', function () {
     new Chart(donutEl, {
       type: 'doughnut',
       data: {
-        labels: ['Courant', '1–30 j', '31–60 j', '61–90 j', '> 90 j'],
+        labels: ['الجاري', '1–30 ي', '31–60 ي', '61–90 ي', '> 90 ي'],
         datasets: [{ data: [t.current, t.d30, t.d60, t.d90, t.over90],
           backgroundColor: ['#22c55e', '#f59e0b', '#fb923c', '#ef4444', '#991b1b'],
           borderColor: '#fff', borderWidth: 3

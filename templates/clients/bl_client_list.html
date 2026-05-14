@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}BL Clients — Élevage Avicole{% endblock %}
+{% block title %}وصلات التسليم — تربية الدواجن{% endblock %}
 
 {% block nav_bl_clients %}active{% endblock %}
 
-{% block page_title %}BL Clients{% endblock %}
-{% block page_sub_text %}{{ page.paginator.count }} bon{{ page.paginator.count|pluralize }} de livraison{% endblock %}
+{% block page_title %}وصلات تسليم العملاء{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} وصل تسليم{% endblock %}
 
 {% block topbar_actions %}
   {% if not request.user.userprofile.role == 'viewer' %}
   <a href="{% url 'clients:bl_client_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouveau BL
+    <i class="bx bx-plus"></i> وصل تسليم جديد
   </a>
   {% endif %}
 {% endblock %}
@@ -24,29 +24,29 @@
     <form method="get" class="filters-form" id="filter-form">
       <div class="search-wrapper">
         <i class="bx bx-search search-icon"></i>
-        <input type="text" name="q" value="{{ q }}" placeholder="Référence, client…" class="search-input" autocomplete="off">
+        <input type="text" name="q" value="{{ q }}" placeholder="المرجع، العميل…" class="search-input" autocomplete="off">
       </div>
       <select name="client" class="filter-select" id="filter-client">
-        <option value="">Tous les clients</option>
+        <option value="">كل العملاء</option>
         {% for c in clients %}
         <option value="{{ c.pk }}" {% if client_filter == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nom }}</option>
         {% endfor %}
       </select>
       <select name="statut" class="filter-select" id="filter-statut">
-        <option value="">Tous les statuts</option>
+        <option value="">كل الحالات</option>
         {% for val, label in statut_choices %}
         <option value="{{ val }}" {% if statut_filter == val %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
-      <input type="date" name="date_debut" value="{% if date_debut %}{{ date_debut|date:'Y-m-d' }}{% endif %}" class="filter-date" placeholder="Du">
-      <input type="date" name="date_fin"   value="{% if date_fin %}{{ date_fin|date:'Y-m-d' }}{% endif %}"   class="filter-date" placeholder="Au">
-      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> Filtrer</button>
+      <input type="date" name="date_debut" value="{% if date_debut %}{{ date_debut|date:'Y-m-d' }}{% endif %}" class="filter-date" placeholder="من">
+      <input type="date" name="date_fin"   value="{% if date_fin %}{{ date_fin|date:'Y-m-d' }}{% endif %}"   class="filter-date" placeholder="إلى">
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> تصفية</button>
     </form>
   </div>
 
   <div class="card">
     <div class="card-header-row">
-      <div class="section-eyebrow"><i class="bx bx-link-external"></i> BL Clients</div>
+      <div class="section-eyebrow"><i class="bx bx-link-external"></i> وصلات تسليم العملاء</div>
     </div>
 
     {% if page.object_list %}
@@ -54,13 +54,13 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Référence</th>
-            <th>Client</th>
-            <th>Date BL</th>
-            <th>Signé par</th>
-            <th>Statut</th>
-            <th style="text-align:right;">Total</th>
-            <th style="text-align:right;">Actions</th>
+            <th>المرجع</th>
+            <th>العميل</th>
+            <th>تاريخ الوصل</th>
+            <th>موقع من طرف</th>
+            <th>الحالة</th>
+            <th style="text-align:left;">المجموع</th>
+            <th style="text-align:left;">إجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -70,7 +70,7 @@
               <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="row-link">
                 <span style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ bl.reference }}</span>
               </a>
-              {% if bl.est_verrouille %}<span style="margin-left:4px;font-size:11px;color:var(--text-muted);"><i class="bx bxs-lock-alt"></i></span>{% endif %}
+              {% if bl.est_verrouille %}<span style="margin-right:4px;font-size:11px;color:var(--text-muted);"><i class="bx bxs-lock-alt"></i></span>{% endif %}
             </td>
             <td>
               <a href="{% url 'clients:client_detail' bl.client.pk %}" style="color:var(--text-secondary);text-decoration:none;font-weight:500;">{{ bl.client.nom }}</a>
@@ -78,21 +78,21 @@
             <td style="font-size:12px;color:var(--text-muted);">{{ bl.date_bl|date:"d/m/Y" }}</td>
             <td style="font-size:12px;color:var(--text-muted);">{{ bl.signe_par|default:"—" }}</td>
             <td>
-              {% if bl.statut == 'brouillon' %}<span class="pill-warning">Brouillon</span>
-              {% elif bl.statut == 'livre' %}<span class="pill-info">Livré</span>
-              {% elif bl.statut == 'facture' %}<span class="pill-success">Facturé</span>
-              {% elif bl.statut == 'litige' %}<span class="pill-danger">Litige</span>
+              {% if bl.statut == 'brouillon' %}<span class="pill-warning">مسودة</span>
+              {% elif bl.statut == 'livre' %}<span class="pill-info">مُسلَّم</span>
+              {% elif bl.statut == 'facture' %}<span class="pill-success">مفوتر</span>
+              {% elif bl.statut == 'litige' %}<span class="pill-danger">نزاع</span>
               {% endif %}
             </td>
-            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ bl.montant_total|floatformat:0 }} DZD</td>
+            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ bl.montant_total|floatformat:0 }} دج</td>
             <td>
               <div class="actions-cell">
-                <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="action-btn" title="Détail"><i class="bx bx-show"></i></a>
+                <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="action-btn" title="التفاصيل"><i class="bx bx-show"></i></a>
                 {% if not request.user.userprofile.role == 'viewer' and not bl.est_verrouille %}
-                <a href="{% url 'clients:bl_client_edit' bl.pk %}" class="action-btn" title="Modifier"><i class="bx bxs-pencil"></i></a>
+                <a href="{% url 'clients:bl_client_edit' bl.pk %}" class="action-btn" title="تعديل"><i class="bx bxs-pencil"></i></a>
                 {% endif %}
                 {% if bl.statut != 'brouillon' %}
-                <a href="{% url 'clients:bl_client_print' bl.pk %}" class="action-btn" title="Imprimer" target="_blank"><i class="bx bxs-printer"></i></a>
+                <a href="{% url 'clients:bl_client_print' bl.pk %}" class="action-btn" title="طباعة" target="_blank"><i class="bx bxs-printer"></i></a>
                 {% endif %}
               </div>
             </td>
@@ -105,22 +105,22 @@
     {% if page.has_other_pages %}
     <div class="pagination-bar">
       {% if page.has_previous %}
-      <a href="?q={{ q }}&client={{ client_filter }}&statut={{ statut_filter }}&page={{ page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
-      {% else %}<span class="page-btn page-btn--disabled"><i class="bx bx-chevron-left"></i></span>{% endif %}
-      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
-      {% if page.has_next %}
-      <a href="?q={{ q }}&client={{ client_filter }}&statut={{ statut_filter }}&page={{ page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
+      <a href="?q={{ q }}&client={{ client_filter }}&statut={{ statut_filter }}&page={{ page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
       {% else %}<span class="page-btn page-btn--disabled"><i class="bx bx-chevron-right"></i></span>{% endif %}
+      <span class="page-info">صفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}
+      <a href="?q={{ q }}&client={{ client_filter }}&statut={{ statut_filter }}&page={{ page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
+      {% else %}<span class="page-btn page-btn--disabled"><i class="bx bx-chevron-left"></i></span>{% endif %}
     </div>
     {% endif %}
 
     {% else %}
     <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
       <i class="bx bx-link-external" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
-      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">Aucun BL trouvé</div>
-      <div style="font-size:13px;">Modifiez les filtres ou créez un nouveau bon de livraison.</div>
+      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">لا توجد وصلات تسليم</div>
+      <div style="font-size:13px;">عدّل الفلاتر أو أنشئ وصل تسليم جديد.</div>
       {% if not request.user.userprofile.role == 'viewer' %}
-      <a href="{% url 'clients:bl_client_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;"><i class="bx bx-plus"></i> Nouveau BL</a>
+      <a href="{% url 'clients:bl_client_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;"><i class="bx bx-plus"></i> وصل تسليم جديد</a>
       {% endif %}
     </div>
     {% endif %}
@@ -130,31 +130,36 @@
 
 {% block extra_css %}
 <style>
-  .filters-bar { margin-bottom: 16px; }
+  /* ── RTL ── */
+  .page-body { direction: rtl; }
   .filters-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+  .filters-bar { margin-bottom: 16px; }
   .search-wrapper { position: relative; flex: 1; min-width: 180px; }
-  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; }
-  .search-input { width: 100%; padding: 9px 12px 9px 36px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 13.5px; color: var(--text-primary); font-family: 'Inter',sans-serif; }
+  /* icon on the RIGHT for RTL */
+  .search-icon { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; }
+  .search-input { width: 100%; padding: 9px 36px 9px 12px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 13.5px; color: var(--text-primary); font-family: 'Inter',sans-serif; text-align: right; }
   .search-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px rgba(34,197,94,.15); }
-  .filter-select, .filter-date { padding: 9px 12px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 13px; color: var(--text-secondary); font-family: 'Inter',sans-serif; cursor: pointer; }
+  .filter-select, .filter-date { padding: 9px 12px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 13px; color: var(--text-secondary); font-family: 'Inter',sans-serif; cursor: pointer; direction: rtl; }
   .filter-select:focus, .filter-date:focus { border-color: var(--accent); outline: none; }
   .filter-date { min-width: 130px; }
   .btn-sm { padding: 8px 14px; font-size: 13px; }
 
   .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
   .card-header-row { padding: 14px 18px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .05em; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
 
   .table-wrapper { overflow-x: auto; }
   .data-table { width: 100%; border-collapse: collapse; }
-  .data-table thead th { padding: 10px 14px; font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: left; background: var(--bg-base); }
-  .data-table tbody td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+  .data-table thead th { padding: 10px 14px; font-size: 11px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: right; background: var(--bg-base); }
+  .data-table tbody td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); text-align: right; }
   .data-table tbody tr:last-child td { border-bottom: none; }
   .table-row { animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i) * 35ms); }
   .table-row:hover td { background: var(--bg-hover); }
   .row-link { text-decoration: none; }
 
-  .actions-cell { display: flex; gap: 4px; justify-content: flex-end; }
+  /* actions flush to the start (= left in RTL) */
+  .actions-cell { display: flex; gap: 4px; justify-content: flex-start; }
   .action-btn { width: 30px; height: 30px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: transparent; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--text-muted); cursor: pointer; transition: all .15s; text-decoration: none; }
   .action-btn:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
 

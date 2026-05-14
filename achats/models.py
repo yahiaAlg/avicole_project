@@ -19,37 +19,37 @@ class BLFournisseur(models.Model):
     STATUT_LITIGE = "litige"
 
     STATUT_CHOICES = [
-        (STATUT_BROUILLON, "Brouillon"),
-        (STATUT_RECU, "Reçu"),
-        (STATUT_FACTURE, "Facturé"),
-        (STATUT_LITIGE, "En litige"),
+        (STATUT_BROUILLON, "مسودة"),
+        (STATUT_RECU, "مستلم"),
+        (STATUT_FACTURE, "مفوتر"),
+        (STATUT_LITIGE, "في نزاع"),
     ]
 
     reference = models.CharField(
-        max_length=50, unique=True, verbose_name="Référence BL"
+        max_length=50, unique=True, verbose_name="مرجع وصل التسليم"
     )
     fournisseur = models.ForeignKey(
         "intrants.Fournisseur",
         on_delete=models.PROTECT,
         related_name="bls_fournisseur",
-        verbose_name="Fournisseur",
+        verbose_name="المورد",
     )
-    date_bl = models.DateField(verbose_name="Date du BL")
+    date_bl = models.DateField(verbose_name="تاريخ وصل التسليم")
     reference_fournisseur = models.CharField(
-        max_length=100, blank=True, verbose_name="Référence fournisseur"
+        max_length=100, blank=True, verbose_name="مرجع المورد"
     )
     statut = models.CharField(
         max_length=20,
         choices=STATUT_CHOICES,
         default=STATUT_BROUILLON,
-        verbose_name="Statut",
+        verbose_name="الحالة",
     )
-    notes_reception = models.TextField(blank=True, verbose_name="Notes de réception")
+    notes_reception = models.TextField(blank=True, verbose_name="ملاحظات الاستلام")
     piece_jointe = models.FileField(
         upload_to="bl_fournisseur/%Y/%m/",
         blank=True,
         null=True,
-        verbose_name="Pièce jointe (PDF/JPG/PNG)",
+        verbose_name="مرفق (PDF/JPG/PNG)",
     )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -62,8 +62,8 @@ class BLFournisseur(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "BL Fournisseur"
-        verbose_name_plural = "BL Fournisseurs"
+        verbose_name = "وصل تسليم المورد"
+        verbose_name_plural = "وصولات تسليم المورد"
         ordering = ["-date_bl", "-created_at"]
 
     def __str__(self):
@@ -88,32 +88,32 @@ class BLFournisseurLigne(models.Model):
         BLFournisseur,
         on_delete=models.CASCADE,
         related_name="lignes",
-        verbose_name="BL Fournisseur",
+        verbose_name="وصل تسليم المورد",
     )
     intrant = models.ForeignKey(
         "intrants.Intrant",
         on_delete=models.PROTECT,
         related_name="lignes_bl_fournisseur",
-        verbose_name="Intrant",
+        verbose_name="المدخل",
     )
     quantite = models.DecimalField(
         max_digits=12,
         decimal_places=3,
-        verbose_name="Quantité",
+        verbose_name="الكمية",
         validators=[MinValueValidator(0.001)],
     )
     prix_unitaire = models.DecimalField(
         max_digits=12,
         decimal_places=4,
         default=0,
-        verbose_name="Prix unitaire (DZD)",
+        verbose_name="سعر الوحدة (د.ج)",
         validators=[MinValueValidator(0)],
     )
-    notes = models.TextField(blank=True, verbose_name="Notes")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
 
     class Meta:
-        verbose_name = "Ligne BL Fournisseur"
-        verbose_name_plural = "Lignes BL Fournisseur"
+        verbose_name = "سطر وصل تسليم المورد"
+        verbose_name_plural = "أسطر وصل تسليم المورد"
 
     def __str__(self):
         return f"{self.bl.reference} — {self.intrant.designation} × {self.quantite}"
@@ -130,72 +130,72 @@ class FactureFournisseur(models.Model):
     STATUT_EN_LITIGE = "en_litige"
 
     STATUT_CHOICES = [
-        (STATUT_NON_PAYE, "Non payée"),
-        (STATUT_PARTIELLEMENT_PAYE, "Partiellement payée"),
-        (STATUT_PAYE, "Payée"),
-        (STATUT_EN_LITIGE, "En litige"),
+        (STATUT_NON_PAYE, "غير مدفوعة"),
+        (STATUT_PARTIELLEMENT_PAYE, "مدفوعة جزئياً"),
+        (STATUT_PAYE, "مدفوعة"),
+        (STATUT_EN_LITIGE, "في نزاع"),
     ]
 
     TYPE_MARCHANDISES = "marchandises"
     TYPE_SERVICE = "service"
 
     TYPE_CHOICES = [
-        (TYPE_MARCHANDISES, "Marchandises"),
-        (TYPE_SERVICE, "Service"),
+        (TYPE_MARCHANDISES, "بضائع"),
+        (TYPE_SERVICE, "خدمة"),
     ]
 
     reference = models.CharField(
-        max_length=50, unique=True, verbose_name="Référence facture"
+        max_length=50, unique=True, verbose_name="مرجع الفاتورة"
     )
     fournisseur = models.ForeignKey(
         "intrants.Fournisseur",
         on_delete=models.PROTECT,
         related_name="factures_fournisseur",
-        verbose_name="Fournisseur",
+        verbose_name="المورد",
     )
     # BLs included in this invoice — set at creation; locked afterwards (BR-FAF-03)
     bls = models.ManyToManyField(
         BLFournisseur,
         blank=True,
         related_name="factures",
-        verbose_name="BL inclus",
+        verbose_name="وصولات التسليم المضمنة",
     )
-    date_facture = models.DateField(verbose_name="Date de la facture")
+    date_facture = models.DateField(verbose_name="تاريخ الفاتورة")
     date_echeance = models.DateField(
-        null=True, blank=True, verbose_name="Date d'échéance"
+        null=True, blank=True, verbose_name="تاريخ الاستحقاق"
     )
     type_facture = models.CharField(
         max_length=20,
         choices=TYPE_CHOICES,
         default=TYPE_MARCHANDISES,
-        verbose_name="Type de facture",
+        verbose_name="نوع الفاتورة",
     )
     # Auto-computed from BL lines at invoice creation (BR-FAF-01); stored for performance.
     montant_total = models.DecimalField(
         max_digits=14,
         decimal_places=2,
         default=0,
-        verbose_name="Montant total (DZD)",
+        verbose_name="المبلغ الإجمالي (د.ج)",
     )
     montant_regle = models.DecimalField(
         max_digits=14,
         decimal_places=2,
         default=0,
-        verbose_name="Montant réglé (DZD)",
+        verbose_name="المبلغ المسدد (د.ج)",
     )
     reste_a_payer = models.DecimalField(
         max_digits=14,
         decimal_places=2,
         default=0,
-        verbose_name="Reste à payer (DZD)",
+        verbose_name="المبلغ المتبقي (د.ج)",
     )
     statut = models.CharField(
         max_length=25,
         choices=STATUT_CHOICES,
         default=STATUT_NON_PAYE,
-        verbose_name="Statut",
+        verbose_name="الحالة",
     )
-    notes = models.TextField(blank=True, verbose_name="Notes")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -207,8 +207,8 @@ class FactureFournisseur(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Facture Fournisseur"
-        verbose_name_plural = "Factures Fournisseurs"
+        verbose_name = "فاتورة المورد"
+        verbose_name_plural = "فواتير الموردين"
         ordering = ["-date_facture"]
 
     def __str__(self):
@@ -275,37 +275,37 @@ class ReglementFournisseur(models.Model):
     MODE_AUTRE = "autre"
 
     MODE_CHOICES = [
-        (MODE_ESPECES, "Espèces"),
-        (MODE_CHEQUE, "Chèque"),
-        (MODE_VIREMENT, "Virement bancaire"),
-        (MODE_AUTRE, "Autre"),
+        (MODE_ESPECES, "نقداً"),
+        (MODE_CHEQUE, "شيك"),
+        (MODE_VIREMENT, "تحويل بنكي"),
+        (MODE_AUTRE, "أخرى"),
     ]
 
     fournisseur = models.ForeignKey(
         "intrants.Fournisseur",
         on_delete=models.PROTECT,
         related_name="reglements",
-        verbose_name="Fournisseur",
+        verbose_name="المورد",
     )
-    date_reglement = models.DateField(verbose_name="Date du règlement")
+    date_reglement = models.DateField(verbose_name="تاريخ التسوية")
     montant = models.DecimalField(
         max_digits=14,
         decimal_places=2,
-        verbose_name="Montant (DZD)",
+        verbose_name="المبلغ (د.ج)",
         validators=[MinValueValidator(0.01)],
     )
     mode_paiement = models.CharField(
         max_length=20,
         choices=MODE_CHOICES,
         default=MODE_ESPECES,
-        verbose_name="Mode de paiement",
+        verbose_name="طريقة الدفع",
     )
     reference_paiement = models.CharField(
         max_length=100,
         blank=True,
-        verbose_name="Référence (n° chèque / virement)",
+        verbose_name="المرجع (رقم الشيك / التحويل)",
     )
-    notes = models.TextField(blank=True, verbose_name="Notes")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -316,13 +316,13 @@ class ReglementFournisseur(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "Règlement Fournisseur"
-        verbose_name_plural = "Règlements Fournisseurs"
+        verbose_name = "تسوية المورد"
+        verbose_name_plural = "تسويات الموردين"
         ordering = ["-date_reglement", "-created_at"]
 
     def __str__(self):
         return (
-            f"Règlement {self.fournisseur.nom} — "
+            f"تسوية {self.fournisseur.nom} — "
             f"{self.montant} DZD ({self.date_reglement})"
         )
 
@@ -337,23 +337,23 @@ class AllocationReglement(models.Model):
         ReglementFournisseur,
         on_delete=models.PROTECT,
         related_name="allocations",
-        verbose_name="Règlement",
+        verbose_name="التسوية",
     )
     facture = models.ForeignKey(
         FactureFournisseur,
         on_delete=models.PROTECT,
         related_name="allocations",
-        verbose_name="Facture",
+        verbose_name="الفاتورة",
     )
     montant_alloue = models.DecimalField(
         max_digits=14,
         decimal_places=2,
-        verbose_name="Montant alloué (DZD)",
+        verbose_name="المبلغ المخصص (د.ج)",
     )
 
     class Meta:
-        verbose_name = "Allocation Règlement"
-        verbose_name_plural = "Allocations Règlements"
+        verbose_name = "تخصيص التسوية"
+        verbose_name_plural = "تخصيصات التسويات"
 
     def __str__(self):
         return (
@@ -372,7 +372,7 @@ class AcompteFournisseur(models.Model):
         "intrants.Fournisseur",
         on_delete=models.PROTECT,
         related_name="acomptes",
-        verbose_name="Fournisseur",
+        verbose_name="المورد",
     )
     reglement = models.OneToOneField(
         ReglementFournisseur,
@@ -380,24 +380,24 @@ class AcompteFournisseur(models.Model):
         null=True,
         blank=True,
         related_name="acompte",
-        verbose_name="Règlement source",
+        verbose_name="التسوية المصدر",
     )
     montant = models.DecimalField(
         max_digits=14,
         decimal_places=2,
-        verbose_name="Montant (DZD)",
+        verbose_name="المبلغ (د.ج)",
         validators=[MinValueValidator(0.01)],
     )
-    date = models.DateField(verbose_name="Date")
-    utilise = models.BooleanField(default=False, verbose_name="Utilisé")
-    notes = models.TextField(blank=True, verbose_name="Notes")
+    date = models.DateField(verbose_name="التاريخ")
+    utilise = models.BooleanField(default=False, verbose_name="مستخدم")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "Acompte Fournisseur"
-        verbose_name_plural = "Acomptes Fournisseurs"
+        verbose_name = "دفعة مقدمة للمورد"
+        verbose_name_plural = "دفعات مقدمة للموردين"
         ordering = ["-date"]
 
     def __str__(self):
-        status = "Utilisé" if self.utilise else "En attente"
+        status = "مستخدمة" if self.utilise else "قيد الانتظار"
         return f"Acompte {self.fournisseur.nom} — {self.montant} DZD [{status}]"

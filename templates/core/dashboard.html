@@ -1,22 +1,22 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Tableau de bord — Élevage Avicole{% endblock %}
+{% block title %}لوحة التحكم — تربية الدواجن{% endblock %}
 {% block nav_dashboard %}active{% endblock %}
 
-{% block page_title %}Tableau de bord{% endblock %}
-{% block page_sub_text %}Vue d'ensemble · {% now "d/m/Y" %}{% endblock %}
+{% block page_title %}لوحة التحكم{% endblock %}
+{% block page_sub_text %}نظرة عامة · {% now "d/m/Y" %}{% endblock %}
 
 {% block topbar_actions %}
 {% if request.user.profile %}
   {% if not request.user.profile.role == 'viewer' %}
   <a href="{% url 'elevage:lot_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouveau Lot
+    <i class="bx bx-plus"></i> دُفعة جديدة
   </a>
   {% endif %}
 {% endif %}
 <a href="{% url 'reporting:dashboard' %}" class="btn-ghost">
-  <i class="bx bxs-bar-chart-alt-2"></i> Rapports
+  <i class="bx bxs-bar-chart-alt-2"></i> التقارير
 </a>
 {% endblock %}
 
@@ -28,7 +28,7 @@
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-green"><i class="bx bxs-grid-alt"></i></div>
-      <div class="metric-label">Lots Ouverts</div>
+      <div class="metric-label">الدُّفعات المفتوحة</div>
       <div class="metric-value" id="kv-lots"><span class="kpi-skel"></span></div>
       <span class="metric-delta neutral" id="kd-lots" style="display:none;"></span>
     </div>
@@ -37,7 +37,7 @@
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-amber"><i class="bx bxs-coin"></i></div>
-      <div class="metric-label">Dette Fournisseurs</div>
+      <div class="metric-label">ديون الموردين</div>
       <div class="metric-value sm" id="kv-dette"><span class="kpi-skel wide"></span></div>
       <span class="metric-delta neutral" id="kd-dette" style="display:none;"></span>
     </div>
@@ -46,7 +46,7 @@
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-blue"><i class="bx bxs-receipt"></i></div>
-      <div class="metric-label">Créances Clients</div>
+      <div class="metric-label">مستحقات العملاء</div>
       <div class="metric-value sm" id="kv-creances"><span class="kpi-skel wide"></span></div>
       <span class="metric-delta neutral" id="kd-creances" style="display:none;"></span>
     </div>
@@ -55,7 +55,7 @@
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-red"><i class="bx bxs-error"></i></div>
-      <div class="metric-label">Alertes Stock</div>
+      <div class="metric-label">تنبيهات المخزون</div>
       <div class="metric-value" id="kv-alertes"><span class="kpi-skel"></span></div>
       <span class="metric-delta neutral" id="kd-alertes" style="display:none;"></span>
     </div>
@@ -71,10 +71,10 @@
     <div class="section-card h-100">
       <div class="section-card__head">
         <span class="section-card__title">
-          <i class="bx bxs-grid-alt" style="color:var(--accent);margin-right:8px;"></i>Lots en cours
+          <i class="bx bxs-grid-alt" style="color:var(--accent);margin-right:8px;"></i>الدُّفعات الجارية
         </span>
         <a href="{% url 'elevage:lot_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
-          Voir tout <i class="bx bx-right-arrow-alt"></i>
+          عرض الكل <i class="bx bx-left-arrow-alt"></i>
         </a>
       </div>
       <div class="section-card__body">
@@ -86,25 +86,25 @@
               <div class="lot-card">
                 <div class="lot-card__header">
                   <span class="lot-card__name">{{ lot.designation }}</span>
-                  <span class="pill-base pill-success">Ouvert</span>
+                  <span class="pill-base pill-success">مفتوح</span>
                 </div>
                 <div class="lot-card__grid">
                   <div>
-                    <div class="lot-stat-label">Effectif</div>
+                    <div class="lot-stat-label">التعداد</div>
                     <div class="lot-stat-val">{{ lot.effectif_vivant|floatformat:0 }}</div>
                   </div>
                   <div>
-                    <div class="lot-stat-label">Mortalité</div>
+                    <div class="lot-stat-label">النفوق</div>
                     <div class="lot-stat-val {% if lot.taux_mortalite > 5 %}danger{% elif lot.taux_mortalite > 3 %}warn{% endif %}">
                       {{ lot.taux_mortalite|floatformat:2 }}%
                     </div>
                   </div>
                   <div>
-                    <div class="lot-stat-label">Jours</div>
-                    <div class="lot-stat-val">{{ lot.duree_elevage }}j</div>
+                    <div class="lot-stat-label">الأيام</div>
+                    <div class="lot-stat-val">{{ lot.duree_elevage }}ي</div>
                   </div>
                   <div>
-                    <div class="lot-stat-label">Bâtiment</div>
+                    <div class="lot-stat-label">المبنى</div>
                     <div class="lot-stat-val" style="font-size:13px;font-weight:600;">{{ lot.batiment.nom }}</div>
                   </div>
                 </div>
@@ -116,11 +116,11 @@
         {% else %}
         <div class="empty-state">
           <i class="bx bxs-grid-alt empty-state__icon"></i>
-          <div class="empty-state__title">Aucun lot ouvert</div>
-          <div class="empty-state__text">Ouvrez un nouveau lot pour commencer le suivi d'élevage.</div>
+          <div class="empty-state__title">لا توجد دُفعات مفتوحة</div>
+          <div class="empty-state__text">افتح دُفعة جديدة لبدء متابعة التربية.</div>
           {% if not request.user.profile.role == 'viewer' %}
           <a href="{% url 'elevage:lot_create' %}" class="btn-primary" style="margin-top:14px;display:inline-flex;">
-            <i class="bx bx-plus"></i> Nouveau Lot
+            <i class="bx bx-plus"></i> دُفعة جديدة
           </a>
           {% endif %}
         </div>
@@ -134,7 +134,7 @@
     <div class="section-card h-100">
       <div class="section-card__head">
         <span class="section-card__title">
-          <i class="bx bxs-error" style="color:#b45309;margin-right:8px;"></i>Points d'attention
+          <i class="bx bxs-error" style="color:#b45309;margin-right:8px;"></i>نقاط الانتباه
         </span>
         {% if total_alertes > 0 %}
         <span class="pill-base pill-danger">{{ total_alertes }}</span>
@@ -146,8 +146,8 @@
         <a href="{% url 'achats:bl_fournisseur_list' %}" class="alert-item-row">
           <div class="alert-item-icon ic-amber"><i class="bx bxs-truck"></i></div>
           <div class="alert-item-text">
-            <div class="alert-item-label">BL Fournisseurs non facturés</div>
-            <div class="alert-item-sub">En attente de facturation</div>
+            <div class="alert-item-label">وصولات موردين غير مُفوترة</div>
+            <div class="alert-item-sub">بانتظار الفوترة</div>
           </div>
           <span class="pill-base pill-warning">{{ bls_non_factures }}</span>
         </a>
@@ -157,8 +157,8 @@
         <a href="{% url 'achats:facture_fournisseur_list' %}" class="alert-item-row">
           <div class="alert-item-icon ic-red"><i class="bx bxs-file-txt"></i></div>
           <div class="alert-item-text">
-            <div class="alert-item-label">Factures fournisseurs en retard</div>
-            <div class="alert-item-sub">Échéance dépassée — règlement urgent</div>
+            <div class="alert-item-label">فواتير موردين متأخرة</div>
+            <div class="alert-item-sub">تجاوزت الأجل — تسوية عاجلة</div>
           </div>
           <span class="pill-base pill-danger">{{ factures_fournisseur_retard }}</span>
         </a>
@@ -168,8 +168,8 @@
         <a href="{% url 'clients:bl_client_list' %}" class="alert-item-row">
           <div class="alert-item-icon ic-blue"><i class="bx bx-link-external"></i></div>
           <div class="alert-item-text">
-            <div class="alert-item-label">BL Clients non facturés</div>
-            <div class="alert-item-sub">Livrés, en attente de facturation</div>
+            <div class="alert-item-label">وصولات عملاء غير مُفوترة</div>
+            <div class="alert-item-sub">مُسلَّمة، بانتظار الفوترة</div>
           </div>
           <span class="pill-base pill-info">{{ bls_client_non_factures }}</span>
         </a>
@@ -179,8 +179,8 @@
         <a href="{% url 'clients:facture_client_list' %}" class="alert-item-row">
           <div class="alert-item-icon ic-red"><i class="bx bxs-receipt"></i></div>
           <div class="alert-item-text">
-            <div class="alert-item-label">Factures clients en retard</div>
-            <div class="alert-item-sub">Recouvrement à relancer</div>
+            <div class="alert-item-label">فواتير عملاء متأخرة</div>
+            <div class="alert-item-sub">يستوجب متابعة التحصيل</div>
           </div>
           <span class="pill-base pill-danger">{{ factures_client_retard }}</span>
         </a>
@@ -190,8 +190,8 @@
         <a href="{% url 'stock:stock_intrant_list' %}" class="alert-item-row">
           <div class="alert-item-icon ic-orange"><i class="bx bxs-archive"></i></div>
           <div class="alert-item-text">
-            <div class="alert-item-label">Intrants sous seuil d'alerte</div>
-            <div class="alert-item-sub">Stock en dessous du minimum</div>
+            <div class="alert-item-label">مدخلات دون حد التنبيه</div>
+            <div class="alert-item-sub">المخزون أقل من الحد الأدنى</div>
           </div>
           <span class="pill-base pill-warning">{{ nb_alertes_intrants }}</span>
         </a>
@@ -201,8 +201,8 @@
         <a href="{% url 'stock:stock_produit_fini_list' %}" class="alert-item-row">
           <div class="alert-item-icon ic-orange"><i class="bx bxs-badge-check"></i></div>
           <div class="alert-item-text">
-            <div class="alert-item-label">Produits finis sous seuil</div>
-            <div class="alert-item-sub">Stock en dessous du minimum</div>
+            <div class="alert-item-label">منتجات نهائية دون الحد</div>
+            <div class="alert-item-sub">المخزون أقل من الحد الأدنى</div>
           </div>
           <span class="pill-base pill-warning">{{ nb_alertes_produits }}</span>
         </a>
@@ -211,8 +211,8 @@
         {% if total_alertes == 0 and bls_non_factures == 0 and bls_client_non_factures == 0 %}
         <div class="empty-state" style="padding:36px 20px;">
           <i class="bx bxs-check-circle empty-state__icon" style="color:var(--accent);"></i>
-          <div class="empty-state__title">Tout est en ordre</div>
-          <div class="empty-state__text">Aucun point d'attention détecté.</div>
+          <div class="empty-state__title">كل شيء على ما يرام</div>
+          <div class="empty-state__text">لم يُرصَد أي نقطة انتباه.</div>
         </div>
         {% endif %}
 
@@ -228,8 +228,8 @@
   <div class="col-xl-6">
     <div class="section-card">
       <div class="section-card__head">
-        <span class="section-card__title">Position Financière</span>
-        <span style="font-size:11px;color:var(--text-muted);">Dette vs Créances</span>
+        <span class="section-card__title">الوضع المالي</span>
+        <span style="font-size:11px;color:var(--text-muted);">الديون مقابل المستحقات</span>
       </div>
       <div class="section-card__body" style="height:260px;display:flex;align-items:center;justify-content:center;">
         <div id="chartFinancierWrap" style="position:relative;width:100%;height:240px;">
@@ -242,8 +242,8 @@
   <div class="col-xl-6">
     <div class="section-card">
       <div class="section-card__head">
-        <span class="section-card__title">Alertes Opérationnelles</span>
-        <span style="font-size:11px;color:var(--text-muted);">Indicateurs clés</span>
+        <span class="section-card__title">التنبيهات التشغيلية</span>
+        <span style="font-size:11px;color:var(--text-muted);">مؤشرات رئيسية</span>
       </div>
       <div class="section-card__body" style="height:260px;">
         <canvas id="chartAlertes" style="height:240px;"></canvas>
@@ -257,10 +257,10 @@
 <div class="section-card">
   <div class="section-card__head">
     <span class="section-card__title">
-      <i class="bx bxs-archive" style="color:var(--text-muted);margin-right:8px;"></i>Mouvements de stock récents
+      <i class="bx bxs-archive" style="color:var(--text-muted);margin-right:8px;"></i>حركات المخزون الأخيرة
     </span>
     <a href="{% url 'stock:stock_mouvement_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
-      Voir tout <i class="bx bx-right-arrow-alt"></i>
+      عرض الكل <i class="bx bx-left-arrow-alt"></i>
     </a>
   </div>
   <div class="section-card__body no-pad">
@@ -268,12 +268,12 @@
     <table class="table-base">
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Type</th>
-          <th>Article</th>
-          <th>Source</th>
-          <th>Référence</th>
-          <th style="text-align:right;">Quantité</th>
+          <th>التاريخ</th>
+          <th>النوع</th>
+          <th>الصنف</th>
+          <th>المصدر</th>
+          <th>المرجع</th>
+          <th style="text-align:right;">الكمية</th>
         </tr>
       </thead>
       <tbody>
@@ -282,11 +282,11 @@
           <td style="color:var(--text-muted);white-space:nowrap;">{{ m.date_mouvement|date:"d/m/Y" }}</td>
           <td>
             {% if m.type_mouvement == 'entree' %}
-            <span class="pill-base pill-success"><i class="bx bx-trending-up"></i> Entrée</span>
+            <span class="pill-base pill-success"><i class="bx bx-trending-up"></i> دخول</span>
             {% elif m.type_mouvement == 'sortie' %}
-            <span class="pill-base pill-danger"><i class="bx bx-trending-down"></i> Sortie</span>
+            <span class="pill-base pill-danger"><i class="bx bx-trending-down"></i> خروج</span>
             {% else %}
-            <span class="pill-base pill-warning"><i class="bx bx-transfer"></i> Ajustement</span>
+            <span class="pill-base pill-warning"><i class="bx bx-transfer"></i> تعديل</span>
             {% endif %}
           </td>
           <td>
@@ -306,8 +306,8 @@
     {% else %}
     <div class="empty-state">
       <i class="bx bxs-archive empty-state__icon"></i>
-      <div class="empty-state__title">Aucun mouvement enregistré</div>
-      <div class="empty-state__text">Les mouvements de stock apparaîtront ici.</div>
+      <div class="empty-state__title">لا توجد حركات مسجّلة</div>
+      <div class="empty-state__text">ستظهر حركات المخزون هنا.</div>
     </div>
     {% endif %}
   </div>
@@ -412,7 +412,7 @@ document.addEventListener('DOMContentLoaded', function () {
     return new Intl.NumberFormat('fr-FR', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
-    }).format(Math.round(n)) + ' DZD';
+    }).format(Math.round(n)) + ' دج';
   }
 
   /* ── Fetch KPI data from reporting AJAX endpoint ─────────────────── */
@@ -441,7 +441,7 @@ document.addEventListener('DOMContentLoaded', function () {
       showDelta('kd-dette',    d.nb_factures_fournisseur_retard, 'en retard');
       showDelta('kd-creances', d.nb_factures_client_retard,      'en retard');
       if (d.nb_ruptures_stock > 0) {
-        showDelta('kd-alertes', d.nb_ruptures_stock, 'rupture(s)');
+        showDelta('kd-alertes', d.nb_ruptures_stock, 'انقطاع(ات)');
       }
 
       /* Draw charts */
@@ -455,7 +455,7 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     });
 
-  /* ── Doughnut: Position Financière ──────────────────────────────── */
+  /* ── Doughnut: الوضع المالي ──────────────────────────────── */
   function drawFinancialChart(d) {
     var canvas = document.getElementById('chartFinancier');
     if (!canvas || typeof Chart === 'undefined') return;
@@ -472,7 +472,7 @@ document.addEventListener('DOMContentLoaded', function () {
     new Chart(canvas, {
       type: 'doughnut',
       data: {
-        labels: ['Dette Fournisseurs', 'Créances Clients'],
+        labels: ['ديون الموردين', 'مستحقات العملاء'],
         datasets: [{
           data:            [d.dette_fournisseurs_totale, d.creances_clients_totale],
           backgroundColor: [DS.amber, DS.blue],
@@ -501,7 +501,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  /* ── Horizontal bar: Alertes Opérationnelles ─────────────────────── */
+  /* ── Horizontal bar: التنبيهات التشغيلية ─────────────────────── */
   function drawAlertChart(d) {
     var canvas = document.getElementById('chartAlertes');
     if (!canvas || typeof Chart === 'undefined') return;
@@ -510,14 +510,14 @@ document.addEventListener('DOMContentLoaded', function () {
       type: 'bar',
       data: {
         labels: [
-          'Lots ouverts',
-          'Stock seuil',
-          'Ruptures stock',
-          'Fact. fourn. retard',
-          'Fact. client retard'
+          'الدُّفعات المفتوحة',
+          'حد المخزون',
+          'انقطاع المخزون',
+          'ف. موردين متأخرة',
+          'ف. عملاء متأخرة'
         ],
         datasets: [{
-          label: 'Nombre',
+          label: 'العدد',
           data: [
             d.nb_lots_ouverts,
             d.nb_stocks_en_alerte,

@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Historique des Règlements — Élevage Avicole{% endblock %}
+{% block title %}سجل المدفوعات — تربية الدواجن{% endblock %}
 {% block nav_rapports %}active{% endblock %}
-{% block page_title %}Historique des Règlements{% endblock %}
+{% block page_title %}سجل المدفوعات{% endblock %}
 {% block page_sub_text %}
-  {{ totaux.nb|default:0 }} règlement(s) —
-  Total : {{ totaux.total|default:0|floatformat:0 }} DZD
+  {{ totaux.nb|default:0 }} دفعة(دفعات) —
+  الإجمالي: {{ totaux.total|default:0|floatformat:0 }} DZD
 {% endblock %}
 {% block topbar_actions %}
 <a href="?{% if fournisseur_pk %}fournisseur={{ fournisseur_pk }}&{% endif %}{% if mode %}mode={{ mode }}&{% endif %}{% if date_debut %}date_debut={{ date_debut|date:"Y-m-d" }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:"Y-m-d" }}&{% endif %}export=csv" class="btn-ghost btn-sm">
-  <i class="bx bxs-spreadsheet"></i> Exporter CSV
+  <i class="bx bxs-spreadsheet"></i> تصدير CSV
 </a>
-<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> Rapports</a>
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> التقارير</a>
 {% endblock %}
 
 {% block extra_css %}
@@ -33,27 +33,27 @@
         <div class="input-wrapper" style="flex:1;min-width:180px;">
           <i class="bx bxs-building input-icon"></i>
           <select name="fournisseur" class="field-input has-icon">
-            <option value="">Tous les fournisseurs</option>
+            <option value="">كل الموردين</option>
             {% for f in fournisseurs %}<option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.nom }}</option>{% endfor %}
           </select>
         </div>
         <div class="input-wrapper" style="min-width:160px;">
           <i class="bx bxs-coin input-icon"></i>
           <select name="mode" class="field-input has-icon">
-            <option value="">Tous les modes</option>
+            <option value="">كل الطرق</option>
             {% for val, lbl in mode_choices %}<option value="{{ val }}" {% if mode == val %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
           </select>
         </div>
         <div class="input-wrapper" style="min-width:150px;">
           <i class="bx bxs-calendar input-icon"></i>
-          <input type="date" name="date_debut" class="field-input has-icon" value="{{ date_debut|date:'Y-m-d' }}" placeholder="Du">
+          <input type="date" name="date_debut" class="field-input has-icon" value="{{ date_debut|date:'Y-m-d' }}" placeholder="من">
         </div>
         <div class="input-wrapper" style="min-width:150px;">
           <i class="bx bxs-calendar input-icon"></i>
-          <input type="date" name="date_fin" class="field-input has-icon" value="{{ date_fin|date:'Y-m-d' }}" placeholder="Au">
+          <input type="date" name="date_fin" class="field-input has-icon" value="{{ date_fin|date:'Y-m-d' }}" placeholder="إلى">
         </div>
-        <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> Filtrer</button>
-        <a href="{% url 'reporting:historique_reglements' %}" class="btn-ghost btn-sm">Réinitialiser</a>
+        <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> تصفية</button>
+        <a href="{% url 'reporting:historique_reglements' %}" class="btn-ghost btn-sm">إعادة تعيين</a>
       </div>
     </form>
   </div>
@@ -63,24 +63,24 @@
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-green"><i class="bx bxs-coin"></i></div>
-      <div class="metric-label">Total Réglé</div>
+      <div class="metric-label">إجمالي المدفوع</div>
       <div class="metric-value sm">{{ totaux.total|default:0|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-blue"><i class="bx bxs-file-txt"></i></div>
-      <div class="metric-label">Nombre de Règlements</div>
+      <div class="metric-label">عدد الدفعات</div>
       <div class="metric-value sm">{{ totaux.nb|default:0 }}</div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-amber"><i class="bx bxs-calendar"></i></div>
-      <div class="metric-label">Période</div>
+      <div class="metric-label">الفترة</div>
       <div class="metric-value sm" style="font-size:14px;">
         {% if date_debut %}{{ date_debut|date:"d/m/Y" }}{% else %}—{% endif %}
-        <span style="font-size:11px;color:var(--text-muted);"> au </span>
+        <span style="font-size:11px;color:var(--text-muted);"> إلى </span>
         {% if date_fin %}{{ date_fin|date:"d/m/Y" }}{% else %}—{% endif %}
       </div>
     </div>
@@ -88,9 +88,9 @@
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-teal"><i class="bx bx-transfer"></i></div>
-      <div class="metric-label">Fournisseur Filtré</div>
+      <div class="metric-label">المورد المُصفَّى</div>
       <div class="metric-value sm" style="font-size:15px;">
-        {% if fournisseur_pk %}{% for f in fournisseurs %}{% if f.pk|stringformat:"s" == fournisseur_pk %}{{ f.nom }}{% endif %}{% endfor %}{% else %}Tous{% endif %}
+        {% if fournisseur_pk %}{% for f in fournisseurs %}{% if f.pk|stringformat:"s" == fournisseur_pk %}{{ f.nom }}{% endif %}{% endfor %}{% else %}الكل{% endif %}
       </div>
     </div>
   </div>
@@ -99,8 +99,8 @@
 <!-- Table -->
 <div class="section-card">
   <div class="section-card__head">
-    <span class="section-card__title">Règlements</span>
-    <span style="font-size:12px;color:var(--text-muted);">Cliquer sur <i class="bx bx-chevron-down" style="vertical-align:middle;"></i> pour voir les allocations FIFO</span>
+    <span class="section-card__title">المدفوعات</span>
+    <span style="font-size:12px;color:var(--text-muted);">انقر على <i class="bx bx-chevron-down" style="vertical-align:middle;"></i> لعرض التوزيعات FIFO</span>
   </div>
   <div class="section-card__body no-pad">
     {% if page.object_list %}
@@ -109,12 +109,12 @@
         <thead>
           <tr>
             <th style="width:30px;"></th>
-            <th>Date</th>
-            <th>Fournisseur</th>
-            <th>Mode</th>
-            <th>Référence</th>
-            <th style="text-align:right;">Montant</th>
-            <th>Enregistré par</th>
+            <th>التاريخ</th>
+            <th>المورد</th>
+            <th>الطريقة</th>
+            <th>المرجع</th>
+            <th style="text-align:left;">المبلغ</th>
+            <th>مُسجَّل بواسطة</th>
           </tr>
         </thead>
         <tbody>
@@ -143,9 +143,9 @@
           <!-- Allocation detail row (hidden by default) -->
           <tr class="alloc-row" id="alloc-{{ reglement.pk }}" style="display:none;">
             <td colspan="7">
-              <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:8px;"><i class="bx bx-transfer"></i> Allocation FIFO</div>
+              <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:8px;"><i class="bx bx-transfer"></i> توزيع FIFO</div>
               <div id="alloc-content-{{ reglement.pk }}">
-                <span style="color:var(--text-muted);font-style:italic;">Chargement…</span>
+                <span style="color:var(--text-muted);font-style:italic;">جارٍ التحميل…</span>
               </div>
             </td>
           </tr>
@@ -157,7 +157,7 @@
     <!-- Pagination -->
     {% if page.has_other_pages %}
     <div class="pagination-bar">
-      <span>Page {{ page.number }} / {{ page.paginator.num_pages }} — {{ page.paginator.count }} règlement(s)</span>
+      <span>صفحة {{ page.number }} / {{ page.paginator.num_pages }} — {{ page.paginator.count }} دفعة</span>
       <div class="page-links">
         {% if page.has_previous %}
         <a href="?page={{ page.previous_page_number }}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}{% if mode %}&mode={{ mode }}{% endif %}{% if date_debut %}&date_debut={{ date_debut|date:"Y-m-d" }}{% endif %}{% if date_fin %}&date_fin={{ date_fin|date:"Y-m-d" }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>
@@ -172,8 +172,8 @@
     {% else %}
     <div class="empty-state">
       <i class="bx bxs-coin empty-state__icon"></i>
-      <div class="empty-state__title">Aucun règlement trouvé</div>
-      <div class="empty-state__text">Modifiez les filtres pour élargir la recherche.</div>
+      <div class="empty-state__title">لم يتم العثور على دفعات</div>
+      <div class="empty-state__text">عدّل الفلاتر لتوسيع البحث.</div>
     </div>
     {% endif %}
   </div>
@@ -220,7 +220,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!contentEl) return;
 
         if (!allocs || allocs.length === 0) {
-          contentEl.innerHTML = '<span style="color:var(--text-muted);font-style:italic;">Aucune allocation (acompte ou en attente).</span>';
+          contentEl.innerHTML = '<span style="color:var(--text-muted);font-style:italic;">لا توجد توزيعات (دفعة مقدمة أو قيد الانتظار).</span>';
           return;
         }
 

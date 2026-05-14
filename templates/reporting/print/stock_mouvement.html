@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bon de Mouvement #{{ mouvement.pk }} — {{ company.nom }}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <title>وصل حركة المخزون #{{ mouvement.pk }} — {{ company.nom }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@300;400;500&family=Tajawal:wght@400;700;800&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -19,7 +19,7 @@
     }
 
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Tajawal', 'Inter', sans-serif;
       font-size: 13px;
       color: var(--text-primary);
       background: #fff;
@@ -46,7 +46,7 @@
     }
     .brand__sub { font-size: 11.5px; color: var(--text-muted); }
 
-    .doc-title-block { text-align: right; }
+    .doc-title-block { text-align: left; }
     .doc-title {
       font-family: 'Nunito', sans-serif;
       font-weight: 800;
@@ -125,7 +125,7 @@
       letter-spacing: .08em;
       color: var(--text-muted);
       padding: 10px 14px;
-      text-align: left;
+      text-align: right;
       border-bottom: 1px solid var(--border);
     }
     .mov-table td {
@@ -226,6 +226,21 @@
       .no-print { display: none !important; }
       @page { size: A4; margin: 18mm 20mm; }
     }
+
+    /* ── RTL overrides ── */
+    body { direction: rtl; text-align: right; }
+    .doc-header { flex-direction: row-reverse; }
+    .doc-title-block { text-align: right; }
+    .brand { text-align: right; }
+    .mov-table th, .mov-table td { text-align: right; }
+    .mov-table th:nth-child(2), .mov-table td:nth-child(2) { text-align: right; }
+    .mov-table th:nth-child(3), .mov-table td:nth-child(3) { text-align: center; }
+    .mov-table th:nth-child(4), .mov-table td:nth-child(4) { text-align: right; }
+    .mov-table th:nth-child(5), .mov-table td:nth-child(5) { text-align: right; }
+    .source-row { flex-direction: row-reverse; justify-content: flex-end; }
+    .no-print { text-align: left; }
+    .doc-footer { flex-direction: row-reverse; }
+    .info-block__label, .info-block__val, .info-block__sub { text-align: right; }
   </style>
 </head>
 <body>
@@ -233,9 +248,9 @@
 <!-- Print action (hidden on print) -->
 <div class="no-print" style="text-align:right;margin-bottom:22px;">
   <button onclick="window.print()" style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;background:#22c55e;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;">
-    <span style="margin-right:6px;">🖨</span> Imprimer / Enregistrer PDF
+    <span style="margin-right:6px;">🖨</span> طباعة / حفظ PDF
   </button>
-  <a href="javascript:history.back()" style="font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;color:#7a8c78;margin-left:14px;text-decoration:none;">← Retour</a>
+  <a href="javascript:history.back()" style="font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;color:#7a8c78;margin-left:14px;text-decoration:none;">رجوع →</a>
 </div>
 
 <!-- Header -->
@@ -244,10 +259,10 @@
     <div class="brand__name">{{ company.nom }}</div>
     {% if company.adresse %}<div class="brand__sub">{{ company.adresse }}</div>{% endif %}
     {% if company.telephone %}<div class="brand__sub">{{ company.telephone }}</div>{% endif %}
-    {% if company.nif %}<div class="brand__sub">NIF : {{ company.nif }}{% if company.rc %} — RC : {{ company.rc }}{% endif %}</div>{% endif %}
+    {% if company.nif %}<div class="brand__sub">السجل الضريبي : {{ company.nif }}{% if company.rc %} — س.ت : {{ company.rc }}{% endif %}</div>{% endif %}
   </div>
   <div class="doc-title-block">
-    <div class="doc-title">Bon de Mouvement</div>
+    <div class="doc-title">وصل حركة المخزون</div>
     <div class="doc-ref"># {{ mouvement.pk }}</div>
     <div class="doc-date">{{ mouvement.date_mouvement|date:"d/m/Y" }}</div>
   </div>
@@ -255,41 +270,41 @@
 
 <!-- Type badge -->
 {% if mouvement.type_mouvement == 'entree' %}
-<span class="type-badge entree"><span class="dot"></span> Entrée en Stock</span>
+<span class="type-badge entree"><span class="dot"></span> إدخال للمخزون</span>
 {% elif mouvement.type_mouvement == 'sortie' %}
-<span class="type-badge sortie"><span class="dot"></span> Sortie de Stock</span>
+<span class="type-badge sortie"><span class="dot"></span> إخراج من المخزون</span>
 {% else %}
-<span class="type-badge ajust"><span class="dot"></span> Ajustement</span>
+<span class="type-badge ajust"><span class="dot"></span> تسوية</span>
 {% endif %}
 
 <!-- Info grid -->
 <div class="info-grid">
   <div class="info-block">
-    <div class="info-block__label">Article</div>
+    <div class="info-block__label">المادة</div>
     <div class="info-block__val">
       {% if mouvement.intrant %}{{ mouvement.intrant.designation }}{% elif mouvement.produit_fini %}{{ mouvement.produit_fini.designation }}{% endif %}
     </div>
     <div class="info-block__sub">
-      {% if mouvement.intrant %}Intrant — {{ mouvement.intrant.categorie.libelle }}{% elif mouvement.produit_fini %}Produit Fini — {{ mouvement.produit_fini.get_type_produit_display }}{% endif %}
+      {% if mouvement.intrant %}مدخل — {{ mouvement.intrant.categorie.libelle }}{% elif mouvement.produit_fini %}منتج نهائي — {{ mouvement.produit_fini.get_type_produit_display }}{% endif %}
     </div>
   </div>
   <div class="info-block">
-    <div class="info-block__label">Source</div>
+    <div class="info-block__label">المصدر</div>
     <div class="info-block__val">{{ mouvement.get_source_display }}</div>
-    {% if mouvement.reference_label %}<div class="info-block__sub">Réf. : {{ mouvement.reference_label }}</div>{% endif %}
+    {% if mouvement.reference_label %}<div class="info-block__sub">مرجع : {{ mouvement.reference_label }}</div>{% endif %}
   </div>
   <div class="info-block">
-    <div class="info-block__label">Date du mouvement</div>
+    <div class="info-block__label">تاريخ الحركة</div>
     <div class="info-block__val">{{ mouvement.date_mouvement|date:"d/m/Y" }}</div>
-    <div class="info-block__sub">Enregistré le {{ mouvement.created_at|date:"d/m/Y à H:i" }}</div>
+    <div class="info-block__sub">سُجِّل في {{ mouvement.created_at|date:"d/m/Y الساعة H:i" }}</div>
   </div>
   <div class="info-block">
-    <div class="info-block__label">Enregistré par</div>
+    <div class="info-block__label">سُجِّل بواسطة</div>
     <div class="info-block__val">
-      {% if mouvement.created_by %}{{ mouvement.created_by.get_full_name|default:mouvement.created_by.username }}{% else %}Système{% endif %}
+      {% if mouvement.created_by %}{{ mouvement.created_by.get_full_name|default:mouvement.created_by.username }}{% else %}النظام{% endif %}
     </div>
     <div class="info-block__sub">
-      {% if mouvement.intrant %}Unité : {{ mouvement.intrant.unite_mesure }}{% elif mouvement.produit_fini %}Unité : {{ mouvement.produit_fini.unite_mesure }}{% endif %}
+      {% if mouvement.intrant %}الوحدة : {{ mouvement.intrant.unite_mesure }}{% elif mouvement.produit_fini %}الوحدة : {{ mouvement.produit_fini.unite_mesure }}{% endif %}
     </div>
   </div>
 </div>
@@ -298,11 +313,11 @@
 <table class="mov-table">
   <thead>
     <tr>
-      <th>Désignation</th>
-      <th style="text-align:right;">Quantité Avant</th>
-      <th style="text-align:center;">Mouvement</th>
-      <th style="text-align:right;">Quantité</th>
-      <th style="text-align:right;">Quantité Après</th>
+      <th>المسمّى</th>
+      <th style="text-align:right;">الكمية قبل</th>
+      <th style="text-align:center;">الحركة</th>
+      <th style="text-align:right;">الكمية</th>
+      <th style="text-align:right;">الكمية بعد</th>
     </tr>
   </thead>
   <tbody>
@@ -338,7 +353,7 @@
 <div class="stock-visual">
   <div class="stock-visual__block">
     <div class="stock-visual__val" style="color:var(--text-muted);">{{ mouvement.quantite_avant|floatformat:3 }}</div>
-    <div class="stock-visual__label">Stock Avant</div>
+    <div class="stock-visual__label">المخزون قبل</div>
   </div>
   <div class="stock-visual__arrow">
     {% if mouvement.type_mouvement == 'entree' %}→{% elif mouvement.type_mouvement == 'sortie' %}→{% else %}⇌{% endif %}
@@ -354,7 +369,7 @@
   <div class="stock-visual__arrow">→</div>
   <div class="stock-visual__block">
     <div class="stock-visual__val" style="color:var(--text-primary);">{{ mouvement.quantite_apres|floatformat:3 }}</div>
-    <div class="stock-visual__label">Stock Après</div>
+    <div class="stock-visual__label">المخزون بعد</div>
   </div>
 </div>
 
@@ -362,43 +377,43 @@
 {% if mouvement.reference_label or mouvement.reference_id %}
 <div class="source-row">
   <div class="source-pair">
-    <span class="source-pair__key">Source</span>
+    <span class="source-pair__key">المصدر</span>
     <span class="source-pair__val">{{ mouvement.get_source_display }}</span>
   </div>
   {% if mouvement.reference_label %}
   <div class="source-pair">
-    <span class="source-pair__key">Référence document</span>
+    <span class="source-pair__key">مرجع الوثيقة</span>
     <span class="source-pair__val">{{ mouvement.reference_label }}</span>
   </div>
   {% endif %}
   {% if mouvement.reference_id %}
   <div class="source-pair">
-    <span class="source-pair__key">ID document</span>
+    <span class="source-pair__key">معرّف الوثيقة</span>
     <span class="source-pair__val">#{{ mouvement.reference_id }}</span>
   </div>
   {% endif %}
   <div class="source-pair">
-    <span class="source-pair__key">Type mouvement</span>
+    <span class="source-pair__key">نوع الحركة</span>
     <span class="source-pair__val">{{ mouvement.get_type_mouvement_display }}</span>
   </div>
 </div>
 {% endif %}
 
 <!-- Notes -->
-<div style="font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--text-muted);margin-bottom:7px;">Notes / Observations</div>
+<div style="font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--text-muted);margin-bottom:7px;">ملاحظات</div>
 <div class="notes-block">
-  {{ mouvement.notes|default:"Aucune note." }}
+  {{ mouvement.notes|default:"لا توجد ملاحظات." }}
 </div>
 
 <!-- Signatures -->
 <div class="sig-row">
   <div class="sig-block">
     <div class="sig-line"></div>
-    <div class="sig-label">Responsable Stock — Signature & cachet</div>
+    <div class="sig-label">مسؤول المخزون — التوقيع والختم</div>
   </div>
   <div class="sig-block">
     <div class="sig-line"></div>
-    <div class="sig-label">Vérifié par — Signature</div>
+    <div class="sig-label">تحقق بواسطة — التوقيع</div>
   </div>
 </div>
 
@@ -407,10 +422,10 @@
   <div class="doc-footer__text">
     {{ company.nom }}
     {% if company.adresse %} — {{ company.adresse }}{% endif %}
-    {% if company.telephone %} — Tél : {{ company.telephone }}{% endif %}
+    {% if company.telephone %} — هاتف : {{ company.telephone }}{% endif %}
   </div>
   <div class="doc-footer__text">
-    Bon #{{ mouvement.pk }} — {{ mouvement.date_mouvement|date:"d/m/Y" }} — {{ mouvement.get_type_mouvement_display|upper }}
+    وصل #{{ mouvement.pk }} — {{ mouvement.date_mouvement|date:"d/m/Y" }} — {{ mouvement.get_type_mouvement_display|upper }}
   </div>
 </div>
 

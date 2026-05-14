@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}État des Stocks — Élevage Avicole{% endblock %}
+{% block title %}حالة المخزون — تربية الدواجن{% endblock %}
 {% block nav_rapports %}active{% endblock %}
-{% block page_title %}État des Stocks{% endblock %}
+{% block page_title %}حالة المخزون{% endblock %}
 {% block page_sub_text %}
-  Valeur totale : {{ valeur_totale|floatformat:0 }} DZD
-  {% if nb_rupture_intrants %} — <span style="color:#dc2626;font-weight:700;">{{ nb_rupture_intrants }} rupture(s)</span>{% endif %}
-  {% if nb_alerte_intrants %} — <span style="color:#b45309;font-weight:700;">{{ nb_alerte_intrants }} alerte(s)</span>{% endif %}
+  القيمة الإجمالية : {{ valeur_totale|floatformat:0 }} DZD
+  {% if nb_rupture_intrants %} — <span style="color:#dc2626;font-weight:700;">{{ nb_rupture_intrants }} نفاد (نفاد مخزون)</span>{% endif %}
+  {% if nb_alerte_intrants %} — <span style="color:#b45309;font-weight:700;">{{ nb_alerte_intrants }} تنبيه (تنبيهات)</span>{% endif %}
 {% endblock %}
 {% block topbar_actions %}
 <a href="?{% if segment %}segment={{ segment }}&{% endif %}{% if categorie_pk %}categorie={{ categorie_pk }}&{% endif %}{% if alerte_only %}alerte=1&{% endif %}{% if q %}q={{ q }}&{% endif %}export=csv" class="btn-ghost btn-sm">
-  <i class="bx bxs-spreadsheet"></i> Exporter CSV
+  <i class="bx bxs-spreadsheet"></i> تصدير CSV
 </a>
-<a href="{% url 'stock:stock_mouvement_list' %}" class="btn-ghost btn-sm"><i class="bx bx-transfer"></i> Mouvements</a>
-<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> Rapports</a>
+<a href="{% url 'stock:stock_mouvement_list' %}" class="btn-ghost btn-sm"><i class="bx bx-transfer"></i> الحركات</a>
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> التقارير</a>
 {% endblock %}
 
 {% block extra_css %}
@@ -33,15 +33,15 @@
     <form method="get">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:1px;">
-          <a href="?{% if q %}q={{ q }}&{% endif %}{% if alerte_only %}alerte=1&{% endif %}" class="segment-tab {% if not segment %}active{% endif %}">Tout</a>
-          <a href="?segment=intrants{% if q %}&q={{ q }}{% endif %}{% if alerte_only %}&alerte=1{% endif %}" class="segment-tab {% if segment == 'intrants' %}active{% endif %}"><i class="bx bxs-package"></i> Intrants</a>
-          <a href="?segment=produits_finis{% if q %}&q={{ q }}{% endif %}{% if alerte_only %}&alerte=1{% endif %}" class="segment-tab {% if segment == 'produits_finis' %}active{% endif %}"><i class="bx bxs-box"></i> Produits Finis</a>
+          <a href="?{% if q %}q={{ q }}&{% endif %}{% if alerte_only %}alerte=1&{% endif %}" class="segment-tab {% if not segment %}active{% endif %}">الكل</a>
+          <a href="?segment=intrants{% if q %}&q={{ q }}{% endif %}{% if alerte_only %}&alerte=1{% endif %}" class="segment-tab {% if segment == 'intrants' %}active{% endif %}"><i class="bx bxs-package"></i> المدخلات</a>
+          <a href="?segment=produits_finis{% if q %}&q={{ q }}{% endif %}{% if alerte_only %}&alerte=1{% endif %}" class="segment-tab {% if segment == 'produits_finis' %}active{% endif %}"><i class="bx bxs-box"></i> المنتجات النهائية</a>
         </div>
         {% if segment in "" or segment == "intrants" %}
         <div class="input-wrapper" style="min-width:180px;">
           <i class="bx bxs-tag input-icon"></i>
           <select name="categorie" class="field-input has-icon" onchange="this.form.submit()">
-            <option value="">Toutes catégories</option>
+            <option value="">كل الفئات</option>
             {% for c in categories %}
             <option value="{{ c.pk }}" {% if categorie_pk == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.libelle }}</option>
             {% endfor %}
@@ -50,15 +50,15 @@
         {% endif %}
         <div class="input-wrapper" style="flex:1;min-width:180px;">
           <i class="bx bx-search input-icon"></i>
-          <input type="text" name="q" class="field-input has-icon" placeholder="Rechercher…" value="{{ q }}">
+          <input type="text" name="q" class="field-input has-icon" placeholder="بحث…" value="{{ q }}">
         </div>
         {% if segment %}<input type="hidden" name="segment" value="{{ segment }}">{% endif %}
         <div style="display:flex;align-items:center;gap:8px;">
           <input type="checkbox" id="alerte_only" name="alerte" value="1" {% if alerte_only %}checked{% endif %} onchange="this.form.submit()" style="width:16px;height:16px;accent-color:var(--accent);">
-          <label for="alerte_only" style="font-size:13px;color:var(--text-secondary);cursor:pointer;">Alertes uniquement</label>
+          <label for="alerte_only" style="font-size:13px;color:var(--text-secondary);cursor:pointer;">التنبيهات فقط</label>
         </div>
-        <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> Filtrer</button>
-        <a href="{% url 'reporting:etat_stocks' %}" class="btn-ghost btn-sm">Réinitialiser</a>
+        <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> تصفية</button>
+        <a href="{% url 'reporting:etat_stocks' %}" class="btn-ghost btn-sm">إعادة تعيين</a>
       </div>
     </form>
   </div>
@@ -69,28 +69,28 @@
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-blue"><i class="bx bxs-package"></i></div>
-      <div class="metric-label">Valeur Stock Intrants</div>
+      <div class="metric-label">قيمة المخزون المدخلات</div>
       <div class="metric-value sm">{{ valeur_intrants|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-green"><i class="bx bxs-box"></i></div>
-      <div class="metric-label">Valeur Produits Finis</div>
+      <div class="metric-label">Valeur المنتجات النهائية</div>
       <div class="metric-value sm">{{ valeur_produits|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-amber"><i class="bx bxs-error"></i></div>
-      <div class="metric-label">Articles en Alerte</div>
+      <div class="metric-label">مقالات في حالة تنبيه</div>
       <div class="metric-value sm {% if nb_alerte_intrants > 0 %}" style="color:#b45309;{% endif %}">{{ nb_alerte_intrants|add:nb_alerte_produits }}</div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-red"><i class="bx bxs-error-circle"></i></div>
-      <div class="metric-label">Ruptures de Stock</div>
+      <div class="metric-label">نفاد المخزون</div>
       <div class="metric-value sm {% if nb_rupture_intrants > 0 %}" style="color:#dc2626;{% endif %}">{{ nb_rupture_intrants }}</div>
     </div>
   </div>
@@ -100,40 +100,40 @@
 <div class="row g-3 mb-4">
   <div class="col-xl-5">
     <div class="section-card">
-      <div class="section-card__head"><span class="section-card__title">Valorisation par Catégorie</span></div>
+      <div class="section-card__head"><span class="section-card__title">التقييم حسب الفئة</span></div>
       <div class="section-card__body"><div class="chart-wrap"><canvas id="valeurDonut"></canvas></div></div>
     </div>
   </div>
   <div class="col-xl-7">
     <div class="section-card">
-      <div class="section-card__head"><span class="section-card__title">Top 10 Intrants par Valeur</span></div>
+      <div class="section-card__head"><span class="section-card__title">Top 10 المدخلات par Valeur</span></div>
       <div class="section-card__body"><div class="chart-wrap"><canvas id="top10Bar"></canvas></div></div>
     </div>
   </div>
 </div>
 
-<!-- Stock Intrants table -->
+<!-- Stock المدخلات table -->
 {% if segment in "" or segment == "intrants" %}
 {% if stocks_intrants %}
 <div class="section-card mb-3">
   <div class="section-card__head">
-    <span class="section-card__title"><i class="bx bxs-package" style="color:var(--text-muted);margin-right:6px;"></i>Stock Intrants</span>
-    <span style="font-size:12px;color:var(--text-muted);">{{ stocks_intrants|length }} article(s) — {{ valeur_intrants|floatformat:0 }} DZD</span>
+    <span class="section-card__title"><i class="bx bxs-package" style="color:var(--text-muted);margin-right:6px;"></i>Stock المدخلات</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ stocks_intrants|length }} مقال (مقالات) — {{ valeur_intrants|floatformat:0 }} DZD</span>
   </div>
   <div class="section-card__body no-pad">
     <div style="overflow-x:auto;">
       <table class="table-base">
         <thead>
           <tr>
-            <th>Désignation</th>
-            <th>Catégorie</th>
-            <th style="text-align:right;">Quantité</th>
-            <th style="text-align:right;">Seuil</th>
-            <th style="text-align:center;">Statut</th>
-            <th style="text-align:right;">PMP</th>
-            <th style="text-align:right;">Valeur Stock</th>
-            <th style="font-size:10px;">Dernière MAJ</th>
-            <th style="font-size:10px;text-align:center;">Mouvements</th>
+            <th>المسمّى</th>
+            <th>الفئة</th>
+            <th style="text-align:right;">الكمية</th>
+            <th style="text-align:right;">الحد الأدنى</th>
+            <th style="text-align:center;">الحالة</th>
+            <th style="text-align:right;">متوسط التكلفة</th>
+            <th style="text-align:right;">قيمة المخزون</th>
+            <th style="font-size:10px;">آخر تحديث</th>
+            <th style="font-size:10px;text-align:center;">الحركات</th>
           </tr>
         </thead>
         <tbody>
@@ -161,18 +161,18 @@
             <td style="text-align:right;font-size:12.5px;color:var(--text-muted);">{{ s.intrant.seuil_alerte|floatformat:0 }} {{ s.intrant.unite_mesure }}</td>
             <td style="text-align:center;">
               {% if s.quantite <= 0 %}
-              <span class="pill-base pill-danger">Rupture</span>
+              <span class="pill-base pill-danger">نفاد</span>
               {% elif s.en_alerte %}
-              <span class="pill-base pill-warning">Alerte</span>
+              <span class="pill-base pill-warning">تنبيه</span>
               {% else %}
-              <span class="pill-base pill-success">Normal</span>
+              <span class="pill-base pill-success">طبيعي</span>
               {% endif %}
             </td>
             <td style="text-align:right;font-size:12.5px;">{{ s.prix_moyen_pondere|floatformat:2 }} DZD</td>
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ s.valeur_stock|floatformat:0 }} DZD</td>
             <td style="font-size:11px;color:var(--text-muted);">{{ s.derniere_mise_a_jour|date:"d/m/Y" }}</td>
             <td style="text-align:center;">
-              <a href="{% url 'stock:stock_mouvement_list' %}?q={{ s.intrant.designation|urlencode }}" title="Mouvements de stock" style="color:var(--accent-text);font-size:12px;display:inline-flex;align-items:center;gap:3px;text-decoration:none;padding:3px 7px;border-radius:var(--radius-sm);background:var(--bg-raised);border:1px solid var(--border);">
+              <a href="{% url 'stock:stock_mouvement_list' %}?q={{ s.intrant.designation|urlencode }}" title="الحركات de stock" style="color:var(--accent-text);font-size:12px;display:inline-flex;align-items:center;gap:3px;text-decoration:none;padding:3px 7px;border-radius:var(--radius-sm);background:var(--bg-raised);border:1px solid var(--border);">
                 <i class="bx bx-transfer"></i>
               </a>
             </td>
@@ -190,36 +190,36 @@
   <div class="section-card__body">
     <div class="empty-state">
       <i class="bx bxs-package empty-state__icon"></i>
-      <div class="empty-state__title">Aucun intrant{% if alerte_only %} en alerte{% endif %}</div>
-      {% if alerte_only %}<div class="empty-state__text">Tous les stocks intrants sont au-dessus du seuil d'alerte.</div>{% endif %}
+      <div class="empty-state__title">لا مدخلات{% if alerte_only %} في حالة تنبيه{% endif %}</div>
+      {% if alerte_only %}<div class="empty-state__text">جميع مخزونات المدخلات فوق حد التنبيه.</div>{% endif %}
     </div>
   </div>
 </div>
 {% endif %}
 {% endif %}
 
-<!-- Stock Produits Finis table -->
+<!-- Stock المنتجات النهائية table -->
 {% if segment in "" or segment == "produits_finis" %}
 {% if stocks_produits %}
 <div class="section-card">
   <div class="section-card__head">
-    <span class="section-card__title"><i class="bx bxs-box" style="color:var(--text-muted);margin-right:6px;"></i>Stock Produits Finis</span>
-    <span style="font-size:12px;color:var(--text-muted);">{{ stocks_produits|length }} article(s) — {{ valeur_produits|floatformat:0 }} DZD</span>
+    <span class="section-card__title"><i class="bx bxs-box" style="color:var(--text-muted);margin-right:6px;"></i>Stock المنتجات النهائية</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ stocks_produits|length }} مقال (مقالات) — {{ valeur_produits|floatformat:0 }} DZD</span>
   </div>
   <div class="section-card__body no-pad">
     <div style="overflow-x:auto;">
       <table class="table-base">
         <thead>
           <tr>
-            <th>Produit</th>
-            <th>Type</th>
-            <th style="text-align:right;">Quantité</th>
-            <th style="text-align:right;">Seuil</th>
-            <th style="text-align:center;">Statut</th>
-            <th style="text-align:right;">Coût Moyen</th>
-            <th style="text-align:right;">Valeur Stock</th>
-            <th style="font-size:10px;">Dernière MAJ</th>
-            <th style="font-size:10px;text-align:center;">Mouvements</th>
+            <th>المنتج</th>
+            <th>النوع</th>
+            <th style="text-align:right;">الكمية</th>
+            <th style="text-align:right;">الحد الأدنى</th>
+            <th style="text-align:center;">الحالة</th>
+            <th style="text-align:right;">متوسط التكلفة</th>
+            <th style="text-align:right;">قيمة المخزون</th>
+            <th style="font-size:10px;">آخر تحديث</th>
+            <th style="font-size:10px;text-align:center;">الحركات</th>
           </tr>
         </thead>
         <tbody>
@@ -234,18 +234,18 @@
             <td style="text-align:right;font-size:12.5px;color:var(--text-muted);">{{ s.seuil_alerte|floatformat:0 }} {{ s.produit_fini.unite_mesure }}</td>
             <td style="text-align:center;">
               {% if s.quantite <= 0 %}
-              <span class="pill-base pill-danger">Rupture</span>
+              <span class="pill-base pill-danger">نفاد</span>
               {% elif s.en_alerte %}
-              <span class="pill-base pill-warning">Alerte</span>
+              <span class="pill-base pill-warning">تنبيه</span>
               {% else %}
-              <span class="pill-base pill-success">Normal</span>
+              <span class="pill-base pill-success">طبيعي</span>
               {% endif %}
             </td>
             <td style="text-align:right;font-size:12.5px;">{{ s.cout_moyen_production|floatformat:2 }} DZD</td>
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ s.valeur_stock|floatformat:0 }} DZD</td>
             <td style="font-size:11px;color:var(--text-muted);">{{ s.derniere_mise_a_jour|date:"d/m/Y" }}</td>
             <td style="text-align:center;">
-              <a href="{% url 'stock:stock_mouvement_list' %}?q={{ s.produit_fini.designation|urlencode }}" title="Mouvements de stock" style="color:var(--accent-text);font-size:12px;display:inline-flex;align-items:center;gap:3px;text-decoration:none;padding:3px 7px;border-radius:var(--radius-sm);background:var(--bg-raised);border:1px solid var(--border);">
+              <a href="{% url 'stock:stock_mouvement_list' %}?q={{ s.produit_fini.designation|urlencode }}" title="الحركات de stock" style="color:var(--accent-text);font-size:12px;display:inline-flex;align-items:center;gap:3px;text-decoration:none;padding:3px 7px;border-radius:var(--radius-sm);background:var(--bg-raised);border:1px solid var(--border);">
                 <i class="bx bx-transfer"></i>
               </a>
             </td>
@@ -254,7 +254,7 @@
         </tbody>
         <tfoot>
           <tr style="background:var(--bg-raised);">
-            <td colspan="6" style="font-weight:700;padding:12px 14px;">TOTAL PRODUITS FINIS</td>
+            <td colspan="6" style="font-weight:700;padding:12px 14px;">إجمالي المنتجات النهائية</td>
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;padding:12px 14px;">{{ valeur_produits|floatformat:0 }} DZD</td>
             <td></td>
           </tr>
@@ -268,7 +268,7 @@
   <div class="section-card__body">
     <div class="empty-state">
       <i class="bx bxs-box empty-state__icon"></i>
-      <div class="empty-state__title">Aucun produit fini en stock</div>
+      <div class="empty-state__title">لا منتجات نهائية في المخزون</div>
     </div>
   </div>
 </div>
@@ -279,7 +279,7 @@
 {
   "intrants_labels": [{% for s in stocks_intrants|slice:":10" %}"{{ s.intrant.designation|truncatechars:20|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
   "intrants_values": [{% for s in stocks_intrants|slice:":10" %}{{ s.valeur_stock|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}],
-  "donut_labels": ["Stock Intrants","Stock Produits Finis"],
+  "donut_labels": ["Stock المدخلات","Stock المنتجات النهائية"],
   "donut_values": [{{ valeur_intrants|floatformat:2 }}, {{ valeur_produits|floatformat:2 }}]
 }
 </script>
@@ -319,7 +319,7 @@ document.addEventListener('DOMContentLoaded', function () {
       type: 'bar',
       data: {
         labels: d.intrants_labels,
-        datasets: [{ label: 'Valeur (DZD)', data: d.intrants_values, backgroundColor: COLORS, borderRadius: 5, borderSkipped: false }]
+        datasets: [{ label: 'القيمة (دج)', data: d.intrants_values, backgroundColor: COLORS, borderRadius: 5, borderSkipped: false }]
       },
       options: {
         indexAxis: 'y', responsive: true, maintainAspectRatio: false,

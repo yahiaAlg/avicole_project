@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}BL Fournisseurs — Élevage Avicole{% endblock %}
+{% block title %}وصولات تسليم الموردين — تربية الدواجن{% endblock %}
 
 {% block nav_bl_fournisseur %}active{% endblock %}
 
-{% block page_title %}BL Fournisseurs{% endblock %}
-{% block page_sub_text %}{{ page.paginator.count }} bon{{ page.paginator.count|pluralize }} de livraison{% endblock %}
+{% block page_title %}وصولات تسليم الموردين{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} وصل تسليم{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'achats:bl_fournisseur_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouveau BL
+    <i class="bx bx-plus"></i> وصل جديد
   </a>
 {% endblock %}
 
@@ -20,14 +20,14 @@
     <div class="filter-group">
       <div class="input-icon-wrap">
         <i class="bx bx-search"></i>
-        <input type="text" name="q" value="{{ q }}" placeholder="Référence, fournisseur…" class="filter-input" />
+        <input type="text" name="q" value="{{ q }}" placeholder="المرجع، المورد..." class="filter-input" />
       </div>
     </div>
     <div class="filter-group">
       <div class="input-icon-wrap">
         <i class="bx bxs-filter-alt"></i>
         <select name="statut" class="filter-select filter-select--icon" id="filter-statut">
-          <option value="">Tous les statuts</option>
+          <option value="">جميع الحالات</option>
           {% for val, label in statut_choices %}
           <option value="{{ val }}" {% if statut == val %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
@@ -38,17 +38,17 @@
       <div class="input-icon-wrap">
         <i class="bx bxs-building"></i>
         <select name="fournisseur" class="filter-select filter-select--icon" id="filter-fournisseur">
-          <option value="">Tous les fournisseurs</option>
+          <option value="">جميع الموردين</option>
           {% for f in fournisseurs %}
           <option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.nom }}</option>
           {% endfor %}
         </select>
       </div>
     </div>
-    <button type="submit" class="btn-ghost"><i class="bx bx-search"></i> Filtrer</button>
+    <button type="submit" class="btn-ghost"><i class="bx bx-search"></i> تصفية</button>
     {% if q or statut or fournisseur_pk %}
     <a href="{% url 'achats:bl_fournisseur_list' %}" class="btn-ghost btn-ghost--reset">
-      <i class="bx bx-x"></i> Réinitialiser
+      <i class="bx bx-x"></i> إعادة تعيين
     </a>
     {% endif %}
   </form>
@@ -56,7 +56,7 @@
 
 <div class="card">
   <div class="card-header-row">
-    <div class="section-eyebrow">Bons de livraison fournisseurs</div>
+    <div class="section-eyebrow">وصولات تسليم الموردين</div>
   </div>
 
   {% if page.object_list %}
@@ -64,14 +64,14 @@
     <table class="data-table">
       <thead>
         <tr>
-          <th>Référence</th>
-          <th>Fournisseur</th>
-          <th>Date</th>
-          <th>Réf. Fournisseur</th>
-          <th>Statut</th>
-          <th>Montant</th>
-          <th>P.J.</th>
-          <th style="text-align:right;">Actions</th>
+          <th>المرجع</th>
+          <th>المورد</th>
+          <th>التاريخ</th>
+          <th>مرجع المورد</th>
+          <th>الحالة</th>
+          <th>المبلغ</th>
+          <th>م.م</th>
+          <th style="text-align:right;">إجراءات</th>
         </tr>
       </thead>
       <tbody>
@@ -89,13 +89,13 @@
           <td style="color:var(--text-muted);">{{ bl.reference_fournisseur|default:"—" }}</td>
           <td>
             {% if bl.statut == "brouillon" %}
-              <span class="pill-warning"><i class="bx bxs-edit-alt"></i> Brouillon</span>
+              <span class="pill-warning"><i class="bx bxs-edit-alt"></i> مسودة</span>
             {% elif bl.statut == "recu" %}
-              <span class="pill-info"><i class="bx bxs-check-circle"></i> Reçu</span>
+              <span class="pill-info"><i class="bx bxs-check-circle"></i> مستلم</span>
             {% elif bl.statut == "facture" %}
-              <span class="pill-success"><i class="bx bxs-file-txt"></i> Facturé</span>
+              <span class="pill-success"><i class="bx bxs-file-txt"></i> مفوتر</span>
             {% elif bl.statut == "litige" %}
-              <span class="pill-danger"><i class="bx bxs-error"></i> En litige</span>
+              <span class="pill-danger"><i class="bx bxs-error"></i> في نزاع</span>
             {% endif %}
           </td>
           <td style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
@@ -103,7 +103,7 @@
           </td>
           <td>
             {% if bl.a_piece_jointe %}
-              <a href="{{ bl.piece_jointe.url }}" target="_blank" class="pj-link" title="Voir la pièce jointe">
+              <a href="{{ bl.piece_jointe.url }}" target="_blank" class="pj-link" title="عرض المرفق">
                 <i class="bx bx-paperclip" style="color:var(--accent-text);"></i>
               </a>
             {% else %}
@@ -114,22 +114,22 @@
           </td>
           <td>
             <div class="actions-cell">
-              <a href="{% url 'achats:bl_fournisseur_detail' bl.pk %}" class="action-btn" title="Voir">
+              <a href="{% url 'achats:bl_fournisseur_detail' bl.pk %}" class="action-btn" title="عرض">
                 <i class="bx bxs-show"></i>
               </a>
               {% if bl.statut != "facture" %}
-              <a href="{% url 'achats:bl_fournisseur_edit' bl.pk %}" class="action-btn" title="Modifier">
+              <a href="{% url 'achats:bl_fournisseur_edit' bl.pk %}" class="action-btn" title="تعديل">
                 <i class="bx bxs-pencil"></i>
               </a>
               {% endif %}
-              <a href="{% url 'achats:bl_fournisseur_print' bl.pk %}" class="action-btn" title="Imprimer" target="_blank">
+              <a href="{% url 'achats:bl_fournisseur_print' bl.pk %}" class="action-btn" title="طباعة" target="_blank">
                 <i class="bx bxs-printer"></i>
               </a>
               {% if bl.statut == "brouillon" %}
               <button type="button" class="action-btn action-btn--danger"
                 data-delete-bl="{{ bl.pk }}"
                 data-bl-ref="{{ bl.reference }}"
-                title="Supprimer">
+                title="حذف">
                 <i class="bx bxs-trash"></i>
               </button>
               {% endif %}
@@ -148,7 +148,7 @@
       <i class="bx bx-chevron-left"></i>
     </a>
     {% endif %}
-    <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+    <span class="page-info">صفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
     {% if page.has_next %}
     <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}" class="page-btn">
       <i class="bx bx-chevron-right"></i>
@@ -161,18 +161,18 @@
   <div style="text-align:center;padding:56px 20px;color:var(--text-muted);">
     <i class="bx bxs-truck" style="font-size:36px;display:block;margin-bottom:14px;color:var(--border-strong);"></i>
     <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
-      Aucun BL trouvé
+      لم يتم العثور على أي وصل
     </div>
     <div style="font-size:13px;">
       {% if q or statut or fournisseur_pk %}
-        Aucun résultat pour ces filtres. <a href="{% url 'achats:bl_fournisseur_list' %}" style="color:var(--accent-text);">Réinitialiser</a>
+        لا توجد نتائج لهذه الفلاتر. <a href="{% url 'achats:bl_fournisseur_list' %}" style="color:var(--accent-text);">إعادة تعيين</a>
       {% else %}
-        Créez le premier bon de livraison fournisseur.
+        أنشئ أول وصل تسليم للمورد.
       {% endif %}
     </div>
     {% if not q and not statut and not fournisseur_pk %}
     <a href="{% url 'achats:bl_fournisseur_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
-      <i class="bx bx-plus"></i> Nouveau BL
+      <i class="bx bx-plus"></i> وصل جديد
     </a>
     {% endif %}
   </div>
@@ -186,16 +186,16 @@
       <i class="bx bxs-trash"></i>
     </div>
     <div>
-      <div class="confirm-panel__title">Supprimer le BL ?</div>
+      <div class="confirm-panel__title">حذف وصل التسليم؟</div>
       <div class="confirm-panel__body">
-        Le BL <strong id="confirm-bl-ref"></strong> sera définitivement supprimé. Cette action est irréversible.
+        سيتم حذف الوصل <strong id="confirm-bl-ref"></strong> نهائيًا. هذه العملية لا يمكن التراجع عنها.
       </div>
     </div>
     <div class="confirm-panel__actions">
-      <button type="button" id="confirm-delete-cancel" class="btn-ghost">Annuler</button>
+      <button type="button" id="confirm-delete-cancel" class="btn-ghost">إلغاء</button>
       <form id="confirm-delete-form" method="post" action="">
         {% csrf_token %}
-        <button type="submit" class="btn-danger"><i class="bx bxs-trash"></i> Supprimer</button>
+        <button type="submit" class="btn-danger"><i class="bx bxs-trash"></i> حذف</button>
       </form>
     </div>
   </div>
@@ -221,7 +221,7 @@
   }
   .input-icon-wrap > i {
     position: absolute;
-    left: 12px;
+    right: 12px;
     font-size: 15px;
     color: var(--text-muted);
     pointer-events: none;
@@ -232,19 +232,19 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     color: var(--text-primary);
-    font-family: 'Inter', sans-serif;
+    font-family: 'Tajawal', 'Inter', sans-serif;
     font-size: 13px;
     padding: 9px 13px;
     transition: border-color .15s, box-shadow .15s;
     outline: none;
   }
   .filter-input {
-    padding-left: 38px;
+    padding-right: 38px;
     width: 220px;
   }
   .filter-select--icon {
-    padding-left: 36px;
-    padding-right: 28px;
+    padding-right: 36px;
+    padding-left: 28px;
     appearance: none;
     min-width: 170px;
   }

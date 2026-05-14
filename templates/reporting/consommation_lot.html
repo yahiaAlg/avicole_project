@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Consommation par Lot — Élevage Avicole{% endblock %}
+{% block title %}الاستهلاك حسب الدفعة — تربية الدواجن{% endblock %}
 {% block nav_rapports %}active{% endblock %}
-{% block page_title %}Consommation par Lot{% endblock %}
-{% block page_sub_text %}{{ nb_total }} enregistrement(s){% endblock %}
+{% block page_title %}الاستهلاك حسب الدفعة{% endblock %}
+{% block page_sub_text %}{{ nb_total }} سجل(ات){% endblock %}
 {% block topbar_actions %}
 <a href="?{% if lot_pk %}lot={{ lot_pk }}&{% endif %}{% if intrant_pk %}intrant={{ intrant_pk }}&{% endif %}{% if categorie_pk %}categorie={{ categorie_pk }}&{% endif %}{% if date_debut %}date_debut={{ date_debut|date:"Y-m-d" }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:"Y-m-d" }}&{% endif %}export=csv" class="btn-ghost btn-sm">
-  <i class="bx bxs-spreadsheet"></i> Exporter CSV
+  <i class="bx bxs-spreadsheet"></i> تصدير CSV
 </a>
-<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> Rapports</a>
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> التقارير</a>
 {% endblock %}
 
 {% block extra_css %}
@@ -25,21 +25,21 @@
       <div class="input-wrapper" style="min-width:200px;flex:1;">
         <i class="bx bxs-leaf input-icon"></i>
         <select name="lot" class="field-input has-icon">
-          <option value="">Tous les lots</option>
+          <option value="">كل الدفعات</option>
           {% for l in lots %}<option value="{{ l.pk }}" {% if lot_pk == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.designation }}</option>{% endfor %}
         </select>
       </div>
       <div class="input-wrapper" style="min-width:160px;">
         <i class="bx bxs-tag input-icon"></i>
         <select name="categorie" class="field-input has-icon">
-          <option value="">Toutes catégories</option>
+          <option value="">كل الفئات</option>
           {% for c in categories %}<option value="{{ c.pk }}" {% if categorie_pk == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.libelle }}</option>{% endfor %}
         </select>
       </div>
       <div class="input-wrapper" style="min-width:180px;">
         <i class="bx bxs-package input-icon"></i>
         <select name="intrant" class="field-input has-icon">
-          <option value="">Tous les intrants</option>
+          <option value="">كل المدخلات</option>
           {% for i in intrants %}<option value="{{ i.pk }}" {% if intrant_pk == i.pk|stringformat:"s" %}selected{% endif %}>{{ i.designation }}</option>{% endfor %}
         </select>
       </div>
@@ -52,7 +52,7 @@
         <input type="date" name="date_fin" class="field-input has-icon" value="{{ date_fin|date:'Y-m-d' }}">
       </div>
       <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> Filtrer</button>
-      <a href="{% url 'reporting:consommation_lot' %}" class="btn-ghost btn-sm">Réinitialiser</a>
+      <a href="{% url 'reporting:consommation_lot' %}" class="btn-ghost btn-sm">إعادة تعيين</a>
     </form>
   </div>
 </div>
@@ -62,15 +62,15 @@
 <div class="row g-3 mb-4">
   <div class="col-xl-5">
     <div class="section-card" style="height:100%;">
-      <div class="section-card__head"><span class="section-card__title">Par Intrant (agrégé)</span></div>
+      <div class="section-card__head"><span class="section-card__title">حسب المدخل (مجمّع)</span></div>
       <div class="section-card__body no-pad">
         <table class="table-base">
           <thead>
             <tr>
-              <th>Intrant</th>
-              <th>Catégorie</th>
-              <th style="text-align:right;">Total Qté</th>
-              <th style="text-align:right;">Nb</th>
+              <th>المدخل</th>
+              <th>الفئة</th>
+              <th style="text-align:left;">إجمالي الكمية</th>
+              <th style="text-align:left;">عدد</th>
             </tr>
           </thead>
           <tbody>
@@ -89,7 +89,7 @@
   </div>
   <div class="col-xl-7">
     <div class="section-card" style="height:100%;">
-      <div class="section-card__head"><span class="section-card__title">Quantités consommées par Intrant</span></div>
+      <div class="section-card__head"><span class="section-card__title">الكميات المستهلكة حسب المدخل</span></div>
       <div class="section-card__body"><div class="chart-wrap" style="height:260px;"><canvas id="consoChart"></canvas></div></div>
     </div>
   </div>
@@ -99,8 +99,8 @@
 <!-- Detail table -->
 <div class="section-card">
   <div class="section-card__head">
-    <span class="section-card__title">Journal des Consommations</span>
-    <span style="font-size:12px;color:var(--text-muted);">{{ page.paginator.count }} enregistrement(s)</span>
+    <span class="section-card__title">سجل الاستهلاكات</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ page.paginator.count }} سجل(ات)</span>
   </div>
   <div class="section-card__body no-pad">
     {% if page.object_list %}
@@ -108,12 +108,12 @@
       <table class="table-base">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Lot</th>
-            <th>Intrant</th>
-            <th>Catégorie</th>
-            <th style="text-align:right;">Quantité</th>
-            <th>Enregistré par</th>
+            <th>التاريخ</th>
+            <th>الدفعة</th>
+            <th>المدخل</th>
+            <th>الفئة</th>
+            <th style="text-align:right;">الكمية</th>
+            <th>مُسجَّل بواسطة</th>
           </tr>
         </thead>
         <tbody>
@@ -135,7 +135,7 @@
     </div>
     {% if page.has_other_pages %}
     <div class="pagination-bar">
-      <span>Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      <span>صفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
       <div class="page-links">
         {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}{% if lot_pk %}&lot={{ lot_pk }}{% endif %}{% if intrant_pk %}&intrant={{ intrant_pk }}{% endif %}{% if categorie_pk %}&categorie={{ categorie_pk }}{% endif %}{% if date_debut %}&date_debut={{ date_debut|date:"Y-m-d" }}{% endif %}{% if date_fin %}&date_fin={{ date_fin|date:"Y-m-d" }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>{% endif %}
         <span class="page-link active">{{ page.number }}</span>
@@ -146,8 +146,8 @@
     {% else %}
     <div class="empty-state">
       <i class="bx bxs-droplet empty-state__icon"></i>
-      <div class="empty-state__title">Aucune consommation trouvée</div>
-      <div class="empty-state__text">Modifiez les filtres pour élargir la recherche.</div>
+      <div class="empty-state__title">لم يتم العثور على استهلاكات</div>
+      <div class="empty-state__text">عدّل الفلاتر لتوسيع البحث.</div>
     </div>
     {% endif %}
   </div>
@@ -173,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function () {
     type: 'bar',
     data: {
       labels: d.labels,
-      datasets: [{ label: 'Quantité', data: d.values,
+      datasets: [{ label: 'الكمية', data: d.values,
         backgroundColor: d.labels.map((_, i) => COLORS[i % COLORS.length]),
         borderRadius: 5, borderSkipped: false }]
     },

@@ -128,7 +128,7 @@ def bl_fournisseur_list(request):
             "fournisseur_pk": fournisseur_pk,
             "fournisseurs": fournisseurs,
             "statut_choices": BLFournisseur.STATUT_CHOICES,
-            "title": "BL Fournisseurs",
+            "title": "وصولات استلام الموردين",
         },
     )
 
@@ -179,8 +179,7 @@ def bl_fournisseur_create(request, fournisseur_pk=None):
 
                 messages.success(
                     request,
-                    f"BL {bl.reference} créé avec succès "
-                    f"({bl.lignes.count()} ligne(s)).",
+                    f"تم إنشاء وصل الاستلام {bl.reference} بنجاح ({bl.lignes.count()} سطر).",
                 )
                 logger.info(
                     "BLFournisseur pk=%s (%s) created by '%s'.",
@@ -192,10 +191,10 @@ def bl_fournisseur_create(request, fournisseur_pk=None):
 
             except Exception as exc:
                 logger.exception("Error creating BLFournisseur: %s", exc)
-                messages.error(request, f"Erreur lors de la création : {exc}")
+                messages.error(request, f"خطأ أثناء الإنشاء: {exc}")
 
         else:
-            messages.error(request, "Veuillez corriger les erreurs dans le formulaire.")
+            messages.error(request, "يرجى تصحيح الأخطاء في النموذج.")
 
     else:
         initial_ref = _auto_reference_bl()
@@ -214,8 +213,8 @@ def bl_fournisseur_create(request, fournisseur_pk=None):
         {
             "form": form,
             "formset": formset,
-            "title": "Nouveau BL Fournisseur",
-            "action_label": "Créer",
+            "title": "وصل استلام جديد",
+            "action_label": "إنشاء",
             "fournisseur": fournisseur,
             "categories_intrant": __import__(
                 "intrants.models", fromlist=["CategorieIntrant"]
@@ -247,8 +246,7 @@ def bl_fournisseur_edit(request, pk):
     if bl.est_verrouille:
         messages.error(
             request,
-            f"BR-BLF-02 : le BL {bl.reference} est verrouillé (statut Facturé) "
-            "et ne peut plus être modifié.",
+            f"BR-BLF-02: وصل الاستلام {bl.reference} مقفل (فاتورة محررة) ولا يمكن تعديله.",
         )
         return redirect("achats:bl_fournisseur_detail", pk=pk)
 
@@ -262,16 +260,16 @@ def bl_fournisseur_edit(request, pk):
                     form.save()
                     formset.save()
 
-                messages.success(request, f"BL {bl.reference} mis à jour.")
+                messages.success(request, f"تم تحديث وصل الاستلام {bl.reference}.")
                 logger.info("BLFournisseur pk=%s updated by '%s'.", pk, request.user)
                 return redirect("achats:bl_fournisseur_detail", pk=pk)
 
             except Exception as exc:
                 logger.exception("Error updating BLFournisseur pk=%s: %s", pk, exc)
-                messages.error(request, f"Erreur lors de la mise à jour : {exc}")
+                messages.error(request, f"خطأ أثناء التحديث: {exc}")
 
         else:
-            messages.error(request, "Veuillez corriger les erreurs.")
+            messages.error(request, "يرجى تصحيح الأخطاء.")
 
     else:
         form = BLFournisseurForm(instance=bl)
@@ -284,8 +282,8 @@ def bl_fournisseur_edit(request, pk):
             "form": form,
             "formset": formset,
             "object": bl,
-            "title": f"Modifier BL — {bl.reference}",
-            "action_label": "Enregistrer",
+            "title": f"تعديل وصل الاستلام — {bl.reference}",
+            "action_label": "حفظ",
             "categories_intrant": __import__(
                 "intrants.models", fromlist=["CategorieIntrant"]
             )
@@ -355,7 +353,7 @@ def bl_fournisseur_detail(request, pk):
             "lignes": lignes,
             "factures": factures,
             "montant_total": bl.montant_total,
-            "title": f"BL {bl.reference}",
+            "title": f"وصل الاستلام {bl.reference}",
             "is_admin": is_admin,
             "statut_transitions": STATUT_TRANSITIONS.get(bl.statut, []),
             "next_statut_value": next_statut_value,
@@ -390,8 +388,7 @@ def bl_fournisseur_change_statut(request, pk):
     if bl.est_verrouille:
         messages.error(
             request,
-            f"BR-BLF-02 : le BL {bl.reference} est verrouillé (Facturé) "
-            "et ne peut pas être modifié.",
+            f"BR-BLF-02: وصل الاستلام {bl.reference} مقفل (فاتورة محررة) ولا يمكن تعديله.",
         )
         return redirect("achats:bl_fournisseur_detail", pk=pk)
 
@@ -424,8 +421,7 @@ def bl_fournisseur_change_statut(request, pk):
     if new_statut not in allowed:
         messages.error(
             request,
-            f"Transition de statut invalide : « {bl.get_statut_display()} » "
-            f"→ « {new_statut} » non autorisée.",
+            f"تحويل الحالة غير مسموح به: « {bl.get_statut_display()} » ← « {new_statut} ».",
         )
         return redirect("achats:bl_fournisseur_detail", pk=pk)
 
@@ -436,7 +432,7 @@ def bl_fournisseur_change_statut(request, pk):
     new_display = bl.get_statut_display()
     messages.success(
         request,
-        f"Statut du BL {bl.reference} changé : {old_display} → {new_display}.",
+        f"تم تغيير حالة وصل الاستلام {bl.reference}: {old_display} ← {new_display}.",
     )
     logger.info(
         "BLFournisseur pk=%s statut changed %s → %s by '%s'.",
@@ -496,14 +492,13 @@ def bl_fournisseur_delete(request, pk):
     if bl.statut != BLFournisseur.STATUT_BROUILLON:
         messages.error(
             request,
-            f"Seuls les BLs en statut Brouillon peuvent être supprimés. "
-            f"BL {bl.reference} est en statut « {bl.get_statut_display()} ».",
+            f"يمكن حذف وصولات الاستلام في حالة المسودة فقط. وصل الاستلام {bl.reference} في حالة « {bl.get_statut_display()} ».",
         )
         return redirect("achats:bl_fournisseur_detail", pk=pk)
 
     ref = bl.reference
     bl.delete()
-    messages.success(request, f"BL {ref} supprimé.")
+    messages.success(request, f"تم حذف وصل الاستلام {ref}.")
     logger.info("BLFournisseur pk=%s (%s) deleted by '%s'.", pk, ref, request.user)
     return redirect("achats:bl_fournisseur_list")
 
@@ -557,7 +552,7 @@ def facture_fournisseur_list(request):
             "retard": request.GET.get("retard", ""),
             "fournisseurs": fournisseurs,
             "statut_choices": FactureFournisseur.STATUT_CHOICES,
-            "title": "Factures Fournisseurs",
+            "title": "فواتير الموردين",
         },
     )
 
@@ -597,7 +592,7 @@ def facture_fournisseur_create(request):
             "achats/facture_fournisseur_select_fournisseur.html",
             {
                 "fournisseurs": fournisseurs,
-                "title": "Nouvelle facture — Choisir un fournisseur",
+                "title": "فاتورة جديدة — اختر موردًا",
             },
         )
 
@@ -619,8 +614,7 @@ def facture_fournisseur_create(request):
 
                 messages.success(
                     request,
-                    f"Facture {facture.reference} créée. "
-                    f"Montant calculé : {facture.montant_total} DZD.",
+                    f"تم إنشاء الفاتورة {facture.reference}. المبلغ المحسوب: {facture.montant_total} دج.",
                 )
                 logger.info(
                     "FactureFournisseur pk=%s created by '%s'.",
@@ -631,10 +625,10 @@ def facture_fournisseur_create(request):
 
             except Exception as exc:
                 logger.exception("Error creating FactureFournisseur: %s", exc)
-                messages.error(request, f"Erreur lors de la création : {exc}")
+                messages.error(request, f"خطأ أثناء الإنشاء: {exc}")
 
         else:
-            messages.error(request, "Veuillez corriger les erreurs.")
+            messages.error(request, "يرجى تصحيح الأخطاء.")
 
     else:
         # Step 2: supplier selected, show form pre-filtered
@@ -663,8 +657,8 @@ def facture_fournisseur_create(request):
             "form": form,
             "fournisseur": fournisseur,
             "bls_recu": bls_recu,
-            "title": "Nouvelle facture fournisseur",
-            "action_label": "Créer la facture",
+            "title": "فاتورة مورد جديدة",
+            "action_label": "إنشاء الفاتورة",
         },
     )
 
@@ -695,7 +689,7 @@ def facture_fournisseur_detail(request, pk):
             "facture": facture,
             "bls": bls,
             "allocations": allocations,
-            "title": f"Facture {facture.reference}",
+            "title": f"فاتورة {facture.reference}",
         },
     )
 
@@ -747,9 +741,7 @@ def facture_fournisseur_toggle_litige(request, pk):
     facture = get_object_or_404(FactureFournisseur, pk=pk)
 
     if facture.statut == FactureFournisseur.STATUT_PAYE:
-        messages.error(
-            request, "Une facture entièrement payée ne peut pas être mise en litige."
-        )
+        messages.error(request, "لا يمكن وضع فاتورة مدفوعة بالكامل في حالة نزاع.")
         return redirect("achats:facture_fournisseur_detail", pk=pk)
 
     if facture.statut == FactureFournisseur.STATUT_EN_LITIGE:
@@ -758,11 +750,11 @@ def facture_fournisseur_toggle_litige(request, pk):
             FactureFournisseur.STATUT_NON_PAYE
         )  # recalculer_solde will fix it
         facture.recalculer_solde()
-        messages.success(request, f"Facture {facture.reference} retirée du litige.")
+        messages.success(request, f"تم سحب الفاتورة {facture.reference} من النزاع.")
     else:
         facture.statut = FactureFournisseur.STATUT_EN_LITIGE
         facture.save(update_fields=["statut", "updated_at"])
-        messages.success(request, f"Facture {facture.reference} marquée En litige.")
+        messages.success(request, f"تم وضع الفاتورة {facture.reference} في حالة نزاع.")
 
     logger.info(
         "FactureFournisseur pk=%s statut changed to '%s' by '%s'.",
@@ -817,7 +809,7 @@ def reglement_fournisseur_list(request):
             "date_debut": date_debut,
             "date_fin": date_fin,
             "fournisseurs": fournisseurs,
-            "title": "Règlements Fournisseurs",
+            "title": "تسويات الموردين",
         },
     )
 
@@ -874,8 +866,7 @@ def reglement_fournisseur_create(request):
 
                 messages.success(
                     request,
-                    f"Règlement de {reglement.montant} DZD enregistré pour "
-                    f"{reglement.fournisseur.nom}. Allocations FIFO appliquées.",
+                    f"تم تسجيل تسوية بقيمة {reglement.montant} دج لـ {reglement.fournisseur.nom}. تم تطبيق توزيعات FIFO.",
                 )
                 logger.info(
                     "ReglementFournisseur pk=%s (%s DZD, %s) created by '%s'.",
@@ -888,10 +879,10 @@ def reglement_fournisseur_create(request):
 
             except Exception as exc:
                 logger.exception("Error creating ReglementFournisseur: %s", exc)
-                messages.error(request, f"Erreur lors de l'enregistrement : {exc}")
+                messages.error(request, f"خطأ أثناء التسجيل: {exc}")
 
         else:
-            messages.error(request, "Veuillez corriger les erreurs.")
+            messages.error(request, "يرجى تصحيح الأخطاء.")
 
     else:
         # Show the supplier's current debt for reference
@@ -916,8 +907,8 @@ def reglement_fournisseur_create(request):
             "solde": solde,
             "facture_obj": facture_obj,
             "facture_reste": facture_reste,
-            "title": "Nouveau règlement fournisseur",
-            "action_label": "Enregistrer le règlement",
+            "title": "تسوية مورد جديدة",
+            "action_label": "حفظ التسوية",
         },
     )
 
@@ -952,8 +943,7 @@ def reglement_fournisseur_detail(request, pk):
             "reglement": reglement,
             "allocations": allocations,
             "acompte": acompte,
-            "title": f"Règlement — {reglement.fournisseur.nom} "
-            f"({reglement.date_reglement})",
+            "title": f"تسوية — {reglement.fournisseur.nom} ({reglement.date_reglement})",
         },
     )
 
@@ -994,7 +984,7 @@ def acompte_fournisseur_list(request):
             "fournisseur_pk": fournisseur_pk,
             "utilise": utilise,
             "fournisseurs": fournisseurs,
-            "title": "Acomptes Fournisseurs",
+            "title": "السلف المسبقة للموردين",
         },
     )
 
@@ -1015,7 +1005,7 @@ def acompte_fournisseur_detail(request, pk):
         "achats/acompte_fournisseur_detail.html",
         {
             "acompte": acompte,
-            "title": f"Acompte — {acompte.fournisseur.nom}",
+            "title": f"دفعة مسبقة — {acompte.fournisseur.nom}",
         },
     )
 
@@ -1056,7 +1046,7 @@ def fournisseur_tableau_de_bord(request, pk):
             "aging": aging[0] if aging else None,
             "reglements_recents": reglements_recents,
             "bls_ouverts": bls_ouverts,
-            "title": f"Tableau de bord — {fournisseur.nom}",
+            "title": f"لوحة تحكم — {fournisseur.nom}",
         },
     )
 

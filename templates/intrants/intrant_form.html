@@ -6,16 +6,16 @@
 {% block nav_intrants %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{% if object %}Modification de l'intrant — {{ object.categorie.libelle }}{% else %}Nouvel article dans le catalogue des intrants{% endif %}{% endblock %}
+{% block page_sub_text %}{% if object %}تعديل المادة — {{ object.categorie.libelle }}{% else %}مادة جديدة في كتالوج المستلزمات{% endif %}{% endblock %}
 
 {% block topbar_actions %}
   {% if object %}
   <a href="{% url 'intrants:intrant_detail' object.pk %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour à la fiche
+    <i class="bx bx-arrow-back"></i> العودة إلى البطاقة
   </a>
   {% else %}
   <a href="{% url 'intrants:intrant_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour au catalogue
+    <i class="bx bx-arrow-back"></i> العودة إلى الكتالوج
   </a>
   {% endif %}
 {% endblock %}
@@ -32,14 +32,14 @@
         <!-- Identification -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bxs-package"></i> Identification</div>
+            <div class="section-eyebrow"><i class="bx bxs-package"></i> التعريف</div>
           </div>
           <div class="form-card__body">
 
             <!-- Désignation -->
             <div class="form-group">
               <label class="form-label" for="{{ form.designation.id_for_label }}">
-                Désignation <span class="form-required">*</span>
+                التسمية <span class="form-required">*</span>
               </label>
               <div class="input-wrapper">
                 <i class="bx bxs-package input-icon"></i>
@@ -53,7 +53,7 @@
             <!-- Catégorie -->
             <div class="form-group">
               <label class="form-label" for="{{ form.categorie.id_for_label }}">
-                Catégorie <span class="form-required">*</span>
+                الفئة <span class="form-required">*</span>
               </label>
               <div class="input-wrapper">
                 <i class="bx bxs-category input-icon"></i>
@@ -67,7 +67,7 @@
             <!-- Unité de mesure -->
             <div class="form-group">
               <label class="form-label" for="{{ form.unite_mesure.id_for_label }}">
-                Unité de mesure <span class="form-required">*</span>
+                وحدة القياس <span class="form-required">*</span>
               </label>
               <div class="input-wrapper">
                 <i class="bx bx-ruler input-icon"></i>
@@ -76,7 +76,7 @@
               {% if object %}
               <div class="form-hint">
                 <i class="bx bxs-lock-alt" style="font-size:11px;"></i>
-                BR-INT-05 : l'unité ne peut plus être modifiée si des mouvements de stock existent.
+                BR-INT-05 : لا يمكن تعديل الوحدة إذا كانت هناك حركات مخزون موجودة.
               </div>
               {% endif %}
               {% for err in form.unite_mesure.errors %}
@@ -90,20 +90,20 @@
         <!-- Stock & alertes -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bxs-bell"></i> Stock & alertes</div>
+            <div class="section-eyebrow"><i class="bx bxs-bell"></i> المخزون والتنبيهات</div>
           </div>
           <div class="form-card__body">
 
             <!-- Seuil d'alerte -->
             <div class="form-group">
               <label class="form-label" for="{{ form.seuil_alerte.id_for_label }}">
-                Seuil d'alerte stock
+                حد تنبيه المخزون
               </label>
               <div class="input-wrapper">
                 <i class="bx bxs-bell-ring input-icon"></i>
                 {{ form.seuil_alerte }}
               </div>
-              <div class="form-hint">Une alerte est déclenchée si le stock descend sous ce seuil.</div>
+              <div class="form-hint">يتم إطلاق تنبيه إذا انخفض المخزون عن هذا الحد.</div>
               {% for err in form.seuil_alerte.errors %}
               <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
               {% endfor %}
@@ -113,9 +113,9 @@
             <div class="form-group form-group--checkbox" style="margin-bottom:0;">
               <label class="checkbox-label">
                 {{ form.actif }}
-                <span>Intrant actif</span>
+                <span>مادة نشطة</span>
               </label>
-              <div class="form-hint" style="margin-top:4px;">Un intrant inactif n'apparaît plus dans les saisies.</div>
+              <div class="form-hint" style="margin-top:4px;">المادة غير النشطة لن تظهر في الإدخالات.</div>
               {% for err in form.actif.errors %}
               <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
               {% endfor %}
@@ -132,12 +132,12 @@
         <!-- Fournisseurs associés -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bxs-truck"></i> Fournisseurs associés</div>
+            <div class="section-eyebrow"><i class="bx bxs-truck"></i> الموردون المرتبطون</div>
           </div>
           <div class="form-card__body">
             <div class="form-group" style="margin-bottom:0;">
               <div class="form-hint" style="margin-bottom:10px;">
-                Sélectionnez les fournisseurs pouvant livrer cet intrant (informatif uniquement).
+                اختر الموردين القادرين على توريد هذه المادة (معلوماتي فقط).
               </div>
               <div class="checkbox-list-wrapper">
                 {% for choice in form.fournisseurs %}
@@ -147,7 +147,7 @@
                 </label>
                 {% empty %}
                 <div style="font-size:12px;color:var(--text-muted);padding:10px 0;">
-                  Aucun fournisseur actif disponible.
+                  لا يوجد مورد نشط متاح.
                 </div>
                 {% endfor %}
               </div>
@@ -161,7 +161,7 @@
         <!-- Notes -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bx-note"></i> Notes</div>
+            <div class="section-eyebrow"><i class="bx bx-note"></i> ملاحظات</div>
           </div>
           <div class="form-card__body">
             <div class="form-group" style="margin-bottom:0;">
@@ -189,7 +189,7 @@
         <div class="info-notice">
           <i class="bx bxs-info-circle info-notice__icon"></i>
           <span>
-            À la création, une fiche de stock est initialisée automatiquement avec un solde de <strong>0</strong>.
+            عند الإنشاء، يتم تهيئة بطاقة المخزون تلقائياً برصيد <strong>0</strong>.
           </span>
         </div>
         {% endif %}
@@ -197,9 +197,9 @@
         <!-- Actions -->
         <div class="form-actions-footer">
           {% if object %}
-          <a href="{% url 'intrants:intrant_detail' object.pk %}" class="btn-ghost">Annuler</a>
+          <a href="{% url 'intrants:intrant_detail' object.pk %}" class="btn-ghost">إلغاء</a>
           {% else %}
-          <a href="{% url 'intrants:intrant_list' %}" class="btn-ghost">Annuler</a>
+          <a href="{% url 'intrants:intrant_list' %}" class="btn-ghost">إلغاء</a>
           {% endif %}
           <button type="submit" class="btn-primary">
             <i class="bx bx-check"></i> {{ action_label }}
@@ -214,6 +214,59 @@
 
 {% block extra_css %}
 <style>
+  /* ── RTL support ── */
+  .page-body,
+  .form-grid,
+  .form-card,
+  .form-card__body,
+  .form-group,
+  .form-label,
+  .form-hint,
+  .field-error,
+  .info-notice,
+  .checkbox-label,
+  .checkbox-list-item,
+  .form-actions-footer,
+  .section-eyebrow {
+    direction: rtl;
+    text-align: right;
+  }
+  .input-icon {
+    left: auto;
+    right: 13px;
+  }
+  .input-wrapper input[type="text"],
+  .input-wrapper input[type="number"],
+  .input-wrapper select {
+    padding: 10px 40px 10px 12px;
+    text-align: right;
+  }
+  .input-wrapper--textarea textarea {
+    text-align: right;
+  }
+  .checkbox-label,
+  .checkbox-list-item {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+  }
+  .form-actions-footer {
+    justify-content: flex-start;
+  }
+  .section-eyebrow {
+    flex-direction: row-reverse;
+  }
+  .field-error {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+  }
+  .info-notice {
+    flex-direction: row-reverse;
+  }
+  .btn-ghost i,
+  .btn-primary i {
+    transform: scaleX(-1);
+  }
+
   /* ── Page layout ── */
   .form-grid {
     display: grid;

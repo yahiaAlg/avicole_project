@@ -1,25 +1,25 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
 
 {% block nav_bl_fournisseur %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
 {% block page_sub_text %}
-  {% if object %}Modification du BL {{ object.reference }} — {{ object.fournisseur.nom }}
-  {% elif fournisseur %}Nouveau BL pour {{ fournisseur.nom }}
-  {% else %}Nouveau bon de livraison fournisseur
+  {% if object %}تعديل الوصل {{ object.reference }} — {{ object.fournisseur.nom }}
+  {% elif fournisseur %}وصل جديد لـ {{ fournisseur.nom }}
+  {% else %}وصل تسليم مورد جديد
   {% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
   {% if object %}
-  <a href="{% url 'achats:bl_fournisseur_detail' object.pk %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> Retour au BL</a>
+  <a href="{% url 'achats:bl_fournisseur_detail' object.pk %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> العودة إلى الوصل</a>
   {% elif fournisseur %}
   <a href="{% url 'achats:fournisseur_tableau_de_bord' fournisseur.pk %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> {{ fournisseur.nom }}</a>
   {% else %}
-  <a href="{% url 'achats:bl_fournisseur_list' %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> Retour à la liste</a>
+  <a href="{% url 'achats:bl_fournisseur_list' %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> العودة إلى القائمة</a>
   {% endif %}
 {% endblock %}
 
@@ -27,7 +27,7 @@
 {% if object and object.est_verrouille %}
 <div class="locked-banner">
   <i class="bx bxs-lock"></i>
-  <span>Ce BL est <strong>verrouillé (Facturé)</strong> — aucune modification n'est possible.</span>
+  <span>هذا الوصل <strong>مقفل (مفوتر)</strong> — لا يمكن إجراء أي تعديلات.</span>
 </div>
 {% endif %}
 
@@ -43,13 +43,13 @@
       <div class="form-card">
         <div class="form-card__header">
           <i class="bx bxs-truck ic-icon"></i>
-          <span class="form-card__title">Informations du BL</span>
+          <span class="form-card__title">معلومات الوصل</span>
         </div>
 
         <div class="form-grid-2">
           <!-- Référence -->
           <div class="form-field">
-            <label class="form-label" for="{{ form.reference.id_for_label }}">Référence BL *</label>
+            <label class="form-label" for="{{ form.reference.id_for_label }}">مرجع الوصل *</label>
             <div class="input-icon-wrap">
               <i class="bx bxs-barcode"></i>
               {{ form.reference }}
@@ -61,7 +61,7 @@
 
           <!-- Fournisseur -->
           <div class="form-field">
-            <label class="form-label" for="{{ form.fournisseur.id_for_label }}">Fournisseur *</label>
+            <label class="form-label" for="{{ form.fournisseur.id_for_label }}">المورد *</label>
             <div class="input-icon-wrap">
               <i class="bx bxs-building"></i>
               {{ form.fournisseur }}
@@ -73,7 +73,7 @@
 
           <!-- Date BL -->
           <div class="form-field">
-            <label class="form-label" for="{{ form.date_bl.id_for_label }}">Date du BL *</label>
+            <label class="form-label" for="{{ form.date_bl.id_for_label }}">تاريخ الوصل *</label>
             {{ form.date_bl }}
             {% if form.date_bl.errors %}
             <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.date_bl.errors|join:", " }}</div>
@@ -82,7 +82,7 @@
 
           <!-- Réf. Fournisseur -->
           <div class="form-field">
-            <label class="form-label" for="{{ form.reference_fournisseur.id_for_label }}">Réf. fournisseur</label>
+            <label class="form-label" for="{{ form.reference_fournisseur.id_for_label }}">مرجع المورد</label>
             <div class="input-icon-wrap">
               <i class="bx bxs-tag"></i>
               {{ form.reference_fournisseur }}
@@ -94,7 +94,7 @@
 
           <!-- Statut -->
           <div class="form-field">
-            <label class="form-label" for="{{ form.statut.id_for_label }}">Statut *</label>
+            <label class="form-label" for="{{ form.statut.id_for_label }}">الحالة *</label>
             <div class="input-icon-wrap">
               <i class="bx bxs-filter-alt"></i>
               {{ form.statut }}
@@ -106,7 +106,7 @@
 
           <!-- Pièce jointe -->
           <div class="form-field">
-            <label class="form-label" for="{{ form.piece_jointe.id_for_label }}">Pièce jointe (PDF/JPG/PNG, max 5 Mo)</label>
+            <label class="form-label" for="{{ form.piece_jointe.id_for_label }}">مرفق (PDF/JPG/PNG، الحد الأقصى 5 ميغابايت)</label>
             {{ form.piece_jointe }}
             {% if form.piece_jointe.errors %}
             <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.piece_jointe.errors|join:", " }}</div>
@@ -116,7 +116,7 @@
 
         <!-- Notes réception (full width) -->
         <div class="form-field" style="margin-top:12px;">
-          <label class="form-label" for="{{ form.notes_reception.id_for_label }}">Notes de réception</label>
+          <label class="form-label" for="{{ form.notes_reception.id_for_label }}">ملاحظات الاستلام</label>
           {{ form.notes_reception }}
           {% if form.notes_reception.errors %}
           <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.notes_reception.errors|join:", " }}</div>
@@ -136,12 +136,12 @@
         <div class="form-card__header" style="justify-content:space-between;">
           <div style="display:flex;align-items:center;gap:10px;">
             <i class="bx bxs-cube-alt ic-icon"></i>
-            <span class="form-card__title">Lignes d'intrants</span>
+            <span class="form-card__title">خطوط المدخلات</span>
           </div>
           <div style="display:flex;align-items:center;gap:12px;">
-            <span class="section-eyebrow" id="lines-total-label">Total : <strong id="lines-grand-total">0</strong> DZD</span>
+            <span class="section-eyebrow" id="lines-total-label">الإجمالي: <strong id="lines-grand-total">0</strong> دج</span>
             <button type="button" class="btn-ghost btn-sm" id="add-line-btn">
-              <i class="bx bx-plus"></i> Ajouter une ligne
+              <i class="bx bx-plus"></i> إضافة خط
             </button>
           </div>
         </div>
@@ -154,15 +154,15 @@
               <tr>
                 <th style="width:32%;">
                 Intrant
-                <button type="button" id="open-intrant-modal-hdr" class="btn-new-intrant" title="Créer un nouvel intrant">
-                  <i class="bx bx-plus"></i> Nouvel intrant
+                <button type="button" id="open-intrant-modal-hdr" class="btn-new-intrant" title="إنشاء مدخل جديد">
+                  <i class="bx bx-plus"></i> مدخل جديد
                 </button>
               </th>
-                <th style="width:14%;">Quantité</th>
-                <th style="width:18%;">Prix unitaire (DZD)</th>
-                <th style="width:14%;">Montant</th>
-                <th style="width:12%;">Stock dispo</th>
-                <th style="width:16%;">Notes</th>
+                <th style="width:14%;">الكمية</th>
+                <th style="width:18%;">سعر الوحدة (دج)</th>
+                <th style="width:14%;">المبلغ</th>
+                <th style="width:12%;">المخزون المتاح</th>
+                <th style="width:16%;">ملاحظات</th>
                 <th style="width:4%;text-align:center;"></th>
               </tr>
             </thead>
@@ -204,7 +204,7 @@
                   {{ ligne_form.notes }}
                 </td>
                 <td style="text-align:center;">
-                  <button type="button" class="action-btn action-btn--danger remove-line-btn" title="Supprimer la ligne">
+                  <button type="button" class="action-btn action-btn--danger remove-line-btn" title="حذف الخط">
                     <i class="bx bx-trash"></i>
                   </button>
                 </td>
@@ -227,14 +227,14 @@
       <div class="form-card sticky-card">
         <div class="form-card__header">
           <i class="bx bxs-calculator ic-icon"></i>
-          <span class="form-card__title">Récapitulatif</span>
+          <span class="form-card__title">الملخص</span>
         </div>
         <div class="summary-row">
-          <span class="summary-label">Lignes</span>
+          <span class="summary-label">الخطوط</span>
           <span class="summary-val" id="summary-lines">0</span>
         </div>
         <div class="summary-row summary-row--total">
-          <span class="summary-label">Total BL</span>
+          <span class="summary-label">إجمالي الوصل</span>
           <span class="summary-val" id="summary-total">0 DZD</span>
         </div>
         <div style="margin-top:20px;display:flex;flex-direction:column;gap:10px;">
@@ -249,12 +249,12 @@
         <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
           <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:14px 16px;">
             <div style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;margin-bottom:4px;font-size:13px;">
-              <i class="bx bxs-trash me-1"></i> Zone sensible
+              <i class="bx bxs-trash me-1"></i> منطقة حرجة
             </div>
-            <p style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;">Supprimer définitivement ce BL Brouillon.</p>
+            <p style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;">حذف هذا الوصل المسودة نهائيًا.</p>
             <button type="button" class="btn-danger" style="width:100%;justify-content:center;font-size:12px;" id="sidebar-delete-btn"
               data-delete-bl="{{ object.pk }}" data-bl-ref="{{ object.reference }}">
-              <i class="bx bxs-trash"></i> Supprimer
+              <i class="bx bxs-trash"></i> حذف
             </button>
           </div>
         </div>
@@ -271,29 +271,29 @@
   <div class="confirm-panel__inner">
     <div class="confirm-panel__icon"><i class="bx bxs-trash"></i></div>
     <div>
-      <div class="confirm-panel__title">Supprimer le BL ?</div>
-      <div class="confirm-panel__body">Le BL <strong>{{ object.reference }}</strong> sera définitivement supprimé.</div>
+      <div class="confirm-panel__title">حذف وصل التسليم؟</div>
+      <div class="confirm-panel__body">سيتم حذف الوصل <strong>{{ object.reference }}</strong> نهائيًا.</div>
     </div>
     <div class="confirm-panel__actions">
-      <button type="button" id="confirm-delete-cancel" class="btn-ghost">Annuler</button>
+      <button type="button" id="confirm-delete-cancel" class="btn-ghost">إلغاء</button>
       <form method="post" action="{% url 'achats:bl_fournisseur_delete' object.pk %}">
         {% csrf_token %}
-        <button type="submit" class="btn-danger"><i class="bx bxs-trash"></i> Supprimer</button>
+        <button type="submit" class="btn-danger"><i class="bx bxs-trash"></i> حذف</button>
       </form>
     </div>
   </div>
 </div>
 {% endif %}
 
-<!-- ── Modal: Créer un nouvel intrant ── -->
+<!-- ── Modal: إنشاء مدخل جديد ── -->
 <div id="intrant-modal-overlay" class="intrant-modal-overlay" style="display:none;" aria-modal="true" role="dialog">
   <div class="intrant-modal">
     <div class="intrant-modal__header">
       <div class="intrant-modal__title">
         <i class="bx bxs-plus-circle" style="color:var(--accent-text);font-size:17px;"></i>
-        Nouvel intrant
+        مدخل جديد
       </div>
-      <button type="button" id="intrant-modal-close" class="action-btn" title="Fermer">
+      <button type="button" id="intrant-modal-close" class="action-btn" title="إغلاق">
         <i class="bx bx-x"></i>
       </button>
     </div>
@@ -301,22 +301,22 @@
     <div class="intrant-modal__body">
       <div class="intrant-modal__notice">
         <i class="bx bxs-info-circle" style="color:#3b82f6;font-size:14px;flex-shrink:0;margin-top:1px;"></i>
-        <span>L'intrant sera créé dans le catalogue et associé au fournisseur en cours, puis sélectionné automatiquement dans la ligne avec un prix de <strong>0 DZD</strong>.</span>
+        <span>سيتم إنشاء المدخل في الكتالوج وربطه بالمورد الحالي، ثم تحديده تلقائيًا في الخط بسعر <strong>0 دج</strong>.</span>
       </div>
 
       <div class="im-grid">
         <!-- Désignation -->
         <div class="im-field im-field--full">
-          <label class="im-label">Désignation <span class="im-req">*</span></label>
-          <input type="text" id="im-designation" placeholder="Ex : Aliment démarrage 25 kg" autocomplete="off">
+          <label class="im-label">التسمية <span class="im-req">*</span></label>
+          <input type="text" id="im-designation" placeholder="مثال: علف بداية 25 كغ" autocomplete="off">
           <div class="im-error" id="im-err-designation" style="display:none;"></div>
         </div>
 
         <!-- Catégorie -->
         <div class="im-field">
-          <label class="im-label">Catégorie <span class="im-req">*</span></label>
+          <label class="im-label">الفئة <span class="im-req">*</span></label>
           <select id="im-categorie">
-            <option value="">— choisir —</option>
+            <option value="">— اختر —</option>
             {% for cat in categories_intrant %}
             <option value="{{ cat.pk }}">{{ cat.libelle }}</option>
             {% endfor %}
@@ -326,24 +326,24 @@
 
         <!-- Unité de mesure -->
         <div class="im-field">
-          <label class="im-label">Unité de mesure <span class="im-req">*</span></label>
+          <label class="im-label">وحدة القياس <span class="im-req">*</span></label>
           <select id="im-unite">
-            <option value="">— choisir —</option>
-            <option value="kg">Kilogramme (kg)</option>
-            <option value="sac">Sac (25 kg)</option>
-            <option value="unite">Unité / Tête</option>
-            <option value="litre">Litre</option>
-            <option value="flacon">Flacon</option>
-            <option value="dose">Dose</option>
-            <option value="ml">Millilitre (ml)</option>
-            <option value="g">Gramme (g)</option>
+            <option value="">— اختر —</option>
+            <option value="kg">كيلوغرام (كغ)</option>
+            <option value="sac">كيس (25 كغ)</option>
+            <option value="unite">وحدة / رأس</option>
+            <option value="litre">لتر</option>
+            <option value="flacon">قارورة</option>
+            <option value="dose">جرعة</option>
+            <option value="ml">مليلتر (مل)</option>
+            <option value="g">غرام (غ)</option>
           </select>
           <div class="im-error" id="im-err-unite" style="display:none;"></div>
         </div>
 
         <!-- Seuil d'alerte -->
         <div class="im-field">
-          <label class="im-label">Seuil d'alerte stock</label>
+          <label class="im-label">حد تنبيه المخزون</label>
           <input type="number" id="im-seuil" value="0" step="0.001" min="0" placeholder="0">
         </div>
       </div>
@@ -352,10 +352,10 @@
     </div>
 
     <div class="intrant-modal__footer">
-      <button type="button" class="btn-ghost btn-sm" id="intrant-modal-cancel">Annuler</button>
+      <button type="button" class="btn-ghost btn-sm" id="intrant-modal-cancel">إلغاء</button>
       <button type="button" class="btn-primary btn-sm" id="intrant-modal-submit">
         <i class="bx bx-check"></i>
-        <span id="im-submit-label">Créer l'intrant</span>
+        <span id="im-submit-label">إنشاء المدخل</span>
       </button>
     </div>
   </div>
@@ -425,13 +425,13 @@
   }
   .input-icon-wrap { position: relative; display: flex; align-items: center; }
   .input-icon-wrap > i {
-    position: absolute; left: 12px; font-size: 14px;
+    position: absolute; right: 12px; font-size: 14px;
     color: var(--text-muted); pointer-events: none; z-index: 1;
   }
   .input-icon-wrap input,
   .input-icon-wrap select,
   .input-icon-wrap textarea {
-    padding-left: 36px !important;
+    padding-right: 36px !important;
     width: 100%;
   }
   input[type="text"], input[type="number"], input[type="date"], input[type="email"], input[type="file"],
@@ -599,7 +599,7 @@
     background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.25);
     color: var(--accent-text); border-radius: var(--radius-sm);
     font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 10px;
-    padding: 3px 8px; cursor: pointer; margin-left: 8px;
+    padding: 3px 8px; cursor: pointer; margin-right: 8px;
     transition: background .12s;
     vertical-align: middle;
   }
@@ -736,7 +736,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (!hint) return;
-        hint.textContent = 'Dispo\u202f: ' + stock.toLocaleString('fr-DZ') + '\u00a0' + (data.unite_mesure || '');
+        hint.textContent = 'المتاح: ' + stock.toLocaleString('fr-DZ') + '\u00a0' + (data.unite_mesure || '');
         hint.classList.toggle('stock-hint--over', qt > stock && stock > 0);
       })
       .catch(function () { if (hint) hint.textContent = ''; });
@@ -877,7 +877,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var el = document.getElementById(id);
         if (el) { el.style.display = 'none'; el.textContent = ''; }
       });
-      submitLabel.textContent = 'Créer l\'intrant';
+      submitLabel.textContent = 'إنشاء المدخل';
       submitBtn.disabled = false;
     }
 
@@ -915,7 +915,7 @@ document.addEventListener('DOMContentLoaded', function () {
       btn.className = 'btn-new-intrant btn-row-intrant';
       btn.title = 'Créer un intrant et le sélectionner ici';
       btn.innerHTML = '<i class="bx bx-plus"></i>';
-      btn.style.cssText = 'position:absolute;right:6px;top:50%;transform:translateY(-50%);z-index:2;padding:2px 6px;';
+      btn.style.cssText = 'position:absolute;left:6px;top:50%;transform:translateY(-50%);z-index:2;padding:2px 6px;';
       wrap.appendChild(btn);
       btn.addEventListener('click', function() { openModal(row); });
     }
@@ -948,7 +948,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var err = document.getElementById(pair[1]);
         if (!inp || !inp.value.trim()) {
           if (inp) inp.classList.add('im-input--error');
-          if (err) { err.textContent = 'Ce champ est requis.'; err.style.display = 'flex'; }
+          if (err) { err.textContent = 'هذا الحقل مطلوب.'; err.style.display = 'flex'; }
           ok = false;
         } else {
           inp.classList.remove('im-input--error');
@@ -958,7 +958,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!ok) return;
 
       submitBtn.disabled = true;
-      submitLabel.textContent = 'Création…';
+      submitLabel.textContent = 'جارٍ الإنشاء...';
 
       var fd = new FormData();
       fd.append('csrfmiddlewaretoken', CSRF);
@@ -992,7 +992,7 @@ document.addEventListener('DOMContentLoaded', function () {
               }
             });
             submitBtn.disabled = false;
-            submitLabel.textContent = 'Créer l\'intrant';
+            submitLabel.textContent = 'إنشاء المدخل';
             return;
           }
 
@@ -1030,9 +1030,9 @@ document.addEventListener('DOMContentLoaded', function () {
         .catch(function(err) {
           console.error('intrant_create_ajax error:', err);
           var g = document.getElementById('im-err-global');
-          if (g) { g.textContent = 'Erreur réseau. Veuillez réessayer.'; g.style.display = 'flex'; }
+          if (g) { g.textContent = 'خطأ في الشبكة. يرجى المحاولة مجددًا.'; g.style.display = 'flex'; }
           submitBtn.disabled = false;
-          submitLabel.textContent = 'Créer l\'intrant';
+          submitLabel.textContent = 'إنشاء المدخل';
         });
     });
 

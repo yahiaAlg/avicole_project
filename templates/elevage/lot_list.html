@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Lots d'élevage — Élevage Avicole{% endblock %}
+{% block title %}دفعات التربية — تربية الدواجن{% endblock %}
 
 {% block nav_lots %}active{% endblock %}
 
-{% block page_title %}Lots d'Élevage{% endblock %}
-{% block page_sub_text %}{{ nb_ouverts }} ouvert{{ nb_ouverts|pluralize }} · {{ nb_fermes }} clôturé{{ nb_fermes|pluralize }}{% endblock %}
+{% block page_title %}دفعات التربية{% endblock %}
+{% block page_sub_text %}{{ nb_ouverts }} مفتوحة · {{ nb_fermes }} مُغلقة{% endblock %}
 
 {% block topbar_actions %}
   {% if request.user.userprofile.role != 'viewer' %}
   <a href="{% url 'elevage:lot_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouveau lot
+    <i class="bx bx-plus"></i> دفعة جديدة
   </a>
   {% endif %}
 {% endblock %}
@@ -24,13 +24,13 @@
     <form method="get" id="filter-form" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 18px;">
       <div class="search-field-wrap" style="flex:1;min-width:200px;position:relative;">
         <i class="bx bx-search" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;"></i>
-        <input type="text" name="q" value="{{ q }}" placeholder="Désignation, souche…"
+        <input type="text" name="q" value="{{ q }}" placeholder="الاسم، السلالة…"
           class="filter-input" style="padding-left:40px;">
       </div>
       <div style="position:relative;min-width:150px;">
         <i class="bx bxs-grid-alt" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;"></i>
         <select name="statut" class="filter-input" id="select-statut" style="padding-left:40px;">
-          <option value="">Tous les statuts</option>
+          <option value="">جميع الحالات</option>
           {% for val, label in statut_choices %}
           <option value="{{ val }}" {% if statut == val %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
@@ -39,16 +39,16 @@
       <div style="position:relative;min-width:160px;">
         <i class="bx bxs-buildings" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;"></i>
         <select name="batiment" class="filter-input" id="select-batiment" style="padding-left:40px;">
-          <option value="">Tous les bâtiments</option>
+          <option value="">جميع المباني</option>
           {% for b in batiments %}
           <option value="{{ b.pk }}" {% if batiment_pk == b.pk|stringformat:"s" %}selected{% endif %}>{{ b.nom }}</option>
           {% endfor %}
         </select>
       </div>
-      <button type="submit" class="btn-ghost"><i class="bx bxs-filter-alt"></i> Filtrer</button>
+      <button type="submit" class="btn-ghost"><i class="bx bxs-filter-alt"></i> تصفية</button>
       {% if q or statut or batiment_pk %}
       <a href="{% url 'elevage:lot_list' %}" class="btn-ghost" style="color:#dc2626;border-color:rgba(239,68,68,.2);">
-        <i class="bx bx-x"></i> Réinitialiser
+        <i class="bx bx-x"></i> إعادة ضبط
       </a>
       {% endif %}
     </form>
@@ -58,7 +58,7 @@
   <div class="card">
     <div class="card-header-row">
       <div class="section-eyebrow">
-        {% if page.paginator.count %}{{ page.paginator.count }} lot{{ page.paginator.count|pluralize }}{% else %}Aucun résultat{% endif %}
+        {% if page.paginator.count %}{{ page.paginator.count }} دفعة{% else %}Aucun résultat{% endif %}
       </div>
     </div>
 
@@ -67,15 +67,15 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Désignation</th>
-            <th>Bâtiment</th>
-            <th>Ouverture</th>
-            <th>Poussins initiaux</th>
-            <th>Effectif vivant</th>
-            <th>Mortalité</th>
-            <th>Durée (j)</th>
-            <th>Statut</th>
-            <th style="text-align:right;">Actions</th>
+            <th>الاسم</th>
+            <th>المبنى</th>
+            <th>تاريخ الفتح</th>
+            <th>الكتاكيت الأولية</th>
+            <th>العدد الحي</th>
+            <th>النفوق</th>
+            <th>المدة (ي)</th>
+            <th>الحالة</th>
+            <th style="text-align:left;">الإجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -102,18 +102,18 @@
             <td style="color:var(--text-muted);">{{ lot.duree_elevage }}</td>
             <td>
               {% if lot.statut == 'ouvert' %}
-                <span class="pill-success"><i class="bx bxs-check-circle"></i> Ouvert</span>
+                <span class="pill-success"><i class="bx bxs-check-circle"></i> مفتوح</span>
               {% else %}
-                <span class="pill-neutral"><i class="bx bxs-lock"></i> Clôturé</span>
+                <span class="pill-neutral"><i class="bx bxs-lock"></i> مُغلق</span>
               {% endif %}
             </td>
             <td>
               <div class="actions-cell">
-                <a href="{% url 'elevage:lot_detail' lot.pk %}" class="action-btn" title="Détail">
+                <a href="{% url 'elevage:lot_detail' lot.pk %}" class="action-btn" title="التفاصيل">
                   <i class="bx bxs-show"></i>
                 </a>
                 {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
-                <a href="{% url 'elevage:lot_edit' lot.pk %}" class="action-btn" title="Modifier">
+                <a href="{% url 'elevage:lot_edit' lot.pk %}" class="action-btn" title="تعديل">
                   <i class="bx bxs-pencil"></i>
                 </a>
                 {% endif %}
@@ -133,7 +133,7 @@
         <i class="bx bx-chevron-left"></i>
       </a>
       {% endif %}
-      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      <span class="page-info">صفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
       {% if page.has_next %}
       <a href="?{% if q %}q={{ q }}&{% endif %}{% if statut %}statut={{ statut }}&{% endif %}{% if batiment_pk %}batiment={{ batiment_pk }}&{% endif %}page={{ page.next_page_number }}" class="page-btn">
         <i class="bx bx-chevron-right"></i>
@@ -146,14 +146,14 @@
     <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
       <i class="bx bxs-grid-alt" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
       <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
-        {% if q or statut or batiment_pk %}Aucun lot ne correspond aux filtres{% else %}Aucun lot enregistré{% endif %}
+        {% if q or statut or batiment_pk %}لا توجد دفعات تطابق المرشحات{% else %}لا توجد دفعات مسجلة{% endif %}
       </div>
       <div style="font-size:13px;">
-        {% if q or statut or batiment_pk %}Essayez de modifier vos critères.{% else %}Ouvrez le premier lot pour commencer le suivi.{% endif %}
+        {% if q or statut or batiment_pk %}جرّب تعديل معايير البحث.{% else %}افتح أول دفعة لبدء المتابعة.{% endif %}
       </div>
       {% if not q and not statut and not batiment_pk and request.user.userprofile.role != 'viewer' %}
       <a href="{% url 'elevage:lot_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
-        <i class="bx bx-plus"></i> Nouveau lot
+        <i class="bx bx-plus"></i> دفعة جديدة
       </a>
       {% endif %}
     </div>

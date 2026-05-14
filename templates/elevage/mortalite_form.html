@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
 
 {% block nav_lots %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}Lot : {{ lot.designation }} · Effectif vivant : {{ lot.effectif_vivant|floatformat:0 }} oiseaux{% endblock %}
+{% block page_sub_text %}الفوج : {{ lot.designation }} · العدد الحي : {{ lot.effectif_vivant|floatformat:0 }} طائر{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'elevage:lot_detail' lot.pk %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour au lot
+    <i class="bx bx-arrow-back"></i> العودة إلى الفوج
   </a>
 {% endblock %}
 
@@ -23,7 +23,7 @@
       {% if lot.statut == 'ferme' %}
       <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:20px;">
         <i class="bx bxs-lock" style="color:#b45309;font-size:15px;"></i>
-        <span style="font-size:13px;color:var(--text-secondary);">Ce lot est <strong style="color:#b45309;">clôturé</strong> — aucune saisie n'est possible.</span>
+        <span style="font-size:13px;color:var(--text-secondary);">هذا الفوج <strong style="color:#b45309;">مغلق</strong> — لا يمكن إدخال أي بيانات.</span>
       </div>
       {% endif %}
 
@@ -31,20 +31,20 @@
       <div class="card mb-3">
         <div style="padding:14px 18px;display:flex;gap:16px;flex-wrap:wrap;">
           <div style="text-align:center;flex:1;min-width:80px;">
-            <div class="ctx-label">Effectif vivant</div>
+            <div class="ctx-label">العدد الحي</div>
             <div class="ctx-val" style="color:var(--accent-text);">{{ lot.effectif_vivant|floatformat:0 }}</div>
           </div>
           <div style="text-align:center;flex:1;min-width:80px;">
-            <div class="ctx-label">Mortalité totale</div>
+            <div class="ctx-label">إجمالي النفوق</div>
             <div class="ctx-val" style="color:#dc2626;">{{ lot.total_mortalite|floatformat:0 }}</div>
           </div>
           <div style="text-align:center;flex:1;min-width:80px;">
-            <div class="ctx-label">Taux mortalité</div>
+            <div class="ctx-label">نسبة النفوق</div>
             <div class="ctx-val {% if lot.taux_mortalite > 5 %}danger{% endif %}">{{ lot.taux_mortalite|floatformat:2 }}%</div>
           </div>
           <div style="text-align:center;flex:1;min-width:80px;">
-            <div class="ctx-label">Durée</div>
-            <div class="ctx-val">{{ lot.duree_elevage }} j</div>
+            <div class="ctx-label">مدة التربية</div>
+            <div class="ctx-val">{{ lot.duree_elevage }} ي</div>
           </div>
         </div>
       </div>
@@ -56,7 +56,7 @@
           </div>
           <div>
             <div class="form-card__title">{{ title }}</div>
-            <div class="form-card__sub">Mortalité journalière — lot {{ lot.designation }}</div>
+            <div class="form-card__sub">النفوق اليومي — الفوج {{ lot.designation }}</div>
           </div>
         </div>
 
@@ -74,7 +74,7 @@
           <div class="row g-3">
             <div class="col-md-6">
               <div class="form-group">
-                <label class="form-label" for="{{ form.date.id_for_label }}">Date <span class="required-star">*</span></label>
+                <label class="form-label" for="{{ form.date.id_for_label }}">التاريخ <span class="required-star">*</span></label>
                 <div class="input-wrap">
                   <i class="bx bxs-calendar input-icon"></i>
                   {{ form.date }}
@@ -84,19 +84,19 @@
             </div>
             <div class="col-md-6">
               <div class="form-group">
-                <label class="form-label" for="{{ form.nombre.id_for_label }}">Nombre de morts <span class="required-star">*</span></label>
+                <label class="form-label" for="{{ form.nombre.id_for_label }}">عدد النافقين <span class="required-star">*</span></label>
                 <div class="input-wrap">
                   <i class="bx bxs-heart input-icon" style="color:#dc2626;"></i>
                   {{ form.nombre }}
                 </div>
                 {% if form.nombre.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.nombre.errors|join:", " }}</div>{% endif %}
-                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Max. cumulé admissible : {{ lot.nombre_poussins_initial|floatformat:0 }}</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">الحد الأقصى المسموح به تراكميًا : {{ lot.nombre_poussins_initial|floatformat:0 }}</div>
               </div>
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="{{ form.cause.id_for_label }}">Cause (si connue)</label>
+            <label class="form-label" for="{{ form.cause.id_for_label }}">السبب (إن كان معروفًا)</label>
             <div class="input-wrap">
               <i class="bx bxs-info-circle input-icon"></i>
               {{ form.cause }}
@@ -105,7 +105,7 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="{{ form.notes.id_for_label }}">Notes</label>
+            <label class="form-label" for="{{ form.notes.id_for_label }}">ملاحظات</label>
             <div class="input-wrap input-wrap--textarea">
               <i class="bx bx-note input-icon" style="top:14px;transform:none;"></i>
               {{ form.notes }}
@@ -114,7 +114,7 @@
           </div>
 
           <div class="form-actions">
-            <a href="{% url 'elevage:lot_detail' lot.pk %}" class="btn-ghost">Annuler</a>
+            <a href="{% url 'elevage:lot_detail' lot.pk %}" class="btn-ghost">إلغاء</a>
             {% if lot.statut == 'ouvert' %}
             <button type="submit" class="btn-primary">
               <i class="bx bxs-save"></i> {{ action_label }}
@@ -146,11 +146,11 @@
   .form-label { display:block;font-size:12px;font-weight:500;color:var(--text-secondary);letter-spacing:.03em;margin-bottom:6px; }
   .required-star { color:#dc2626; }
   .input-wrap { position:relative; }
-  .input-icon { position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none; }
+  .input-icon { position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none; }
   .input-wrap input, .input-wrap select, .input-wrap textarea {
     width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);
-    color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13.5px;
-    padding:11px 13px 11px 40px;transition:border-color .15s,box-shadow .15s;appearance:none;-webkit-appearance:none;
+    color:var(--text-primary);font-family:'Tajawal','Inter',sans-serif;font-size:13.5px;
+    padding:11px 40px 11px 13px;transition:border-color .15s,box-shadow .15s;appearance:none;-webkit-appearance:none;
   }
   .input-wrap textarea { padding-top:12px;resize:vertical;min-height:72px; }
   .input-wrap input:focus, .input-wrap select:focus, .input-wrap textarea:focus { border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.15);outline:none; }

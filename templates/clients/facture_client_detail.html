@@ -1,24 +1,24 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Facture {{ facture.reference }} — Élevage Avicole{% endblock %}
+{% block title %}فاتورة {{ facture.reference }} — مزرعة الدواجن{% endblock %}
 
 {% block nav_facturation %}active{% endblock %}
 
-{% block page_title %}Facture — {{ facture.reference }}{% endblock %}
+{% block page_title %}فاتورة — {{ facture.reference }}{% endblock %}
 {% block page_sub_text %}{{ facture.client.nom }} · {{ facture.date_facture|date:"d/m/Y" }}{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'clients:facture_client_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour aux factures
+    <i class="bx bx-arrow-back"></i> الرجوع إلى الفواتير
   </a>
   <a href="{% url 'clients:facture_client_print' facture.pk %}" class="btn-ghost" target="_blank">
-    <i class="bx bxs-printer"></i> Imprimer
+    <i class="bx bxs-printer"></i> طباعة
   </a>
 {% endblock %}
 
 {% block content %}
-<div class="page-body">
+<div class="page-body" dir="rtl">
   <div class="detail-grid">
 
     <!-- Left: details + BL lines -->
@@ -27,44 +27,44 @@
       <!-- Header card -->
       <div class="card" style="margin-bottom:16px;">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bx-file"></i> Informations facture</div>
+          <div class="section-eyebrow"><i class="bx bx-file"></i> معلومات الفاتورة</div>
           <div>
-            {% if facture.statut == 'non_payee' %}<span class="pill-danger">Non payée</span>
-            {% elif facture.statut == 'partiellement_payee' %}<span class="pill-warning">Part. payée</span>
-            {% elif facture.statut == 'payee' %}<span class="pill-success">Payée</span>
-            {% elif facture.statut == 'en_litige' %}<span class="pill-danger">En litige</span>
+            {% if facture.statut == 'non_payee' %}<span class="pill-danger">غير مدفوعة</span>
+            {% elif facture.statut == 'partiellement_payee' %}<span class="pill-warning">مدفوعة جزئياً</span>
+            {% elif facture.statut == 'payee' %}<span class="pill-success">مدفوعة</span>
+            {% elif facture.statut == 'en_litige' %}<span class="pill-danger">متنازع عليها</span>
             {% endif %}
             {% if facture.est_en_retard %}
-            <span class="pill-danger" style="margin-left:4px;"><i class="bx bxs-alarm-exclamation"></i> En retard</span>
+            <span class="pill-danger" style="margin-right:4px;"><i class="bx bxs-alarm-exclamation"></i> متأخرة</span>
             {% endif %}
           </div>
         </div>
         <div class="card-body-grid">
           <div class="info-row">
-            <span class="info-label">Référence</span>
+            <span class="info-label">المرجع</span>
             <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ facture.reference }}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Client</span>
+            <span class="info-label">العميل</span>
             <span class="info-value"><a href="{% url 'clients:client_detail' facture.client.pk %}" style="color:var(--accent-text);text-decoration:none;font-weight:500;">{{ facture.client.nom }}</a></span>
           </div>
           <div class="info-row">
-            <span class="info-label">Date facture</span>
+            <span class="info-label">تاريخ الفاتورة</span>
             <span class="info-value">{{ facture.date_facture|date:"d/m/Y" }}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Date d'échéance</span>
+            <span class="info-label">تاريخ الاستحقاق</span>
             <span class="info-value" style="color:{% if facture.est_en_retard %}#dc2626{% else %}var(--text-secondary){% endif %};">
               {{ facture.date_echeance|date:"d/m/Y"|default:"—" }}
             </span>
           </div>
           <div class="info-row">
-            <span class="info-label">Créé par</span>
+            <span class="info-label">أنشأ بواسطة</span>
             <span class="info-value" style="color:var(--text-muted);font-size:12px;">{{ facture.created_by|default:"—" }} · {{ facture.created_at|date:"d/m/Y H:i" }}</span>
           </div>
           {% if facture.notes %}
           <div class="info-row info-row--full">
-            <span class="info-label">Notes</span>
+            <span class="info-label">ملاحظات</span>
             <span class="info-value" style="color:var(--text-muted);font-size:12.5px;">{{ facture.notes }}</span>
           </div>
           {% endif %}
@@ -75,20 +75,20 @@
       {% for bl in bls %}
       <div class="card" style="margin-bottom:14px;">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bx-link-external"></i> BL — {{ bl.reference }}</div>
+          <div class="section-eyebrow"><i class="bx bx-link-external"></i> وصل تسليم — {{ bl.reference }}</div>
           <div style="display:flex;align-items:center;gap:10px;">
             <span style="font-size:11.5px;color:var(--text-muted);">{{ bl.date_bl|date:"d/m/Y" }}</span>
-            <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="action-btn" title="Voir le BL"><i class="bx bx-link-external"></i></a>
+            <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="action-btn" title="عرض وصل التسليم"><i class="bx bx-link-external"></i></a>
           </div>
         </div>
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Produit fini</th>
-                <th style="text-align:right;">Quantité</th>
-                <th style="text-align:right;">Prix unitaire</th>
-                <th style="text-align:right;">Total</th>
+                <th>المنتج النهائي</th>
+                <th style="text-align:right;">الكمية</th>
+                <th style="text-align:right;">سعر الوحدة</th>
+                <th style="text-align:right;">الإجمالي</th>
               </tr>
             </thead>
             <tbody>
@@ -112,10 +112,10 @@
       <!-- Paiements allocations -->
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-wallet"></i> Paiements reçus</div>
+          <div class="section-eyebrow"><i class="bx bxs-wallet"></i> المدفوعات المستلمة</div>
           {% if not request.user.userprofile.role == 'viewer' and facture.statut != 'payee' %}
           <a href="{% url 'clients:paiement_client_create_for_client' facture.client.pk %}?facture={{ facture.pk }}" class="btn-ghost btn-sm">
-            <i class="bx bx-plus"></i> Enregistrer paiement
+            <i class="bx bx-plus"></i> تسجيل دفعة
           </a>
           {% endif %}
         </div>
@@ -124,11 +124,11 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Mode</th>
-                <th>Référence paiement</th>
-                <th style="text-align:right;">Montant alloué</th>
-                <th style="text-align:right;">Actions</th>
+                <th>التاريخ</th>
+                <th>طريقة الدفع</th>
+                <th>مرجع الدفعة</th>
+                <th style="text-align:right;">المبلغ المخصص</th>
+                <th style="text-align:right;">إجراءات</th>
               </tr>
             </thead>
             <tbody>
@@ -140,7 +140,7 @@
                 <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">{{ alloc.montant_alloue|floatformat:0 }} DZD</td>
                 <td>
                   <div class="actions-cell">
-                    <a href="{% url 'clients:paiement_client_detail' alloc.paiement.pk %}" class="action-btn" title="Détail paiement"><i class="bx bx-show"></i></a>
+                    <a href="{% url 'clients:paiement_client_detail' alloc.paiement.pk %}" class="action-btn" title="تفاصيل الدفعة"><i class="bx bx-show"></i></a>
                   </div>
                 </td>
               </tr>
@@ -151,7 +151,7 @@
         {% else %}
         <div style="padding:24px 16px;text-align:center;color:var(--text-muted);font-size:13px;">
           <i class="bx bxs-wallet" style="font-size:22px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
-          Aucun paiement enregistré.
+          لا توجد دفعات مسجلة.
         </div>
         {% endif %}
       </div>
@@ -163,27 +163,27 @@
 
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-coin"></i> Récapitulatif</div>
+          <div class="section-eyebrow"><i class="bx bxs-coin"></i> الملخص المالي</div>
         </div>
         <div style="padding:20px;display:flex;flex-direction:column;gap:0;">
           <div class="total-row">
-            <span class="total-label">Montant HT</span>
+            <span class="total-label">المبلغ قبل الضريبة</span>
             <span class="total-val">{{ facture.montant_ht|floatformat:0 }} DZD</span>
           </div>
           <div class="total-row">
-            <span class="total-label">TVA ({{ facture.taux_tva|floatformat:2 }} %)</span>
+            <span class="total-label">ض.ق.م ({{ facture.taux_tva|floatformat:2 }} %)</span>
             <span class="total-val">{{ facture.montant_tva|floatformat:0 }} DZD</span>
           </div>
           <div class="total-row total-row--divider">
-            <span class="total-label" style="font-weight:700;color:var(--text-primary);">Montant TTC</span>
+            <span class="total-label" style="font-weight:700;color:var(--text-primary);">الإجمالي شامل الضريبة</span>
             <span class="total-val" style="font-size:16px;font-weight:800;color:var(--text-primary);">{{ facture.montant_ttc|floatformat:0 }} DZD</span>
           </div>
           <div class="total-row">
-            <span class="total-label">Déjà réglé</span>
+            <span class="total-label">المدفوع</span>
             <span class="total-val" style="color:#15803d;">{{ facture.montant_regle|floatformat:0 }} DZD</span>
           </div>
           <div class="total-row total-row--highlight">
-            <span class="total-label" style="font-weight:700;">Reste à payer</span>
+            <span class="total-label" style="font-weight:700;">المبلغ المتبقي</span>
             <span class="total-val" style="font-size:18px;font-weight:800;color:{% if facture.reste_a_payer > 0 %}#dc2626{% else %}#15803d{% endif %};">{{ facture.reste_a_payer|floatformat:0 }} DZD</span>
           </div>
         </div>
@@ -191,7 +191,7 @@
 
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bx-link-external"></i> BL inclus</div>
+          <div class="section-eyebrow"><i class="bx bx-link-external"></i> وصولات التسليم المضمنة</div>
         </div>
         <div style="padding:0 4px;">
           {% for bl in bls %}
@@ -209,14 +209,14 @@
       {% if not request.user.userprofile.role == 'viewer' and facture.statut != 'payee' %}
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bx-cog"></i> Actions</div>
+          <div class="section-eyebrow"><i class="bx bx-cog"></i> إجراءات</div>
         </div>
         <div style="padding:16px;display:flex;flex-direction:column;gap:8px;">
           <a href="{% url 'clients:paiement_client_create_for_client' facture.client.pk %}?facture={{ facture.pk }}" class="btn-primary btn-full">
-            <i class="bx bxs-wallet"></i> Enregistrer un paiement
+            <i class="bx bxs-wallet"></i> تسجيل دفعة
           </a>
           <a href="{% url 'clients:facture_client_print' facture.pk %}" class="btn-ghost btn-full" target="_blank">
-            <i class="bx bxs-printer"></i> Imprimer la facture
+            <i class="bx bxs-printer"></i> طباعة la facture
           </a>
         </div>
       </div>
@@ -248,7 +248,7 @@
 
   .table-wrapper { overflow-x: auto; }
   .data-table { width: 100%; border-collapse: collapse; }
-  .data-table thead th { padding: 10px 14px; font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: left; background: var(--bg-base); }
+  .data-table thead th { padding: 10px 14px; font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: right; background: var(--bg-base); }
   .data-table tbody td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
   .data-table tbody tr:last-child td { border-bottom: none; }
 

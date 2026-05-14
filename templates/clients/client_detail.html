@@ -1,22 +1,22 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ client.nom }} — Élevage Avicole{% endblock %}
+{% block title %}{{ client.nom }} — تربية الدواجن{% endblock %}
 
 {% block nav_clients %}active{% endblock %}
 
 {% block page_title %}{{ client.nom }}{% endblock %}
 {% block page_sub_text %}
   {{ client.get_type_client_display }} —
-  {% if client.actif %}<span style="color:var(--accent-text);">Actif</span>{% else %}<span style="color:#dc2626;">Inactif</span>{% endif %}
+  {% if client.actif %}<span style="color:var(--accent-text);">نشط</span>{% else %}<span style="color:#dc2626;">غير نشط</span>{% endif %}
   {% if client.wilaya %} — {{ client.wilaya }}{% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
-  <a href="{% url 'clients:client_list' %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> Clients</a>
+  <a href="{% url 'clients:client_list' %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> العملاء</a>
   {% if not request.user.userprofile.role == 'viewer' %}
-  <a href="{% url 'clients:client_edit' client.pk %}" class="btn-ghost"><i class="bx bxs-pencil"></i> Modifier</a>
-  <a href="{% url 'clients:bl_client_create_for_client' client.pk %}" class="btn-primary"><i class="bx bx-plus"></i> Nouveau BL</a>
+  <a href="{% url 'clients:client_edit' client.pk %}" class="btn-ghost"><i class="bx bxs-pencil"></i> تعديل</a>
+  <a href="{% url 'clients:bl_client_create_for_client' client.pk %}" class="btn-primary"><i class="bx bx-plus"></i> وصل تسليم جديد</a>
   {% endif %}
 {% endblock %}
 
@@ -27,93 +27,93 @@
   <div class="kpi-row">
     <div class="kpi-card {% if solde.creance_globale > 0 %}kpi-card--warn{% endif %}">
       <div class="kpi-icon ic-amber"><i class="bx bx-hourglass"></i></div>
-      <div class="kpi-card__label">Créance globale</div>
-      <div class="kpi-card__value">{{ solde.creance_globale|floatformat:0 }} <span class="kpi-currency">DZD</span></div>
-      <div class="kpi-card__sub">Reste à payer (toutes factures)</div>
+      <div class="kpi-card__label">الدين الإجمالي</div>
+      <div class="kpi-card__value">{{ solde.creance_globale|floatformat:0 }} <span class="kpi-currency">دج</span></div>
+      <div class="kpi-card__sub">المتبقي (كل الفواتير)</div>
     </div>
     <div class="kpi-card {% if solde.nb_factures_retard > 0 %}kpi-card--danger{% endif %}">
       <div class="kpi-icon ic-red"><i class="bx bxs-error"></i></div>
-      <div class="kpi-card__label">Factures en retard</div>
+      <div class="kpi-card__label">فواتير متأخرة</div>
       <div class="kpi-card__value">{{ solde.nb_factures_retard }}</div>
-      <div class="kpi-card__sub">Échéance dépassée</div>
+      <div class="kpi-card__sub">تجاوز الموعد</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-icon ic-green"><i class="bx bxs-credit-card"></i></div>
-      <div class="kpi-card__label">Total encaissé</div>
-      <div class="kpi-card__value">{{ solde.total_paiements|floatformat:0 }} <span class="kpi-currency">DZD</span></div>
-      <div class="kpi-card__sub">Historique paiements</div>
+      <div class="kpi-card__label">إجمالي المحصل</div>
+      <div class="kpi-card__value">{{ solde.total_paiements|floatformat:0 }} <span class="kpi-currency">دج</span></div>
+      <div class="kpi-card__sub">سجل المدفوعات</div>
     </div>
     <div class="kpi-card {% if solde.depasse_plafond %}kpi-card--danger{% endif %}">
       <div class="kpi-icon ic-purple"><i class="bx bxs-coin"></i></div>
-      <div class="kpi-card__label">Plafond crédit</div>
+      <div class="kpi-card__label">سقف الائتمان</div>
       <div class="kpi-card__value">
-        {% if client.plafond_credit > 0 %}{{ client.plafond_credit|floatformat:0 }} <span class="kpi-currency">DZD</span>
-        {% else %}<span style="font-size:16px;color:var(--text-muted);">Illimité</span>{% endif %}
+        {% if client.plafond_credit > 0 %}{{ client.plafond_credit|floatformat:0 }} <span class="kpi-currency">دج</span>
+        {% else %}<span style="font-size:16px;color:var(--text-muted);">غير محدود</span>{% endif %}
       </div>
       <div class="kpi-card__sub">
-        {% if solde.depasse_plafond %}<span style="color:#dc2626;"><i class="bx bxs-error" style="font-size:11px;"></i> Plafond dépassé</span>
-        {% else %}Limite configurée{% endif %}
+        {% if solde.depasse_plafond %}<span style="color:#dc2626;"><i class="bx bxs-error" style="font-size:11px;"></i> السقف متجاوز</span>
+        {% else %}الحد المضبوط{% endif %}
       </div>
     </div>
   </div>
 
   <div class="detail-grid">
 
-    <!-- Left: info + open invoices -->
+    <!-- Right col: info + open invoices -->
     <div class="detail-col">
 
-      <!-- Coordonnées -->
+      <!-- ملف العميل -->
       <div class="detail-card">
         <div class="detail-card__header">
-          <span class="section-eyebrow"><i class="bx bxs-group"></i> Fiche client</span>
+          <span class="section-eyebrow"><i class="bx bxs-group"></i> ملف العميل</span>
           {% if not request.user.userprofile.role == 'viewer' %}
-          <a href="{% url 'clients:client_edit' client.pk %}" class="link-edit"><i class="bx bxs-pencil"></i> Modifier</a>
+          <a href="{% url 'clients:client_edit' client.pk %}" class="link-edit"><i class="bx bxs-pencil"></i> تعديل</a>
           {% endif %}
         </div>
         <div class="detail-card__body info-grid">
           <div class="info-row">
-            <span class="info-label">Type</span>
+            <span class="info-label">النوع</span>
             <span class="info-value">{{ client.get_type_client_display }}</span>
           </div>
           {% if client.nif %}
           <div class="info-row">
-            <span class="info-label">NIF</span>
+            <span class="info-label">الرقم الجبائي</span>
             <span class="info-value">{{ client.nif }}</span>
           </div>
           {% endif %}
           {% if client.rc %}
           <div class="info-row">
-            <span class="info-label">RC</span>
+            <span class="info-label">السجل التجاري</span>
             <span class="info-value">{{ client.rc }}</span>
           </div>
           {% endif %}
           {% if client.contact_nom %}
           <div class="info-row">
-            <span class="info-label">Contact</span>
+            <span class="info-label">جهة الاتصال</span>
             <span class="info-value">{{ client.contact_nom }}</span>
           </div>
           {% endif %}
           {% if client.telephone %}
           <div class="info-row">
-            <span class="info-label">Téléphone</span>
+            <span class="info-label">الهاتف</span>
             <span class="info-value">{{ client.telephone }}{% if client.telephone_2 %} / {{ client.telephone_2 }}{% endif %}</span>
           </div>
           {% endif %}
           {% if client.email %}
           <div class="info-row">
-            <span class="info-label">Email</span>
+            <span class="info-label">البريد الإلكتروني</span>
             <span class="info-value"><a href="mailto:{{ client.email }}" style="color:var(--accent-text);">{{ client.email }}</a></span>
           </div>
           {% endif %}
           {% if client.adresse %}
           <div class="info-row">
-            <span class="info-label">Adresse</span>
+            <span class="info-label">العنوان</span>
             <span class="info-value">{{ client.adresse }}{% if client.wilaya %}, {{ client.wilaya }}{% endif %}</span>
           </div>
           {% endif %}
           {% if client.notes %}
           <div class="info-row" style="flex-direction:column;gap:4px;">
-            <span class="info-label">Notes</span>
+            <span class="info-label">ملاحظات</span>
             <span class="info-value" style="font-size:12.5px;color:var(--text-muted);">{{ client.notes }}</span>
           </div>
           {% endif %}
@@ -121,34 +121,34 @@
         {% if not request.user.userprofile.role == 'viewer' %}
         <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;">
           <a href="{% url 'clients:bl_client_create_for_client' client.pk %}" class="btn-primary" style="font-size:12.5px;padding:8px 14px;">
-            <i class="bx bx-plus"></i> Nouveau BL
+            <i class="bx bx-plus"></i> وصل تسليم جديد
           </a>
           <a href="{% url 'clients:facture_client_create_for_client' client.pk %}" class="btn-ghost" style="font-size:12.5px;padding:7px 12px;">
-            <i class="bx bxs-receipt"></i> Facturer
+            <i class="bx bxs-receipt"></i> فوترة
           </a>
           <a href="{% url 'clients:paiement_client_create_for_client' client.pk %}" class="btn-ghost" style="font-size:12.5px;padding:7px 12px;">
-            <i class="bx bxs-credit-card"></i> Paiement
+            <i class="bx bxs-credit-card"></i> دفع
           </a>
         </div>
         {% endif %}
       </div>
 
-      <!-- Factures ouvertes -->
+      <!-- الفواتير المفتوحة -->
       <div class="detail-card">
         <div class="detail-card__header">
-          <span class="section-eyebrow"><i class="bx bxs-receipt"></i> Factures ouvertes</span>
-          <a href="{% url 'clients:facture_client_list' %}?client={{ client.pk }}" class="link-see-all">Voir toutes <i class="bx bx-right-arrow-alt"></i></a>
+          <span class="section-eyebrow"><i class="bx bxs-receipt"></i> الفواتير المفتوحة</span>
+          <a href="{% url 'clients:facture_client_list' %}?client={{ client.pk }}" class="link-see-all">عرض الكل <i class="bx bx-left-arrow-alt"></i></a>
         </div>
         {% if factures_ouvertes %}
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Référence</th>
-                <th>Date</th>
-                <th>Échéance</th>
-                <th>Statut</th>
-                <th style="text-align:right;">Reste à payer</th>
+                <th>المرجع</th>
+                <th>التاريخ</th>
+                <th>الاستحقاق</th>
+                <th>الحالة</th>
+                <th style="text-align:left;">المتبقي</th>
               </tr>
             </thead>
             <tbody>
@@ -158,15 +158,15 @@
                 <td style="font-size:12px;color:var(--text-muted);">{{ f.date_facture|date:"d/m/Y" }}</td>
                 <td style="font-size:12px;{% if f.est_en_retard %}color:#dc2626;font-weight:600;{% else %}color:var(--text-muted);{% endif %}">
                   {{ f.date_echeance|date:"d/m/Y"|default:"—" }}
-                  {% if f.est_en_retard %}<i class="bx bxs-error" style="font-size:11px;margin-left:3px;"></i>{% endif %}
+                  {% if f.est_en_retard %}<i class="bx bxs-error" style="font-size:11px;margin-right:3px;"></i>{% endif %}
                 </td>
                 <td>
-                  {% if f.statut == 'non_payee' %}<span class="pill-danger">Non payée</span>
-                  {% elif f.statut == 'partiellement_payee' %}<span class="pill-warning">Part. payée</span>
-                  {% elif f.statut == 'en_litige' %}<span class="pill-danger">Litige</span>
+                  {% if f.statut == 'non_payee' %}<span class="pill-danger">غير مدفوعة</span>
+                  {% elif f.statut == 'partiellement_payee' %}<span class="pill-warning">مدفوعة جزئياً</span>
+                  {% elif f.statut == 'en_litige' %}<span class="pill-danger">نزاع</span>
                   {% endif %}
                 </td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;">{{ f.reste_a_payer|floatformat:0 }} DZD</td>
+                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;">{{ f.reste_a_payer|floatformat:0 }} دج</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -175,31 +175,31 @@
         {% else %}
         <div style="text-align:center;padding:28px;color:var(--text-muted);font-size:13px;">
           <i class="bx bxs-check-circle" style="font-size:24px;color:var(--accent);display:block;margin-bottom:8px;"></i>
-          Aucune facture ouverte.
+          لا توجد فواتير مفتوحة.
         </div>
         {% endif %}
       </div>
 
     </div>
 
-    <!-- Right: BLs + paiements -->
+    <!-- Left col: BLs + payments + danger zone -->
     <div class="detail-col">
 
-      <!-- BLs récents -->
+      <!-- وصلات التسليم الأخيرة -->
       <div class="detail-card">
         <div class="detail-card__header">
-          <span class="section-eyebrow"><i class="bx bx-link-external"></i> BL Clients récents</span>
-          <a href="{% url 'clients:bl_client_list' %}?client={{ client.pk }}" class="link-see-all">Voir tous <i class="bx bx-right-arrow-alt"></i></a>
+          <span class="section-eyebrow"><i class="bx bx-link-external"></i> وصلات التسليم الأخيرة</span>
+          <a href="{% url 'clients:bl_client_list' %}?client={{ client.pk }}" class="link-see-all">عرض الكل <i class="bx bx-left-arrow-alt"></i></a>
         </div>
         {% if bls_recents %}
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Référence</th>
-                <th>Date</th>
-                <th>Statut</th>
-                <th style="text-align:right;">Total</th>
+                <th>المرجع</th>
+                <th>التاريخ</th>
+                <th>الحالة</th>
+                <th style="text-align:left;">المجموع</th>
               </tr>
             </thead>
             <tbody>
@@ -208,38 +208,38 @@
                 <td><a href="{% url 'clients:bl_client_detail' bl.pk %}" class="row-link" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ bl.reference }}</a></td>
                 <td style="font-size:12px;color:var(--text-muted);">{{ bl.date_bl|date:"d/m/Y" }}</td>
                 <td>
-                  {% if bl.statut == 'brouillon' %}<span class="pill-warning">Brouillon</span>
-                  {% elif bl.statut == 'livre' %}<span class="pill-info">Livré</span>
-                  {% elif bl.statut == 'facture' %}<span class="pill-success">Facturé</span>
-                  {% elif bl.statut == 'litige' %}<span class="pill-danger">Litige</span>
+                  {% if bl.statut == 'brouillon' %}<span class="pill-warning">مسودة</span>
+                  {% elif bl.statut == 'livre' %}<span class="pill-info">مُسلَّم</span>
+                  {% elif bl.statut == 'facture' %}<span class="pill-success">مفوتر</span>
+                  {% elif bl.statut == 'litige' %}<span class="pill-danger">نزاع</span>
                   {% endif %}
                 </td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ bl.montant_total|floatformat:0 }} DZD</td>
+                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ bl.montant_total|floatformat:0 }} دج</td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
         {% else %}
-        <div style="text-align:center;padding:28px;color:var(--text-muted);font-size:13px;">Aucun BL enregistré.</div>
+        <div style="text-align:center;padding:28px;color:var(--text-muted);font-size:13px;">لا توجد وصلات تسليم مسجلة.</div>
         {% endif %}
       </div>
 
-      <!-- Paiements récents -->
+      <!-- المدفوعات الأخيرة -->
       <div class="detail-card">
         <div class="detail-card__header">
-          <span class="section-eyebrow"><i class="bx bxs-credit-card"></i> Paiements récents</span>
-          <a href="{% url 'clients:paiement_client_list' %}?client={{ client.pk }}" class="link-see-all">Voir tous <i class="bx bx-right-arrow-alt"></i></a>
+          <span class="section-eyebrow"><i class="bx bxs-credit-card"></i> المدفوعات الأخيرة</span>
+          <a href="{% url 'clients:paiement_client_list' %}?client={{ client.pk }}" class="link-see-all">عرض الكل <i class="bx bx-left-arrow-alt"></i></a>
         </div>
         {% if paiements_recents %}
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Mode</th>
-                <th>Réf.</th>
-                <th style="text-align:right;">Montant</th>
+                <th>التاريخ</th>
+                <th>طريقة الدفع</th>
+                <th>المرجع</th>
+                <th style="text-align:left;">المبلغ</th>
               </tr>
             </thead>
             <tbody>
@@ -248,14 +248,14 @@
                 <td><a href="{% url 'clients:paiement_client_detail' p.pk %}" class="row-link" style="font-size:12px;color:var(--text-secondary);">{{ p.date_paiement|date:"d/m/Y" }}</a></td>
                 <td style="font-size:12px;color:var(--text-muted);">{{ p.get_mode_paiement_display }}</td>
                 <td style="font-size:12px;color:var(--text-muted);">{{ p.reference_paiement|default:"—" }}</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">+{{ p.montant|floatformat:0 }} DZD</td>
+                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">+{{ p.montant|floatformat:0 }} دج</td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
         {% else %}
-        <div style="text-align:center;padding:28px;color:var(--text-muted);font-size:13px;">Aucun paiement enregistré.</div>
+        <div style="text-align:center;padding:28px;color:var(--text-muted);font-size:13px;">لا توجد مدفوعات مسجلة.</div>
         {% endif %}
       </div>
 
@@ -263,13 +263,13 @@
       {% if request.user.userprofile.is_admin %}
       <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:16px 18px;">
         <div style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;margin-bottom:4px;font-size:13px;">
-          <i class="bx bxs-error me-1"></i> Zone sensible
+          <i class="bx bxs-error me-1"></i> منطقة حساسة
         </div>
         <p style="font-size:12.5px;color:var(--text-secondary);margin:0 0 12px;">
-          Désactiver ce client le masquera de toutes les saisies. Cette action est réversible.
+          تعطيل هذا العميل سيخفيه من كل الإدخالات. هذا الإجراء قابل للتراجع.
         </p>
         <button type="button" id="toggle-active-btn" class="btn-{% if client.actif %}danger{% else %}success{% endif %}" data-active="{{ client.actif|yesno:'true,false' }}">
-          {% if client.actif %}<i class="bx bx-block"></i> Désactiver{% else %}<i class="bx bxs-check-circle"></i> Réactiver{% endif %}
+          {% if client.actif %}<i class="bx bx-block"></i> تعطيل{% else %}<i class="bx bxs-check-circle"></i> إعادة التفعيل{% endif %}
         </button>
       </div>
       {% endif %}
@@ -282,13 +282,13 @@
 <div id="toggle-panel" class="confirm-overlay" style="display:none;">
   <div class="confirm-box">
     <div class="confirm-box__icon"><i class="bx bxs-error" style="color:#b45309;font-size:22px;"></i></div>
-    <div class="confirm-box__title">{% if client.actif %}Désactiver « {{ client.nom }} » ?{% else %}Réactiver « {{ client.nom }} » ?{% endif %}</div>
-    <div class="confirm-box__text" style="margin-bottom:20px;">Cette action est réversible depuis la liste des clients.</div>
+    <div class="confirm-box__title">{% if client.actif %}تعطيل « {{ client.nom }} » ؟{% else %}إعادة تفعيل « {{ client.nom }} » ؟{% endif %}</div>
+    <div class="confirm-box__text" style="margin-bottom:20px;">هذا الإجراء قابل للتراجع من قائمة العملاء.</div>
     <div class="confirm-box__actions">
-      <button type="button" id="toggle-cancel" class="btn-ghost">Annuler</button>
+      <button type="button" id="toggle-cancel" class="btn-ghost">إلغاء</button>
       <form method="post" action="{% url 'clients:client_toggle_active' client.pk %}">
         {% csrf_token %}
-        <button type="submit" class="btn-danger">Confirmer</button>
+        <button type="submit" class="btn-danger">تأكيد</button>
       </form>
     </div>
   </div>
@@ -297,6 +297,10 @@
 
 {% block extra_css %}
 <style>
+  /* ── RTL ── */
+  .page-body { direction: rtl; }
+  .confirm-box { direction: rtl; }
+
   .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
   @media (max-width: 1100px) { .kpi-row { grid-template-columns: repeat(2,1fr); } }
   .kpi-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; animation: fadeIn .3s ease both; }
@@ -307,7 +311,7 @@
   .ic-red    { background: rgba(239,68,68,.12);  color: #dc2626; }
   .ic-green  { background: rgba(34,197,94,.14);  color: #15803d; }
   .ic-purple { background: rgba(167,139,250,.14);color: #7c3aed; }
-  .kpi-card__label { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+  .kpi-card__label { font-size: 10.5px; font-weight: 600; color: var(--text-muted); }
   .kpi-card__value { font-family: 'Nunito',sans-serif; font-weight: 800; font-size: 22px; color: var(--text-primary); line-height: 1.1; }
   .kpi-currency { font-size: 13px; font-weight: 600; color: var(--text-muted); }
   .kpi-card__sub { font-size: 11.5px; color: var(--text-muted); }
@@ -320,20 +324,20 @@
   .detail-card__header { padding: 14px 18px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
   .detail-card__body { padding: 18px; }
 
-  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
   .link-edit { font-size: 12px; color: var(--accent-text); display: flex; align-items: center; gap: 4px; text-decoration: none; }
   .link-see-all { font-size: 12px; color: var(--accent-text); display: flex; align-items: center; gap: 4px; text-decoration: none; }
 
   .info-grid { display: flex; flex-direction: column; gap: 0; }
   .info-row { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
   .info-row:last-child { border-bottom: none; padding-bottom: 0; }
-  .info-label { font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); min-width: 90px; padding-top: 1px; }
+  .info-label { font-size: 11.5px; font-weight: 600; color: var(--text-muted); min-width: 110px; padding-top: 1px; }
   .info-value { font-size: 13px; color: var(--text-secondary); flex: 1; }
 
   .table-wrapper { overflow-x: auto; }
   .data-table { width: 100%; border-collapse: collapse; }
-  .data-table thead th { padding: 10px 14px; font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: left; background: var(--bg-base); }
-  .data-table tbody td { padding: 11px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+  .data-table thead th { padding: 10px 14px; font-size: 11px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: right; background: var(--bg-base); }
+  .data-table tbody td { padding: 11px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); text-align: right; }
   .data-table tbody tr:last-child td { border-bottom: none; }
   .table-row { animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i) * 35ms); }
   .table-row:hover td { background: var(--bg-hover); }
@@ -369,16 +373,10 @@
 document.addEventListener('DOMContentLoaded', function () {
   const btn = document.getElementById('toggle-active-btn');
   const panel = document.getElementById('toggle-panel');
-  if (btn) {
-    btn.addEventListener('click', function () { panel.style.display = 'flex'; });
-  }
+  if (btn) { btn.addEventListener('click', function () { panel.style.display = 'flex'; }); }
   const cancelBtn = document.getElementById('toggle-cancel');
-  if (cancelBtn) {
-    cancelBtn.addEventListener('click', function () { panel.style.display = 'none'; });
-  }
-  if (panel) {
-    panel.addEventListener('click', function (e) { if (e.target === panel) panel.style.display = 'none'; });
-  }
+  if (cancelBtn) { cancelBtn.addEventListener('click', function () { panel.style.display = 'none'; }); }
+  if (panel) { panel.addEventListener('click', function (e) { if (e.target === panel) panel.style.display = 'none'; }); }
 });
 </script>
 {% endblock %}

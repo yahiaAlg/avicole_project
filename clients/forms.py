@@ -72,9 +72,9 @@ class BLClientForm(forms.ModelForm):
     """
 
     STATUT_USER_CHOICES = [
-        (BLClient.STATUT_BROUILLON, "Brouillon"),
-        (BLClient.STATUT_LIVRE, "Livré"),
-        (BLClient.STATUT_LITIGE, "En litige"),
+        (BLClient.STATUT_BROUILLON, "مسودة"),
+        (BLClient.STATUT_LIVRE, "تم التسليم"),
+        (BLClient.STATUT_LITIGE, "في نزاع"),
     ]
 
     class Meta:
@@ -215,8 +215,8 @@ class FactureClientForm(forms.ModelForm):
 
     # User-selectable statut values (Payée is driven by payments, not manually set).
     STATUT_USER_CHOICES = [
-        (FactureClient.STATUT_NON_PAYEE, "Non payée"),
-        (FactureClient.STATUT_EN_LITIGE, "En litige"),
+        (FactureClient.STATUT_NON_PAYEE, "غير مدفوعة"),
+        (FactureClient.STATUT_EN_LITIGE, "في نزاع"),
     ]
 
     class Meta:

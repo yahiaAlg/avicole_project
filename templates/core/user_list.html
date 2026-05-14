@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Utilisateurs — Élevage Avicole{% endblock %}
+{% block title %}المستخدمون — تربية الدواجن{% endblock %}
 
 {% block nav_users %}active{% endblock %}
 
-{% block page_title %}Gestion des utilisateurs{% endblock %}
-{% block page_sub_text %}{{ users|length }} compte{{ users|length|pluralize }} enregistré{{ users|length|pluralize }}{% endblock %}
+{% block page_title %}إدارة المستخدمين{% endblock %}
+{% block page_sub_text %}{{ users|length }} حساب{{ users|length|pluralize:"," }} مسجل{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'core:user_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouvel utilisateur
+    <i class="bx bx-plus"></i> مستخدم جديد
   </a>
 {% endblock %}
 
@@ -19,7 +19,7 @@
 
   <div class="card">
     <div class="card-header-row">
-      <div class="section-eyebrow">Comptes utilisateurs</div>
+      <div class="section-eyebrow">حسابات المستخدمين</div>
     </div>
 
     {% if users %}
@@ -27,13 +27,13 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Utilisateur</th>
-            <th>Nom complet</th>
-            <th>Email</th>
-            <th>Rôle</th>
-            <th>Statut</th>
-            <th>Créé le</th>
-            <th style="text-align:right;">Actions</th>
+            <th>المستخدم</th>
+            <th>الاسم الكامل</th>
+            <th>البريد الإلكتروني</th>
+            <th>الدور</th>
+            <th>الحالة</th>
+            <th>تاريخ الإنشاء</th>
+            <th style="text-align:left;">الإجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -54,13 +54,13 @@
             <td>
               {% if u.profile %}
                 {% if u.profile.role == "admin" %}
-                  <span class="pill-danger">Administrateur</span>
+                  <span class="pill-danger">مسؤول</span>
                 {% elif u.profile.role == "manager" %}
-                  <span class="pill-warning">Gérant</span>
+                  <span class="pill-warning">مدير</span>
                 {% elif u.profile.role == "comptable" %}
-                  <span class="pill-info">Comptable</span>
+                  <span class="pill-info">محاسب</span>
                 {% else %}
-                  <span class="pill-neutral">Opérateur</span>
+                  <span class="pill-neutral">مشغّل</span>
                 {% endif %}
               {% else %}
                 <span class="pill-neutral">—</span>
@@ -68,18 +68,18 @@
             </td>
             <td>
               {% if u.is_active %}
-                <span class="pill-success"><i class="bx bxs-check-circle"></i> Actif</span>
+                <span class="pill-success"><i class="bx bxs-check-circle"></i> نشط</span>
               {% else %}
-                <span class="pill-neutral"><i class="bx bx-block"></i> Inactif</span>
+                <span class="pill-neutral"><i class="bx bx-block"></i> غير نشط</span>
               {% endif %}
             </td>
             <td style="color:var(--text-muted);">{{ u.date_joined|date:"d/m/Y" }}</td>
             <td>
               <div class="actions-cell">
-                <a href="{% url 'core:user_edit' u.pk %}" class="action-btn" title="Modifier">
+                <a href="{% url 'core:user_edit' u.pk %}" class="action-btn" title="تعديل">
                   <i class="bx bxs-pencil"></i>
                 </a>
-                <a href="{% url 'core:user_password_change' u.pk %}" class="action-btn" title="Changer le mot de passe">
+                <a href="{% url 'core:user_password_change' u.pk %}" class="action-btn" title="تغيير كلمة المرور">
                   <i class="bx bxs-lock-open"></i>
                 </a>
                 {% if u != request.user %}
@@ -88,7 +88,7 @@
                   data-toggle-user="{{ u.pk }}"
                   data-username="{{ u.username }}"
                   data-active="{{ u.is_active|yesno:'true,false' }}"
-                  title="{% if u.is_active %}Désactiver{% else %}Activer{% endif %}">
+                  title="{% if u.is_active %}تعطيل{% else %}تفعيل{% endif %}">
                   <i class="bx {% if u.is_active %}bx-block{% else %}bxs-check-circle{% endif %}"></i>
                 </button>
                 {% endif %}
@@ -103,11 +103,11 @@
     <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
       <i class="bx bxs-user" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
       <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
-        Aucun utilisateur
+        لا يوجد مستخدمون
       </div>
-      <div style="font-size:13px;">Créez le premier compte utilisateur.</div>
+      <div style="font-size:13px;">أنشئ أول حساب مستخدم.</div>
       <a href="{% url 'core:user_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
-        <i class="bx bx-plus"></i> Créer
+        <i class="bx bx-plus"></i> إنشاء
       </a>
     </div>
     {% endif %}
@@ -120,16 +120,16 @@
         <i class="bx bx-block"></i>
       </div>
       <div>
-        <div class="confirm-panel__title" id="confirm-title">Désactiver l'utilisateur ?</div>
+        <div class="confirm-panel__title" id="confirm-title">تعطيل الحساب؟</div>
         <div class="confirm-panel__body" id="confirm-body">
-          L'utilisateur <strong id="confirm-username"></strong> ne pourra plus se connecter.
+          المستخدم <strong id="confirm-username"></strong> لن يتمكن من تسجيل الدخول.
         </div>
       </div>
       <div class="confirm-panel__actions">
-        <button type="button" id="confirm-cancel-btn" class="btn-ghost">Annuler</button>
+        <button type="button" id="confirm-cancel-btn" class="btn-ghost">إلغاء</button>
         <form id="confirm-toggle-form" method="post" action="">
           {% csrf_token %}
-          <button type="submit" id="confirm-submit-btn" class="btn-danger">Confirmer</button>
+          <button type="submit" id="confirm-submit-btn" class="btn-danger">تأكيد</button>
         </form>
       </div>
     </div>
@@ -366,16 +366,16 @@ document.addEventListener('DOMContentLoaded', function () {
       if (isActive) {
         panelIcon.className  = 'confirm-panel__icon';
         panelIcon.innerHTML  = '<i class="bx bx-block"></i>';
-        panelTitle.textContent = 'Désactiver le compte ?';
-        panelBody.innerHTML  = 'L\'utilisateur <strong>' + username + '</strong> ne pourra plus se connecter.';
-        submitBtn.textContent = 'Désactiver';
+        panelTitle.textContent = 'تعطيل الحساب؟';
+        panelBody.innerHTML  = 'المستخدم <strong>' + username + '</strong> لن يتمكن من تسجيل الدخول.';
+        submitBtn.textContent = 'تعطيل';
         submitBtn.className  = 'btn-danger';
       } else {
         panelIcon.className  = 'confirm-panel__icon activate';
         panelIcon.innerHTML  = '<i class="bx bxs-check-circle"></i>';
-        panelTitle.textContent = 'Activer le compte ?';
-        panelBody.innerHTML  = 'L\'utilisateur <strong>' + username + '</strong> pourra à nouveau se connecter.';
-        submitBtn.textContent = 'Activer';
+        panelTitle.textContent = 'تفعيل الحساب؟';
+        panelBody.innerHTML  = 'المستخدم <strong>' + username + '</strong> سيتمكن من تسجيل الدخول مجدداً.';
+        submitBtn.textContent = 'تفعيل';
         submitBtn.className  = 'btn-success';
       }
       panel.style.display = '';

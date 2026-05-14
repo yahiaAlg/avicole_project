@@ -1,25 +1,25 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}BL Client {{ bl.reference }} — Élevage Avicole{% endblock %}
+{% block title %}وصل التسليم {{ bl.reference }} — تربية الدواجن{% endblock %}
 
 {% block nav_bl_clients %}active{% endblock %}
 
-{% block page_title %}BL Client — {{ bl.reference }}{% endblock %}
+{% block page_title %}وصل التسليم — {{ bl.reference }}{% endblock %}
 {% block page_sub_text %}{{ bl.client.nom }} · {{ bl.date_bl|date:"d/m/Y" }}{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'clients:bl_client_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour aux BL
+    <i class="bx bx-arrow-back"></i> العودة إلى الوصلات
   </a>
   {% if not request.user.userprofile.role == 'viewer' and not bl.est_verrouille %}
   <a href="{% url 'clients:bl_client_edit' bl.pk %}" class="btn-ghost">
-    <i class="bx bxs-pencil"></i> Modifier
+    <i class="bx bxs-pencil"></i> تعديل
   </a>
   {% endif %}
   {% if bl.statut != 'brouillon' %}
   <a href="{% url 'clients:bl_client_print' bl.pk %}" class="btn-ghost" target="_blank">
-    <i class="bx bxs-printer"></i> Imprimer
+    <i class="bx bxs-printer"></i> طباعة
   </a>
   {% endif %}
 {% endblock %}
@@ -30,58 +30,58 @@
   {% if bl.est_verrouille %}
   <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:18px;">
     <i class="bx bxs-lock-alt" style="color:#15803d;font-size:15px;"></i>
-    <span style="font-size:13px;color:var(--text-secondary);">Ce BL est <strong style="color:#15803d;">verrouillé</strong> — il est inclus dans une facture et ne peut plus être modifié.</span>
+    <span style="font-size:13px;color:var(--text-secondary);">هذا الوصل <strong style="color:#15803d;">مقفل</strong> — مُدرج ضمن فاتورة ولا يمكن تعديله.</span>
   </div>
   {% endif %}
 
   <div class="detail-grid">
 
-    <!-- Left: header info + lines -->
+    <!-- Right (main): header info + lines -->
     <div class="detail-main">
 
       <!-- Header card -->
       <div class="card" style="margin-bottom:16px;">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bx-link-external"></i> Informations BL</div>
+          <div class="section-eyebrow"><i class="bx bx-link-external"></i> معلومات وصل التسليم</div>
           <div>
-            {% if bl.statut == 'brouillon' %}<span class="pill-warning">Brouillon</span>
-            {% elif bl.statut == 'livre' %}<span class="pill-info">Livré</span>
-            {% elif bl.statut == 'facture' %}<span class="pill-success">Facturé</span>
-            {% elif bl.statut == 'litige' %}<span class="pill-danger">En litige</span>
+            {% if bl.statut == 'brouillon' %}<span class="pill-warning">مسودة</span>
+            {% elif bl.statut == 'livre' %}<span class="pill-info">مُسلَّم</span>
+            {% elif bl.statut == 'facture' %}<span class="pill-success">مفوتر</span>
+            {% elif bl.statut == 'litige' %}<span class="pill-danger">نزاع</span>
             {% endif %}
           </div>
         </div>
         <div class="card-body-grid">
           <div class="info-row">
-            <span class="info-label">Référence</span>
+            <span class="info-label">المرجع</span>
             <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ bl.reference }}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Client</span>
+            <span class="info-label">العميل</span>
             <span class="info-value"><a href="{% url 'clients:client_detail' bl.client.pk %}" style="color:var(--accent-text);text-decoration:none;font-weight:500;">{{ bl.client.nom }}</a></span>
           </div>
           <div class="info-row">
-            <span class="info-label">Date BL</span>
+            <span class="info-label">تاريخ الوصل</span>
             <span class="info-value">{{ bl.date_bl|date:"d/m/Y" }}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Signé par</span>
+            <span class="info-label">موقع من طرف</span>
             <span class="info-value">{{ bl.signe_par|default:"—" }}</span>
           </div>
           {% if bl.adresse_livraison %}
           <div class="info-row info-row--full">
-            <span class="info-label">Adresse de livraison</span>
+            <span class="info-label">عنوان التسليم</span>
             <span class="info-value" style="white-space:pre-line;">{{ bl.adresse_livraison }}</span>
           </div>
           {% endif %}
           {% if bl.notes %}
           <div class="info-row info-row--full">
-            <span class="info-label">Notes</span>
+            <span class="info-label">ملاحظات</span>
             <span class="info-value" style="color:var(--text-muted);font-size:12.5px;">{{ bl.notes }}</span>
           </div>
           {% endif %}
           <div class="info-row">
-            <span class="info-label">Créé par</span>
+            <span class="info-label">أنشئ بواسطة</span>
             <span class="info-value" style="color:var(--text-muted);font-size:12px;">{{ bl.created_by|default:"—" }} · {{ bl.created_at|date:"d/m/Y H:i" }}</span>
           </div>
         </div>
@@ -90,19 +90,19 @@
       <!-- Lines table -->
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bx-list-ul"></i> Lignes produits</div>
-          <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:15px;color:var(--text-primary);">{{ montant_total|floatformat:0 }} DZD</span>
+          <div class="section-eyebrow"><i class="bx bx-list-ul"></i> بنود المنتجات</div>
+          <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:15px;color:var(--text-primary);">{{ montant_total|floatformat:0 }} دج</span>
         </div>
         {% if lignes %}
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Produit fini</th>
-                <th style="text-align:right;">Quantité</th>
-                <th style="text-align:right;">Prix unitaire</th>
-                <th style="text-align:right;">Total</th>
-                <th>Notes</th>
+                <th>المنتج النهائي</th>
+                <th style="text-align:left;">الكمية</th>
+                <th style="text-align:left;">سعر الوحدة</th>
+                <th style="text-align:left;">المجموع</th>
+                <th>ملاحظات</th>
               </tr>
             </thead>
             <tbody>
@@ -112,17 +112,17 @@
                   <span style="font-weight:500;color:var(--text-primary);">{{ ligne.produit_fini.designation }}</span>
                   <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">{{ ligne.produit_fini.get_type_produit_display }}</div>
                 </td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ ligne.quantite|floatformat:2 }} {{ ligne.produit_fini.unite_mesure }}</td>
-                <td style="text-align:right;color:var(--text-secondary);">{{ ligne.prix_unitaire|floatformat:2 }} DZD</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ ligne.montant_total|floatformat:0 }} DZD</td>
+                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ ligne.quantite|floatformat:2 }} {{ ligne.produit_fini.unite_mesure }}</td>
+                <td style="text-align:left;color:var(--text-secondary);">{{ ligne.prix_unitaire|floatformat:2 }} دج</td>
+                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ ligne.montant_total|floatformat:0 }} دج</td>
                 <td style="color:var(--text-muted);font-size:12px;">{{ ligne.notes|default:"—" }}</td>
               </tr>
               {% endfor %}
             </tbody>
             <tfoot>
               <tr>
-                <td colspan="3" style="text-align:right;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);padding:12px 14px;">Total</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);padding:12px 14px;">{{ montant_total|floatformat:0 }} DZD</td>
+                <td colspan="3" style="text-align:left;font-size:12px;font-weight:600;color:var(--text-muted);padding:12px 14px;">المجموع الكلي</td>
+                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);padding:12px 14px;">{{ montant_total|floatformat:0 }} دج</td>
                 <td></td>
               </tr>
             </tfoot>
@@ -131,72 +131,70 @@
         {% else %}
         <div style="text-align:center;padding:36px 20px;color:var(--text-muted);">
           <i class="bx bx-list-ul" style="font-size:28px;display:block;margin-bottom:10px;color:var(--border-strong);"></i>
-          <div style="font-size:13px;">Aucune ligne enregistrée.</div>
+          <div style="font-size:13px;">لا توجد بنود مسجلة.</div>
         </div>
         {% endif %}
       </div>
 
     </div>
 
-    <!-- Right: actions + related factures -->
+    <!-- Left (side): actions + related invoices -->
     <div class="detail-side">
 
       <!-- Actions -->
       {% if not request.user.userprofile.role == 'viewer' %}
       <div class="card" style="margin-bottom:16px;">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bx-cog"></i> Actions</div>
+          <div class="section-eyebrow"><i class="bx bx-cog"></i> إجراءات</div>
         </div>
         <div style="padding:16px;display:flex;flex-direction:column;gap:8px;">
           {% if bl.statut == 'brouillon' %}
           <button type="button" class="btn-primary btn-full" id="btn-valider-bl">
-            <i class="bx bxs-check-circle"></i> Valider (Livré)
+            <i class="bx bxs-check-circle"></i> تأكيد (مُسلَّم)
           </button>
           <a href="{% url 'clients:bl_client_edit' bl.pk %}" class="btn-ghost btn-full">
-            <i class="bx bxs-pencil"></i> Modifier le BL
+            <i class="bx bxs-pencil"></i> تعديل الوصل
           </a>
           <button type="button" class="btn-danger btn-full" id="btn-supprimer-bl">
-            <i class="bx bxs-trash"></i> Supprimer
+            <i class="bx bxs-trash"></i> حذف
           </button>
 
           {% elif bl.statut == 'livre' %}
           <a href="{% url 'clients:facture_client_create_for_client' bl.client.pk %}" class="btn-primary btn-full">
-            <i class="bx bx-file"></i> Créer une facture
+            <i class="bx bx-file"></i> إنشاء فاتورة
           </a>
           <a href="{% url 'clients:bl_client_print' bl.pk %}" class="btn-ghost btn-full" target="_blank">
-            <i class="bx bxs-printer"></i> Imprimer le BL
+            <i class="bx bxs-printer"></i> طباعة الوصل
           </a>
 
           {% elif bl.statut == 'facture' %}
           <a href="{% url 'clients:bl_client_print' bl.pk %}" class="btn-ghost btn-full" target="_blank">
-            <i class="bx bxs-printer"></i> Imprimer le BL
+            <i class="bx bxs-printer"></i> طباعة الوصل
           </a>
 
           {% elif bl.statut == 'litige' %}
           <a href="{% url 'clients:bl_client_edit' bl.pk %}" class="btn-ghost btn-full">
-            <i class="bx bxs-pencil"></i> Modifier le BL
+            <i class="bx bxs-pencil"></i> تعديل الوصل
           </a>
           {% endif %}
 
           {% if bl.statut != 'facture' and statut_transitions %}
           <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:8px;">
             {% if is_admin %}
-            <!-- Admin: full dropdown for all allowed transitions -->
             <form method="post" action="{% url 'clients:bl_client_change_statut' bl.pk %}">
               {% csrf_token %}
               <div style="display:flex;gap:6px;align-items:center;">
-                <select name="statut" style="flex:1;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13px;padding:8px 10px;">
+                <select name="statut" style="flex:1;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13px;padding:8px 10px;direction:rtl;">
                   {% for value, label in statut_transitions %}
                   <option value="{{ value }}">{{ label }}</option>
                   {% endfor %}
                 </select>
                 <button type="submit" class="btn-ghost" style="padding:8px 12px;white-space:nowrap;">
-                  <i class="bx bx-transfer"></i> Appliquer
+                  <i class="bx bx-transfer"></i> تطبيق
                 </button>
               </div>
             </form>
             {% else %}
-            <!-- Non-admin: single contextual button -->
             <form method="post" action="{% url 'clients:bl_client_change_statut' bl.pk %}">
               {% csrf_token %}
               <input type="hidden" name="statut" value="{{ next_statut_value }}">
@@ -218,10 +216,10 @@
       </div>
       {% endif %}
 
-      <!-- Linked factures -->
+      <!-- Linked invoices -->
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bx-file"></i> Factures liées</div>
+          <div class="section-eyebrow"><i class="bx bx-file"></i> الفواتير المرتبطة</div>
         </div>
         {% if factures %}
         <div style="padding:0 4px;">
@@ -231,13 +229,13 @@
               <a href="{% url 'clients:facture_client_detail' facture.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;font-size:13.5px;">{{ facture.reference }}</a>
               <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">{{ facture.date_facture|date:"d/m/Y" }}</div>
             </div>
-            <div style="text-align:right;">
-              {% if facture.statut == 'non_payee' %}<span class="pill-danger">Non payée</span>
-              {% elif facture.statut == 'partiellement_payee' %}<span class="pill-warning">Part. payée</span>
-              {% elif facture.statut == 'payee' %}<span class="pill-success">Payée</span>
-              {% elif facture.statut == 'en_litige' %}<span class="pill-danger">Litige</span>
+            <div style="text-align:left;">
+              {% if facture.statut == 'non_payee' %}<span class="pill-danger">غير مدفوعة</span>
+              {% elif facture.statut == 'partiellement_payee' %}<span class="pill-warning">مدفوعة جزئياً</span>
+              {% elif facture.statut == 'payee' %}<span class="pill-success">مدفوعة</span>
+              {% elif facture.statut == 'en_litige' %}<span class="pill-danger">نزاع</span>
               {% endif %}
-              <div style="font-size:12px;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);margin-top:3px;">{{ facture.montant_ttc|floatformat:0 }} DZD</div>
+              <div style="font-size:12px;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);margin-top:3px;">{{ facture.montant_ttc|floatformat:0 }} دج</div>
             </div>
           </div>
           {% endfor %}
@@ -245,7 +243,7 @@
         {% else %}
         <div style="padding:24px 16px;text-align:center;color:var(--text-muted);font-size:13px;">
           <i class="bx bx-file" style="font-size:22px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
-          Aucune facture liée.
+          لا توجد فواتير مرتبطة.
         </div>
         {% endif %}
       </div>
@@ -258,13 +256,13 @@
 <div id="validate-confirm-panel" class="confirm-overlay" style="display:none;">
   <div class="confirm-box">
     <div class="confirm-box__icon"><i class="bx bxs-check-circle" style="color:#15803d;font-size:22px;"></i></div>
-    <div class="confirm-box__title">Valider ce BL ?</div>
-    <div class="confirm-box__text">Le stock produits finis sera déduit. Cette action est irréversible.</div>
+    <div class="confirm-box__title">تأكيد وصل التسليم؟</div>
+    <div class="confirm-box__text">سيتم خصم مخزون المنتجات النهائية. هذا الإجراء لا رجعة فيه.</div>
     <div class="confirm-box__actions">
-      <button type="button" id="validate-cancel-btn" class="btn-ghost">Annuler</button>
+      <button type="button" id="validate-cancel-btn" class="btn-ghost">إلغاء</button>
       <form method="post" action="{% url 'clients:bl_client_valider' bl.pk %}">
         {% csrf_token %}
-        <button type="submit" class="btn-primary"><i class="bx bxs-check-circle"></i> Confirmer</button>
+        <button type="submit" class="btn-primary"><i class="bx bxs-check-circle"></i> تأكيد</button>
       </form>
     </div>
   </div>
@@ -274,13 +272,13 @@
 <div id="delete-confirm-panel" class="confirm-overlay" style="display:none;">
   <div class="confirm-box">
     <div class="confirm-box__icon"><i class="bx bxs-error" style="color:#dc2626;font-size:22px;"></i></div>
-    <div class="confirm-box__title">Supprimer ce BL ?</div>
-    <div class="confirm-box__text">Cette action est irréversible. Le BL « {{ bl.reference }} » sera définitivement supprimé.</div>
+    <div class="confirm-box__title">حذف وصل التسليم؟</div>
+    <div class="confirm-box__text">هذا الإجراء لا رجعة فيه. سيتم حذف وصل التسليم « {{ bl.reference }} » نهائياً.</div>
     <div class="confirm-box__actions">
-      <button type="button" id="delete-cancel-btn" class="btn-ghost">Annuler</button>
+      <button type="button" id="delete-cancel-btn" class="btn-ghost">إلغاء</button>
       <form method="post" action="{% url 'clients:bl_client_delete' bl.pk %}">
         {% csrf_token %}
-        <button type="submit" class="btn-danger">Supprimer</button>
+        <button type="submit" class="btn-danger">حذف</button>
       </form>
     </div>
   </div>
@@ -289,6 +287,9 @@
 
 {% block extra_css %}
 <style>
+  /* ── RTL ── */
+  .page-body { direction: rtl; }
+
   .detail-grid { display: grid; grid-template-columns: 1fr 320px; gap: 16px; align-items: start; }
   @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
   .detail-main { display: flex; flex-direction: column; }
@@ -296,22 +297,22 @@
 
   .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
   .card-header-row { padding: 14px 18px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
 
   .card-body-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; padding: 0; }
   .info-row { display: flex; flex-direction: column; gap: 3px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
   .info-row--full { grid-column: 1 / -1; }
   .info-row:nth-last-child(-n+2):not(.info-row--full) { border-bottom: none; }
   .info-row--full:last-child { border-bottom: none; }
-  .info-label { font-size: 11px; font-weight: 500; color: var(--text-muted); letter-spacing: .03em; text-transform: uppercase; }
+  .info-label { font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; }
   .info-value { font-size: 13.5px; color: var(--text-secondary); }
 
   .table-wrapper { overflow-x: auto; }
   .data-table { width: 100%; border-collapse: collapse; }
-  .data-table thead th { padding: 10px 14px; font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: left; background: var(--bg-base); }
-  .data-table tbody td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+  .data-table thead th { padding: 10px 14px; font-size: 11px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: right; background: var(--bg-base); }
+  .data-table tbody td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); text-align: right; }
   .data-table tbody tr:last-child td { border-bottom: none; }
-  .data-table tfoot td { background: var(--bg-base); border-top: 1px solid var(--border); }
+  .data-table tfoot td { background: var(--bg-base); border-top: 1px solid var(--border); text-align: right; }
   .table-row { animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i) * 35ms); }
   .table-row:hover td { background: var(--bg-hover); }
 
@@ -330,7 +331,7 @@
   .btn-full { width:100%;justify-content:center; }
 
   .confirm-overlay { position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:999;display:flex;align-items:center;justify-content:center; }
-  .confirm-box { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;width:380px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.15);text-align:center; }
+  .confirm-box { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;width:380px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.15);text-align:center;direction:rtl; }
   .confirm-box__icon { margin-bottom:12px; }
   .confirm-box__title { font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;color:var(--text-primary);margin-bottom:8px; }
   .confirm-box__text { font-size:13px;color:var(--text-secondary);margin-bottom:20px; }

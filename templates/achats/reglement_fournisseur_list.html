@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Règlements Fournisseurs — Élevage Avicole{% endblock %}
+{% block title %}تسويات الموردين — تربية الدواجن{% endblock %}
 
 {% block nav_reglements %}active{% endblock %}
 
-{% block page_title %}Règlements Fournisseurs{% endblock %}
-{% block page_sub_text %}{{ page.paginator.count }} règlement{{ page.paginator.count|pluralize }}{% endblock %}
+{% block page_title %}تسويات الموردين{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} تسوية{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'achats:reglement_fournisseur_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouveau règlement
+    <i class="bx bx-plus"></i> تسوية جديدة
   </a>
 {% endblock %}
 
@@ -21,14 +21,14 @@
     <div class="filter-group">
       <div class="input-icon-wrap">
         <i class="bx bx-search"></i>
-        <input type="text" name="q" value="{{ q }}" placeholder="Fournisseur, référence…" class="filter-input" />
+        <input type="text" name="q" value="{{ q }}" placeholder="المورد، المرجع..." class="filter-input" />
       </div>
     </div>
     <div class="filter-group">
       <div class="input-icon-wrap">
         <i class="bx bxs-building"></i>
         <select name="fournisseur" class="filter-select filter-select--icon" id="filter-fournisseur">
-          <option value="">Tous les fournisseurs</option>
+          <option value="">جميع الموردين</option>
           {% for f in fournisseurs %}
           <option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.nom }}</option>
           {% endfor %}
@@ -38,25 +38,25 @@
     <div class="filter-group">
       <div class="input-icon-wrap">
         <i class="bx bxs-calendar"></i>
-        <input type="date" name="date_debut" value="{{ date_debut }}" class="filter-input filter-input--date" title="Date début" />
+        <input type="date" name="date_debut" value="{{ date_debut }}" class="filter-input filter-input--date" title="تاريخ البداية" />
       </div>
     </div>
     <div class="filter-group">
       <div class="input-icon-wrap">
         <i class="bx bxs-calendar"></i>
-        <input type="date" name="date_fin" value="{{ date_fin }}" class="filter-input filter-input--date" title="Date fin" />
+        <input type="date" name="date_fin" value="{{ date_fin }}" class="filter-input filter-input--date" title="تاريخ النهاية" />
       </div>
     </div>
-    <button type="submit" class="btn-ghost"><i class="bx bx-search"></i> Filtrer</button>
+    <button type="submit" class="btn-ghost"><i class="bx bx-search"></i> تصفية</button>
     {% if q or fournisseur_pk or date_debut or date_fin %}
-    <a href="{% url 'achats:reglement_fournisseur_list' %}" class="btn-ghost"><i class="bx bx-x"></i> Réinitialiser</a>
+    <a href="{% url 'achats:reglement_fournisseur_list' %}" class="btn-ghost"><i class="bx bx-x"></i> إعادة تعيين</a>
     {% endif %}
   </form>
 </div>
 
 <div class="card">
   <div class="card-header-row">
-    <div class="section-eyebrow">Règlements fournisseurs</div>
+    <div class="section-eyebrow">تسويات الموردين</div>
   </div>
 
   {% if page.object_list %}
@@ -64,13 +64,13 @@
     <table class="data-table">
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Fournisseur</th>
-          <th>Mode</th>
-          <th>Référence paiement</th>
-          <th style="text-align:right;">Montant</th>
-          <th>Allocations</th>
-          <th style="text-align:right;">Actions</th>
+          <th>التاريخ</th>
+          <th>المورد</th>
+          <th>طريقة الدفع</th>
+          <th>مرجع الدفع</th>
+          <th style="text-align:left;">المبلغ</th>
+          <th>التخصيصات</th>
+          <th style="text-align:left;">الإجراءات</th>
         </tr>
       </thead>
       <tbody>
@@ -92,18 +92,18 @@
             </span>
           </td>
           <td style="color:var(--text-muted);font-size:12px;">{{ reg.reference_paiement|default:"—" }}</td>
-          <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--accent-text);">
+          <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--accent-text);">
             {{ reg.montant|floatformat:0 }} DZD
           </td>
           <td>
             <span style="font-size:12px;color:var(--text-muted);">
-              {{ reg.allocations.count }} facture{{ reg.allocations.count|pluralize }}
-              {% if reg.acompte %}<span class="pill-warning" style="margin-left:4px;">Acompte</span>{% endif %}
+              {{ reg.allocations.count }} فاتورة
+              {% if reg.acompte %}<span class="pill-warning" style="margin-right:4px;">سلفة</span>{% endif %}
             </span>
           </td>
           <td>
             <div class="actions-cell">
-              <a href="{% url 'achats:reglement_fournisseur_detail' reg.pk %}" class="action-btn" title="Voir"><i class="bx bxs-show"></i></a>
+              <a href="{% url 'achats:reglement_fournisseur_detail' reg.pk %}" class="action-btn" title="عرض"><i class="bx bxs-show"></i></a>
             </div>
           </td>
         </tr>
@@ -117,7 +117,7 @@
     {% if page.has_previous %}
     <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
     {% endif %}
-    <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+    <span class="page-info">الصفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
     {% if page.has_next %}
     <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
     {% endif %}
@@ -127,15 +127,15 @@
   {% else %}
   <div style="text-align:center;padding:56px 20px;color:var(--text-muted);">
     <i class="bx bxs-coin" style="font-size:36px;display:block;margin-bottom:14px;color:var(--border-strong);"></i>
-    <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">Aucun règlement trouvé</div>
+    <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">لم يتم العثور على تسويات</div>
     <div style="font-size:13px;">
       {% if q or fournisseur_pk or date_debut or date_fin %}
-        <a href="{% url 'achats:reglement_fournisseur_list' %}" style="color:var(--accent-text);">Réinitialiser les filtres</a>
-      {% else %}Enregistrez le premier règlement fournisseur.{% endif %}
+        <a href="{% url 'achats:reglement_fournisseur_list' %}" style="color:var(--accent-text);">إعادة تعيين الفلاتر</a>
+      {% else %}سجّل أول تسوية للمورد.{% endif %}
     </div>
     {% if not q and not fournisseur_pk and not date_debut and not date_fin %}
     <a href="{% url 'achats:reglement_fournisseur_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
-      <i class="bx bx-plus"></i> Nouveau règlement
+      <i class="bx bx-plus"></i> تسوية جديدة
     </a>
     {% endif %}
   </div>
@@ -149,16 +149,16 @@
   .filter-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .filter-group { display: flex; align-items: center; }
   .input-icon-wrap { position: relative; display: flex; align-items: center; }
-  .input-icon-wrap > i { position: absolute; left: 12px; font-size: 15px; color: var(--text-muted); pointer-events: none; z-index: 1; }
+  .input-icon-wrap > i { position: absolute; right: 12px; font-size: 15px; color: var(--text-muted); pointer-events: none; z-index: 1; }
   .filter-input, .filter-select {
     background: var(--bg-surface); border: 1px solid var(--border);
     border-radius: var(--radius-md); color: var(--text-primary);
     font-family: 'Inter', sans-serif; font-size: 13px;
     padding: 9px 13px; outline: none; transition: border-color .15s;
   }
-  .filter-input { padding-left: 38px; width: 200px; }
+  .filter-input { padding-right: 38px; padding-left: 13px; width: 200px; }
   .filter-input--date { width: 150px; }
-  .filter-select--icon { padding-left: 36px; padding-right: 28px; appearance: none; min-width: 170px; }
+  .filter-select--icon { padding-right: 36px; padding-left: 28px; appearance: none; min-width: 170px; }
   .filter-input:focus, .filter-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
 
   .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
@@ -197,7 +197,7 @@
 
   .pill-warning { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 500; background: rgba(245,158,11,.14); color: #b45309; }
 
-  .actions-cell { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+  .actions-cell { display: flex; align-items: center; justify-content: flex-start; gap: 4px; }
   .action-btn {
     display: inline-flex; align-items: center; justify-content: center;
     width: 30px; height: 30px; border-radius: var(--radius-sm);

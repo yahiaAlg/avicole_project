@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Nouveau Règlement Fournisseur — Élevage Avicole{% endblock %}
+{% block title %}تسوية مورد جديدة — تربية الدواجن{% endblock %}
 
 {% block nav_reglements %}active{% endblock %}
 
-{% block page_title %}Nouveau Règlement Fournisseur{% endblock %}
+{% block page_title %}تسوية مورد جديدة{% endblock %}
 {% block page_sub_text %}
-  {% if fournisseur %}{{ fournisseur.nom }}{% else %}Sélectionner un fournisseur{% endif %}
+  {% if fournisseur %}{{ fournisseur.nom }}{% else %}اختيار المورد{% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'achats:reglement_fournisseur_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour
+    <i class="bx bx-arrow-back"></i> رجوع
   </a>
 {% endblock %}
 
@@ -31,7 +31,7 @@
         {% if fournisseur.type_principal %}<div class="supplier-banner__type">{{ fournisseur.type_principal.libelle }}</div>{% endif %}
       </div>
       <a href="{% url 'achats:fournisseur_tableau_de_bord' fournisseur.pk %}" class="btn-ghost btn-sm">
-        <i class="bxs-dashboard bx"></i> Tableau de bord
+        <i class="bxs-dashboard bx"></i> لوحة التحكم
       </a>
     </div>
     {% endif %}
@@ -41,10 +41,10 @@
     <div class="notice-banner" style="background:rgba(56,189,248,.07);border-color:rgba(56,189,248,.25);">
       <i class="bx bxs-file-txt" style="flex-shrink:0;color:#0284c7;"></i>
       <span>
-        Règlement pré-rempli pour la facture
+        تسوية مُعبأة مسبقاً للفاتورة
         <strong style="color:#0284c7;">{{ facture_obj.reference }}</strong>
-        — Reste à payer : <strong>{{ facture_obj.reste_a_payer|floatformat:0 }} DZD</strong>.
-        Le FIFO s'applique à toutes les factures ouvertes du fournisseur.
+        — المتبقي للدفع: <strong>{{ facture_obj.reste_a_payer|floatformat:0 }} دج</strong>.
+        تُطبَّق قاعدة FIFO على جميع الفواتير المفتوحة للمورد.
       </span>
     </div>
     {% endif %}
@@ -59,7 +59,7 @@
     <!-- Immutability notice -->
     <div class="notice-banner">
       <i class="bx bxs-lock" style="flex-shrink:0;color:#b45309;"></i>
-      <span><strong>Note :</strong> Les règlements sont <strong>immuables</strong> après enregistrement (BR-REG-06). Vérifiez le montant et le fournisseur avant de soumettre.</span>
+      <span><strong>ملاحظة:</strong> التسويات <strong>غير قابلة للتعديل</strong> بعد التسجيل (BR-REG-06). تحقق من المبلغ والمورد قبل الإرسال.</span>
     </div>
 
     <form method="post" id="reglement-form">
@@ -71,12 +71,12 @@
       {% endif %}
 
       <div class="form-card">
-        <div class="form-card__title"><i class="bx bxs-coin"></i> Détails du règlement</div>
+        <div class="form-card__title"><i class="bx bxs-coin"></i> تفاصيل التسوية</div>
 
         {% if not fournisseur %}
         <div class="field-group">
           <label for="{{ form.fournisseur.id_for_label }}" class="field-label">
-            Fournisseur <span class="required-star">*</span>
+            المورد <span class="required-star">*</span>
           </label>
           {{ form.fournisseur }}
           {% if form.fournisseur.errors %}
@@ -88,7 +88,7 @@
         <div class="form-row-2">
           <div class="field-group">
             <label for="{{ form.date_reglement.id_for_label }}" class="field-label">
-              Date du règlement <span class="required-star">*</span>
+              تاريخ التسوية <span class="required-star">*</span>
             </label>
             {{ form.date_reglement }}
             {% if form.date_reglement.errors %}
@@ -97,7 +97,7 @@
           </div>
           <div class="field-group">
             <label for="{{ form.mode_paiement.id_for_label }}" class="field-label">
-              Mode de paiement <span class="required-star">*</span>
+              طريقة الدفع <span class="required-star">*</span>
             </label>
             {{ form.mode_paiement }}
             {% if form.mode_paiement.errors %}
@@ -109,7 +109,7 @@
         <div class="form-row-2">
           <div class="field-group">
             <label for="{{ form.montant.id_for_label }}" class="field-label">
-              Montant (DZD) <span class="required-star">*</span>
+              المبلغ (دج) <span class="required-star">*</span>
             </label>
             <div class="input-icon-wrap">
               <i class="bx bxs-coin"></i>
@@ -132,11 +132,11 @@
           </div>
           <div class="field-group">
             <label for="{{ form.reference_paiement.id_for_label }}" class="field-label">
-              Référence (n° chèque / virement)
+              المرجع (رقم الشيك / التحويل)
             </label>
             {{ form.reference_paiement }}
             <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">
-              Auto-généré : REF-{MODE}-{DATE}-{HEURE}. Modifiable.
+              يُولَّد تلقائياً: REF-{MODE}-{DATE}-{HEURE}. قابل للتعديل.
             </div>
             {% if form.reference_paiement.errors %}
             <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.reference_paiement.errors.0 }}</div>
@@ -145,7 +145,7 @@
         </div>
 
         <div class="field-group">
-          <label for="{{ form.notes.id_for_label }}" class="field-label">Notes</label>
+          <label for="{{ form.notes.id_for_label }}" class="field-label">ملاحظات</label>
           {{ form.notes }}
           {% if form.notes.errors %}
           <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.notes.errors.0 }}</div>
@@ -156,7 +156,7 @@
       <!-- FIFO Preview block (rendered by JS on amount input) -->
       <div class="fifo-preview" id="fifo-preview" style="display:none;">
         <div class="fifo-preview__header">
-          <i class="bx bx-transfer"></i> Simulation d'allocation FIFO automatique
+          <i class="bx bx-transfer"></i> محاكاة توزيع FIFO التلقائي
         </div>
         <div id="fifo-rows"></div>
         <div class="fifo-preview__footer" id="fifo-footer"></div>
@@ -166,12 +166,12 @@
       {% if fournisseur and solde and not solde.factures_ouvertes %}
       <div class="notice-banner notice-banner--success">
         <i class="bx bxs-check-circle" style="flex-shrink:0;color:#15803d;"></i>
-        <span>Ce fournisseur n'a <strong>aucune facture ouverte</strong>. Le montant sera enregistré comme <strong>acompte</strong> et utilisé lors des prochaines factures (BR-REG-04).</span>
+        <span>ليس لهذا المورد <strong>أي فاتورة مفتوحة</strong>. سيُسجَّل المبلغ كـ<strong>سلفة</strong> وسيُستخدم عند الفواتير القادمة (BR-REG-04).</span>
       </div>
       {% endif %}
 
       <div class="form-actions">
-        <a href="{% url 'achats:reglement_fournisseur_list' %}" class="btn-ghost">Annuler</a>
+        <a href="{% url 'achats:reglement_fournisseur_list' %}" class="btn-ghost">إلغاء</a>
         <button type="submit" class="btn-primary" id="submit-btn">
           <i class="bx bxs-coin"></i> {{ action_label }}
         </button>
@@ -183,9 +183,9 @@
   <div class="form-aside">
     {% if fournisseur and solde %}
     <div class="aside-card aside-card--debt">
-      <div class="aside-card__title"><i class="bx bx-hourglass"></i> Situation du fournisseur</div>
+      <div class="aside-card__title"><i class="bx bx-hourglass"></i> وضع المورد</div>
       <div class="debt-metric">
-        <div class="debt-metric__label">Dette globale</div>
+        <div class="debt-metric__label">الديون الإجمالية</div>
         <div class="debt-metric__val {% if solde.dette_globale > 0 %}val-red{% endif %}">
           {{ solde.dette_globale|floatformat:0 }} DZD
         </div>
@@ -198,16 +198,16 @@
       </div>
       {% endif %}
       <div class="summary-row">
-        <span class="summary-label">Acompte disponible</span>
+        <span class="summary-label">السلفة المتاحة</span>
         <span class="summary-val" style="color:var(--accent-text);">{{ solde.acompte_disponible|floatformat:0 }} DZD</span>
       </div>
       <div class="summary-row">
-        <span class="summary-label">Total réglé (historique)</span>
+        <span class="summary-label">إجمالي المدفوع (تاريخياً)</span>
         <span class="summary-val">{{ solde.total_reglements|floatformat:0 }} DZD</span>
       </div>
       {% if solde.nb_factures_retard > 0 %}
       <div class="summary-row" style="color:#dc2626;">
-        <span class="summary-label" style="color:#dc2626;">Factures en retard</span>
+        <span class="summary-label" style="color:#dc2626;">فواتير متأخرة</span>
         <span class="summary-val" style="color:#dc2626;">{{ solde.nb_factures_retard }}</span>
       </div>
       {% endif %}
@@ -215,7 +215,7 @@
 
     {% if solde.factures_ouvertes %}
     <div class="aside-card">
-      <div class="aside-card__title"><i class="bx bxs-file-txt"></i> Factures ouvertes (ordre FIFO)</div>
+      <div class="aside-card__title"><i class="bx bxs-file-txt"></i> الفواتير المفتوحة (ترتيب FIFO)</div>
       <div class="fifo-open-list" id="open-invoices">
         {% for f in solde.factures_ouvertes %}
         <div class="fifo-open-item"
@@ -225,7 +225,7 @@
              data-date="{{ f.date_facture|date:'d/m/Y' }}">
           <div class="fifo-open-item__ref">{{ f.reference }}</div>
           <div class="fifo-open-item__meta">{{ f.date_facture|date:"d/m/Y" }}
-            {% if f.est_en_retard %}<span style="color:#dc2626;font-size:10px;"> · En retard</span>{% endif %}
+            {% if f.est_en_retard %}<span style="color:#dc2626;font-size:10px;"> · متأخرة</span>{% endif %}
           </div>
           <div class="fifo-open-item__reste">{{ f.reste_a_payer|floatformat:0 }} DZD</div>
         </div>
@@ -236,9 +236,9 @@
 
     {% else %}
     <div class="aside-card">
-      <div class="aside-card__title"><i class="bx bx-info-circle"></i> Allocation FIFO</div>
+      <div class="aside-card__title"><i class="bx bx-info-circle"></i> توزيع FIFO</div>
       <div style="font-size:12px;color:var(--text-muted);line-height:1.6;">
-        Après enregistrement, l'allocation FIFO s'applique automatiquement aux factures ouvertes les plus anciennes (BR-REG-03). Un surplus génère un acompte (BR-REG-04).
+        بعد التسجيل، يُطبَّق توزيع FIFO تلقائياً على أقدم الفواتير المفتوحة (BR-REG-03). الفائض يُولِّد سلفة (BR-REG-04).
       </div>
     </div>
     {% endif %}
@@ -314,8 +314,8 @@
     border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow);
   }
   .input-icon-wrap { position: relative; display: flex; align-items: center; }
-  .input-icon-wrap > i { position: absolute; left: 12px; font-size: 15px; color: var(--text-muted); pointer-events: none; z-index: 1; }
-  .input-icon-wrap input { padding-left: 38px; width: 100%; }
+  .input-icon-wrap > i { position: absolute; right: 12px; font-size: 15px; color: var(--text-muted); pointer-events: none; z-index: 1; }
+  .input-icon-wrap input { padding-right: 38px; padding-left: 13px; width: 100%; }
 
   /* FIFO preview */
   .fifo-preview {
@@ -338,7 +338,7 @@
   .fifo-preview__footer { font-size: 12px; color: var(--text-muted); margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
   .fifo-acompte-note { font-size: 12px; color: #b45309; margin-top: 6px; }
 
-  .form-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
+  .form-actions { display: flex; justify-content: flex-start; gap: 10px; padding-top: 4px; }
 
   /* Aside */
   .aside-card {
@@ -502,29 +502,29 @@ document.addEventListener('DOMContentLoaded', function () {
     var dette_val = parseFloat(data.dette_globale) || 0;
     var acompte_val = parseFloat(data.acompte_disponible) || 0;
     var html = '<div class="aside-card aside-card--debt">';
-    html += '<div class="aside-card__title"><i class="bx bx-hourglass"></i> Situation du fournisseur</div>';
+    html += '<div class="aside-card__title"><i class="bx bx-hourglass"></i> وضع المورد</div>';
     html += '<div class="debt-metric">';
-    html += '<div class="debt-metric__label">Dette globale</div>';
-    html += '<div class="debt-metric__val ' + (dette_val > 0 ? 'val-red' : '') + '">' + Math.round(dette_val).toLocaleString('fr-DZ') + ' DZD</div>';
+    html += '<div class="debt-metric__label">الديون الإجمالية</div>';
+    html += '<div class="debt-metric__val ' + (dette_val > 0 ? 'val-red' : '') + '">' + Math.round(dette_val).toLocaleString('ar-DZ') + ' DZD</div>';
     html += '</div>';
     if (dette_val > 0) {
       html += '<div class="debt-bar-wrap"><div class="debt-bar__track"><div class="debt-bar__fill" id="debt-fill" style="width:100%;"></div></div></div>';
     }
-    html += '<div class="summary-row"><span class="summary-label">Acompte disponible</span><span class="summary-val" style="color:var(--accent-text);">' + Math.round(acompte_val).toLocaleString('fr-DZ') + ' DZD</span></div>';
+    html += '<div class="summary-row"><span class="summary-label">السلفة المتاحة</span><span class="summary-val" style="color:var(--accent-text);">' + Math.round(acompte_val).toLocaleString('ar-DZ') + ' DZD</span></div>';
     if (data.nb_factures_retard > 0) {
-      html += '<div class="summary-row" style="color:#dc2626;"><span class="summary-label" style="color:#dc2626;">Factures en retard</span><span class="summary-val" style="color:#dc2626;">' + data.nb_factures_retard + '</span></div>';
+      html += '<div class="summary-row" style="color:#dc2626;"><span class="summary-label" style="color:#dc2626;">فواتير متأخرة</span><span class="summary-val" style="color:#dc2626;">' + data.nb_factures_retard + '</span></div>';
     }
     html += '</div>';
 
     if (data.factures_ouvertes && data.factures_ouvertes.length > 0) {
       html += '<div class="aside-card">';
-      html += '<div class="aside-card__title"><i class="bx bxs-file-txt"></i> Factures ouvertes (ordre FIFO)</div>';
+      html += '<div class="aside-card__title"><i class="bx bxs-file-txt"></i> الفواتير المفتوحة (ترتيب FIFO)</div>';
       html += '<div class="fifo-open-list" id="open-invoices">';
       data.factures_ouvertes.forEach(function (f) {
         html += '<div class="fifo-open-item" data-pk="' + f.pk + '" data-ref="' + f.reference + '" data-reste="' + f.reste_a_payer + '" data-date="' + f.date_facture + '">';
         html += '<div class="fifo-open-item__ref">' + f.reference + '</div>';
-        html += '<div class="fifo-open-item__meta">' + f.date_facture + (f.est_en_retard ? ' <span style="color:#dc2626;font-size:10px;"> · En retard</span>' : '') + '</div>';
-        html += '<div class="fifo-open-item__reste">' + Math.round(parseFloat(f.reste_a_payer)).toLocaleString('fr-DZ') + ' DZD</div>';
+        html += '<div class="fifo-open-item__meta">' + f.date_facture + (f.est_en_retard ? ' <span style="color:#dc2626;font-size:10px;"> · متأخرة</span>' : '') + '</div>';
+        html += '<div class="fifo-open-item__reste">' + Math.round(parseFloat(f.reste_a_payer)).toLocaleString('ar-DZ') + ' DZD</div>';
         html += '</div>';
       });
       html += '</div></div>';
@@ -558,7 +558,7 @@ document.addEventListener('DOMContentLoaded', function () {
       dette = 0;
       openInvoices = [];
       if (formAside) {
-        formAside.innerHTML = '<div class="aside-card"><div class="aside-card__title"><i class="bx bx-info-circle"></i> Allocation FIFO</div>'
+        formAside.innerHTML = '<div class="aside-card"><div class="aside-card__title"><i class="bx bx-info-circle"></i> توزيع FIFO</div>'
           + '<div style="font-size:12px;color:var(--text-muted);line-height:1.6;">Sélectionnez un fournisseur pour voir sa situation financière.</div></div>';
       }
       updateDebtLive(0);
@@ -597,7 +597,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function formatDZD(n) {
-    return Math.round(n).toLocaleString('fr-DZ') + ' DZD';
+    return Math.round(n).toLocaleString('ar-DZ') + ' DZD';
   }
 
   // ── Live debt-remaining indicator (instant, no debounce) ─────────────────
@@ -623,17 +623,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Label + remaining amount
     if (pct >= 100) {
-      debtLiveLabel.textContent     = 'Dette entièrement couverte';
+      debtLiveLabel.textContent     = 'الديون مغطاة بالكامل';
       debtLiveLabel.style.color     = '#16a34a';
       debtLiveRemaining.textContent = '0 DZD';
       debtLiveRemaining.style.color = '#16a34a';
     } else if (val > 0) {
-      debtLiveLabel.textContent     = 'Reste à payer après règlement';
+      debtLiveLabel.textContent     = 'المتبقي بعد التسوية';
       debtLiveLabel.style.color     = 'var(--text-muted)';
       debtLiveRemaining.textContent = formatDZD(newDette);
       debtLiveRemaining.style.color = '#b45309';
     } else {
-      debtLiveLabel.textContent     = 'Dette totale';
+      debtLiveLabel.textContent     = 'الديون الإجمالية';
       debtLiveLabel.style.color     = 'var(--text-muted)';
       debtLiveRemaining.textContent = formatDZD(dette);
       debtLiveRemaining.style.color = '#dc2626';
@@ -644,20 +644,20 @@ document.addEventListener('DOMContentLoaded', function () {
     if (pct >= 100 && val > dette) {
       var surplus = val - dette;
       msgIcon  = 'bx-piggy-bank';
-      msgText  = 'Surplus de ' + formatDZD(surplus) + ' → Acompte fournisseur (BR-REG-04)';
+      msgText  = 'فائض بمقدار ' + formatDZD(surplus) + ' → Acompte fournisseur (BR-REG-04)';
       msgColor = '#7c3aed';
     } else if (pct >= 100) {
       msgIcon  = 'bxs-check-circle';
-      msgText  = 'Ce règlement solde toutes les factures ouvertes';
+      msgText  = 'هذه التسوية تصفّي جميع الفواتير المفتوحة';
       msgColor = '#16a34a';
     } else if (pct > 0) {
       var pctInt = Math.round(pct);
       msgIcon  = 'bx-transfer';
-      msgText  = pctInt + ' % de la dette couverte — ' + formatDZD(covered) + ' alloué(s)';
+      msgText  = pctInt + ' % de la dette couverte — ' + formatDZD(covered) + ' مخصصة';
       msgColor = '#b45309';
     } else {
       msgIcon  = 'bxs-error-circle';
-      msgText  = 'Saisissez un montant pour voir l\u2019impact sur la dette';
+      msgText  = 'أدخل مبلغاً لرؤية الأثر على الديون';
       msgColor = 'var(--text-muted)';
     }
     debtLiveMsg.innerHTML = '<i class="bx ' + msgIcon + '" style="color:' + msgColor + ';font-size:13px;flex-shrink:0;"></i>'
@@ -706,11 +706,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (remaining > 0) surplus = remaining;
 
-    fifoRows.innerHTML = html || '<div style="font-size:13px;color:var(--text-muted);padding:6px 0;">Aucune facture ouverte — tout le montant sera un acompte.</div>';
+    fifoRows.innerHTML = html || '<div style="font-size:13px;color:var(--text-muted);padding:6px 0;">لا توجد فواتير مفتوحة — سيكون المبلغ بالكامل سلفة.</div>';
 
     var footerHtml = '';
     var newDette   = Math.max(0, dette - (montant - surplus));
-    footerHtml    += 'Nouvelle dette estimée : <strong>' + formatDZD(newDette) + '</strong>';
+    footerHtml    += 'الديون المتبقية المتوقعة: <strong>' + formatDZD(newDette) + '</strong>';
     if (surplus > 0) {
       footerHtml += '<div class="fifo-acompte-note"><i class="bx bxs-piggy-bank"></i> Surplus de '
                   + formatDZD(surplus) + ' → Acompte fournisseur (BR-REG-04)</div>';

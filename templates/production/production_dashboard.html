@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Tableau de bord Production — Élevage Avicole{% endblock %}
+{% block title %}لوحة تحكم الإنتاج — تربية الدواجن{% endblock %}
 {% block nav_production %}active{% endblock %}
 
 {% block page_title %}Production{% endblock %}
-{% block page_sub_text %}Vue d'ensemble · Abattages · Stock produits finis{% endblock %}
+{% block page_sub_text %}نظرة عامة · الذبح · مخزون المنتجات النهائية{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'production:production_record_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouvel enregistrement
+    <i class="bx bx-plus"></i> تسجيل جديد
   </a>
   <a href="{% url 'production:produit_fini_list' %}" class="btn-ghost">
-    <i class="bx bxs-package"></i> Catalogue produits
+    <i class="bx bxs-package"></i> كتالوج المنتجات
   </a>
 {% endblock %}
 
@@ -33,9 +33,9 @@
           <input type="date" name="date_fin" value="{{ date_fin }}" class="filter-date-input">
         </div>
       </div>
-      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> Filtrer</button>
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> تصفية</button>
       {% if date_debut or date_fin %}
-        <a href="{% url 'production:dashboard' %}" class="btn-ghost btn-sm btn-clear-filter"><i class="bx bx-x"></i> Effacer</a>
+        <a href="{% url 'production:dashboard' %}" class="btn-ghost btn-sm btn-clear-filter"><i class="bx bx-x"></i> مسح</a>
       {% endif %}
     </form>
   </div>
@@ -46,54 +46,54 @@
     <div class="kpi-card kpi-green">
       <div class="kpi-icon"><i class="bx bxs-layer"></i></div>
       <div class="kpi-body">
-        <div class="kpi-label">LOTS ACTIFS</div>
+        <div class="kpi-label">الدفعات النشطة</div>
         <div class="kpi-value">{{ lots_actifs }}</div>
-        <div class="kpi-sub">lots en cours d'élevage</div>
+        <div class="kpi-sub">دفعات قيد التربية</div>
       </div>
     </div>
 
     <div class="kpi-card kpi-blue">
       <div class="kpi-icon"><i class="bx bxs-group"></i></div>
       <div class="kpi-body">
-        <div class="kpi-label">OISEAUX ABATTUS</div>
+        <div class="kpi-label">الطيور المذبوحة</div>
         <div class="kpi-value">{{ totaux.total_oiseaux|default:0|floatformat:0 }}</div>
-        <div class="kpi-sub">têtes · période filtrée</div>
+        <div class="kpi-sub">رأس · الفترة المصفاة</div>
       </div>
     </div>
 
     <div class="kpi-card kpi-teal">
       <div class="kpi-icon"><i class="bx bxs-package"></i></div>
       <div class="kpi-body">
-        <div class="kpi-label">POIDS TOTAL</div>
+        <div class="kpi-label">الوزن الإجمالي</div>
         <div class="kpi-value">{{ totaux.total_poids|default:0|floatformat:1 }}<span class="kpi-unit">kg</span></div>
-        <div class="kpi-sub">produit · période filtrée</div>
+        <div class="kpi-sub">منتج · الفترة المصفاة</div>
       </div>
     </div>
 
     <div class="kpi-card kpi-indigo">
       <div class="kpi-icon"><i class="bx bxs-bar-chart-alt-2"></i></div>
       <div class="kpi-body">
-        <div class="kpi-label">VALEUR STOCK</div>
+        <div class="kpi-label">قيمة المخزون</div>
         <div class="kpi-value">{{ valeur_stock_total|floatformat:0 }}<span class="kpi-unit">DZD</span></div>
-        <div class="kpi-sub">au coût moyen production</div>
+        <div class="kpi-sub">بمتوسط تكلفة الإنتاج</div>
       </div>
     </div>
 
     <div class="kpi-card kpi-emerald">
       <div class="kpi-icon"><i class="bx bxs-coin-stack"></i></div>
       <div class="kpi-body">
-        <div class="kpi-label">REVENU POTENTIEL</div>
+        <div class="kpi-label">الإيراد المحتمل</div>
         <div class="kpi-value">{{ revenu_potentiel|floatformat:0 }}<span class="kpi-unit">DZD</span></div>
-        <div class="kpi-sub">au prix de vente défaut</div>
+        <div class="kpi-sub">بسعر البيع الافتراضي</div>
       </div>
     </div>
 
     <div class="kpi-card {% if nb_en_alerte %}kpi-red{% else %}kpi-slate{% endif %}">
       <div class="kpi-icon"><i class="bx bxs-bell{% if nb_en_alerte %}-ring{% endif %}"></i></div>
       <div class="kpi-body">
-        <div class="kpi-label">ALERTES STOCK</div>
+        <div class="kpi-label">تنبيهات المخزون</div>
         <div class="kpi-value">{{ nb_en_alerte }}</div>
-        <div class="kpi-sub">{% if nb_en_alerte %}produit(s) sous seuil{% else %}tout bien approvisionné{% endif %}</div>
+        <div class="kpi-sub">{% if nb_en_alerte %}منتج تحت الحد الأدنى{% else %}المخزون كافٍ{% endif %}</div>
       </div>
     </div>
 
@@ -105,12 +105,12 @@
     <div class="chart-card">
       <div class="chart-header">
         <div>
-          <div class="chart-eyebrow">Tendance mensuelle</div>
-          <div class="chart-title">Abattages des 6 derniers mois</div>
+          <div class="chart-eyebrow">الاتجاه الشهري</div>
+          <div class="chart-title">الذبح في آخر 6 أشهر</div>
         </div>
         <div class="chart-legend">
-          <span class="legend-dot" style="background:#6366f1;"></span>Oiseaux
-          <span class="legend-dot" style="background:#0ea5e9;margin-left:12px;"></span>Poids (kg)
+          <span class="legend-dot" style="background:#6366f1;"></span>الطيور
+          <span class="legend-dot" style="background:#0ea5e9;margin-right:12px;"></span>الوزن (كجم)
         </div>
       </div>
       <div class="chart-body">
@@ -121,8 +121,8 @@
     <div class="chart-card">
       <div class="chart-header">
         <div>
-          <div class="chart-eyebrow">Répartition globale</div>
-          <div class="chart-title">Production par type</div>
+          <div class="chart-eyebrow">التوزيع الإجمالي</div>
+          <div class="chart-title">الإنتاج حسب النوع</div>
         </div>
       </div>
       <div class="chart-body chart-body-donut">
@@ -139,8 +139,8 @@
     <div class="chart-card">
       <div class="chart-header">
         <div>
-          <div class="chart-eyebrow">Inventaire actuel</div>
-          <div class="chart-title">Stock produits finis</div>
+          <div class="chart-eyebrow">المخزون الحالي</div>
+          <div class="chart-title">مخزون المنتجات النهائية</div>
         </div>
       </div>
       <div class="chart-body">
@@ -151,12 +151,12 @@
     <div class="chart-card">
       <div class="chart-header">
         <div>
-          <div class="chart-eyebrow">Analyse rentabilité</div>
-          <div class="chart-title">Coût vs Revenu potentiel par lot</div>
+          <div class="chart-eyebrow">تحليل الربحية</div>
+          <div class="chart-title">التكلفة مقابل الإيراد المحتمل حسب الدفعة</div>
         </div>
         <div class="chart-legend">
-          <span class="legend-dot" style="background:#f87171;"></span>Coût
-          <span class="legend-dot" style="background:#34d399;margin-left:12px;"></span>Revenu
+          <span class="legend-dot" style="background:#f87171;"></span>التكلفة
+          <span class="legend-dot" style="background:#34d399;margin-right:12px;"></span>الإيراد
         </div>
       </div>
       <div class="chart-body">
@@ -172,21 +172,21 @@
     <!-- Per-lot summary table -->
     <div class="data-card span-2">
       <div class="data-header">
-        <div class="data-title">Synthèse par lot <span class="data-period">· Période filtrée</span></div>
-        <a href="{% url 'production:production_record_list' %}?statut=valide" class="link-all">Voir tout <i class="bx bx-right-arrow-alt"></i></a>
+        <div class="data-title">ملخص الدفعات <span class="data-period">· الفترة المصفاة</span></div>
+        <a href="{% url 'production:production_record_list' %}?statut=valide" class="link-all">عرض الكل <i class="bx bx-left-arrow-alt"></i></a>
       </div>
       {% if dashboard_rows %}
       <div class="tbl-wrap">
         <table class="dtable">
           <thead>
             <tr>
-              <th>Lot</th>
-              <th>Bâtiment</th>
-              <th>Dernière prod.</th>
-              <th class="num">Oiseaux</th>
-              <th class="num">Poids (kg)</th>
-              <th class="num">Poids moy.</th>
-              <th class="num">Coût estimé</th>
+              <th>الدفعة</th>
+              <th>المبنى</th>
+              <th>آخر إنتاج</th>
+              <th class="num">الطيور</th>
+              <th class="num">الوزن (كجم)</th>
+              <th class="num">متوسط الوزن</th>
+              <th class="num">التكلفة التقديرية</th>
             </tr>
           </thead>
           <tbody>
@@ -211,7 +211,7 @@
       {% else %}
       <div class="empty-state">
         <i class="bx bx-data"></i>
-        <p>Aucune production validée pour la période sélectionnée.</p>
+        <p>لا يوجد إنتاج مُعتمد للفترة المحددة.</p>
       </div>
       {% endif %}
     </div>
@@ -219,19 +219,19 @@
     <!-- Stock produits finis table -->
     <div class="data-card span-2">
       <div class="data-header">
-        <div class="data-title">Stock produits finis <span class="data-period">· Tous</span></div>
+        <div class="data-title">مخزون المنتجات النهائية <span class="data-period">· الكل</span></div>
       </div>
       {% if stock_produits %}
       <div class="tbl-wrap">
         <table class="dtable">
           <thead>
             <tr>
-              <th>Produit</th>
-              <th>Type</th>
-              <th class="num">Quantité</th>
-              <th class="num">CMP (DZD)</th>
-              <th class="num">Valeur stock</th>
-              <th class="num">Statut</th>
+              <th>المنتج</th>
+              <th>النوع</th>
+              <th class="num">الكمية</th>
+              <th class="num">متوسط التكلفة (د.ج)</th>
+              <th class="num">قيمة المخزون</th>
+              <th class="num">الحالة</th>
             </tr>
           </thead>
           <tbody>
@@ -250,9 +250,9 @@
               <td class="num accent-col">{{ s.valeur_stock|floatformat:0 }} DZD</td>
               <td class="num">
                 {% if s.en_alerte %}
-                  <span class="pill pill-danger"><i class="bx bxs-error-circle"></i> Bas</span>
+                  <span class="pill pill-danger"><i class="bx bxs-error-circle"></i> منخفض</span>
                 {% else %}
-                  <span class="pill pill-ok"><i class="bx bxs-check-circle"></i> OK</span>
+                  <span class="pill pill-ok"><i class="bx bxs-check-circle"></i> جيد</span>
                 {% endif %}
               </td>
             </tr>
@@ -261,14 +261,14 @@
         </table>
       </div>
       {% else %}
-      <div class="empty-state"><i class="bx bx-package"></i><p>Aucun produit fini dans le catalogue.</p></div>
+      <div class="empty-state"><i class="bx bx-package"></i><p>لا توجد منتجات نهائية في الكتالوج.</p></div>
       {% endif %}
     </div>
 
     <!-- Brouillons -->
     <div class="data-card">
       <div class="data-header">
-        <div class="data-title">Brouillons à valider</div>
+        <div class="data-title">المسودات في انتظار الاعتماد</div>
         {% if brouillons %}<span class="badge-warn">{{ brouillons|length }}</span>{% endif %}
       </div>
       {% if brouillons %}
@@ -276,34 +276,34 @@
         <a href="{% url 'production:production_record_detail' rec.pk %}" class="list-row" style="--i:{{ forloop.counter0 }}">
           <div class="list-main">
             <div class="list-name">{{ rec.lot.designation }}</div>
-            <div class="list-sub">{{ rec.date_production|date:"d/m/Y" }} · {{ rec.nombre_oiseaux_abattus|floatformat:0 }} oiseaux</div>
+            <div class="list-sub">{{ rec.date_production|date:"d/m/Y" }} · {{ rec.nombre_oiseaux_abattus|floatformat:0 }} طيور</div>
           </div>
-          <span class="pill pill-warn">Brouillon</span>
+          <span class="pill pill-warn">مسودة</span>
         </a>
         {% endfor %}
       {% else %}
-        <div class="empty-state small"><i class="bx bx-check-circle" style="color:#22c55e;"></i><p>Aucun brouillon en attente.</p></div>
+        <div class="empty-state small"><i class="bx bx-check-circle" style="color:#22c55e;"></i><p>لا توجد مسودات معلقة.</p></div>
       {% endif %}
     </div>
 
     <!-- Validated recent -->
     <div class="data-card">
       <div class="data-header">
-        <div class="data-title">10 dernières validations</div>
-        <a href="{% url 'production:production_record_list' %}?statut=valide" class="link-all">Tout voir <i class="bx bx-right-arrow-alt"></i></a>
+        <div class="data-title">آخر 10 اعتمادات</div>
+        <a href="{% url 'production:production_record_list' %}?statut=valide" class="link-all">عرض الكل <i class="bx bx-left-arrow-alt"></i></a>
       </div>
       {% if valides_recents %}
         {% for rec in valides_recents %}
         <a href="{% url 'production:production_record_detail' rec.pk %}" class="list-row" style="--i:{{ forloop.counter0 }}">
           <div class="list-main">
             <div class="list-name">{{ rec.lot.designation }}</div>
-            <div class="list-sub">{{ rec.date_production|date:"d/m/Y" }} · {{ rec.nombre_oiseaux_abattus|floatformat:0 }} têtes · {{ rec.poids_total_kg|floatformat:1 }} kg</div>
+            <div class="list-sub">{{ rec.date_production|date:"d/m/Y" }} · {{ rec.nombre_oiseaux_abattus|floatformat:0 }} رأس · {{ rec.poids_total_kg|floatformat:1 }} كجم</div>
           </div>
-          <span class="pill pill-success">Validé</span>
+          <span class="pill pill-success">مُعتمد</span>
         </a>
         {% endfor %}
       {% else %}
-        <div class="empty-state small"><i class="bx bx-time"></i><p>Aucun enregistrement validé.</p></div>
+        <div class="empty-state small"><i class="bx bx-time"></i><p>لا يوجد تسجيل مُعتمد.</p></div>
       {% endif %}
     </div>
 
@@ -331,11 +331,11 @@
 .filters-form { display:flex;align-items:center;gap:10px;flex-wrap:wrap; }
 .date-range-wrapper { display:flex;align-items:center;gap:8px; }
 .date-input-group { position:relative;display:flex;align-items:center; }
-.date-icon { position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;pointer-events:none; }
+.date-icon { position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;pointer-events:none; }
 .filter-date-input {
   background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);
   color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13px;
-  padding:9px 12px 9px 32px;cursor:pointer;
+  padding:9px 32px 9px 12px;cursor:pointer;
   transition:border-color .15s,box-shadow .15s;
 }
 .filter-date-input:focus { border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.15);outline:none; }
@@ -369,7 +369,7 @@
 
 .kpi-label{font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px;}
 .kpi-value{font-size:22px;font-weight:800;color:var(--text-primary);line-height:1.1;margin-bottom:3px;font-family:'Nunito',sans-serif;}
-.kpi-unit {font-size:12px;font-weight:600;color:var(--text-muted);margin-left:2px;}
+.kpi-unit {font-size:12px;font-weight:600;color:var(--text-muted);margin-right:2px;}
 .kpi-sub  {font-size:11px;color:var(--text-muted);}
 
 /* ── Charts ───────────────────────────────────────────── */
@@ -425,7 +425,7 @@
 .dtable tbody tr:last-child{border-bottom:none;}
 .dtable tbody tr:hover{background:var(--bg-hover);}
 .dtable td{padding:10px 14px;font-size:12.5px;color:var(--text-secondary);vertical-align:middle;}
-@keyframes fadeRow{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
+@keyframes fadeRow{from{opacity:0;transform:translateX(4px)}to{opacity:1;transform:none}}
 
 .lot-link  {font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;}
 .lot-link:hover{color:var(--accent-text);}
@@ -512,12 +512,12 @@
         labels: d.labels,
         datasets: [
           {
-            type:'bar', label:'Oiseaux abattus', data:d.oiseaux, yAxisID:'y',
+            type:'bar', label:'الطيور المذبوحة', data:d.oiseaux, yAxisID:'y',
             backgroundColor:'rgba(99,102,241,.22)', borderColor:'#6366f1',
             borderWidth:2, borderRadius:5,
           },
           {
-            type:'line', label:'Poids total (kg)', data:d.poids, yAxisID:'y2',
+            type:'line', label:'الوزن الإجمالي (كجم)', data:d.poids, yAxisID:'y2',
             borderColor:'#0ea5e9', backgroundColor:'rgba(14,165,233,.07)',
             borderWidth:2.5, pointBackgroundColor:'#0ea5e9',
             pointRadius:4, pointHoverRadius:6, tension:0.35, fill:true,
@@ -532,10 +532,10 @@
           x:{grid:{display:false},border:{display:false},ticks:{color:C.textMuted}},
           y:{type:'linear',position:'left',grid:gridOpts,border:{display:false},
              ticks:{color:C.textMuted,precision:0},
-             title:{display:true,text:'Oiseaux',color:C.textMuted,font:{size:10}}},
+             title:{display:true,text:'الطيور',color:C.textMuted,font:{size:10}}},
           y2:{type:'linear',position:'right',grid:{display:false},border:{display:false},
               ticks:{color:'#0ea5e9'},
-              title:{display:true,text:'Poids (kg)',color:'#0ea5e9',font:{size:10}}},
+              title:{display:true,text:'الوزن (كجم)',color:'#0ea5e9',font:{size:10}}},
         },
       },
     });
@@ -547,13 +547,13 @@
     const centerEl = document.getElementById('donutCenter');
     if (!ctx) return;
     if (!d.labels || !d.labels.length) {
-      centerEl.textContent = 'Aucune donnée';
+      centerEl.textContent = 'لا توجد بيانات';
       return;
     }
     const PALETTE = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#f87171','#a855f7','#ec4899'];
     const total = d.values.reduce((a,b)=>a+b,0);
     const fmt = n => n.toLocaleString('fr-FR',{maximumFractionDigits:0});
-    centerEl.innerHTML = `<div style="font-size:18px;font-weight:800;">${fmt(total)}</div><div style="font-size:10px;color:var(--text-muted);">unités totales</div>`;
+    centerEl.innerHTML = `<div style="font-size:18px;font-weight:800;">${fmt(total)}</div><div style="font-size:10px;color:var(--text-muted);">وحدات إجمالية</div>`;
 
     const chart = new Chart(ctx, {
       type:'doughnut',
@@ -580,7 +580,7 @@
         const i = pts[0].index;
         centerEl.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--text-primary);max-width:80px;text-align:center;line-height:1.3;">${d.labels[i]}</div><div style="font-size:17px;font-weight:800;margin-top:2px;">${d.values[i].toLocaleString('fr-FR',{maximumFractionDigits:1})}</div>`;
       } else {
-        centerEl.innerHTML = `<div style="font-size:18px;font-weight:800;">${fmt(total)}</div><div style="font-size:10px;color:var(--text-muted);">unités totales</div>`;
+        centerEl.innerHTML = `<div style="font-size:18px;font-weight:800;">${fmt(total)}</div><div style="font-size:10px;color:var(--text-muted);">وحدات إجمالية</div>`;
       }
     });
   }
@@ -590,7 +590,7 @@
     const ctx = document.getElementById('chartStock');
     if (!ctx) return;
     if (!d.labels || !d.labels.length) {
-      ctx.parentElement.innerHTML = '<div class="empty-state small"><i class="bx bx-package"></i><p>Aucun stock.</p></div>';
+      ctx.parentElement.innerHTML = '<div class="empty-state small"><i class="bx bx-package"></i><p>لا يوجد مخزون.</p></div>';
       return;
     }
     const horiz = d.labels.length > 5;
@@ -599,7 +599,7 @@
 
     new Chart(ctx, {
       type:'bar',
-      data:{labels:d.labels,datasets:[{label:'Quantité',data:d.quantities,backgroundColor:bgs,borderColor:bords,borderWidth:2,borderRadius:5}]},
+      data:{labels:d.labels,datasets:[{label:'الكمية',data:d.quantities,backgroundColor:bgs,borderColor:bords,borderWidth:2,borderRadius:5}]},
       options:{
         indexAxis:horiz?'y':'x',
         responsive:true, maintainAspectRatio:false,
@@ -625,7 +625,7 @@
     const ctx = document.getElementById('chartCoutRevenu');
     if (!ctx) return;
     if (!d.labels || !d.labels.length) {
-      ctx.parentElement.innerHTML = '<div class="empty-state small"><i class="bx bx-bar-chart"></i><p>Aucune donnée de rentabilité.</p></div>';
+      ctx.parentElement.innerHTML = '<div class="empty-state small"><i class="bx bx-bar-chart"></i><p>لا توجد بيانات ربحية.</p></div>';
       return;
     }
     const labels = d.labels.map(l => l.length>20?l.slice(0,18)+'…':l);
@@ -636,8 +636,8 @@
       data:{
         labels,
         datasets:[
-          {label:'Coût estimé (DZD)',   data:d.couts,  backgroundColor:'rgba(248,113,113,.28)',borderColor:'#f87171',borderWidth:2,borderRadius:4},
-          {label:'Revenu potentiel (DZD)',data:d.revenus,backgroundColor:'rgba(52,211,153,.28)',borderColor:'#34d399',borderWidth:2,borderRadius:4},
+          {label:'التكلفة التقديرية (د.ج)',   data:d.couts,  backgroundColor:'rgba(248,113,113,.28)',borderColor:'#f87171',borderWidth:2,borderRadius:4},
+          {label:'الإيراد المحتمل (د.ج)',data:d.revenus,backgroundColor:'rgba(52,211,153,.28)',borderColor:'#34d399',borderWidth:2,borderRadius:4},
         ],
       },
       options:{

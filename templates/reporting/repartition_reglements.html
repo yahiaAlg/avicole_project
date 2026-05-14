@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Répartition des Règlements — Élevage Avicole{% endblock %}
+{% block title %}توزيع المدفوعات — تربية الدواجن{% endblock %}
 {% block nav_rapports %}active{% endblock %}
-{% block page_title %}Répartition des Règlements{% endblock %}
-{% block page_sub_text %}Total alloué : {{ grand_total|floatformat:0 }} DZD{% endblock %}
+{% block page_title %}توزيع المدفوعات{% endblock %}
+{% block page_sub_text %}المجموع المخصَّص : {{ grand_total|floatformat:0 }} DZD{% endblock %}
 {% block topbar_actions %}
 <a href="?{% if fournisseur_pk %}fournisseur={{ fournisseur_pk }}&{% endif %}{% if date_debut %}date_debut={{ date_debut|date:"Y-m-d" }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:"Y-m-d" }}&{% endif %}export=csv" class="btn-ghost btn-sm">
-  <i class="bx bxs-spreadsheet"></i> Exporter CSV
+  <i class="bx bxs-spreadsheet"></i> تصدير CSV
 </a>
-<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> Rapports</a>
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> التقارير</a>
 {% endblock %}
 
 {% block extra_css %}
@@ -26,7 +26,7 @@
       <div class="input-wrapper" style="flex:1;min-width:180px;">
         <i class="bx bxs-building input-icon"></i>
         <select name="fournisseur" class="field-input has-icon">
-          <option value="">Tous les fournisseurs</option>
+          <option value="">جميع الموردين</option>
           {% for f in fournisseurs %}<option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.nom }}</option>{% endfor %}
         </select>
       </div>
@@ -38,8 +38,8 @@
         <i class="bx bxs-calendar input-icon"></i>
         <input type="date" name="date_fin" class="field-input has-icon" value="{{ date_fin|date:'Y-m-d' }}">
       </div>
-      <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> Filtrer</button>
-      <a href="{% url 'reporting:repartition_reglements' %}" class="btn-ghost btn-sm">Réinitialiser</a>
+      <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> تصفية</button>
+      <a href="{% url 'reporting:repartition_reglements' %}" class="btn-ghost btn-sm">إعادة تعيين</a>
     </form>
   </div>
 </div>
@@ -48,7 +48,7 @@
 <div class="row g-3 mb-4">
   <div class="col-xl-5">
     <div class="section-card" style="height:100%;">
-      <div class="section-card__head"><span class="section-card__title">Par Mode de Paiement</span></div>
+      <div class="section-card__head"><span class="section-card__title">حسب طريقة الدفع</span></div>
       <div class="section-card__body">
         <div class="chart-wrap"><canvas id="modeDonut"></canvas></div>
         <div style="margin-top:14px;">
@@ -57,11 +57,11 @@
             <span style="font-size:13px;color:var(--text-secondary);">{{ m.label }}</span>
             <div style="text-align:right;">
               <span style="font-family:'Nunito',sans-serif;font-weight:700;">{{ m.total|floatformat:0 }} DZD</span>
-              <span style="font-size:11px;color:var(--text-muted);margin-left:6px;">{{ m.nb }} opér.</span>
+              <span style="font-size:11px;color:var(--text-muted);margin-right:6px;">{{ m.nb }} عمل.</span>
             </div>
           </div>
           {% empty %}
-          <div style="text-align:center;color:var(--text-muted);padding:20px 0;font-size:13px;">Aucune donnée</div>
+          <div style="text-align:center;color:var(--text-muted);padding:20px 0;font-size:13px;">لا توجد بيانات</div>
           {% endfor %}
         </div>
       </div>
@@ -69,7 +69,7 @@
   </div>
   <div class="col-xl-7">
     <div class="section-card" style="height:100%;">
-      <div class="section-card__head"><span class="section-card__title">Par Fournisseur</span></div>
+      <div class="section-card__head"><span class="section-card__title">حسب المورد</span></div>
       <div class="section-card__body">
         <div class="chart-wrap" style="height:260px;"><canvas id="supplierBar"></canvas></div>
       </div>
@@ -80,8 +80,8 @@
 <!-- Detail table -->
 <div class="section-card">
   <div class="section-card__head">
-    <span class="section-card__title">Détail Allocations</span>
-    <span style="font-size:12px;color:var(--text-muted);">{{ page.paginator.count }} allocation(s)</span>
+    <span class="section-card__title">تفاصيل التخصيصات</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ page.paginator.count }} تخصيص(ات)</span>
   </div>
   <div class="section-card__body no-pad">
     {% if page.object_list %}
@@ -89,12 +89,12 @@
       <table class="table-base">
         <thead>
           <tr>
-            <th>Fournisseur</th>
-            <th>Date Règlement</th>
-            <th>Mode</th>
-            <th>Réf. Règlement</th>
-            <th>Facture Imputée</th>
-            <th style="text-align:right;">Montant Alloué</th>
+            <th>المورد</th>
+            <th>تاريخ الدفع</th>
+            <th>الطريقة</th>
+            <th>مرجع الدفع</th>
+            <th>الفاتورة المُوجَّهة</th>
+            <th style="text-align:right;">المبلغ المخصَّص</th>
           </tr>
         </thead>
         <tbody>
@@ -111,7 +111,7 @@
         </tbody>
         <tfoot>
           <tr style="background:var(--bg-raised);">
-            <td colspan="5" style="font-weight:700;padding:12px 14px;">TOTAL</td>
+            <td colspan="5" style="font-weight:700;padding:12px 14px;">المجموع</td>
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;padding:12px 14px;color:var(--text-primary);">{{ grand_total|floatformat:0 }} DZD</td>
           </tr>
         </tfoot>
@@ -128,7 +128,7 @@
     </div>
     {% endif %}
     {% else %}
-    <div class="empty-state"><i class="bx bx-transfer empty-state__icon"></i><div class="empty-state__title">Aucune allocation</div><div class="empty-state__text">Modifiez la période ou le fournisseur.</div></div>
+    <div class="empty-state"><i class="bx bx-transfer empty-state__icon"></i><div class="empty-state__title">لا توجد تخصيصات</div><div class="empty-state__text">عدّل الفترة أو المورد.</div></div>
     {% endif %}
   </div>
 </div>
@@ -169,11 +169,11 @@ document.addEventListener('DOMContentLoaded', function () {
   if (d.suppliers.labels.length) {
     new Chart(document.getElementById('supplierBar'), {
       type: 'bar',
-      data: { labels: d.suppliers.labels, datasets:[{ label:'Montant alloué (DZD)', data:d.suppliers.values,
+      data: { labels: d.suppliers.labels, datasets:[{ label:'المبلغ المخصَّص (دج)', data:d.suppliers.values,
         backgroundColor:'rgba(34,197,94,.7)', borderColor:'#22c55e', borderWidth:1, borderRadius:6, borderSkipped:false }] },
       options: { indexAxis:'y', responsive:true, maintainAspectRatio:false,
         plugins:{ legend:{display:false}, tooltip:tip },
-        scales:{ x:{grid:{color:'rgba(0,0,0,.05)'},ticks:{callback:v=>(v/1000).toFixed(0)+'k'}}, y:{grid:{display:false}} } }
+        scales:{ x:{grid:{color:'rgba(0,0,0,.05)'},ticks:{callback:v=>(v/1000).toFixed(0)+'ألف'}}, y:{grid:{display:false}} } }
     });
   }
 });

@@ -1,40 +1,40 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Factures Clients — Élevage Avicole{% endblock %}
+{% block title %}فواتير العملاء — مزرعة الدواجن{% endblock %}
 
 {% block nav_facturation %}active{% endblock %}
 
-{% block page_title %}Factures Clients{% endblock %}
-{% block page_sub_text %}{{ page.paginator.count }} facture{{ page.paginator.count|pluralize }}{% endblock %}
+{% block page_title %}فواتير العملاء{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} فاتورة{% endblock %}
 
 {% block topbar_actions %}
   {% if not request.user.userprofile.role == 'viewer' %}
   <a href="{% url 'clients:facture_client_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouvelle facture
+    <i class="bx bx-plus"></i> فاتورة جديدة
   </a>
   {% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="page-body">
+<div class="page-body" dir="rtl" style="font-family:'Cairo','Noto Sans Arabic','Inter',sans-serif;">
 
   <!-- Summary metrics -->
   {% if totals.total_ttc %}
   <div class="metrics-row">
     <div class="metric-card">
       <div class="metric-icon ic-blue"><i class="bx bx-file"></i></div>
-      <div class="metric-label">TOTAL TTC FILTRÉ</div>
+      <div class="metric-label">إجمالي شامل الضريبة</div>
       <div class="metric-value">{{ totals.total_ttc|floatformat:0 }} <small>DZD</small></div>
     </div>
     <div class="metric-card">
       <div class="metric-icon ic-amber"><i class="bx bxs-hourglass"></i></div>
-      <div class="metric-label">RESTE À PAYER</div>
+      <div class="metric-label">المبلغ المتبقي</div>
       <div class="metric-value">{{ totals.total_rap|floatformat:0 }} <small>DZD</small></div>
     </div>
     <div class="metric-card">
       <div class="metric-icon ic-green"><i class="bx bxs-check-circle"></i></div>
-      <div class="metric-label">DÉJÀ RÉGLÉ</div>
+      <div class="metric-label">المدفوع</div>
       <div class="metric-value">{{ totals.total_regle|floatformat:0 }} <small>DZD</small></div>
     </div>
   </div>
@@ -45,32 +45,32 @@
     <form method="get" class="filters-form" id="filter-form">
       <div class="search-wrapper">
         <i class="bx bx-search search-icon"></i>
-        <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Référence facture…" class="search-input" autocomplete="off">
+        <input type="text" name="q" value="{{ request.GET.q }}" placeholder="مرجع الفاتورة…" class="search-input" autocomplete="off">
       </div>
       <select name="client" class="filter-select" id="filter-client">
-        <option value="">Tous les clients</option>
+        <option value="">جميع العملاء</option>
         {% for c in clients %}
         <option value="{{ c.pk }}" {% if client_filter == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nom }}</option>
         {% endfor %}
       </select>
       <select name="statut" class="filter-select" id="filter-statut">
-        <option value="">Tous les statuts</option>
+        <option value="">جميع الحالات</option>
         {% for val, label in statut_choices %}
         <option value="{{ val }}" {% if statut_filter == val %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
       <label class="filter-checkbox-label">
-        <input type="checkbox" name="retard" value="1" {% if request.GET.retard == '1' %}checked{% endif %} id="filter-retard"> En retard seulement
+        <input type="checkbox" name="retard" value="1" {% if request.GET.retard == '1' %}checked{% endif %} id="filter-retard"> المتأخرة فقط
       </label>
-      <input type="date" name="date_debut" value="{% if date_debut %}{{ date_debut|date:'Y-m-d' }}{% endif %}" class="filter-date" placeholder="Du">
-      <input type="date" name="date_fin"   value="{% if date_fin %}{{ date_fin|date:'Y-m-d' }}{% endif %}"   class="filter-date" placeholder="Au">
-      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> Filtrer</button>
+      <input type="date" name="date_debut" value="{% if date_debut %}{{ date_debut|date:'Y-m-d' }}{% endif %}" class="filter-date" placeholder="من">
+      <input type="date" name="date_fin"   value="{% if date_fin %}{{ date_fin|date:'Y-m-d' }}{% endif %}"   class="filter-date" placeholder="إلى">
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> تصفية</button>
     </form>
   </div>
 
   <div class="card">
     <div class="card-header-row">
-      <div class="section-eyebrow"><i class="bx bx-file"></i> Factures Clients</div>
+      <div class="section-eyebrow"><i class="bx bx-file"></i> فواتير العملاء</div>
     </div>
 
     {% if page.object_list %}
@@ -78,14 +78,14 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Référence</th>
-            <th>Client</th>
-            <th>Date</th>
-            <th>Échéance</th>
-            <th>Statut</th>
-            <th style="text-align:right;">Montant TTC</th>
-            <th style="text-align:right;">Reste à payer</th>
-            <th style="text-align:right;">Actions</th>
+            <th>المرجع</th>
+            <th>العميل</th>
+            <th>التاريخ</th>
+            <th>تاريخ الاستحقاق</th>
+            <th>الحالة</th>
+            <th style="text-align:right;">المبلغ الإجمالي</th>
+            <th style="text-align:right;">المبلغ المتبقي</th>
+            <th style="text-align:right;">إجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -104,15 +104,15 @@
               {% if facture.date_echeance %}
               <span style="color:{% if facture.est_en_retard %}#dc2626{% else %}var(--text-muted){% endif %};">
                 {{ facture.date_echeance|date:"d/m/Y" }}
-                {% if facture.est_en_retard %}<i class="bx bxs-error" title="En retard"></i>{% endif %}
+                {% if facture.est_en_retard %}<i class="bx bxs-error" title="متأخرة"></i>{% endif %}
               </span>
               {% else %}—{% endif %}
             </td>
             <td>
-              {% if facture.statut == 'non_payee' %}<span class="pill-danger">Non payée</span>
-              {% elif facture.statut == 'partiellement_payee' %}<span class="pill-warning">Part. payée</span>
-              {% elif facture.statut == 'payee' %}<span class="pill-success">Payée</span>
-              {% elif facture.statut == 'en_litige' %}<span class="pill-danger">En litige</span>
+              {% if facture.statut == 'non_payee' %}<span class="pill-danger">غير مدفوعة</span>
+              {% elif facture.statut == 'partiellement_payee' %}<span class="pill-warning">مدفوعة جزئياً</span>
+              {% elif facture.statut == 'payee' %}<span class="pill-success">مدفوعة</span>
+              {% elif facture.statut == 'en_litige' %}<span class="pill-danger">متنازع عليها</span>
               {% endif %}
             </td>
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ facture.montant_ttc|floatformat:0 }} DZD</td>
@@ -121,8 +121,8 @@
             </td>
             <td>
               <div class="actions-cell">
-                <a href="{% url 'clients:facture_client_detail' facture.pk %}" class="action-btn" title="Détail"><i class="bx bx-show"></i></a>
-                <a href="{% url 'clients:facture_client_print' facture.pk %}" class="action-btn" title="Imprimer" target="_blank"><i class="bx bxs-printer"></i></a>
+                <a href="{% url 'clients:facture_client_detail' facture.pk %}" class="action-btn" title="عرض"><i class="bx bx-show"></i></a>
+                <a href="{% url 'clients:facture_client_print' facture.pk %}" class="action-btn" title="طباعة" target="_blank"><i class="bx bxs-printer"></i></a>
               </div>
             </td>
           </tr>
@@ -136,7 +136,7 @@
       {% if page.has_previous %}
       <a href="?client={{ client_filter }}&statut={{ statut_filter }}&page={{ page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
       {% else %}<span class="page-btn page-btn--disabled"><i class="bx bx-chevron-left"></i></span>{% endif %}
-      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      <span class="page-info">صفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
       {% if page.has_next %}
       <a href="?client={{ client_filter }}&statut={{ statut_filter }}&page={{ page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
       {% else %}<span class="page-btn page-btn--disabled"><i class="bx bx-chevron-right"></i></span>{% endif %}
@@ -146,10 +146,10 @@
     {% else %}
     <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
       <i class="bx bx-file" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
-      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">Aucune facture trouvée</div>
-      <div style="font-size:13px;">Modifiez les filtres ou créez une nouvelle facture client.</div>
+      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">لا توجد فواتير</div>
+      <div style="font-size:13px;">عدّل الفلاتر أو أنشئ فاتورة عميل جديدة.</div>
       {% if not request.user.userprofile.role == 'viewer' %}
-      <a href="{% url 'clients:facture_client_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;"><i class="bx bx-plus"></i> Nouvelle facture</a>
+      <a href="{% url 'clients:facture_client_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;"><i class="bx bx-plus"></i> فاتورة جديدة</a>
       {% endif %}
     </div>
     {% endif %}
@@ -158,7 +158,16 @@
 {% endblock %}
 
 {% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
+  [dir="rtl"] .data-table thead th,
+  [dir="rtl"] .data-table tbody td { text-align: right; }
+  [dir="rtl"] .data-table thead th:last-child,
+  [dir="rtl"] .data-table tbody td:last-child { text-align: left; }
+  [dir="rtl"] .actions-cell { justify-content: flex-start; }
+  [dir="rtl"] .metric-value { font-family: 'Cairo', sans-serif; }
+  [dir="rtl"] .filters-form { direction: rtl; }
+  [dir="rtl"] .pagination-bar { direction: rtl; }
   .metrics-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
   @media (max-width: 700px) { .metrics-row { grid-template-columns: 1fr; } }
   .metric-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; }
@@ -173,8 +182,8 @@
   .filters-bar { margin-bottom: 16px; }
   .filters-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   .search-wrapper { position: relative; flex: 1; min-width: 180px; }
-  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; }
-  .search-input { width: 100%; padding: 9px 12px 9px 36px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 13.5px; color: var(--text-primary); font-family: 'Inter',sans-serif; }
+  .search-icon { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; }
+  .search-input { width: 100%; padding: 9px 36px 9px 12px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 13.5px; color: var(--text-primary); font-family: 'Inter',sans-serif; }
   .search-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px rgba(34,197,94,.15); }
   .filter-select, .filter-date { padding: 9px 12px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 13px; color: var(--text-secondary); font-family: 'Inter',sans-serif; cursor: pointer; }
   .filter-select:focus, .filter-date:focus { border-color: var(--accent); outline: none; }
@@ -194,7 +203,7 @@
   .data-table tbody tr:last-child td { border-bottom: none; }
   .table-row { animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i) * 35ms); }
   .table-row:hover td { background: var(--bg-hover); }
-  .row-retard { border-left: 3px solid #ef4444; }
+  .row-retard { border-right: 3px solid #ef4444; }
   .row-link { text-decoration: none; }
 
   .actions-cell { display: flex; gap: 4px; justify-content: flex-end; }

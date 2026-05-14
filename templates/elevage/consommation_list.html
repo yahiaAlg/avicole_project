@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Consommations — Élevage Avicole{% endblock %}
+{% block title %}الاستهلاكات — تربية الدواجن{% endblock %}
 
 {% block nav_lots %}active{% endblock %}
 
-{% block page_title %}Consommations{% endblock %}
-{% block page_sub_text %}Historique des consommations d'intrants — tous lots{% endblock %}
+{% block page_title %}الاستهلاكات{% endblock %}
+{% block page_sub_text %}سجل استهلاكات المدخلات — كل القطعان{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'elevage:lot_list' %}" class="btn-ghost">
-    <i class="bx bxs-grid-alt"></i> Lots d'élevage
+    <i class="bx bxs-grid-alt"></i> دفعات التربية
   </a>
 {% endblock %}
 
@@ -21,7 +21,7 @@
   {% if total_par_intrant %}
   <div class="summary-strip card mb-3">
     <div class="summary-strip__header">
-      <span class="section-eyebrow">Top consommations{% if date_debut or date_fin %} — période filtrée{% endif %}</span>
+      <span class="section-eyebrow">أبرز الاستهلاكات{% if date_debut or date_fin %} — فترة مفلترة{% endif %}</span>
     </div>
     <div class="summary-strip__body">
       {% for item in total_par_intrant %}
@@ -40,15 +40,15 @@
 
       <!-- Search -->
       <div style="flex:1;min-width:200px;position:relative;">
-        <i class="bx bx-search" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;"></i>
-        <input type="text" name="q" value="{{ q }}" placeholder="Intrant, lot…" class="filter-input" style="padding-left:40px;">
+        <i class="bx bx-search" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;"></i>
+        <input type="text" name="q" value="{{ q }}" placeholder="مدخل، قطيع…" class="filter-input" style="padding-right:40px;">
       </div>
 
       <!-- Lot filter -->
       <div style="position:relative;min-width:180px;">
-        <i class="bx bxs-grid-alt" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;"></i>
-        <select name="lot" id="select-lot" class="filter-input" style="padding-left:40px;">
-          <option value="">Tous les lots</option>
+        <i class="bx bxs-grid-alt" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;"></i>
+        <select name="lot" id="select-lot" class="filter-input" style="padding-right:40px;">
+          <option value="">كل القطعان</option>
           {% for l in lots %}
           <option value="{{ l.pk }}" {% if lot_pk == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.designation }}</option>
           {% endfor %}
@@ -57,9 +57,9 @@
 
       <!-- Intrant filter -->
       <div style="position:relative;min-width:180px;">
-        <i class="bx bxs-package" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;"></i>
-        <select name="intrant" id="select-intrant" class="filter-input" style="padding-left:40px;">
-          <option value="">Tous les intrants</option>
+        <i class="bx bxs-package" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;"></i>
+        <select name="intrant" id="select-intrant" class="filter-input" style="padding-right:40px;">
+          <option value="">كل المدخلات</option>
           {% for intrant in intrants %}
           <option value="{{ intrant.pk }}" {% if intrant_pk == intrant.pk|stringformat:"s" %}selected{% endif %}>{{ intrant.designation }}</option>
           {% endfor %}
@@ -68,20 +68,20 @@
 
       <!-- Date début -->
       <div style="position:relative;min-width:148px;">
-        <i class="bx bxs-calendar" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;pointer-events:none;"></i>
-        <input type="date" name="date_debut" value="{{ date_debut }}" class="filter-input" style="padding-left:40px;" title="Date début">
+        <i class="bx bxs-calendar" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;pointer-events:none;"></i>
+        <input type="date" name="date_debut" value="{{ date_debut }}" class="filter-input" style="padding-right:40px;" title="تاريخ البداية">
       </div>
 
       <!-- Date fin -->
       <div style="position:relative;min-width:148px;">
-        <i class="bx bxs-calendar-check" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;pointer-events:none;"></i>
-        <input type="date" name="date_fin" value="{{ date_fin }}" class="filter-input" style="padding-left:40px;" title="Date fin">
+        <i class="bx bxs-calendar-check" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;pointer-events:none;"></i>
+        <input type="date" name="date_fin" value="{{ date_fin }}" class="filter-input" style="padding-right:40px;" title="تاريخ النهاية">
       </div>
 
-      <button type="submit" class="btn-ghost"><i class="bx bxs-filter-alt"></i> Filtrer</button>
+      <button type="submit" class="btn-ghost"><i class="bx bxs-filter-alt"></i> تصفية</button>
       {% if q or lot_pk or intrant_pk or date_debut or date_fin %}
       <a href="{% url 'elevage:consommation_list' %}" class="btn-ghost" style="color:#dc2626;border-color:rgba(239,68,68,.2);">
-        <i class="bx bx-x"></i> Réinitialiser
+        <i class="bx bx-x"></i> إعادة تعيين
       </a>
       {% endif %}
     </form>
@@ -91,7 +91,7 @@
   <div class="card">
     <div class="card-header-row">
       <div class="section-eyebrow">
-        {% if page.paginator.count %}{{ page.paginator.count }} enregistrement{{ page.paginator.count|pluralize }}{% else %}Aucun résultat{% endif %}
+        {% if page.paginator.count %}{{ page.paginator.count }} سجل{% else %}لا نتائج{% endif %}
       </div>
     </div>
 
@@ -100,13 +100,13 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Lot</th>
-            <th>Intrant</th>
-            <th>Catégorie</th>
-            <th style="text-align:right;">Quantité</th>
-            <th>Notes</th>
-            <th style="text-align:right;">Actions</th>
+            <th>التاريخ</th>
+            <th>القطيع</th>
+            <th>المدخل</th>
+            <th>الفئة</th>
+            <th style="text-align:right;">الكمية</th>
+            <th>ملاحظات</th>
+            <th style="text-align:right;">الإجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -121,7 +121,7 @@
                 {{ conso.lot.designation }}
               </a>
               {% if conso.lot.statut == 'ferme' %}
-              <span class="pill-neutral" style="margin-left:4px;font-size:10px;"><i class="bx bxs-lock"></i> Clôturé</span>
+              <span class="pill-neutral" style="margin-right:4px;font-size:10px;"><i class="bx bxs-lock"></i> مغلق</span>
               {% endif %}
             </td>
             <td>
@@ -132,18 +132,18 @@
             </td>
             <td style="text-align:right;white-space:nowrap;">
               <span style="font-family:'Nunito',sans-serif;font-weight:800;color:var(--text-primary);">{{ conso.quantite|floatformat:2 }}</span>
-              <span style="font-size:11px;color:var(--text-muted);margin-left:3px;">{{ conso.intrant.unite_mesure }}</span>
+              <span style="font-size:11px;color:var(--text-muted);margin-right:3px;">{{ conso.intrant.unite_mesure }}</span>
             </td>
             <td style="color:var(--text-muted);font-size:12px;max-width:180px;">
               {% if conso.notes %}<span class="notes-truncate">{{ conso.notes }}</span>{% else %}—{% endif %}
             </td>
             <td>
               <div class="actions-cell">
-                <a href="{% url 'elevage:lot_detail' conso.lot.pk %}" class="action-btn" title="Voir le lot">
+                <a href="{% url 'elevage:lot_detail' conso.lot.pk %}" class="action-btn" title="عرض القطيع">
                   <i class="bx bxs-show"></i>
                 </a>
                 {% if conso.lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
-                <a href="{% url 'elevage:consommation_edit' conso.pk %}" class="action-btn" title="Modifier">
+                <a href="{% url 'elevage:consommation_edit' conso.pk %}" class="action-btn" title="تعديل">
                   <i class="bx bxs-pencil"></i>
                 </a>
                 <button type="button" class="action-btn action-btn--danger"
@@ -152,7 +152,7 @@
                   data-conso-intrant="{{ conso.intrant.designation }}"
                   data-conso-quantite="{{ conso.quantite|floatformat:2 }}"
                   data-conso-unite="{{ conso.intrant.unite_mesure }}"
-                  title="Supprimer">
+                  title="حذف">
                   <i class="bx bxs-trash"></i>
                 </button>
                 {% endif %}
@@ -172,7 +172,7 @@
         <i class="bx bx-chevron-left"></i>
       </a>
       {% endif %}
-      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      <span class="page-info">صفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
       {% if page.has_next %}
       <a href="?{% if q %}q={{ q }}&{% endif %}{% if lot_pk %}lot={{ lot_pk }}&{% endif %}{% if intrant_pk %}intrant={{ intrant_pk }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}page={{ page.next_page_number }}" class="page-btn">
         <i class="bx bx-chevron-right"></i>
@@ -185,10 +185,10 @@
     <div style="text-align:center;padding:52px 20px;color:var(--text-muted);">
       <i class="bx bxs-box" style="font-size:34px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
       <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
-        {% if q or lot_pk or intrant_pk or date_debut or date_fin %}Aucune consommation ne correspond aux filtres{% else %}Aucune consommation enregistrée{% endif %}
+        {% if q or lot_pk or intrant_pk or date_debut or date_fin %}لا توجد استهلاكات تطابق الفلاتر{% else %}لا توجد استهلاكات مسجلة{% endif %}
       </div>
       <div style="font-size:13px;">
-        {% if q or lot_pk or intrant_pk or date_debut or date_fin %}Essayez de modifier vos critères.{% else %}Les consommations s'enregistrent depuis la fiche d'un lot ouvert.{% endif %}
+        {% if q or lot_pk or intrant_pk or date_debut or date_fin %}حاول تعديل معاييرك.{% else %}تُسجَّل الاستهلاكات من بطاقة قطيع مفتوح.{% endif %}
       </div>
     </div>
     {% endif %}
@@ -204,19 +204,19 @@
         <i class="bx bxs-trash" style="color:#dc2626;font-size:18px;"></i>
       </div>
       <div>
-        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);">Supprimer cette consommation</div>
+        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);">حذف هذا الاستهلاك</div>
         <div id="delete-panel-sub" style="font-size:12px;color:var(--text-muted);margin-top:2px;"></div>
       </div>
     </div>
     <p style="font-size:13px;color:var(--text-secondary);margin-bottom:20px;">
-      Cette action est irréversible. Le stock de l'intrant sera automatiquement restauré.
+      هذا الإجراء لا رجعة فيه. سيتم استعادة مخزون المدخل تلقائياً.
     </p>
     <div style="display:flex;gap:10px;">
-      <button type="button" id="delete-cancel-btn" class="btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
+      <button type="button" id="delete-cancel-btn" class="btn-ghost" style="flex:1;justify-content:center;">إلغاء</button>
       <form id="delete-form" method="post" style="flex:1;">
         {% csrf_token %}
         <button type="submit" class="btn-danger" style="width:100%;justify-content:center;">
-          <i class="bx bxs-trash"></i> Supprimer
+          <i class="bx bxs-trash"></i> حذف
         </button>
       </form>
     </div>
@@ -409,7 +409,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const intrant  = btn.dataset.consoIntrant;
       const quantite = btn.dataset.consoQuantite;
       const unite    = btn.dataset.consoUnite;
-      subLabel.textContent = quantite + ' ' + unite + ' de « ' + intrant + ' » le ' + date;
+      subLabel.textContent = quantite + ' ' + unite + ' من « ' + intrant + ' » بتاريخ ' + date;
       deleteForm.action = '/api/elevage/consommations/' + pk + '/supprimer/';
       overlay.style.display = 'flex';
     });

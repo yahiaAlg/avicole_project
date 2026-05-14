@@ -20,36 +20,36 @@ class LotElevage(models.Model):
     STATUT_OUVERT = "ouvert"
     STATUT_FERME = "ferme"
     STATUT_CHOICES = [
-        (STATUT_OUVERT, "Ouvert"),
-        (STATUT_FERME, "Fermé"),
+        (STATUT_OUVERT, "مفتوح"),
+        (STATUT_FERME, "مغلق"),
     ]
 
     designation = models.CharField(
         max_length=255,
-        verbose_name="Désignation du lot",
-        help_text='Ex : "Lot Avril 2025 – Bâtiment 1"',
+        verbose_name="تسمية الدفعة",
+        help_text='مثال: "دفعة أبريل 2025 – المبنى 1"',
     )
-    date_ouverture = models.DateField(verbose_name="Date d'ouverture")
+    date_ouverture = models.DateField(verbose_name="تاريخ الفتح")
     date_fermeture = models.DateField(
-        null=True, blank=True, verbose_name="Date de fermeture"
+        null=True, blank=True, verbose_name="تاريخ الإغلاق"
     )
     statut = models.CharField(
         max_length=10,
         choices=STATUT_CHOICES,
         default=STATUT_OUVERT,
-        verbose_name="Statut",
+        verbose_name="الحالة",
     )
 
     # Chick sourcing
     nombre_poussins_initial = models.PositiveIntegerField(
-        verbose_name="Nombre de poussins initial",
+        verbose_name="عدد الكتاكيت الأولي",
         validators=[MinValueValidator(1)],
     )
     fournisseur_poussins = models.ForeignKey(
         "intrants.Fournisseur",
         on_delete=models.PROTECT,
         related_name="lots_eleves",
-        verbose_name="Fournisseur des poussins",
+        verbose_name="مورد الكتاكيت",
     )
     # Optional link to the BL fournisseur that delivered the chicks
     bl_fournisseur_poussins = models.ForeignKey(
@@ -58,22 +58,22 @@ class LotElevage(models.Model):
         null=True,
         blank=True,
         related_name="lots_ouverts",
-        verbose_name="BL Fournisseur (poussins)",
+        verbose_name="وصل تسليم المورد (كتاكيت)",
     )
 
     batiment = models.ForeignKey(
         "intrants.Batiment",
         on_delete=models.PROTECT,
         related_name="lots",
-        verbose_name="Bâtiment",
+        verbose_name="المبنى",
     )
     souche = models.CharField(
         max_length=100,
-        verbose_name="Souche (race)",
+        verbose_name="السلالة",
         blank=True,
-        help_text="Ex : Ross 308, Cobb 500",
+        help_text="مثال: Ross 308, Cobb 500",
     )
-    notes = models.TextField(verbose_name="Notes", blank=True)
+    notes = models.TextField(verbose_name="ملاحظات", blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -85,8 +85,8 @@ class LotElevage(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Lot d'élevage"
-        verbose_name_plural = "Lots d'élevage"
+        verbose_name = "دفعة تربية"
+        verbose_name_plural = "دفعات التربية"
         ordering = ["-date_ouverture"]
 
     def __str__(self):
@@ -188,22 +188,20 @@ class Mortalite(models.Model):
         LotElevage,
         on_delete=models.CASCADE,
         related_name="mortalites",
-        verbose_name="Lot d'élevage",
+        verbose_name="دفعة التربية",
     )
-    date = models.DateField(verbose_name="Date")
+    date = models.DateField(verbose_name="التاريخ")
     nombre = models.PositiveIntegerField(
-        verbose_name="Nombre de morts",
+        verbose_name="عدد النافقات",
         validators=[MinValueValidator(1)],
     )
-    cause = models.CharField(
-        max_length=255, verbose_name="Cause (si connue)", blank=True
-    )
-    notes = models.TextField(verbose_name="Notes", blank=True)
+    cause = models.CharField(max_length=255, verbose_name="السبب (إن عُرف)", blank=True)
+    notes = models.TextField(verbose_name="ملاحظات", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "Mortalité"
-        verbose_name_plural = "Mortalités"
+        verbose_name = "نفوق"
+        verbose_name_plural = "النفوق"
         ordering = ["lot", "-date"]
 
     def clean(self):
@@ -234,14 +232,14 @@ class Consommation(models.Model):
         LotElevage,
         on_delete=models.CASCADE,
         related_name="consommations",
-        verbose_name="Lot d'élevage",
+        verbose_name="دفعة التربية",
     )
-    date = models.DateField(verbose_name="Date de consommation")
+    date = models.DateField(verbose_name="تاريخ الاستهلاك")
     intrant = models.ForeignKey(
         "intrants.Intrant",
         on_delete=models.PROTECT,
         related_name="consommations",
-        verbose_name="Intrant consommé",
+        verbose_name="المدخل المستهلك",
         # Use categorie__consommable_en_lot so the filter works on the FK
         # relation, not on a bare string comparison (which would silently
         # match nothing because categorie is an integer FK, not a CharField).
@@ -250,10 +248,10 @@ class Consommation(models.Model):
     quantite = models.DecimalField(
         max_digits=12,
         decimal_places=3,
-        verbose_name="Quantité",
+        verbose_name="الكمية",
         validators=[MinValueValidator(0.001)],
     )
-    notes = models.TextField(verbose_name="Notes", blank=True)
+    notes = models.TextField(verbose_name="ملاحظات", blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -264,8 +262,8 @@ class Consommation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "Consommation"
-        verbose_name_plural = "Consommations"
+        verbose_name = "استهلاك"
+        verbose_name_plural = "الاستهلاكات"
         ordering = ["lot", "-date"]
 
     def clean(self):

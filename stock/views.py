@@ -112,7 +112,7 @@ def stock_intrant_list(request):
             "categories": categories,
             "en_alerte": en_alerte,
             "valeur_totale": valeur_totale,
-            "title": "Stock Intrants",
+            "title": "مخزون المدخلات",
         },
     )
 
@@ -151,7 +151,7 @@ def stock_intrant_detail(request, pk):
             "intrant": stock.intrant,
             "mouvements": mouvements,
             "ajustements": ajustements,
-            "title": f"Stock — {stock.intrant.designation}",
+            "title": f"المخزون — {stock.intrant.designation}",
         },
     )
 
@@ -211,7 +211,7 @@ def stock_produit_fini_list(request):
             "type_choices": ProduitFini.TYPE_CHOICES,
             "en_alerte": en_alerte,
             "valeur_totale": valeur_totale,
-            "title": "Stock Produits Finis",
+            "title": "مخزون المنتجات النهائية",
         },
     )
 
@@ -250,7 +250,7 @@ def stock_produit_fini_detail(request, pk):
             "produit_fini": stock.produit_fini,
             "mouvements": mouvements,
             "ajustements": ajustements,
-            "title": f"Stock — {stock.produit_fini.designation}",
+            "title": f"المخزون — {stock.produit_fini.designation}",
         },
     )
 
@@ -326,7 +326,7 @@ def stock_mouvement_list(request):
             "date_fin": date_fin,
             "type_choices": StockMouvement.TYPE_CHOICES,
             "source_choices": StockMouvement.SOURCE_CHOICES,
-            "title": "Mouvements de stock",
+            "title": "حركات المخزون",
         },
     )
 
@@ -373,7 +373,7 @@ def stock_ajustement_list(request):
             "date_debut": date_debut,
             "date_fin": date_fin,
             "segment_choices": StockAjustement.SEGMENT_CHOICES,
-            "title": "Ajustements de stock",
+            "title": "تعديلات المخزون",
         },
     )
 
@@ -476,9 +476,7 @@ def stock_ajustement_create(request):
                 sign = "+" if delta >= 0 else ""
                 messages.success(
                     request,
-                    f"Ajustement enregistré pour « {item_name} » : "
-                    f"{sign}{delta} (avant : {ajustement.quantite_avant} → "
-                    f"après : {ajustement.quantite_apres}).",
+                    f"تم تسجيل التعديل لـ « {item_name} »: {sign}{delta} (قبل: {ajustement.quantite_avant} → بعد: {ajustement.quantite_apres}).",
                 )
                 logger.info(
                     "StockAjustement pk=%s created by '%s' (segment=%s, delta=%s).",
@@ -491,10 +489,10 @@ def stock_ajustement_create(request):
 
             except Exception as exc:
                 logger.exception("Error creating StockAjustement: %s", exc)
-                messages.error(request, f"Erreur lors de l'ajustement : {exc}")
+                messages.error(request, f"خطأ أثناء التعديل: {exc}")
 
         else:
-            messages.error(request, "Veuillez corriger les erreurs.")
+            messages.error(request, "يرجى تصحيح الأخطاء.")
 
     else:
         form = StockAjustementForm(initial=initial)
@@ -505,8 +503,8 @@ def stock_ajustement_create(request):
         {
             "form": form,
             "current_stock": current_stock,
-            "title": "Nouvel ajustement de stock",
-            "action_label": "Enregistrer l'ajustement",
+            "title": "تعديل مخزون جديد",
+            "action_label": "حفظ التعديل",
         },
     )
 
@@ -553,7 +551,7 @@ def stock_dashboard(request):
             "valeur_pf": round(valeur_pf, 2),
             "pf_en_alerte": pf_en_alerte,
             "mouvements_recents": mouvements_recents,
-            "title": "Tableau de bord — Stock",
+            "title": "لوحة تحكم — المخزون",
         },
     )
 

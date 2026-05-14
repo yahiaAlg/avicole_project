@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Facture {{ facture.reference }} — Élevage Avicole{% endblock %}
+{% block title %}فاتورة {{ facture.reference }} — تربية الدواجن{% endblock %}
 
 {% block nav_factures_fournisseurs %}active{% endblock %}
 
@@ -10,12 +10,12 @@
 
 {% block topbar_actions %}
   <a href="{% url 'achats:facture_fournisseur_print' facture.pk %}" class="btn-ghost" target="_blank">
-    <i class="bx bxs-printer"></i> Imprimer
+    <i class="bx bxs-printer"></i> طباعة
   </a>
   {% if facture.statut != "paye" %}
   <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ facture.fournisseur.pk }}&facture={{ facture.pk }}"
      class="btn-primary">
-    <i class="bx bxs-coin"></i> Enregistrer un règlement
+    <i class="bx bxs-coin"></i> تسجيل تسوية
   </a>
   {% endif %}
 {% endblock %}
@@ -30,11 +30,11 @@
     <div class="detail-card detail-card--header">
       <div class="detail-header-grid">
         <div>
-          <div class="detail-eyebrow">Référence</div>
+          <div class="detail-eyebrow">المرجع</div>
           <div class="detail-title-val">{{ facture.reference }}</div>
         </div>
         <div>
-          <div class="detail-eyebrow">Fournisseur</div>
+          <div class="detail-eyebrow">المورد</div>
           <div class="detail-title-val">
             <a href="{% url 'achats:fournisseur_tableau_de_bord' facture.fournisseur.pk %}" class="link-accent">
               {{ facture.fournisseur.nom }}
@@ -42,11 +42,11 @@
           </div>
         </div>
         <div>
-          <div class="detail-eyebrow">Date facture</div>
+          <div class="detail-eyebrow">تاريخ الفاتورة</div>
           <div class="detail-title-val">{{ facture.date_facture|date:"d/m/Y" }}</div>
         </div>
         <div>
-          <div class="detail-eyebrow">Échéance</div>
+          <div class="detail-eyebrow">تاريخ الاستحقاق</div>
           <div class="detail-title-val {% if facture.est_en_retard %}val-red{% endif %}">
             {% if facture.date_echeance %}
               {% if facture.est_en_retard %}<i class="bx bx-hourglass"></i> {% endif %}
@@ -55,22 +55,22 @@
           </div>
         </div>
         <div>
-          <div class="detail-eyebrow">Type</div>
+          <div class="detail-eyebrow">النوع</div>
           <div class="detail-title-val">
             {% if facture.type_facture == "service" %}
-              <span class="pill-info">Service</span>
+              <span class="pill-info">خدمة</span>
             {% else %}
-              <span class="pill-neutral">Marchandises</span>
+              <span class="pill-neutral">بضائع</span>
             {% endif %}
           </div>
         </div>
         <div>
-          <div class="detail-eyebrow">Statut</div>
+          <div class="detail-eyebrow">الحالة</div>
           <div class="detail-title-val">
-            {% if facture.statut == "non_paye" %}<span class="pill-danger">Non payée</span>
-            {% elif facture.statut == "partiellement_paye" %}<span class="pill-warning">Part. payée</span>
-            {% elif facture.statut == "paye" %}<span class="pill-success">Payée</span>
-            {% elif facture.statut == "en_litige" %}<span class="pill-danger"><i class="bx bxs-error"></i> En litige</span>
+            {% if facture.statut == "non_paye" %}<span class="pill-danger">غير مدفوعة</span>
+            {% elif facture.statut == "partiellement_paye" %}<span class="pill-warning">مدفوعة جزئياً</span>
+            {% elif facture.statut == "paye" %}<span class="pill-success">مدفوعة</span>
+            {% elif facture.statut == "en_litige" %}<span class="pill-danger"><i class="bx bxs-error"></i> نزاع</span>
             {% endif %}
           </div>
         </div>
@@ -81,22 +81,22 @@
     {% if facture.type_facture == "service" %}
     <div class="service-banner">
       <i class="bx bxs-error" style="color:#b45309;flex-shrink:0;"></i>
-      <span>Facture de type <strong>Service</strong> — elle n'impacte pas le stock intrants. Si cette charge correspond à une dépense opérationnelle, vérifiez le module <strong>Dépenses</strong>.</span>
+      <span>هذه فاتورة من نوع <strong>خدمة</strong> — لا تؤثر على مخزون المدخلات. إذا كانت هذه التكلفة مصروفاً تشغيلياً، راجع قسم <strong>المصاريف</strong>.</span>
     </div>
     {% endif %}
 
     <!-- Financial summary row -->
     <div class="fin-summary-row">
       <div class="fin-metric">
-        <div class="fin-metric__label">Montant total</div>
+        <div class="fin-metric__label">المبلغ الإجمالي</div>
         <div class="fin-metric__val">{{ facture.montant_total|floatformat:0 }} DZD</div>
       </div>
       <div class="fin-metric">
-        <div class="fin-metric__label">Montant réglé</div>
+        <div class="fin-metric__label">المبلغ المدفوع</div>
         <div class="fin-metric__val" style="color:var(--accent-text);">{{ facture.montant_regle|floatformat:0 }} DZD</div>
       </div>
       <div class="fin-metric fin-metric--highlight {% if facture.reste_a_payer > 0 %}fin-metric--danger{% endif %}">
-        <div class="fin-metric__label">Reste à payer</div>
+        <div class="fin-metric__label">المتبقي للدفع</div>
         <div class="fin-metric__val">{{ facture.reste_a_payer|floatformat:0 }} DZD</div>
       </div>
     </div>
@@ -116,15 +116,15 @@
     <!-- Included BLs -->
     <div class="section-card">
       <div class="section-card__header">
-        <div class="section-eyebrow"><i class="bx bxs-truck"></i> BLs inclus</div>
-        <span style="font-size:12px;color:var(--text-muted);">{{ bls.count }} BL{{ bls.count|pluralize }}</span>
+        <div class="section-eyebrow"><i class="bx bxs-truck"></i> وصولات الاستلام المضمنة</div>
+        <span style="font-size:12px;color:var(--text-muted);">{{ bls.count }} وصل</span>
       </div>
       {% for bl in bls %}
       <div class="bl-block">
         <div class="bl-block__header">
           <div>
             <a href="{% url 'achats:bl_fournisseur_detail' bl.pk %}" class="ref-link">{{ bl.reference }}</a>
-            <span class="pill-success" style="margin-left:6px;font-size:10px;">Facturé</span>
+            <span class="pill-success" style="margin-right:6px;font-size:10px;">مفوترة</span>
           </div>
           <div style="font-size:12px;color:var(--text-muted);">{{ bl.date_bl|date:"d/m/Y" }}</div>
           <div class="bl-block__total">{{ bl.montant_total|floatformat:0 }} DZD</div>
@@ -134,12 +134,12 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>Intrant</th>
-                <th>Catégorie</th>
-                <th>Unité</th>
-                <th style="text-align:right;">Quantité</th>
-                <th style="text-align:right;">PU (DZD)</th>
-                <th style="text-align:right;">Montant</th>
+                <th>المدخل</th>
+                <th>الفئة</th>
+                <th>الوحدة</th>
+                <th style="text-align:left;">الكمية</th>
+                <th style="text-align:left;">سعر الوحدة (دج)</th>
+                <th style="text-align:left;">المبلغ</th>
               </tr>
             </thead>
             <tbody>
@@ -148,9 +148,9 @@
                 <td style="font-weight:500;">{{ ligne.intrant.designation }}</td>
                 <td style="color:var(--text-muted);">{{ ligne.intrant.categorie.libelle }}</td>
                 <td style="color:var(--text-muted);">{{ ligne.intrant.unite_mesure }}</td>
-                <td style="text-align:right;">{{ ligne.quantite|floatformat:3 }}</td>
-                <td style="text-align:right;color:var(--text-muted);">{{ ligne.prix_unitaire|floatformat:4 }}</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ ligne.montant_total|floatformat:0 }} DZD</td>
+                <td style="text-align:left;">{{ ligne.quantite|floatformat:3 }}</td>
+                <td style="text-align:left;color:var(--text-muted);">{{ ligne.prix_unitaire|floatformat:4 }}</td>
+                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ ligne.montant_total|floatformat:0 }} DZD</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -159,25 +159,25 @@
         {% endif %}
       </div>
       {% empty %}
-      <div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px;">Aucun BL associé.</div>
+      <div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px;">لا توجد وصولات مرتبطة.</div>
       {% endfor %}
     </div>
 
     <!-- Payment allocations -->
     <div class="section-card">
       <div class="section-card__header">
-        <div class="section-eyebrow"><i class="bx bx-transfer"></i> Allocations de règlements</div>
-        <span style="font-size:12px;color:var(--text-muted);">{{ allocations.count }} règlement{{ allocations.count|pluralize }}</span>
+        <div class="section-eyebrow"><i class="bx bx-transfer"></i> تخصيصات التسويات</div>
+        <span style="font-size:12px;color:var(--text-muted);">{{ allocations.count }} تسوية</span>
       </div>
       {% if allocations %}
       <div class="table-wrapper">
         <table class="data-table">
           <thead>
             <tr>
-              <th>Date règlement</th>
-              <th>Règlement</th>
-              <th>Mode</th>
-              <th style="text-align:right;">Montant alloué</th>
+              <th>تاريخ التسوية</th>
+              <th>التسوية</th>
+              <th>طريقة الدفع</th>
+              <th style="text-align:left;">المبلغ المخصص</th>
               <th></th>
             </tr>
           </thead>
@@ -187,11 +187,11 @@
               <td>{{ alloc.reglement.date_reglement|date:"d/m/Y" }}</td>
               <td>
                 <a href="{% url 'achats:reglement_fournisseur_detail' alloc.reglement.pk %}" class="ref-link">
-                  Règlement #{{ alloc.reglement.pk }}
+                  تسوية #{{ alloc.reglement.pk }}
                 </a>
               </td>
               <td style="color:var(--text-muted);">{{ alloc.reglement.get_mode_paiement_display }}</td>
-              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">
+              <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">
                 {{ alloc.montant_alloue|floatformat:0 }} DZD
               </td>
               <td></td>
@@ -203,11 +203,11 @@
       {% else %}
       <div style="text-align:center;padding:24px;color:var(--text-muted);">
         <i class="bx bxs-coin" style="font-size:24px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
-        <div style="font-size:13px;">Aucun règlement enregistré.</div>
+        <div style="font-size:13px;">لا توجد تسويات مسجلة.</div>
         {% if facture.statut != "paye" %}
         <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ facture.fournisseur.pk }}&facture={{ facture.pk }}"
            class="btn-primary" style="display:inline-flex;margin-top:12px;">
-          <i class="bx bxs-coin"></i> Enregistrer un règlement
+          <i class="bx bxs-coin"></i> تسجيل تسوية
         </a>
         {% endif %}
       </div>
@@ -218,7 +218,7 @@
     {% if facture.notes %}
     <div class="section-card">
       <div class="section-card__header">
-        <div class="section-eyebrow"><i class="bx bx-note"></i> Notes</div>
+        <div class="section-eyebrow"><i class="bx bx-note"></i> ملاحظات</div>
       </div>
       <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;padding:0 2px;">{{ facture.notes }}</p>
     </div>
@@ -231,34 +231,34 @@
 
     <!-- Metadata -->
     <div class="aside-info-card">
-      <div class="aside-info-card__title">Informations</div>
+      <div class="aside-info-card__title">المعلومات</div>
       <div class="aside-info-row">
-        <span class="aside-info-label">Créé par</span>
+        <span class="aside-info-label">أنشأه</span>
         <span class="aside-info-val">{{ facture.created_by.get_full_name|default:facture.created_by.username|default:"—" }}</span>
       </div>
       <div class="aside-info-row">
-        <span class="aside-info-label">Créé le</span>
+        <span class="aside-info-label">تاريخ الإنشاء</span>
         <span class="aside-info-val">{{ facture.created_at|date:"d/m/Y" }}</span>
       </div>
       <div class="aside-info-row">
-        <span class="aside-info-label">Modifié le</span>
+        <span class="aside-info-label">تاريخ التعديل</span>
         <span class="aside-info-val">{{ facture.updated_at|date:"d/m/Y" }}</span>
       </div>
     </div>
 
     <!-- Actions -->
     <div class="aside-info-card">
-      <div class="aside-info-card__title">Actions</div>
+      <div class="aside-info-card__title">الإجراءات</div>
       <div class="aside-actions-list">
         <a href="{% url 'achats:facture_fournisseur_print' facture.pk %}" target="_blank" class="aside-action-btn">
-          <i class="bx bxs-printer"></i> Imprimer la facture
+          <i class="bx bxs-printer"></i> طباعة الفاتورة
         </a>
         <a href="{% url 'achats:facture_fournisseur_list' %}?fournisseur={{ facture.fournisseur.pk }}" class="aside-action-btn">
-          <i class="bx bxs-file-txt"></i> Factures de {{ facture.fournisseur.nom }}
+          <i class="bx bxs-file-txt"></i> فواتير {{ facture.fournisseur.nom }}
         </a>
         {% if facture.statut != "paye" %}
         <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ facture.fournisseur.pk }}&facture={{ facture.pk }}" class="aside-action-btn aside-action-btn--primary">
-          <i class="bx bxs-coin"></i> Enregistrer un règlement
+          <i class="bx bxs-coin"></i> تسجيل تسوية
         </a>
         {% endif %}
       </div>
@@ -267,34 +267,34 @@
     <!-- Litige toggle — danger zone -->
     {% if facture.statut != "paye" %}
     <div class="danger-zone-card">
-      <div class="danger-zone-card__title"><i class="bx bxs-error"></i> Zone sensible</div>
+      <div class="danger-zone-card__title"><i class="bx bxs-error"></i> منطقة حساسة</div>
       {% if facture.statut == "en_litige" %}
       <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px;">
-        Cette facture est actuellement <strong style="color:#dc2626;">En litige</strong>. Cliquez pour retirer le statut litige et reprendre les allocations normales.
+        هذه الفاتورة حالياً <strong style="color:#dc2626;">في نزاع</strong>. انقر لإزالة حالة النزاع واستئناف التخصيصات الاعتيادية.
       </p>
       {% else %}
       <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px;">
-        Marquer cette facture <strong style="color:#dc2626;">En litige</strong> suspend toute nouvelle allocation FIFO jusqu'à résolution.
+        تحديد هذه الفاتورة <strong style="color:#dc2626;">في نزاع</strong> يوقف أي تخصيص جديد حتى الحل.
       </p>
       {% endif %}
       <button class="btn-danger" id="litige-toggle-btn">
         {% if facture.statut == "en_litige" %}
-        <i class="bx bxs-check-circle"></i> Retirer du litige
+        <i class="bx bxs-check-circle"></i> إزالة النزاع
         {% else %}
-        <i class="bx bxs-error"></i> Mettre en litige
+        <i class="bx bxs-error"></i> وضع في نزاع
         {% endif %}
       </button>
       <!-- Inline confirmation panel -->
       <div class="confirm-panel" id="litige-confirm" style="display:none;">
         <div class="confirm-panel__text">
-          {% if facture.statut == "en_litige" %}Confirmez-vous le retrait du statut litige ?
-          {% else %}Confirmez-vous la mise en litige de cette facture ?{% endif %}
+          {% if facture.statut == "en_litige" %}هل تؤكد إزالة حالة النزاع؟
+          {% else %}هل تؤكد وضع هذه الفاتورة في نزاع؟{% endif %}
         </div>
         <form method="post" action="{% url 'achats:facture_fournisseur_toggle_litige' facture.pk %}" id="litige-form">
           {% csrf_token %}
           <div class="confirm-panel__actions">
-            <button type="button" class="btn-ghost btn-sm" id="litige-cancel">Annuler</button>
-            <button type="submit" class="btn-danger btn-sm">Confirmer</button>
+            <button type="button" class="btn-ghost btn-sm" id="litige-cancel">إلغاء</button>
+            <button type="submit" class="btn-danger btn-sm">تأكيد</button>
           </div>
         </form>
       </div>
@@ -451,7 +451,7 @@
     animation: fadeIn .2s ease;
   }
   .confirm-panel__text { font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; }
-  .confirm-panel__actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .confirm-panel__actions { display: flex; gap: 8px; justify-content: flex-start; }
   .btn-ghost {
     background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
     font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px;

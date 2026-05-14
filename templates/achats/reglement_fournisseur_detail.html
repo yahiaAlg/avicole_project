@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Règlement — {{ reglement.fournisseur.nom }} — Élevage Avicole{% endblock %}
+{% block title %}تسوية — {{ reglement.fournisseur.nom }} — تربية الدواجن{% endblock %}
 
 {% block nav_reglements %}active{% endblock %}
 
-{% block page_title %}Règlement Fournisseur{% endblock %}
+{% block page_title %}تسوية المورد{% endblock %}
 {% block page_sub_text %}{{ reglement.fournisseur.nom }} · {{ reglement.date_reglement|date:"d/m/Y" }}{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'achats:reglement_fournisseur_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour
+    <i class="bx bx-arrow-back"></i> رجوع
   </a>
 {% endblock %}
 
@@ -24,7 +24,7 @@
     <div class="detail-card detail-card--header">
       <div class="detail-header-grid">
         <div>
-          <div class="detail-eyebrow">Fournisseur</div>
+          <div class="detail-eyebrow">المورد</div>
           <div class="detail-title-val">
             <a href="{% url 'achats:fournisseur_tableau_de_bord' reglement.fournisseur.pk %}" class="link-accent">
               {{ reglement.fournisseur.nom }}
@@ -32,15 +32,15 @@
           </div>
         </div>
         <div>
-          <div class="detail-eyebrow">Date</div>
+          <div class="detail-eyebrow">التاريخ</div>
           <div class="detail-title-val">{{ reglement.date_reglement|date:"d/m/Y" }}</div>
         </div>
         <div>
-          <div class="detail-eyebrow">Montant</div>
+          <div class="detail-eyebrow">المبلغ</div>
           <div class="detail-title-val amount-primary">{{ reglement.montant|floatformat:0 }} DZD</div>
         </div>
         <div>
-          <div class="detail-eyebrow">Mode de paiement</div>
+          <div class="detail-eyebrow">طريقة الدفع</div>
           <div class="detail-title-val">
             <span class="mode-badge mode-{{ reglement.mode_paiement }}">
               {% if reglement.mode_paiement == "especes" %}<i class="bx bxs-coin"></i>
@@ -52,13 +52,13 @@
           </div>
         </div>
         <div>
-          <div class="detail-eyebrow">Référence paiement</div>
+          <div class="detail-eyebrow">مرجع الدفع</div>
           <div class="detail-title-val" style="color:var(--text-muted);">{{ reglement.reference_paiement|default:"—" }}</div>
         </div>
         <div>
-          <div class="detail-eyebrow">Statut</div>
+          <div class="detail-eyebrow">الحالة</div>
           <div class="detail-title-val">
-            <span class="pill-neutral immutable-badge"><i class="bx bxs-lock"></i> Immuable</span>
+            <span class="pill-neutral immutable-badge"><i class="bx bxs-lock"></i> غير قابل للتعديل</span>
           </div>
         </div>
       </div>
@@ -67,18 +67,18 @@
     <!-- Allocation summary bar -->
     <div class="alloc-summary">
       <div class="alloc-summary__item">
-        <div class="alloc-summary__label">Montant total</div>
+        <div class="alloc-summary__label">المبلغ الإجمالي</div>
         <div class="alloc-summary__val">{{ reglement.montant|floatformat:0 }} DZD</div>
       </div>
-      <div class="alloc-summary__sep">→</div>
+      <div class="alloc-summary__sep">←</div>
       <div class="alloc-summary__item">
-        <div class="alloc-summary__label">Alloué aux factures</div>
+        <div class="alloc-summary__label">مخصص للفواتير</div>
         <div class="alloc-summary__val alloc-summary__val--green">{{ allocations_total|floatformat:0 }} DZD</div>
       </div>
       {% if acompte %}
       <div class="alloc-summary__sep">+</div>
       <div class="alloc-summary__item">
-        <div class="alloc-summary__label">Acompte généré</div>
+        <div class="alloc-summary__label">السلفة المولّدة</div>
         <div class="alloc-summary__val alloc-summary__val--amber">{{ acompte.montant|floatformat:0 }} DZD</div>
       </div>
       {% endif %}
@@ -87,7 +87,7 @@
     <!-- FIFO Allocation lines -->
     <div class="section-card">
       <div class="section-card__header">
-        <div class="section-eyebrow"><i class="bx bx-transfer"></i> Allocations FIFO</div>
+        <div class="section-eyebrow"><i class="bx bx-transfer"></i> تخصيصات FIFO</div>
         <span style="font-size:12px;color:var(--text-muted);">{{ allocations.count }} facture{{ allocations.count|pluralize }}</span>
       </div>
       {% if allocations %}
@@ -95,11 +95,11 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th>Facture</th>
-              <th>Fournisseur</th>
-              <th>Date facture</th>
-              <th style="text-align:right;">Montant alloué</th>
-              <th>Statut facture</th>
+              <th>الفاتورة</th>
+              <th>المورد</th>
+              <th>تاريخ الفاتورة</th>
+              <th style="text-align:left;">المبلغ المخصص</th>
+              <th>حالة الفاتورة</th>
               <th></th>
             </tr>
           </thead>
@@ -113,18 +113,18 @@
               </td>
               <td style="color:var(--text-muted);">{{ alloc.facture.fournisseur.nom }}</td>
               <td style="color:var(--text-muted);">{{ alloc.facture.date_facture|date:"d/m/Y" }}</td>
-              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;color:var(--accent-text);">
+              <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;color:var(--accent-text);">
                 {{ alloc.montant_alloue|floatformat:0 }} DZD
               </td>
               <td>
-                {% if alloc.facture.statut == "non_paye" %}<span class="pill-danger">Non payée</span>
-                {% elif alloc.facture.statut == "partiellement_paye" %}<span class="pill-warning">Part. payée</span>
-                {% elif alloc.facture.statut == "paye" %}<span class="pill-success">Payée</span>
-                {% elif alloc.facture.statut == "en_litige" %}<span class="pill-danger"><i class="bx bxs-error"></i> Litige</span>
+                {% if alloc.facture.statut == "non_paye" %}<span class="pill-danger">غير مدفوعة</span>
+                {% elif alloc.facture.statut == "partiellement_paye" %}<span class="pill-warning">مدفوعة جزئياً</span>
+                {% elif alloc.facture.statut == "paye" %}<span class="pill-success">مدفوعة</span>
+                {% elif alloc.facture.statut == "en_litige" %}<span class="pill-danger"><i class="bx bxs-error"></i> نزاع</span>
                 {% endif %}
               </td>
               <td>
-                <a href="{% url 'achats:facture_fournisseur_detail' alloc.facture.pk %}" class="action-btn" title="Voir facture">
+                <a href="{% url 'achats:facture_fournisseur_detail' alloc.facture.pk %}" class="action-btn" title="عرض الفاتورة">
                   <i class="bx bxs-show"></i>
                 </a>
               </td>
@@ -136,7 +136,7 @@
       {% else %}
       <div style="text-align:center;padding:28px;color:var(--text-muted);font-size:13px;">
         <i class="bx bx-transfer" style="font-size:24px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
-        Aucune allocation — tout le montant a généré un acompte.
+        لا توجد تخصيصات — المبلغ بالكامل أصبح سلفة.
       </div>
       {% endif %}
     </div>
@@ -145,27 +145,27 @@
     {% if acompte %}
     <div class="section-card acompte-card">
       <div class="section-card__header">
-        <div class="section-eyebrow"><i class="bx bxs-piggy-bank"></i> Acompte généré (surplus)</div>
+        <div class="section-eyebrow"><i class="bx bxs-piggy-bank"></i> السلفة المولّدة (فائض)</div>
       </div>
       <div style="padding:16px 18px;">
         <div class="acompte-grid">
           <div>
-            <div class="detail-eyebrow">Montant acompte</div>
+            <div class="detail-eyebrow">مبلغ السلفة</div>
             <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:20px;color:#b45309;">
               {{ acompte.montant|floatformat:0 }} DZD
             </div>
           </div>
           <div>
-            <div class="detail-eyebrow">Date</div>
+            <div class="detail-eyebrow">التاريخ</div>
             <div class="detail-title-val">{{ acompte.date|date:"d/m/Y" }}</div>
           </div>
           <div>
-            <div class="detail-eyebrow">Statut</div>
+            <div class="detail-eyebrow">الحالة</div>
             <div>
               {% if acompte.utilise %}
-                <span class="pill-neutral">Utilisé</span>
+                <span class="pill-neutral">مستخدمة</span>
               {% else %}
-                <span class="pill-warning">En attente</span>
+                <span class="pill-warning">في الانتظار</span>
               {% endif %}
             </div>
           </div>
@@ -175,7 +175,7 @@
         {% endif %}
         <div style="margin-top:10px;">
           <a href="{% url 'achats:acompte_fournisseur_detail' acompte.pk %}" class="btn-ghost btn-sm">
-            <i class="bx bxs-piggy-bank"></i> Voir l'acompte
+            <i class="bx bxs-piggy-bank"></i> عرض السلفة
           </a>
         </div>
       </div>
@@ -186,7 +186,7 @@
     {% if reglement.notes %}
     <div class="section-card">
       <div class="section-card__header">
-        <div class="section-eyebrow"><i class="bx bx-note"></i> Notes</div>
+        <div class="section-eyebrow"><i class="bx bx-note"></i> ملاحظات</div>
       </div>
       <p style="padding:14px 18px;font-size:13px;color:var(--text-secondary);line-height:1.6;">{{ reglement.notes }}</p>
     </div>
@@ -197,28 +197,28 @@
   <!-- ── Aside ── -->
   <div class="detail-aside">
     <div class="aside-info-card">
-      <div class="aside-info-card__title">Informations</div>
+      <div class="aside-info-card__title">المعلومات</div>
       <div class="aside-info-row">
-        <span class="aside-info-label">Enregistré par</span>
+        <span class="aside-info-label">سجّله</span>
         <span class="aside-info-val">{{ reglement.created_by.get_full_name|default:reglement.created_by.username|default:"—" }}</span>
       </div>
       <div class="aside-info-row">
-        <span class="aside-info-label">Créé le</span>
+        <span class="aside-info-label">تاريخ الإنشاء</span>
         <span class="aside-info-val">{{ reglement.created_at|date:"d/m/Y" }}</span>
       </div>
     </div>
 
     <div class="aside-info-card">
-      <div class="aside-info-card__title">Actions rapides</div>
+      <div class="aside-info-card__title">إجراءات سريعة</div>
       <div style="display:flex;flex-direction:column;gap:6px;">
         <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ reglement.fournisseur.pk }}" class="aside-action-btn">
-          <i class="bx bxs-coin"></i> Nouveau règlement
+          <i class="bx bxs-coin"></i> تسوية جديدة
         </a>
         <a href="{% url 'achats:reglement_fournisseur_list' %}?fournisseur={{ reglement.fournisseur.pk }}" class="aside-action-btn">
-          <i class="bx bxs-coin"></i> Règlements de {{ reglement.fournisseur.nom }}
+          <i class="bx bxs-coin"></i> تسويات {{ reglement.fournisseur.nom }}
         </a>
         <a href="{% url 'achats:fournisseur_tableau_de_bord' reglement.fournisseur.pk %}" class="aside-action-btn aside-action-btn--primary">
-          <i class="bx bxs-dashboard"></i> Tableau de bord fournisseur
+          <i class="bx bxs-dashboard"></i> لوحة تحكم المورد
         </a>
       </div>
     </div>
@@ -226,8 +226,8 @@
     <div class="immutability-notice">
       <i class="bx bxs-lock" style="color:#b45309;flex-shrink:0;font-size:15px;"></i>
       <div>
-        <div style="font-weight:700;font-size:12px;color:#b45309;margin-bottom:3px;">Règlement immuable</div>
-        <div style="font-size:11.5px;color:var(--text-muted);line-height:1.5;">Les règlements ne peuvent pas être modifiés ni supprimés après création (BR-REG-06).</div>
+        <div style="font-weight:700;font-size:12px;color:#b45309;margin-bottom:3px;">تسوية غير قابلة للتعديل</div>
+        <div style="font-size:11.5px;color:var(--text-muted);line-height:1.5;">لا يمكن تعديل التسويات أو حذفها بعد الإنشاء (BR-REG-06).</div>
       </div>
     </div>
   </div>

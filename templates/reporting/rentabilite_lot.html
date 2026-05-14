@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Rentabilité par Lot — Élevage Avicole{% endblock %}
+{% block title %}ربحية الدُّفعة — تربية الدواجن{% endblock %}
 {% block nav_rapports %}active{% endblock %}
-{% block page_title %}Rentabilité par Lot{% endblock %}
+{% block page_title %}ربحية الدُّفعة{% endblock %}
 {% block page_sub_text %}
-  {{ lot_rows|length }} lot(s) —
-  Marge brute totale :
+  {{ lot_rows|length }} دُفعة(دُفعات) —
+  إجمالي الهامش الإجمالي :
   <span style="font-weight:700;{% if totaux.marge_brute >= 0 %}color:#15803d;{% else %}color:#dc2626;{% endif %}">
     {{ totaux.marge_brute|floatformat:0 }} DZD
   </span>
 {% endblock %}
 {% block topbar_actions %}
 <a href="?{% if statut %}statut={{ statut }}&{% endif %}{% if lot_pk %}lot={{ lot_pk }}&{% endif %}{% if date_debut %}date_debut={{ date_debut|date:"Y-m-d" }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:"Y-m-d" }}&{% endif %}export=csv" class="btn-ghost btn-sm">
-  <i class="bx bxs-spreadsheet"></i> Exporter CSV
+  <i class="bx bxs-spreadsheet"></i> تصدير CSV
 </a>
-<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> Rapports</a>
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> التقارير</a>
 {% endblock %}
 
 {% block extra_css %}
@@ -42,7 +42,7 @@
       <div class="input-wrapper" style="min-width:200px;flex:1;">
         <i class="bx bxs-leaf input-icon"></i>
         <select name="lot" class="field-input has-icon">
-          <option value="">Tous les lots</option>
+          <option value="">جميع الدُّفعات</option>
           {% for l in lots_all %}
           <option value="{{ l.pk }}" {% if lot_pk == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.designation }}</option>
           {% endfor %}
@@ -51,7 +51,7 @@
       <div class="input-wrapper" style="min-width:160px;">
         <i class="bx bxs-check-square input-icon"></i>
         <select name="statut" class="field-input has-icon">
-          <option value="">Tous statuts</option>
+          <option value="">جميع الحالات</option>
           {% for val, lbl in statut_choices %}
           <option value="{{ val }}" {% if statut == val %}selected{% endif %}>{{ lbl }}</option>
           {% endfor %}
@@ -65,8 +65,8 @@
         <i class="bx bxs-calendar input-icon"></i>
         <input type="date" name="date_fin" class="field-input has-icon" value="{{ date_fin|date:'Y-m-d' }}">
       </div>
-      <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> Filtrer</button>
-      <a href="{% url 'reporting:rentabilite_lot' %}" class="btn-ghost btn-sm">Réinitialiser</a>
+      <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> تصفية</button>
+      <a href="{% url 'reporting:rentabilite_lot' %}" class="btn-ghost btn-sm">إعادة تعيين</a>
     </form>
   </div>
 </div>
@@ -76,28 +76,28 @@
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-green"><i class="bx bxs-leaf"></i></div>
-      <div class="metric-label">Revenus Ventes</div>
+      <div class="metric-label">إيرادات المبيعات</div>
       <div class="metric-value sm">{{ totaux.revenus_ventes|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-amber"><i class="bx bxs-package"></i></div>
-      <div class="metric-label">Coût Intrants</div>
+      <div class="metric-label">تكلفة المدخلات</div>
       <div class="metric-value sm">{{ totaux.cout_total_intrants|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-orange"><i class="bx bxs-wallet"></i></div>
-      <div class="metric-label">Dépenses Attribuées</div>
+      <div class="metric-label">النفقات المنسوبة</div>
       <div class="metric-value sm">{{ totaux.cout_total_depenses|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon {% if totaux.marge_brute >= 0 %}ic-green{% else %}ic-red{% endif %}"><i class="bx bxs-bar-chart-alt-2"></i></div>
-      <div class="metric-label">Marge Brute Totale</div>
+      <div class="metric-label">إجمالي الهامش الإجمالي</div>
       <div class="metric-value sm {% if totaux.marge_brute >= 0 %}margin-pos{% else %}margin-neg{% endif %}">
         {{ totaux.marge_brute|floatformat:0 }} <small style="font-size:12px;">DZD</small>
       </div>
@@ -110,13 +110,13 @@
 <div class="row g-3 mb-4">
   <div class="col-xl-7">
     <div class="section-card">
-      <div class="section-card__head"><span class="section-card__title">Revenus vs Coûts par Lot</span></div>
+      <div class="section-card__head"><span class="section-card__title">الإيرادات مقابل التكاليف حسب الدُّفعة</span></div>
       <div class="section-card__body"><div class="chart-wrap"><canvas id="revenusChart"></canvas></div></div>
     </div>
   </div>
   <div class="col-xl-5">
     <div class="section-card">
-      <div class="section-card__head"><span class="section-card__title">Marge Brute par Lot</span></div>
+      <div class="section-card__head"><span class="section-card__title">الهامش الإجمالي حسب الدُّفعة</span></div>
       <div class="section-card__body"><div class="chart-wrap"><canvas id="margeChart"></canvas></div></div>
     </div>
   </div>
@@ -125,25 +125,25 @@
 <!-- Detail table -->
 <div class="section-card mb-4">
   <div class="section-card__head">
-    <span class="section-card__title">Détail par Lot</span>
-    <span style="font-size:12px;color:var(--text-muted);">{{ lot_rows|length }} lot(s)</span>
+    <span class="section-card__title">التفاصيل حسب الدُّفعة</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ lot_rows|length }} دُفعة(دُفعات)</span>
   </div>
   <div class="section-card__body no-pad">
     <div style="overflow-x:auto;">
       <table class="table-base">
         <thead>
           <tr>
-            <th>Lot</th>
-            <th style="text-align:center;">Statut</th>
-            <th style="text-align:right;">Poussins</th>
-            <th style="text-align:right;">Mortalité</th>
-            <th style="text-align:right;">Aliment (kg)</th>
-            <th style="text-align:center;">IC</th>
-            <th style="text-align:right;">Coût Intrants</th>
-            <th style="text-align:right;">Dépenses</th>
-            <th style="text-align:right;">Revenus</th>
-            <th style="text-align:right;">Marge Brute</th>
-            <th style="text-align:center;">Détail</th>
+            <th>الدُّفعة</th>
+            <th style="text-align:center;">الحالة</th>
+            <th style="text-align:right;">الصيصان</th>
+            <th style="text-align:right;">النفوق</th>
+            <th style="text-align:right;">العلف (كغ)</th>
+            <th style="text-align:center;">مؤ.ت</th>
+            <th style="text-align:right;">تكلفة المدخلات</th>
+            <th style="text-align:right;">النفقات</th>
+            <th style="text-align:right;">الإيرادات</th>
+            <th style="text-align:right;">الهامش الإجمالي</th>
+            <th style="text-align:center;">تفصيل</th>
           </tr>
         </thead>
         <tbody>
@@ -151,7 +151,7 @@
           <tr class="stagger-row">
             <td>
               <div style="font-weight:600;color:var(--text-primary);">{{ r.lot.designation }}</div>
-              <div style="font-size:11px;color:var(--text-muted);">{{ r.lot.batiment.nom }} — {{ r.duree_elevage }} j</div>
+              <div style="font-size:11px;color:var(--text-muted);">{{ r.lot.batiment.nom }} — {{ r.duree_elevage }} ي</div>
             </td>
             <td style="text-align:center;">
               <span class="pill-base {% if r.lot.statut == 'ouvert' %}pill-success{% else %}pill-neutral{% endif %}">
@@ -160,13 +160,13 @@
             </td>
             <td style="text-align:right;">
               <span style="font-family:'Nunito',sans-serif;font-weight:700;">{{ r.lot.nombre_poussins_initial }}</span>
-              <div style="font-size:11px;color:var(--text-muted);">Vivants : {{ r.effectif_vivant }}</div>
+              <div style="font-size:11px;color:var(--text-muted);">أحياء : {{ r.effectif_vivant }}</div>
             </td>
             <td style="text-align:right;">
               <span class="{% if r.taux_mortalite > 5 %}margin-neg{% else %}margin-pos{% endif %}">
                 {{ r.taux_mortalite|floatformat:2 }}%
               </span>
-              <div style="font-size:11px;color:var(--text-muted);">{{ r.total_mortalite }} têtes</div>
+              <div style="font-size:11px;color:var(--text-muted);">{{ r.total_mortalite }} رأس</div>
             </td>
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:600;">{{ r.consommation_totale_aliment_kg|floatformat:2 }}</td>
             <td style="text-align:center;">
@@ -194,7 +194,7 @@
         </tbody>
         <tfoot>
           <tr style="background:var(--bg-raised);">
-            <td colspan="6" style="font-weight:700;padding:12px 14px;">TOTAL</td>
+            <td colspan="6" style="font-weight:700;padding:12px 14px;">المجموع</td>
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;padding:12px 14px;">{{ totaux.cout_total_intrants|floatformat:0 }} DZD</td>
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;padding:12px 14px;">{{ totaux.cout_total_depenses|floatformat:0 }} DZD</td>
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;padding:12px 14px;color:#15803d;">{{ totaux.revenus_ventes|floatformat:0 }} DZD</td>
@@ -217,41 +217,41 @@
     <div class="metric-icon ic-green" style="width:40px;height:40px;flex-shrink:0;"><i class="bx bxs-leaf" style="font-size:18px;"></i></div>
     <div>
       <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:18px;color:var(--text-primary);">{{ lot_obj.designation }}</div>
-      <div style="font-size:12px;color:var(--text-muted);">{{ lot_obj.batiment.nom }} — ouvert le {{ lot_obj.date_ouverture|date:"d/m/Y" }}{% if lot_obj.date_fermeture %} — fermé le {{ lot_obj.date_fermeture|date:"d/m/Y" }}{% endif %}</div>
+      <div style="font-size:12px;color:var(--text-muted);">{{ lot_obj.batiment.nom }} — مفتوح بتاريخ {{ lot_obj.date_ouverture|date:"d/m/Y" }}{% if lot_obj.date_fermeture %} — مغلق بتاريخ {{ lot_obj.date_fermeture|date:"d/m/Y" }}{% endif %}</div>
     </div>
-    <span class="pill-base {% if lot_obj.statut == 'ouvert' %}pill-success{% else %}pill-neutral{% endif %}" style="margin-left:auto;">{{ lot_obj.get_statut_display }}</span>
+    <span class="pill-base {% if lot_obj.statut == 'ouvert' %}pill-success{% else %}pill-neutral{% endif %}" style="margin-right:auto;">{{ lot_obj.get_statut_display }}</span>
   </div>
   <div class="kpi-grid">
     <div class="kpi-mini">
-      <div class="kpi-mini__label">Poussins Initial</div>
+      <div class="kpi-mini__label">الصيصان الأولية</div>
       <div class="kpi-mini__val">{{ lot_obj.nombre_poussins_initial }}</div>
     </div>
     <div class="kpi-mini">
-      <div class="kpi-mini__label">Effectif Vivant</div>
+      <div class="kpi-mini__label">الأحياء الحالي</div>
       <div class="kpi-mini__val" style="color:#15803d;">{{ lot_summary.effectif_vivant }}</div>
     </div>
     <div class="kpi-mini">
-      <div class="kpi-mini__label">Mortalité</div>
+      <div class="kpi-mini__label">النفوق</div>
       <div class="kpi-mini__val {% if lot_summary.taux_mortalite > 5 %}margin-neg{% endif %}">{{ lot_summary.taux_mortalite|floatformat:2 }}%</div>
     </div>
     <div class="kpi-mini">
-      <div class="kpi-mini__label">Durée élevage</div>
-      <div class="kpi-mini__val">{{ lot_summary.duree_elevage }} j</div>
+      <div class="kpi-mini__label">مدة التربية</div>
+      <div class="kpi-mini__val">{{ lot_summary.duree_elevage }} ي</div>
     </div>
     <div class="kpi-mini">
-      <div class="kpi-mini__label">Aliment consommé</div>
+      <div class="kpi-mini__label">العلف المستهلك</div>
       <div class="kpi-mini__val">{{ lot_summary.consommation_totale_aliment_kg|floatformat:2 }} kg</div>
     </div>
     <div class="kpi-mini">
-      <div class="kpi-mini__label">Poids produit</div>
+      <div class="kpi-mini__label">الوزن المنتَج</div>
       <div class="kpi-mini__val">{{ lot_summary.poids_total_produit_kg|floatformat:2 }} kg</div>
     </div>
     <div class="kpi-mini">
-      <div class="kpi-mini__label">IC</div>
+      <div class="kpi-mini__label">مؤشر التحويل</div>
       <div class="kpi-mini__val">{% if lot_summary.ic %}{{ lot_summary.ic|floatformat:3 }}{% else %}—{% endif %}</div>
     </div>
     <div class="kpi-mini">
-      <div class="kpi-mini__label">Marge Brute</div>
+      <div class="kpi-mini__label">الهامش الإجمالي</div>
       <div class="kpi-mini__val {% if lot_summary.marge_brute >= 0 %}margin-pos{% else %}margin-neg{% endif %}">
         {% if lot_summary.marge_brute >= 0 %}+{% endif %}{{ lot_summary.marge_brute|floatformat:0 }} DZD
       </div>
@@ -259,16 +259,16 @@
   </div>
 
   <!-- Consommations -->
-  <div class="section-eyebrow" style="margin-bottom:10px;">Consommations du Lot</div>
+  <div class="section-eyebrow" style="margin-bottom:10px;">استهلاكات الدُّفعة</div>
   {% if lot_summary.consommations %}
   <div style="overflow-x:auto;margin-bottom:20px;">
     <table class="table-base">
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Intrant</th>
-          <th>Catégorie</th>
-          <th style="text-align:right;">Quantité</th>
+          <th>التاريخ</th>
+          <th>المدخل</th>
+          <th>الفئة</th>
+          <th style="text-align:right;">الكمية</th>
         </tr>
       </thead>
       <tbody>
@@ -284,20 +284,20 @@
     </table>
   </div>
   {% else %}
-  <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">Aucune consommation enregistrée pour ce lot.</p>
+  <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">لا توجد استهلاكات مسجّلة لهذه الدُّفعة.</p>
   {% endif %}
 
   <!-- Dépenses -->
-  <div class="section-eyebrow" style="margin-bottom:10px;">Dépenses Attribuées</div>
+  <div class="section-eyebrow" style="margin-bottom:10px;">النفقات المنسوبة</div>
   {% if lot_summary.depenses %}
   <div style="overflow-x:auto;">
     <table class="table-base">
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Catégorie</th>
-          <th>Description</th>
-          <th style="text-align:right;">Montant</th>
+          <th>التاريخ</th>
+          <th>الفئة</th>
+          <th>الوصف</th>
+          <th style="text-align:right;">المبلغ</th>
         </tr>
       </thead>
       <tbody>
@@ -313,7 +313,7 @@
     </table>
   </div>
   {% else %}
-  <p style="color:var(--text-muted);font-size:13px;">Aucune dépense attribuée à ce lot.</p>
+  <p style="color:var(--text-muted);font-size:13px;">لا توجد نفقات منسوبة لهذه الدُّفعة.</p>
   {% endif %}
 </div>
 {% endif %}
@@ -323,8 +323,8 @@
   <div class="section-card__body">
     <div class="empty-state">
       <i class="bx bxs-bar-chart-alt-2 empty-state__icon"></i>
-      <div class="empty-state__title">Aucun lot trouvé</div>
-      <div class="empty-state__text">Modifiez les filtres pour afficher les données de rentabilité.</div>
+      <div class="empty-state__title">لم يُعثَر على دُفعات</div>
+      <div class="empty-state__text">عدّل الفلاتر لعرض بيانات الربحية.</div>
     </div>
   </div>
 </div>
@@ -352,7 +352,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const tooltipCfg = {
     backgroundColor: '#fff', borderColor: 'rgba(0,0,0,.12)', borderWidth: 1,
     titleColor: '#1a2219', bodyColor: '#3d5242', padding: 10, cornerRadius: 8,
-    callbacks: { label: ctx => ' ' + new Intl.NumberFormat('fr-DZ').format(Math.round(ctx.raw)) + ' DZD' }
+    callbacks: { label: ctx => ' ' + new Intl.NumberFormat('fr-DZ').format(Math.round(ctx.raw)) + ' دج' }
   };
 
   // Revenus vs Coûts grouped bar
@@ -363,9 +363,9 @@ document.addEventListener('DOMContentLoaded', function () {
       data: {
         labels: d.labels,
         datasets: [
-          { label: 'Revenus', data: d.revenus, backgroundColor: 'rgba(34,197,94,.7)', borderRadius: 5, borderSkipped: false },
-          { label: 'Coût Intrants', data: d.couts_intrants, backgroundColor: 'rgba(245,158,11,.7)', borderRadius: 5, borderSkipped: false },
-          { label: 'Dépenses', data: d.couts_depenses, backgroundColor: 'rgba(251,146,60,.7)', borderRadius: 5, borderSkipped: false }
+          { label: 'الإيرادات', data: d.revenus, backgroundColor: 'rgba(34,197,94,.7)', borderRadius: 5, borderSkipped: false },
+          { label: 'تكلفة المدخلات', data: d.couts_intrants, backgroundColor: 'rgba(245,158,11,.7)', borderRadius: 5, borderSkipped: false },
+          { label: 'النفقات', data: d.couts_depenses, backgroundColor: 'rgba(251,146,60,.7)', borderRadius: 5, borderSkipped: false }
         ]
       },
       options: {
@@ -373,7 +373,7 @@ document.addEventListener('DOMContentLoaded', function () {
         plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }, tooltip: tooltipCfg },
         scales: {
           x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-          y: { grid: { color: 'rgba(0,0,0,.05)' }, ticks: { callback: v => (v / 1000).toFixed(0) + 'k' } }
+          y: { grid: { color: 'rgba(0,0,0,.05)' }, ticks: { callback: v => (v / 1000).toFixed(0) + 'ألف' } }
         }
       }
     });
@@ -387,14 +387,14 @@ document.addEventListener('DOMContentLoaded', function () {
       type: 'bar',
       data: {
         labels: d.labels,
-        datasets: [{ label: 'Marge Brute', data: d.marges, backgroundColor: colors, borderRadius: 5, borderSkipped: false }]
+        datasets: [{ label: 'الهامش الإجمالي', data: d.marges, backgroundColor: colors, borderRadius: 5, borderSkipped: false }]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false }, tooltip: tooltipCfg },
         scales: {
           x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-          y: { grid: { color: 'rgba(0,0,0,.05)' }, ticks: { callback: v => (v / 1000).toFixed(0) + 'k' } }
+          y: { grid: { color: 'rgba(0,0,0,.05)' }, ticks: { callback: v => (v / 1000).toFixed(0) + 'ألف' } }
         }
       }
     });

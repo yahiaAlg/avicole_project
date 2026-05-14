@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reçu de paiement — {{ paiement.client.nom }} — {{ paiement.date_paiement|date:"d/m/Y" }}</title>
+  <title>مستلم من paiement — {{ paiement.client.nom }} — {{ paiement.date_paiement|date:"d/m/Y" }}</title>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #f4f6f4; font-family: 'Inter', sans-serif; font-size: 13px; color: #111; }
 
-    .no-print-bar { max-width: 680px; margin: 0 auto 16px; display: flex; gap: 10px; justify-content: flex-end; padding-top: 24px; }
+    .no-print-bar { max-width: 680px; margin: 0 auto 16px; display: flex; gap: 10px; justify-content: flex-start; padding-top: 24px; }
     .btn-print { background: #22c55e; color: #fff; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: 8px; padding: 10px 20px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
     .btn-back { background: transparent; border: 1px solid #ccc; color: #444; font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px; border-radius: 8px; padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
 
@@ -19,8 +19,8 @@
     .doc-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 2px solid #111; }
     .doc-brand-name { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 18px; }
     .doc-brand-sub { font-size: 11.5px; color: #555; margin-top: 2px; }
-    .doc-title { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 22px; text-align: right; color: #111; }
-    .doc-sub { font-size: 12px; color: #777; text-align: right; margin-top: 4px; }
+    .doc-title { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 22px; text-align: left; color: #111; }
+    .doc-sub { font-size: 12px; color: #777; text-align: left; margin-top: 4px; }
 
     /* Info grid */
     .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
@@ -39,7 +39,7 @@
     .amount-hero-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: #aaa; margin-bottom: 4px; }
     .amount-hero-val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 28px; color: #fff; }
     .amount-hero-mode { font-size: 12.5px; color: #aaa; margin-top: 2px; }
-    .amount-hero-ref { text-align: right; }
+    .amount-hero-ref { text-align: left; }
     .amount-hero-ref-label { font-size: 10.5px; color: #aaa; margin-bottom: 3px; }
     .amount-hero-ref-val { font-size: 13px; color: #ddd; }
 
@@ -49,10 +49,10 @@
     thead th { background: #e8ede8; padding: 8px 11px; text-align: left; font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: #555; }
     tbody td { padding: 9px 11px; border-bottom: 1px solid #e5e7eb; color: #222; }
     tbody tr:last-child td { border-bottom: none; }
-    .text-right { text-align: right; }
+    .text-right { text-align: left; }
 
     /* Summary block */
-    .summary-block { display: flex; justify-content: flex-end; margin-bottom: 28px; }
+    .summary-block { display: flex; justify-content: flex-start; margin-bottom: 28px; }
     .summary-table { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; min-width: 260px; }
     .summary-row { display: flex; justify-content: space-between; padding: 9px 14px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
     .summary-row:last-child { border-bottom: none; }
@@ -82,8 +82,8 @@
 <body>
 
 <div class="no-print-bar">
-  <a href="{% url 'clients:paiement_client_detail' paiement.pk %}" class="btn-back">← Retour</a>
-  <button class="btn-print" onclick="window.print()">🖨 Imprimer</button>
+  <a href="{% url 'clients:paiement_client_detail' paiement.pk %}" class="btn-back">رجوع ←</a>
+  <button class="btn-print" onclick="window.print()">🖨 طباعة</button>
 </div>
 
 <div class="print-preview">
@@ -93,32 +93,32 @@
     <div>
       <div class="doc-brand-name">{{ company.nom|default:"Élevage Avicole" }}</div>
       {% if company.adresse %}<div class="doc-brand-sub">{{ company.adresse }}</div>{% endif %}
-      {% if company.telephone %}<div class="doc-brand-sub">Tél : {{ company.telephone }}</div>{% endif %}
+      {% if company.telephone %}<div class="doc-brand-sub">الهاتف : {{ company.telephone }}</div>{% endif %}
       {% if company.nif %}<div class="doc-brand-sub">NIF : {{ company.nif }}</div>{% endif %}
     </div>
     <div>
-      <div class="doc-title">REÇU DE PAIEMENT</div>
-      <div class="doc-sub">Date : {{ paiement.date_paiement|date:"d/m/Y" }}</div>
+      <div class="doc-title">إيصال دفع</div>
+      <div class="doc-sub">التاريخ : {{ paiement.date_paiement|date:"d/m/Y" }}</div>
     </div>
   </div>
 
   <!-- Info grid: client + payment details -->
   <div class="info-grid">
     <div class="info-block">
-      <div class="info-block-title">Reçu de</div>
+      <div class="info-block-title">مستلم من</div>
       <p><strong>{{ paiement.client.nom }}</strong></p>
       {% if paiement.client.adresse %}<p>{{ paiement.client.adresse }}</p>{% endif %}
       {% if paiement.client.wilaya %}<p>{{ paiement.client.wilaya }}</p>{% endif %}
-      {% if paiement.client.telephone %}<p>Tél : {{ paiement.client.telephone }}</p>{% endif %}
+      {% if paiement.client.telephone %}<p>الهاتف : {{ paiement.client.telephone }}</p>{% endif %}
       {% if paiement.client.nif %}<p>NIF : {{ paiement.client.nif }}</p>{% endif %}
       {% if paiement.client.rc %}<p>RC : {{ paiement.client.rc }}</p>{% endif %}
     </div>
-    <div class="info-block" style="text-align:right;">
-      <div class="info-block-title">Informations</div>
-      <p>Date : <strong>{{ paiement.date_paiement|date:"d/m/Y" }}</strong></p>
-      <p>Mode : <strong>{{ paiement.get_mode_paiement_display }}</strong></p>
+    <div class="info-block" style="text-align:left;">
+      <div class="info-block-title">المعلومات</div>
+      <p>التاريخ : <strong>{{ paiement.date_paiement|date:"d/m/Y" }}</strong></p>
+      <p>الطريقة : <strong>{{ paiement.get_mode_paiement_display }}</strong></p>
       {% if paiement.reference_paiement %}
-      <p>Réf. : <strong>{{ paiement.reference_paiement }}</strong></p>
+      <p>المرجع : <strong>{{ paiement.reference_paiement }}</strong></p>
       {% endif %}
     </div>
   </div>
@@ -126,25 +126,25 @@
   <!-- Meta row -->
   <div class="meta-row">
     <div class="meta-item">
-      <span class="meta-label">Client</span>
+      <span class="meta-label">العميل</span>
       <span class="meta-val">{{ paiement.client.nom }}</span>
     </div>
     <div class="meta-item">
-      <span class="meta-label">Date</span>
+      <span class="meta-label">التاريخ</span>
       <span class="meta-val">{{ paiement.date_paiement|date:"d/m/Y" }}</span>
     </div>
     <div class="meta-item">
-      <span class="meta-label">Mode</span>
+      <span class="meta-label">الطريقة</span>
       <span class="meta-val">{{ paiement.get_mode_paiement_display }}</span>
     </div>
     {% if paiement.reference_paiement %}
     <div class="meta-item">
-      <span class="meta-label">Référence</span>
+      <span class="meta-label">المرجع</span>
       <span class="meta-val">{{ paiement.reference_paiement }}</span>
     </div>
     {% endif %}
     <div class="meta-item">
-      <span class="meta-label">Factures réglées</span>
+      <span class="meta-label">الفواتير المسوّاة</span>
       <span class="meta-val">{{ allocations|length }}</span>
     </div>
   </div>
@@ -152,12 +152,12 @@
   <!-- Amount hero -->
   <div class="amount-hero">
     <div>
-      <div class="amount-hero-label">Montant reçu</div>
+      <div class="amount-hero-label">المبلغ المستلم</div>
       <div class="amount-hero-val">{{ paiement.montant|floatformat:0 }} DZD</div>
       <div class="amount-hero-mode">{{ paiement.get_mode_paiement_display }}{% if paiement.reference_paiement %} · {{ paiement.reference_paiement }}{% endif %}</div>
     </div>
     <div class="amount-hero-ref">
-      <div class="amount-hero-ref-label">Enregistré par</div>
+      <div class="amount-hero-ref-label">سجّله</div>
       <div class="amount-hero-ref-val">{{ paiement.created_by|default:"—" }}</div>
       <div class="amount-hero-ref-label" style="margin-top:6px;">Le</div>
       <div class="amount-hero-ref-val">{{ paiement.created_at|date:"d/m/Y H:i" }}</div>
@@ -166,14 +166,14 @@
 
   <!-- Allocation detail -->
   {% if allocations %}
-  <div class="alloc-section-title">Détail des allocations aux factures</div>
+  <div class="alloc-section-title">تفاصيل التخصيص للفواتير</div>
   <table>
     <thead>
       <tr>
         <th>#</th>
-        <th>Référence facture</th>
-        <th>Date facture</th>
-        <th class="text-right">Montant alloué (DZD)</th>
+        <th>مرجع الفاتورة</th>
+        <th>تاريخ الفاتورة</th>
+        <th class="text-right">المبلغ المخصص (DZD)</th>
       </tr>
     </thead>
     <tbody>
@@ -189,7 +189,7 @@
   </table>
   {% else %}
   <div class="no-alloc">
-    Aucune facture n'a été allouée à ce paiement. Le montant est disponible en solde non alloué.
+    لم يتم تخصيص أي فاتورة لهذه الدفعة. المبلغ متاح كرصيد غير مخصص.
   </div>
   {% endif %}
 
@@ -197,15 +197,15 @@
   <div class="summary-block">
     <div class="summary-table">
       <div class="summary-row">
-        <span class="summary-label">Montant total reçu</span>
+        <span class="summary-label">إجمالي المبلغ المستلم</span>
         <span style="font-family:'Nunito',sans-serif;font-weight:700;">{{ paiement.montant|floatformat:0 }} DZD</span>
       </div>
       <div class="summary-row">
-        <span class="summary-label">Total alloué aux factures</span>
+        <span class="summary-label">إجمالي المخصص aux factures</span>
         <span class="summary-val-green">{{ paiement.montant_alloue|floatformat:0 }} DZD</span>
       </div>
       <div class="summary-row summary-row--total">
-        <span class="summary-label" style="font-weight:700;">Solde non alloué</span>
+        <span class="summary-label" style="font-weight:700;">رصيد غير مخصص</span>
         <span class="{% if paiement.solde_non_alloue > 0 %}summary-val-amber{% else %}summary-val-green{% endif %}">{{ paiement.solde_non_alloue|floatformat:0 }} DZD</span>
       </div>
     </div>
@@ -213,13 +213,13 @@
 
   {% if paiement.notes %}
   <div class="notes-block">
-    <div class="info-block-title">Notes</div>
+    <div class="info-block-title">ملاحظات</div>
     <p>{{ paiement.notes }}</p>
   </div>
   {% endif %}
 
   <div class="footer-note">
-    Reçu généré par {{ company.nom|default:"Élevage Avicole" }} — {{ paiement.date_paiement|date:"d/m/Y" }}
+    إيصال صادر عن {{ company.nom|default:"Élevage Avicole" }} — {{ paiement.date_paiement|date:"d/m/Y" }}
   </div>
 
 </div>

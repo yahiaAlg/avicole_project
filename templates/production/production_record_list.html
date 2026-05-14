@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Enregistrements de Production — Élevage Avicole{% endblock %}
+{% block title %}سجلات الإنتاج — تربية الدواجن{% endblock %}
 
 {% block nav_production %}active{% endblock %}
 
-{% block page_title %}Enregistrements de production{% endblock %}
-{% block page_sub_text %}{{ nb_brouillons }} brouillon{{ nb_brouillons|pluralize }} · {{ nb_valides }} validé{{ nb_valides|pluralize }}{% endblock %}
+{% block page_title %}سجلات الإنتاج{% endblock %}
+{% block page_sub_text %}{{ nb_brouillons }} مسودة · {{ nb_valides }} مُعتمد{% endblock %}
 
 {% block topbar_actions %}
   {% if request.user.profile.role in 'admin,manager' %}
   <a href="{% url 'production:production_record_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouvel enregistrement
+    <i class="bx bx-plus"></i> تسجيل جديد
   </a>
   {% endif %}
 {% endblock %}
@@ -24,26 +24,26 @@
     <form method="get" action="" class="filters-form" id="filter-form">
       <div class="search-wrapper">
         <i class="bx bx-search search-icon"></i>
-        <input type="text" name="q" value="{{ q }}" placeholder="Rechercher par lot…" class="search-input" autocomplete="off">
+        <input type="text" name="q" value="{{ q }}" placeholder="البحث بالدفعة…" class="search-input" autocomplete="off">
       </div>
       <select name="statut" class="filter-select" id="filter-statut">
-        <option value="">Tous les statuts</option>
+        <option value="">جميع الحالات</option>
         {% for val, label in statut_choices %}
           <option value="{{ val }}" {% if statut == val %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
       <select name="lot" class="filter-select" id="filter-lot">
-        <option value="">Tous les lots</option>
+        <option value="">جميع الدفعات</option>
         {% for l in lots %}
           <option value="{{ l.pk }}" {% if lot_pk == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.designation }}</option>
         {% endfor %}
       </select>
-      <input type="date" name="date_debut" value="{{ date_debut }}" class="filter-select" placeholder="Du" title="Date début">
-      <input type="date" name="date_fin" value="{{ date_fin }}" class="filter-select" placeholder="Au" title="Date fin">
-      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> Filtrer</button>
+      <input type="date" name="date_debut" value="{{ date_debut }}" class="filter-select" placeholder="من" title="Date début">
+      <input type="date" name="date_fin" value="{{ date_fin }}" class="filter-select" placeholder="إلى" title="Date fin">
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> تصفية</button>
       {% if q or statut or lot_pk or date_debut or date_fin %}
         <a href="{% url 'production:production_record_list' %}" class="btn-ghost btn-sm" style="color:var(--text-muted);">
-          <i class="bx bx-x"></i> Effacer
+          <i class="bx bx-x"></i> مسح
         </a>
       {% endif %}
     </form>
@@ -51,7 +51,7 @@
 
   <div class="card">
     <div class="card-header-row">
-      <div class="section-eyebrow">Enregistrements — abattages et récoltes</div>
+      <div class="section-eyebrow">السجلات — الذبح والحصاد</div>
     </div>
 
     {% if page.object_list %}
@@ -59,15 +59,15 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Lot</th>
-            <th>Bâtiment</th>
-            <th style="text-align:right;">Oiseaux abattus</th>
-            <th style="text-align:right;">Poids total (kg)</th>
-            <th style="text-align:right;">Poids moyen (kg)</th>
-            <th>Produits générés</th>
-            <th>Statut</th>
-            <th style="text-align:right;">Actions</th>
+            <th>التاريخ</th>
+            <th>الدفعة</th>
+            <th>المبنى</th>
+            <th style="text-align:right;">الطيور المذبوحة</th>
+            <th style="text-align:right;">الوزن الإجمالي (كجم)</th>
+            <th style="text-align:right;">متوسط الوزن (كجم)</th>
+            <th>المنتجات الناتجة</th>
+            <th>الحالة</th>
+            <th style="text-align:right;">الإجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -95,19 +95,19 @@
             </td>
             <td>
               {% if rec.statut == "brouillon" %}
-                <span class="pill-warning"><i class="bx bxs-error"></i> Brouillon</span>
+                <span class="pill-warning"><i class="bx bxs-error"></i> مسودة</span>
               {% else %}
-                <span class="pill-success"><i class="bx bxs-check-circle"></i> Validé</span>
+                <span class="pill-success"><i class="bx bxs-check-circle"></i> مُعتمد</span>
               {% endif %}
             </td>
             <td>
               <div class="actions-cell">
-                <a href="{% url 'production:production_record_detail' rec.pk %}" class="action-btn" title="Voir le détail">
+                <a href="{% url 'production:production_record_detail' rec.pk %}" class="action-btn" title="عرض التفاصيل">
                   <i class="bx bx-show"></i>
                 </a>
                 {% if rec.statut == "brouillon" %}
                   {% if request.user.profile.role in 'admin,manager' %}
-                  <a href="{% url 'production:production_record_edit' rec.pk %}" class="action-btn" title="Modifier">
+                  <a href="{% url 'production:production_record_edit' rec.pk %}" class="action-btn" title="تعديل">
                     <i class="bx bxs-pencil"></i>
                   </a>
                   {% endif %}
@@ -116,7 +116,7 @@
                     class="action-btn action-btn--danger"
                     data-delete-pk="{{ rec.pk }}"
                     data-delete-label="{{ rec.lot.designation }} — {{ rec.date_production|date:'d/m/Y' }}"
-                    title="Supprimer">
+                    title="حذف">
                     <i class="bx bx-trash"></i>
                   </button>
                   {% endif %}
@@ -134,7 +134,7 @@
       {% if page.has_previous %}
         <a href="?page={{ page.previous_page_number }}&q={{ q }}&statut={{ statut }}&lot={{ lot_pk }}&date_debut={{ date_debut }}&date_fin={{ date_fin }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
       {% endif %}
-      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      <span class="page-info">الصفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
       {% if page.has_next %}
         <a href="?page={{ page.next_page_number }}&q={{ q }}&statut={{ statut }}&lot={{ lot_pk }}&date_debut={{ date_debut }}&date_fin={{ date_fin }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
       {% endif %}
@@ -145,11 +145,11 @@
     <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
       <i class="bx bx-refresh" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
       <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
-        Aucun enregistrement
+        لا يوجد سجل
       </div>
-      <div style="font-size:13px;">Aucun enregistrement de production ne correspond aux filtres.</div>
+      <div style="font-size:13px;">لا يوجد سجل إنتاج يطابق الفلاتر.</div>
       <a href="{% url 'production:production_record_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
-        <i class="bx bx-plus"></i> Créer
+        <i class="bx bx-plus"></i> إنشاء
       </a>
     </div>
     {% endif %}
@@ -158,14 +158,14 @@
     <div class="confirm-panel__inner">
       <div class="confirm-panel__icon"><i class="bx bx-trash"></i></div>
       <div>
-        <div class="confirm-panel__title">Supprimer l'enregistrement ?</div>
-        <div class="confirm-panel__body">L'enregistrement <strong id="confirm-delete-label"></strong> sera définitivement supprimé.</div>
+        <div class="confirm-panel__title">حذف السجل؟</div>
+        <div class="confirm-panel__body">سيُحذف السجل <strong id="confirm-delete-label"></strong> نهائياً.</div>
       </div>
       <div class="confirm-panel__actions">
-        <button type="button" id="confirm-delete-cancel" class="btn-ghost">Annuler</button>
+        <button type="button" id="confirm-delete-cancel" class="btn-ghost">إلغاء</button>
         <form id="confirm-delete-form" method="post" action="">
           {% csrf_token %}
-          <button type="submit" class="btn-danger">Supprimer</button>
+          <button type="submit" class="btn-danger">حذف</button>
         </form>
       </div>
     </div>
@@ -182,8 +182,8 @@
   .filters-bar { margin-bottom:16px; }
   .filters-form { display:flex;align-items:center;gap:10px;flex-wrap:wrap; }
   .search-wrapper { position:relative;flex:1;min-width:200px; }
-  .search-icon { position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none; }
-  .search-input { width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13.5px;padding:9px 12px 9px 36px;transition:border-color .15s,box-shadow .15s; }
+  .search-icon { position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none; }
+  .search-input { width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13.5px;padding:9px 36px 9px 12px;transition:border-color .15s,box-shadow .15s; }
   .search-input:focus { border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.15);outline:none; }
   .search-input::placeholder { color:var(--text-muted); }
   .filter-select { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-secondary);font-family:'Inter',sans-serif;font-size:13px;padding:9px 12px;cursor:pointer;transition:border-color .15s; }
@@ -219,7 +219,7 @@
   .confirm-panel__icon { width:44px;height:44px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:20px;background:rgba(239,68,68,.1);color:#dc2626; }
   .confirm-panel__title { font-family:'Nunito',sans-serif;font-weight:700;font-size:15px;color:var(--text-primary);margin-bottom:4px; }
   .confirm-panel__body { font-size:13px;color:var(--text-secondary); }
-  .confirm-panel__actions { display:flex;gap:10px;justify-content:flex-end; }
+  .confirm-panel__actions { display:flex;gap:10px;justify-content:flex-start; }
   .confirm-panel__actions form { margin:0; }
 
   .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s,transform .12s;text-decoration:none; }

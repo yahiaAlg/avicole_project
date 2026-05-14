@@ -29,24 +29,22 @@ class CategorieIntrant(models.Model):
     code = models.CharField(
         max_length=50,
         unique=True,
-        verbose_name="Code",
-        help_text="Clé stable : ALIMENT, POUSSIN, MEDICAMENT, AUTRE — ne pas renommer.",
+        verbose_name="الرمز",
+        help_text="مفتاح ثابت: ALIMENT, POUSSIN, MEDICAMENT, AUTRE — لا تعيد تسميته.",
     )
-    libelle = models.CharField(max_length=150, verbose_name="Libellé")
+    libelle = models.CharField(max_length=150, verbose_name="التسمية")
     # Whether items in this category are consumable inside a lot (feed/medicine)
     consommable_en_lot = models.BooleanField(
         default=False,
-        verbose_name="Consommable en lot",
-        help_text="Cocher pour les catégories pouvant être saisies en Consommation.",
+        verbose_name="قابل للاستهلاك في الدفعة",
+        help_text="ضع علامة للفئات التي يمكن إدخالها في الاستهلاك.",
     )
-    ordre = models.PositiveSmallIntegerField(
-        default=0, verbose_name="Ordre d'affichage"
-    )
-    actif = models.BooleanField(default=True, verbose_name="Actif")
+    ordre = models.PositiveSmallIntegerField(default=0, verbose_name="ترتيب العرض")
+    actif = models.BooleanField(default=True, verbose_name="نشط")
 
     class Meta:
-        verbose_name = "Catégorie d'intrant"
-        verbose_name_plural = "Catégories d'intrants"
+        verbose_name = "فئة مدخل"
+        verbose_name_plural = "فئات المدخلات"
         ordering = ["ordre", "libelle"]
 
     def __str__(self):
@@ -59,16 +57,14 @@ class TypeFournisseur(models.Model):
     Seeded: Aliments, Poussins, Médicaments/Vétérinaires, Services, Autre.
     """
 
-    code = models.CharField(max_length=50, unique=True, verbose_name="Code")
-    libelle = models.CharField(max_length=150, verbose_name="Libellé")
-    ordre = models.PositiveSmallIntegerField(
-        default=0, verbose_name="Ordre d'affichage"
-    )
-    actif = models.BooleanField(default=True, verbose_name="Actif")
+    code = models.CharField(max_length=50, unique=True, verbose_name="الرمز")
+    libelle = models.CharField(max_length=150, verbose_name="التسمية")
+    ordre = models.PositiveSmallIntegerField(default=0, verbose_name="ترتيب العرض")
+    actif = models.BooleanField(default=True, verbose_name="نشط")
 
     class Meta:
-        verbose_name = "Type de fournisseur"
-        verbose_name_plural = "Types de fournisseurs"
+        verbose_name = "نوع المورد"
+        verbose_name_plural = "أنواع الموردين"
         ordering = ["ordre", "libelle"]
 
     def __str__(self):
@@ -86,18 +82,16 @@ class Fournisseur(models.Model):
     Règlement Fournisseur, and the Intrant catalogue.
     """
 
-    nom = models.CharField(max_length=255, verbose_name="Nom du fournisseur")
-    adresse = models.TextField(verbose_name="Adresse", blank=True)
-    wilaya = models.CharField(max_length=100, verbose_name="Wilaya", blank=True)
-    telephone = models.CharField(max_length=30, verbose_name="Téléphone", blank=True)
-    telephone_2 = models.CharField(
-        max_length=30, verbose_name="Téléphone 2", blank=True
-    )
-    email = models.EmailField(verbose_name="Email", blank=True)
+    nom = models.CharField(max_length=255, verbose_name="اسم المورد")
+    adresse = models.TextField(verbose_name="العنوان", blank=True)
+    wilaya = models.CharField(max_length=100, verbose_name="الولاية", blank=True)
+    telephone = models.CharField(max_length=30, verbose_name="الهاتف", blank=True)
+    telephone_2 = models.CharField(max_length=30, verbose_name="الهاتف 2", blank=True)
+    email = models.EmailField(verbose_name="البريد الإلكتروني", blank=True)
     nif = models.CharField(max_length=50, verbose_name="NIF", blank=True)
     rc = models.CharField(max_length=50, verbose_name="RC", blank=True)
     contact_nom = models.CharField(
-        max_length=150, verbose_name="Nom du contact", blank=True
+        max_length=150, verbose_name="اسم جهة الاتصال", blank=True
     )
     type_principal = models.ForeignKey(
         TypeFournisseur,
@@ -105,16 +99,16 @@ class Fournisseur(models.Model):
         null=True,
         blank=True,
         related_name="fournisseurs",
-        verbose_name="Type principal",
+        verbose_name="النوع الرئيسي",
     )
-    actif = models.BooleanField(default=True, verbose_name="Actif")
-    notes = models.TextField(verbose_name="Notes", blank=True)
+    actif = models.BooleanField(default=True, verbose_name="نشط")
+    notes = models.TextField(verbose_name="ملاحظات", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Fournisseur"
-        verbose_name_plural = "Fournisseurs"
+        verbose_name = "مورد"
+        verbose_name_plural = "الموردون"
         ordering = ["nom"]
 
     def __str__(self):
@@ -161,16 +155,16 @@ class Batiment(models.Model):
     Each *lot d'élevage* is assigned to one building.
     """
 
-    nom = models.CharField(max_length=100, verbose_name="Nom / Numéro")
+    nom = models.CharField(max_length=100, verbose_name="الاسم / الرقم")
     capacite = models.PositiveIntegerField(
-        verbose_name="Capacité (têtes)", null=True, blank=True
+        verbose_name="الطاقة الاستيعابية (رأس)", null=True, blank=True
     )
-    description = models.TextField(verbose_name="Description", blank=True)
-    actif = models.BooleanField(default=True, verbose_name="Actif")
+    description = models.TextField(verbose_name="الوصف", blank=True)
+    actif = models.BooleanField(default=True, verbose_name="نشط")
 
     class Meta:
-        verbose_name = "Bâtiment"
-        verbose_name_plural = "Bâtiments"
+        verbose_name = "مبنى"
+        verbose_name_plural = "المباني"
         ordering = ["nom"]
 
     def __str__(self):
@@ -193,27 +187,27 @@ class Intrant(models.Model):
     """
 
     UNITE_CHOICES = [
-        ("kg", "Kilogramme (kg)"),
-        ("sac", "Sac (25 kg)"),
-        ("unite", "Unité / Tête"),
-        ("litre", "Litre"),
-        ("flacon", "Flacon"),
-        ("dose", "Dose"),
-        ("ml", "Millilitre (ml)"),
-        ("g", "Gramme (g)"),
+        ("kg", "كيلوغرام (كغ)"),
+        ("sac", "كيس (25 كغ)"),
+        ("unite", "وحدة / رأس"),
+        ("litre", "لتر"),
+        ("flacon", "قارورة"),
+        ("dose", "جرعة"),
+        ("ml", "مليلتر (مل)"),
+        ("g", "غرام (غ)"),
     ]
 
-    designation = models.CharField(max_length=255, verbose_name="Désignation")
+    designation = models.CharField(max_length=255, verbose_name="التسمية")
     categorie = models.ForeignKey(
         CategorieIntrant,
         on_delete=models.PROTECT,
         related_name="intrants",
-        verbose_name="Catégorie",
+        verbose_name="الفئة",
     )
     unite_mesure = models.CharField(
         max_length=20,
         choices=UNITE_CHOICES,
-        verbose_name="Unité de mesure",
+        verbose_name="وحدة القياس",
         default="kg",
     )
     # Suppliers that provide this intrant (informational M2M)
@@ -221,23 +215,23 @@ class Intrant(models.Model):
         Fournisseur,
         blank=True,
         related_name="intrants",
-        verbose_name="Fournisseurs associés",
+        verbose_name="الموردون المرتبطون",
     )
     seuil_alerte = models.DecimalField(
         max_digits=12,
         decimal_places=3,
-        verbose_name="Seuil d'alerte stock",
+        verbose_name="حد تنبيه المخزون",
         default=0,
-        help_text="Alerte si le stock descend sous ce seuil.",
+        help_text="تنبيه إذا انخفض المخزون عن هذا الحد.",
     )
-    actif = models.BooleanField(default=True, verbose_name="Actif")
-    notes = models.TextField(verbose_name="Notes", blank=True)
+    actif = models.BooleanField(default=True, verbose_name="نشط")
+    notes = models.TextField(verbose_name="ملاحظات", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Intrant"
-        verbose_name_plural = "Intrants"
+        verbose_name = "مدخل"
+        verbose_name_plural = "المدخلات"
         ordering = ["categorie__libelle", "designation"]
 
     def __str__(self):

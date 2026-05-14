@@ -26,25 +26,26 @@ class CategorieDepense(models.Model):
     The `code` field provides a stable programmatic key for any future
     integrations or reports.
     """
+
     code = models.CharField(
         max_length=50,
         unique=True,
-        verbose_name="Code",
-        help_text="Identifiant court unique, ex : ENERGIE, MAINTENANCE.",
+        verbose_name="الرمز",
+        help_text="معرف قصير فريد، مثال: ENERGIE, MAINTENANCE.",
     )
-    libelle = models.CharField(max_length=150, verbose_name="Libellé")
-    description = models.TextField(blank=True, verbose_name="Description")
-    actif = models.BooleanField(default=True, verbose_name="Actif")
+    libelle = models.CharField(max_length=150, verbose_name="التسمية")
+    description = models.TextField(blank=True, verbose_name="الوصف")
+    actif = models.BooleanField(default=True, verbose_name="نشط")
     # Display order in dropdowns
     ordre = models.PositiveSmallIntegerField(
         default=0,
-        verbose_name="Ordre d'affichage",
+        verbose_name="ترتيب العرض",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "Catégorie de dépense"
-        verbose_name_plural = "Catégories de dépenses"
+        verbose_name = "فئة المصروف"
+        verbose_name_plural = "فئات المصاريف"
         ordering = ["ordre", "libelle"]
 
     def __str__(self):
@@ -78,31 +79,31 @@ class Depense(models.Model):
     MODE_AUTRE = "autre"
 
     MODE_CHOICES = [
-        (MODE_ESPECES, "Espèces"),
-        (MODE_CHEQUE, "Chèque"),
-        (MODE_VIREMENT, "Virement bancaire"),
-        (MODE_CARTE, "Carte bancaire"),
-        (MODE_AUTRE, "Autre"),
+        (MODE_ESPECES, "نقداً"),
+        (MODE_CHEQUE, "شيك"),
+        (MODE_VIREMENT, "تحويل بنكي"),
+        (MODE_CARTE, "بطاقة بنكية"),
+        (MODE_AUTRE, "أخرى"),
     ]
 
-    date = models.DateField(verbose_name="Date de la dépense")
+    date = models.DateField(verbose_name="تاريخ المصروف")
 
     categorie = models.ForeignKey(
         CategorieDepense,
         on_delete=models.PROTECT,
         related_name="depenses",
-        verbose_name="Catégorie",
+        verbose_name="الفئة",
     )
 
     description = models.CharField(
         max_length=500,
-        verbose_name="Description / Objet",
+        verbose_name="الوصف / الموضوع",
     )
 
     montant = models.DecimalField(
         max_digits=14,
         decimal_places=2,
-        verbose_name="Montant (DZD)",
+        verbose_name="المبلغ (د.ج)",
         validators=[MinValueValidator(0.01)],
     )
 
@@ -110,21 +111,21 @@ class Depense(models.Model):
         max_length=20,
         choices=MODE_CHOICES,
         default=MODE_ESPECES,
-        verbose_name="Mode de paiement",
+        verbose_name="طريقة الدفع",
     )
 
     reference_document = models.CharField(
         max_length=150,
         blank=True,
-        verbose_name="Référence document (facture / reçu)",
-        help_text="Numéro de la pièce justificative papier.",
+        verbose_name="مرجع الوثيقة (فاتورة / وصل)",
+        help_text="رقم الوثيقة المثبتة الورقية.",
     )
 
     piece_jointe = models.FileField(
         upload_to="depenses/%Y/%m/",
         blank=True,
         null=True,
-        verbose_name="Pièce jointe (PDF/JPG/PNG)",
+        verbose_name="مرفق (PDF/JPG/PNG)",
     )
 
     # Optional lot attribution (BR-DEP-04)
@@ -134,8 +135,8 @@ class Depense(models.Model):
         null=True,
         blank=True,
         related_name="depenses",
-        verbose_name="Lot attribué",
-        help_text="Optionnel — pour le calcul de rentabilité par lot.",
+        verbose_name="الدفعة المخصصة",
+        help_text="اختياري — لحساب الربحية لكل دفعة.",
     )
 
     # Optional service-invoice link (BR-DEP-03) — NEVER auto-populated.
@@ -145,14 +146,13 @@ class Depense(models.Model):
         null=True,
         blank=True,
         related_name="depenses_liees",
-        verbose_name="Facture fournisseur liée (service uniquement)",
+        verbose_name="فاتورة المورد المرتبطة (خدمة فقط)",
         help_text=(
-            "Uniquement pour les factures de type Service. "
-            "Ne jamais relier une facture de marchandises (BR-DEP-01)."
+            "للفواتير من نوع الخدمة فقط. " "لا تربط أبداً بفاتورة بضائع (BR-DEP-01)."
         ),
     )
 
-    notes = models.TextField(blank=True, verbose_name="Notes")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
 
     enregistre_par = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -160,15 +160,15 @@ class Depense(models.Model):
         null=True,
         blank=True,
         related_name="depenses_enregistrees",
-        verbose_name="Enregistré par",
+        verbose_name="مسجّل من قبل",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Dépense"
-        verbose_name_plural = "Dépenses"
+        verbose_name = "مصروف"
+        verbose_name_plural = "مصاريف"
         ordering = ["-date", "-created_at"]
 
     def __str__(self):

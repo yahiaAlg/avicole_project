@@ -21,10 +21,10 @@ class CategorieIntrantForm(forms.ModelForm):
         model = CategorieIntrant
         fields = ["code", "libelle", "consommable_en_lot", "ordre", "actif"]
         widgets = {
-            "code": forms.TextInput(attrs={"placeholder": "Ex : ALIMENT"}),
+            "code": forms.TextInput(attrs={"placeholder": "مثال: ALIMENT"}),
         }
         help_texts = {
-            "code": "Identifiant stable — ne pas renommer les codes ALIMENT, POUSSIN, MEDICAMENT, AUTRE.",
+            "code": "معرف ثابت — لا تعيد تسمية الرموز ALIMENT, POUSSIN, MEDICAMENT, AUTRE.",
         }
 
 

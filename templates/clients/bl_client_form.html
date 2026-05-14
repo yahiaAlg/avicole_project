@@ -1,25 +1,25 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
 
 {% block nav_bl_clients %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
 {% block page_sub_text %}
-  {% if bl %}BL {{ bl.reference }} — {{ bl.client.nom }}
-  {% elif client %}Nouveau BL pour {{ client.nom }}
-  {% else %}Nouveau bon de livraison client
+  {% if bl %}وصل {{ bl.reference }} — {{ bl.client.nom }}
+  {% elif client %}وصل تسليم جديد لـ {{ client.nom }}
+  {% else %}وصل تسليم جديد للعميل
   {% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
   {% if bl %}
-  <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> Retour au BL</a>
+  <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> العودة إلى الوصل</a>
   {% elif client %}
   <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> {{ client.nom }}</a>
   {% else %}
-  <a href="{% url 'clients:bl_client_list' %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> BL Clients</a>
+  <a href="{% url 'clients:bl_client_list' %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> وصلات التسليم</a>
   {% endif %}
 {% endblock %}
 
@@ -27,7 +27,7 @@
 {% if bl and bl.est_verrouille %}
 <div class="locked-banner">
   <i class="bx bxs-lock"></i>
-  <span>Ce BL est <strong>verrouillé (Facturé)</strong> — aucune modification n'est possible.</span>
+  <span>هذا الوصل <strong>مقفل (مفوتر)</strong> — لا يمكن إجراء أي تعديل.</span>
 </div>
 {% endif %}
 
@@ -44,14 +44,14 @@
       <div class="form-card">
         <div class="form-card__header">
           <i class="bx bxs-truck ic-icon"></i>
-          <span class="form-card__title">Informations du BL</span>
+          <span class="form-card__title">معلومات وصل التسليم</span>
         </div>
 
         <div class="form-grid-2">
 
           <!-- Référence -->
           <div class="form-field">
-            <label class="form-label" for="{{ form.reference.id_for_label }}">Référence BL *</label>
+            <label class="form-label" for="{{ form.reference.id_for_label }}">مرجع الوصل *</label>
             <div class="input-icon-wrap"><i class="bx bx-hash"></i>{{ form.reference }}</div>
             {% for err in form.reference.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
           </div>
@@ -59,7 +59,7 @@
           <!-- Client -->
           {% if not client %}
           <div class="form-field">
-            <label class="form-label" for="{{ form.client.id_for_label }}">Client *</label>
+            <label class="form-label" for="{{ form.client.id_for_label }}">العميل *</label>
             <div class="input-icon-wrap"><i class="bx bxs-group"></i>{{ form.client }}</div>
             {% for err in form.client.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
           </div>
@@ -69,29 +69,29 @@
 
           <!-- Date BL -->
           <div class="form-field">
-            <label class="form-label" for="{{ form.date_bl.id_for_label }}">Date du BL *</label>
+            <label class="form-label" for="{{ form.date_bl.id_for_label }}">تاريخ الوصل *</label>
             {{ form.date_bl }}
-            {% if form.future_date_warning %}<div class="field-warning"><i class="bx bxs-info-circle"></i> La date est dans le futur — vérifiez avant de valider.</div>{% endif %}
+            {% if form.future_date_warning %}<div class="field-warning"><i class="bx bxs-info-circle"></i> التاريخ في المستقبل — تحقق قبل التأكيد.</div>{% endif %}
             {% for err in form.date_bl.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
           </div>
 
           <!-- Statut -->
           <div class="form-field">
-            <label class="form-label" for="{{ form.statut.id_for_label }}">Statut *</label>
+            <label class="form-label" for="{{ form.statut.id_for_label }}">الحالة *</label>
             <div class="input-icon-wrap"><i class="bx bxs-badge-check"></i>{{ form.statut }}</div>
             {% for err in form.statut.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
           </div>
 
           <!-- Signé par -->
           <div class="form-field">
-            <label class="form-label" for="{{ form.signe_par.id_for_label }}">Signé par (réceptionnaire)</label>
+            <label class="form-label" for="{{ form.signe_par.id_for_label }}">موقع من طرف (المستلم)</label>
             <div class="input-icon-wrap"><i class="bx bxs-user"></i>{{ form.signe_par }}</div>
             {% for err in form.signe_par.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
           </div>
 
           <!-- Adresse livraison -->
           <div class="form-field">
-            <label class="form-label" for="{{ form.adresse_livraison.id_for_label }}">Adresse de livraison</label>
+            <label class="form-label" for="{{ form.adresse_livraison.id_for_label }}">عنوان التسليم</label>
             {{ form.adresse_livraison }}
             {% for err in form.adresse_livraison.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
           </div>
@@ -100,7 +100,7 @@
 
         <!-- Notes (full width) -->
         <div class="form-field" style="margin-top:12px;">
-          <label class="form-label" for="{{ form.notes.id_for_label }}">Notes</label>
+          <label class="form-label" for="{{ form.notes.id_for_label }}">ملاحظات</label>
           {{ form.notes }}
           {% for err in form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
         </div>
@@ -118,12 +118,12 @@
         <div class="form-card__header" style="justify-content:space-between;">
           <div style="display:flex;align-items:center;gap:10px;">
             <i class="bx bxs-cube-alt ic-icon"></i>
-            <span class="form-card__title">Lignes produits finis</span>
+            <span class="form-card__title">بنود المنتجات النهائية</span>
           </div>
           <div style="display:flex;align-items:center;gap:12px;">
-            <span class="section-eyebrow">Total : <strong id="bl-grand-total">0 DZD</strong></span>
+            <span class="section-eyebrow">المجموع : <strong id="bl-grand-total">0 دج</strong></span>
             <button type="button" id="add-line-btn" class="btn-ghost btn-sm">
-              <i class="bx bx-plus"></i> Ajouter une ligne
+              <i class="bx bx-plus"></i> إضافة بند
             </button>
           </div>
         </div>
@@ -138,11 +138,11 @@
           <table class="data-table" id="formset-table">
             <thead>
               <tr>
-                <th style="width:35%;">Produit fini</th>
-                <th style="width:14%;">Quantité</th>
-                <th style="width:18%;">Prix unit. (DZD)</th>
-                <th style="width:16%;">Montant</th>
-                <th style="width:13%;">Stock dispo</th>
+                <th style="width:35%;">المنتج النهائي</th>
+                <th style="width:14%;">الكمية</th>
+                <th style="width:18%;">سعر الوحدة (دج)</th>
+                <th style="width:16%;">المبلغ</th>
+                <th style="width:13%;">المخزون المتاح</th>
                 <th style="width:4%;text-align:center;"></th>
               </tr>
             </thead>
@@ -170,7 +170,7 @@
                   <span class="stock-hint" style="font-size:11px;color:var(--text-muted);"></span>
                 </td>
                 <td style="text-align:center;">
-                  <button type="button" class="delete-btn" title="Supprimer la ligne">
+                  <button type="button" class="delete-btn" title="حذف البند">
                     <i class="bx bx-trash"></i>
                   </button>
                 </td>
@@ -188,38 +188,38 @@
       <div class="form-card sticky-card">
         <div class="form-card__header">
           <i class="bx bxs-calculator ic-icon"></i>
-          <span class="form-card__title">Récapitulatif</span>
+          <span class="form-card__title">الملخص</span>
         </div>
         <div class="summary-row">
-          <span class="summary-label">Lignes</span>
+          <span class="summary-label">البنود</span>
           <span class="summary-val" id="summary-lines">0</span>
         </div>
         <div class="summary-row summary-row--total">
-          <span class="summary-label">Total BL</span>
-          <span class="summary-val" id="summary-total">0 DZD</span>
+          <span class="summary-label">مجموع الوصل</span>
+          <span class="summary-val" id="summary-total">0 دج</span>
         </div>
         <div style="margin-top:20px;display:flex;flex-direction:column;gap:10px;">
           <button type="submit" class="btn-primary" style="width:100%;justify-content:center;">
             <i class="bx bxs-save"></i> {{ action_label }}
           </button>
           {% if bl %}
-          <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="btn-ghost" style="width:100%;justify-content:center;">Annuler</a>
+          <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="btn-ghost" style="width:100%;justify-content:center;">إلغاء</a>
           {% elif client %}
-          <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost" style="width:100%;justify-content:center;">Annuler</a>
+          <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost" style="width:100%;justify-content:center;">إلغاء</a>
           {% else %}
-          <a href="{% url 'clients:bl_client_list' %}" class="btn-ghost" style="width:100%;justify-content:center;">Annuler</a>
+          <a href="{% url 'clients:bl_client_list' %}" class="btn-ghost" style="width:100%;justify-content:center;">إلغاء</a>
           {% endif %}
         </div>
         {% if bl and bl.statut == "brouillon" %}
         <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
           <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:14px 16px;">
             <div style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;margin-bottom:4px;font-size:13px;">
-              <i class="bx bxs-trash me-1"></i> Zone sensible
+              <i class="bx bxs-trash me-1"></i> منطقة حساسة
             </div>
-            <p style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;">Supprimer définitivement ce BL Brouillon.</p>
+            <p style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;">حذف هذه المسودة نهائياً.</p>
             <button type="button" class="btn-danger" style="width:100%;justify-content:center;font-size:12px;" id="sidebar-delete-btn"
               data-bl-pk="{{ bl.pk }}" data-bl-ref="{{ bl.reference }}">
-              <i class="bx bxs-trash"></i> Supprimer
+              <i class="bx bxs-trash"></i> حذف
             </button>
           </div>
         </div>
@@ -235,14 +235,14 @@
   <div class="confirm-panel__inner">
     <div class="confirm-panel__icon"><i class="bx bxs-trash"></i></div>
     <div>
-      <div class="confirm-panel__title">Supprimer le BL ?</div>
-      <div class="confirm-panel__body">Le BL <strong>{{ bl.reference }}</strong> sera définitivement supprimé.</div>
+      <div class="confirm-panel__title">حذف الوصل؟</div>
+      <div class="confirm-panel__body">سيتم حذف وصل التسليم <strong>{{ bl.reference }}</strong> نهائياً.</div>
     </div>
     <div class="confirm-panel__actions">
-      <button type="button" id="confirm-delete-cancel" class="btn-ghost">Annuler</button>
+      <button type="button" id="confirm-delete-cancel" class="btn-ghost">إلغاء</button>
       <form method="post" action="{% url 'clients:bl_client_delete' bl.pk %}">
         {% csrf_token %}
-        <button type="submit" class="btn-danger"><i class="bx bxs-trash"></i> Supprimer</button>
+        <button type="submit" class="btn-danger"><i class="bx bxs-trash"></i> حذف</button>
       </form>
     </div>
   </div>
@@ -262,7 +262,7 @@
     <td><span class="ligne-total" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">—</span></td>
     <td><span class="stock-hint" style="font-size:11px;color:var(--text-muted);"></span></td>
     <td style="text-align:center;">
-      <button type="button" class="delete-btn" title="Supprimer la ligne"><i class="bx bx-trash"></i></button>
+      <button type="button" class="delete-btn" title="حذف البند"><i class="bx bx-trash"></i></button>
     </td>
   </tr>
 </template>
@@ -270,6 +270,9 @@
 
 {% block extra_css %}
 <style>
+  /* ── RTL ── */
+  .page-body, .form-layout, .form-card, .confirm-panel__inner { direction: rtl; }
+
   .locked-banner {
     background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.2);
     border-radius: var(--radius-md); padding: 12px 16px;
@@ -294,12 +297,13 @@
   @media (max-width: 680px) { .form-grid-2 { grid-template-columns: 1fr; } }
 
   .form-field { display: flex; flex-direction: column; gap: 5px; }
-  .form-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .03em; }
+  .form-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
 
+  /* RTL icon inside input: icon on the RIGHT */
   .input-icon-wrap { position: relative; display: flex; align-items: center; }
-  .input-icon-wrap > i { position: absolute; left: 12px; font-size: 14px; color: var(--text-muted); pointer-events: none; z-index: 1; }
+  .input-icon-wrap > i { position: absolute; right: 12px; font-size: 14px; color: var(--text-muted); pointer-events: none; z-index: 1; }
   .input-icon-wrap input,
-  .input-icon-wrap select { padding-left: 36px !important; width: 100%; }
+  .input-icon-wrap select { padding-right: 36px !important; padding-left: 12px !important; width: 100%; }
 
   input[type="text"], input[type="number"], input[type="date"], input[type="email"],
   select, textarea {
@@ -307,6 +311,7 @@
     color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13.5px;
     padding: 10px 13px; width: 100%; outline: none;
     transition: border-color .15s, box-shadow .15s; appearance: auto;
+    direction: rtl; text-align: right;
   }
   input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
   textarea { resize: vertical; min-height: 64px; }
@@ -316,17 +321,16 @@
   .field-error { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #dc2626; margin-top: 2px; }
   .field-warning { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #d97706; margin-top: 2px; }
   .form-error-banner { background: rgba(239,68,68,.06); border: 1px solid rgba(239,68,68,.18); border-radius: var(--radius-md); padding: 10px 14px; font-size: 13px; color: #dc2626; display: flex; align-items: center; gap: 8px; margin-top: 14px; }
-  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; color: var(--text-muted); }
 
   /* Table */
   .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .data-table { width: 100%; min-width: 640px; border-collapse: collapse; }
-  .data-table thead th { font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--bg-raised); }
-  .data-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .data-table thead th { font-size: 11px; font-weight: 600; color: var(--text-muted); padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--bg-raised); text-align: right; }
+  .data-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; text-align: right; }
   .ligne-form td input, .ligne-form td select { padding: 8px 10px; font-size: 13px; border-radius: var(--radius-sm); }
   .stock-hint.over { color: #dc2626; }
 
-  /* Delete button */
   .delete-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--radius-sm); border: 1px solid rgba(239,68,68,.2); background: transparent; color: #dc2626; cursor: pointer; font-size: 14px; transition: background .12s; }
   .delete-btn:hover { background: rgba(239,68,68,.08); }
 
@@ -352,7 +356,7 @@
   .confirm-panel__icon { width:44px;height:44px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:20px;background:rgba(239,68,68,.1);color:#dc2626; }
   .confirm-panel__title { font-family:'Nunito',sans-serif;font-weight:700;font-size:15px;color:var(--text-primary);margin-bottom:4px; }
   .confirm-panel__body { font-size:13px;color:var(--text-secondary); }
-  .confirm-panel__actions { display:flex;gap:10px;justify-content:flex-end; }
+  .confirm-panel__actions { display:flex;gap:10px;justify-content:flex-start; }
   .confirm-panel__actions form { margin:0; }
 </style>
 {% endblock %}
@@ -367,7 +371,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
   const isNewForm = refInput && !refInput.value;
 
-  // 1. Date → today
   if (isNewForm && dateInput && !dateInput.value) {
     const today = new Date();
     const yyyy  = today.getFullYear();
@@ -376,7 +379,6 @@ document.addEventListener('DOMContentLoaded', function () {
     dateInput.value = `${yyyy}-${mm}-${dd}`;
   }
 
-  // 2. Reference → BLC-{INITIALS}-{DDMMYYYY}
   function buildRef() {
     if (!isNewForm || !refInput || refInput.dataset.manual) return;
 
@@ -418,7 +420,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function getFormCount() { return parseInt(totalFormsInput.value, 10); }
 
-  function fmt(n) { return Math.round(n).toLocaleString('fr-DZ') + ' DZD'; }
+  function fmt(n) { return Math.round(n).toLocaleString('fr-DZ') + ' دج'; }
 
   function updateTotals() {
     let grand = 0, count = 0;
@@ -436,7 +438,6 @@ document.addEventListener('DOMContentLoaded', function () {
     if (summaryTotalEl) summaryTotalEl.textContent = fmt(grand);
   }
 
-  // URL template: Django resolves the real path; JS swaps the sentinel PK at runtime.
   const STOCK_URL_TPL = '{% url "production:produit_fini_stock_json" 99999 %}';
 
   function fetchStockHint(selectEl, row, forcePrice) {
@@ -451,7 +452,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const stock = parseFloat(data.quantite) || 0;
         const qty   = parseFloat(qtyEl?.value) || 0;
 
-        // Auto-fill price when product is (re)selected, or when price is still 0/empty.
         if (priceEl && data.prix_vente_defaut !== undefined) {
           const currentPrice = parseFloat(priceEl.value) || 0;
           if (forcePrice || currentPrice === 0) {
@@ -462,10 +462,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (!hint) return;
         if (qty > 0 && qty > stock) {
-          hint.textContent = '\u26a0\ufe0f Insuffisant \u2014 Dispo\u202f: ' + stock.toLocaleString('fr-DZ') + '\u00a0' + (data.unite_mesure || '');
+          hint.textContent = '\u26a0\ufe0f غير كافٍ \u2014 المتاح\u202f: ' + stock.toLocaleString('fr-DZ') + '\u00a0' + (data.unite_mesure || '');
           hint.classList.add('over');
         } else {
-          hint.textContent = 'Dispo\u202f: ' + stock.toLocaleString('fr-DZ') + '\u00a0' + (data.unite_mesure || '');
+          hint.textContent = 'المتاح\u202f: ' + stock.toLocaleString('fr-DZ') + '\u00a0' + (data.unite_mesure || '');
           hint.classList.remove('over');
         }
       })
@@ -481,7 +481,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (sel) {
       sel.addEventListener('change', function () { fetchStockHint(sel, row, true); });
-      if (sel.value) fetchStockHint(sel, row, false);   // on page load: only fill if price is 0
+      if (sel.value) fetchStockHint(sel, row, false);
     }
     if (qty)   qty.addEventListener('input', function () { fetchStockHint(sel, row, false); updateTotals(); });
     if (price) price.addEventListener('input', updateTotals);
@@ -507,7 +507,6 @@ document.addEventListener('DOMContentLoaded', function () {
   tbody.querySelectorAll('.ligne-form').forEach(bindRow);
   updateTotals();
 
-  // Add line
   document.getElementById('add-line-btn').addEventListener('click', function () {
     const idx   = getFormCount();
     const tmpl  = emptyTemplate.content.querySelector('.ligne-form');
@@ -529,7 +528,6 @@ document.addEventListener('DOMContentLoaded', function () {
     updateTotals();
   });
 
-  // Sidebar delete
   const sidebarDeleteBtn = document.getElementById('sidebar-delete-btn');
   if (sidebarDeleteBtn) {
     const panel     = document.getElementById('confirm-delete-panel');

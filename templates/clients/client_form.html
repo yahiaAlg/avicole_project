@@ -1,21 +1,21 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
 
 {% block nav_clients %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{% if client %}Modification de la fiche client{% else %}Nouvel enregistrement client{% endif %}{% endblock %}
+{% block page_sub_text %}{% if client %}تعديل ملف العميل{% else %}تسجيل عميل جديد{% endif %}{% endblock %}
 
 {% block topbar_actions %}
   {% if client %}
   <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour à la fiche
+    <i class="bx bx-arrow-back"></i> العودة إلى الملف
   </a>
   {% else %}
   <a href="{% url 'clients:client_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour aux clients
+    <i class="bx bx-arrow-back"></i> العودة إلى العملاء
   </a>
   {% endif %}
 {% endblock %}
@@ -26,18 +26,18 @@
     {% csrf_token %}
     <div class="form-grid">
 
-      <!-- Left column -->
+      <!-- Right column (primary info in RTL) -->
       <div class="form-col">
 
-        <!-- Identification -->
+        <!-- التعريف -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bxs-group"></i> Identification</div>
+            <div class="section-eyebrow"><i class="bx bxs-group"></i> التعريف</div>
           </div>
           <div class="form-card__body">
 
             <div class="form-group">
-              <label class="form-label" for="{{ form.nom.id_for_label }}">Nom du client <span class="form-required">*</span></label>
+              <label class="form-label" for="{{ form.nom.id_for_label }}">اسم العميل <span class="form-required">*</span></label>
               <div class="input-wrapper">
                 <i class="bx bxs-group input-icon"></i>
                 {{ form.nom }}
@@ -46,7 +46,7 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="{{ form.type_client.id_for_label }}">Type de client <span class="form-required">*</span></label>
+              <label class="form-label" for="{{ form.type_client.id_for_label }}">نوع العميل <span class="form-required">*</span></label>
               <div class="input-wrapper">
                 <i class="bx bxs-category input-icon"></i>
                 {{ form.type_client }}
@@ -56,7 +56,7 @@
 
             <div class="form-row-2">
               <div class="form-group">
-                <label class="form-label" for="{{ form.nif.id_for_label }}">NIF</label>
+                <label class="form-label" for="{{ form.nif.id_for_label }}">الرقم الجبائي</label>
                 <div class="input-wrapper">
                   <i class="bx bx-id-card input-icon"></i>
                   {{ form.nif }}
@@ -64,7 +64,7 @@
                 {% for err in form.nif.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
               </div>
               <div class="form-group">
-                <label class="form-label" for="{{ form.rc.id_for_label }}">RC</label>
+                <label class="form-label" for="{{ form.rc.id_for_label }}">السجل التجاري</label>
                 <div class="input-wrapper">
                   <i class="bx bx-file input-icon"></i>
                   {{ form.rc }}
@@ -74,7 +74,7 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="{{ form.contact_nom.id_for_label }}">Nom du contact</label>
+              <label class="form-label" for="{{ form.contact_nom.id_for_label }}">اسم جهة الاتصال</label>
               <div class="input-wrapper">
                 <i class="bx bxs-user input-icon"></i>
                 {{ form.contact_nom }}
@@ -85,21 +85,21 @@
           </div>
         </div>
 
-        <!-- Coordonnées -->
+        <!-- معلومات الاتصال -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bxs-map"></i> Coordonnées</div>
+            <div class="section-eyebrow"><i class="bx bxs-map"></i> معلومات الاتصال</div>
           </div>
           <div class="form-card__body">
 
             <div class="form-group">
-              <label class="form-label" for="{{ form.adresse.id_for_label }}">Adresse</label>
+              <label class="form-label" for="{{ form.adresse.id_for_label }}">العنوان</label>
               <div class="input-wrapper input-wrapper--textarea">{{ form.adresse }}</div>
               {% for err in form.adresse.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="{{ form.wilaya.id_for_label }}">Wilaya</label>
+              <label class="form-label" for="{{ form.wilaya.id_for_label }}">الولاية</label>
               <div class="input-wrapper">
                 <i class="bx bxs-map-pin input-icon"></i>
                 {{ form.wilaya }}
@@ -109,7 +109,7 @@
 
             <div class="form-row-2">
               <div class="form-group">
-                <label class="form-label" for="{{ form.telephone.id_for_label }}">Téléphone</label>
+                <label class="form-label" for="{{ form.telephone.id_for_label }}">الهاتف</label>
                 <div class="input-wrapper">
                   <i class="bx bxs-phone input-icon"></i>
                   {{ form.telephone }}
@@ -117,7 +117,7 @@
                 {% for err in form.telephone.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
               </div>
               <div class="form-group">
-                <label class="form-label" for="{{ form.telephone_2.id_for_label }}">Téléphone 2</label>
+                <label class="form-label" for="{{ form.telephone_2.id_for_label }}">الهاتف 2</label>
                 <div class="input-wrapper">
                   <i class="bx bxs-phone input-icon"></i>
                   {{ form.telephone_2 }}
@@ -127,7 +127,7 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="{{ form.email.id_for_label }}">Email</label>
+              <label class="form-label" for="{{ form.email.id_for_label }}">البريد الإلكتروني</label>
               <div class="input-wrapper">
                 <i class="bx bx-envelope input-icon"></i>
                 {{ form.email }}
@@ -140,41 +140,41 @@
 
       </div>
 
-      <!-- Right column -->
+      <!-- Left column (settings) -->
       <div class="form-col">
 
-        <!-- Crédit & paramètres -->
+        <!-- الائتمان والإعدادات -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bxs-credit-card"></i> Crédit & paramètres</div>
+            <div class="section-eyebrow"><i class="bx bxs-credit-card"></i> الائتمان والإعدادات</div>
           </div>
           <div class="form-card__body">
 
             <div class="form-group">
-              <label class="form-label" for="{{ form.plafond_credit.id_for_label }}">Plafond de crédit (DZD)</label>
+              <label class="form-label" for="{{ form.plafond_credit.id_for_label }}">سقف الائتمان (دج)</label>
               <div class="input-wrapper">
                 <i class="bx bxs-coin input-icon"></i>
                 {{ form.plafond_credit }}
               </div>
-              <div class="form-hint">Laissez à 0 pour ne pas imposer de limite.</div>
+              <div class="form-hint">اتركه عند 0 لعدم تحديد حد.</div>
               {% for err in form.plafond_credit.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
             </div>
 
             <div class="form-group form-group--checkbox" style="margin-bottom:0;">
               <label class="checkbox-label">
                 {{ form.actif }}
-                <span>Client actif</span>
+                <span>عميل نشط</span>
               </label>
-              <div class="form-hint" style="margin-top:4px;">Un client inactif n'apparaît plus dans les saisies.</div>
+              <div class="form-hint" style="margin-top:4px;">العميل غير النشط لن يظهر في الإدخالات.</div>
             </div>
 
           </div>
         </div>
 
-        <!-- Notes -->
+        <!-- ملاحظات -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bx-note"></i> Notes</div>
+            <div class="section-eyebrow"><i class="bx bx-note"></i> ملاحظات</div>
           </div>
           <div class="form-card__body">
             <div class="form-group" style="margin-bottom:0;">
@@ -192,9 +192,9 @@
 
         <div class="form-actions-footer">
           {% if client %}
-          <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost">Annuler</a>
+          <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost">إلغاء</a>
           {% else %}
-          <a href="{% url 'clients:client_list' %}" class="btn-ghost">Annuler</a>
+          <a href="{% url 'clients:client_list' %}" class="btn-ghost">إلغاء</a>
           {% endif %}
           <button type="submit" class="btn-primary"><i class="bx bx-check"></i> {{ action_label }}</button>
         </div>
@@ -207,6 +207,9 @@
 
 {% block extra_css %}
 <style>
+  /* ── RTL ── */
+  .page-body { direction: rtl; }
+
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
   @media (max-width: 860px) { .form-grid { grid-template-columns: 1fr; } }
   .form-col { display: flex; flex-direction: column; gap: 18px; }
@@ -214,7 +217,7 @@
   .form-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
   .form-card__header { padding: 14px 20px 12px; border-bottom: 1px solid var(--border); }
   .form-card__body { padding: 20px; }
-  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
   .section-eyebrow i { font-size: 13px; }
 
   .form-group { margin-bottom: 16px; }
@@ -225,8 +228,9 @@
   .form-required { color: #dc2626; }
   .form-hint { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
 
+  /* RTL: icon on the right side of inputs */
   .input-wrapper { position: relative; }
-  .input-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; pointer-events: none; transition: color .15s; }
+  .input-icon { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; pointer-events: none; transition: color .15s; }
   .input-wrapper:focus-within .input-icon { color: var(--accent-text); }
   .input-wrapper input[type="text"],
   .input-wrapper input[type="email"],
@@ -235,8 +239,10 @@
     width: 100%; background: var(--bg-surface); border: 1px solid var(--border);
     border-radius: var(--radius-md); color: var(--text-primary);
     font-family: 'Inter', sans-serif; font-size: 13.5px;
-    padding: 10px 12px 10px 40px;
+    /* icon on the right, so pad right more */
+    padding: 10px 40px 10px 12px;
     transition: border-color .15s, box-shadow .15s;
+    direction: rtl; text-align: right;
   }
   .input-wrapper input:focus, .input-wrapper select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none; }
   .input-wrapper input::placeholder { color: var(--text-muted); }
@@ -246,6 +252,7 @@
     font-family: 'Inter', sans-serif; font-size: 13.5px;
     padding: 10px 12px; resize: vertical; min-height: 72px;
     transition: border-color .15s, box-shadow .15s;
+    direction: rtl; text-align: right;
   }
   .input-wrapper--textarea textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none; }
 
@@ -254,7 +261,8 @@
 
   .field-error { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #dc2626; margin-top: 5px; }
 
-  .form-actions-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 16px 20px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+  /* actions flush to the start (= left in RTL) */
+  .form-actions-footer { display: flex; align-items: center; justify-content: flex-start; gap: 10px; padding: 16px 20px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
 
   .btn-primary { background: var(--accent); color: #fff; font-family: 'Nunito',sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: var(--radius-md); padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: opacity .18s; text-decoration: none; }
   .btn-primary:hover { opacity: .88; color: #fff; }

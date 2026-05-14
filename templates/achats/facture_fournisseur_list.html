@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Factures Fournisseurs — Élevage Avicole{% endblock %}
+{% block title %}فواتير الموردين — تربية الدواجن{% endblock %}
 
 {% block nav_factures_fournisseurs %}active{% endblock %}
 
-{% block page_title %}Factures Fournisseurs{% endblock %}
+{% block page_title %}فواتير الموردين{% endblock %}
 {% block page_sub_text %}{{ page.paginator.count }} facture{{ page.paginator.count|pluralize }}{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'achats:facture_fournisseur_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouvelle facture
+    <i class="bx bx-plus"></i> فاتورة جديدة
   </a>
 {% endblock %}
 
@@ -20,14 +20,14 @@
     <div class="filter-group">
       <div class="input-icon-wrap">
         <i class="bx bx-search"></i>
-        <input type="text" name="q" value="{{ q }}" placeholder="Référence, fournisseur…" class="filter-input" />
+        <input type="text" name="q" value="{{ q }}" placeholder="المرجع، المورد..." class="filter-input" />
       </div>
     </div>
     <div class="filter-group">
       <div class="input-icon-wrap">
         <i class="bx bxs-filter-alt"></i>
         <select name="statut" class="filter-select filter-select--icon" id="filter-statut">
-          <option value="">Tous les statuts</option>
+          <option value="">جميع الحالات</option>
           {% for val, label in statut_choices %}
           <option value="{{ val }}" {% if statut == val %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
@@ -38,7 +38,7 @@
       <div class="input-icon-wrap">
         <i class="bx bxs-building"></i>
         <select name="fournisseur" class="filter-select filter-select--icon" id="filter-fournisseur">
-          <option value="">Tous les fournisseurs</option>
+          <option value="">جميع الموردين</option>
           {% for f in fournisseurs %}
           <option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.nom }}</option>
           {% endfor %}
@@ -48,19 +48,19 @@
     <div class="filter-group">
       <label class="retard-toggle {% if retard == '1' %}retard-toggle--active{% endif %}">
         <input type="checkbox" name="retard" value="1" {% if retard == '1' %}checked{% endif %} id="filter-retard" style="display:none;" />
-        <i class="bx bx-hourglass"></i> En retard seulement
+        <i class="bx bx-hourglass"></i> المتأخرة فقط
       </label>
     </div>
-    <button type="submit" class="btn-ghost"><i class="bx bx-search"></i> Filtrer</button>
+    <button type="submit" class="btn-ghost"><i class="bx bx-search"></i> تصفية</button>
     {% if q or statut or fournisseur_pk or retard %}
-    <a href="{% url 'achats:facture_fournisseur_list' %}" class="btn-ghost"><i class="bx bx-x"></i> Réinitialiser</a>
+    <a href="{% url 'achats:facture_fournisseur_list' %}" class="btn-ghost"><i class="bx bx-x"></i> إعادة تعيين</a>
     {% endif %}
   </form>
 </div>
 
 <div class="card">
   <div class="card-header-row">
-    <div class="section-eyebrow">Factures fournisseurs</div>
+    <div class="section-eyebrow">فواتير الموردين</div>
   </div>
 
   {% if page.object_list %}
@@ -68,15 +68,15 @@
     <table class="data-table">
       <thead>
         <tr>
-          <th>Référence</th>
-          <th>Fournisseur</th>
-          <th>Date</th>
-          <th>Échéance</th>
-          <th>Type</th>
-          <th style="text-align:right;">Montant total</th>
-          <th style="text-align:right;">Reste à payer</th>
-          <th>Statut</th>
-          <th style="text-align:right;">Actions</th>
+          <th>المرجع</th>
+          <th>المورد</th>
+          <th>التاريخ</th>
+          <th>الاستحقاق</th>
+          <th>النوع</th>
+          <th style="text-align:left;">المبلغ الإجمالي</th>
+          <th style="text-align:left;">المتبقي</th>
+          <th>الحالة</th>
+          <th style="text-align:left;">الإجراءات</th>
         </tr>
       </thead>
       <tbody>
@@ -100,12 +100,12 @@
           </td>
           <td>
             {% if facture.type_facture == "service" %}
-              <span class="pill-info">Service</span>
+              <span class="pill-info">خدمة</span>
             {% else %}
-              <span class="pill-neutral">Marchandises</span>
+              <span class="pill-neutral">بضائع</span>
             {% endif %}
           </td>
-          <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
+          <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
             {{ facture.montant_total|floatformat:0 }} DZD
           </td>
           <td style="text-align:right;">
@@ -118,18 +118,18 @@
             {% endif %}
           </td>
           <td>
-            {% if facture.statut == "non_paye" %}<span class="pill-danger">Non payée</span>
-            {% elif facture.statut == "partiellement_paye" %}<span class="pill-warning">Part. payée</span>
-            {% elif facture.statut == "paye" %}<span class="pill-success">Payée</span>
-            {% elif facture.statut == "en_litige" %}<span class="pill-danger"><i class="bx bxs-error"></i> Litige</span>
+            {% if facture.statut == "non_paye" %}<span class="pill-danger">غير مدفوعة</span>
+            {% elif facture.statut == "partiellement_paye" %}<span class="pill-warning">مدفوعة جزئياً</span>
+            {% elif facture.statut == "paye" %}<span class="pill-success">مدفوعة</span>
+            {% elif facture.statut == "en_litige" %}<span class="pill-danger"><i class="bx bxs-error"></i> نزاع</span>
             {% endif %}
           </td>
           <td>
             <div class="actions-cell">
-              <a href="{% url 'achats:facture_fournisseur_detail' facture.pk %}" class="action-btn" title="Voir"><i class="bx bxs-show"></i></a>
-              <a href="{% url 'achats:facture_fournisseur_print' facture.pk %}" class="action-btn" title="Imprimer" target="_blank"><i class="bx bxs-printer"></i></a>
+              <a href="{% url 'achats:facture_fournisseur_detail' facture.pk %}" class="action-btn" title="عرض"><i class="bx bxs-show"></i></a>
+              <a href="{% url 'achats:facture_fournisseur_print' facture.pk %}" class="action-btn" title="طباعة" target="_blank"><i class="bx bxs-printer"></i></a>
               {% if facture.statut != "paye" %}
-              <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ facture.fournisseur.pk }}" class="action-btn" title="Enregistrer un règlement"><i class="bx bxs-coin"></i></a>
+              <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ facture.fournisseur.pk }}" class="action-btn" title="تسجيل تسوية"><i class="bx bxs-coin"></i></a>
               {% endif %}
             </div>
           </td>
@@ -144,7 +144,7 @@
     {% if page.has_previous %}
     <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}{% if retard %}&retard={{ retard }}{% endif %}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
     {% endif %}
-    <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+    <span class="page-info">الصفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
     {% if page.has_next %}
     <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}{% if retard %}&retard={{ retard }}{% endif %}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
     {% endif %}
@@ -154,15 +154,15 @@
   {% else %}
   <div style="text-align:center;padding:56px 20px;color:var(--text-muted);">
     <i class="bx bxs-file-txt" style="font-size:36px;display:block;margin-bottom:14px;color:var(--border-strong);"></i>
-    <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">Aucune facture trouvée</div>
+    <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">لم يتم العثور على فواتير</div>
     <div style="font-size:13px;">
       {% if q or statut or fournisseur_pk or retard %}
-        Aucun résultat. <a href="{% url 'achats:facture_fournisseur_list' %}" style="color:var(--accent-text);">Réinitialiser</a>
-      {% else %}Créez la première facture fournisseur.{% endif %}
+        لا توجد نتائج. <a href="{% url 'achats:facture_fournisseur_list' %}" style="color:var(--accent-text);">إعادة تعيين</a>
+      {% else %}أنشئ أول فاتورة مورد.{% endif %}
     </div>
     {% if not q and not statut and not fournisseur_pk and not retard %}
     <a href="{% url 'achats:facture_fournisseur_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
-      <i class="bx bx-plus"></i> Nouvelle facture
+      <i class="bx bx-plus"></i> فاتورة جديدة
     </a>
     {% endif %}
   </div>
@@ -176,15 +176,15 @@
   .filter-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .filter-group { display: flex; align-items: center; }
   .input-icon-wrap { position: relative; display: flex; align-items: center; }
-  .input-icon-wrap > i { position: absolute; left: 12px; font-size: 15px; color: var(--text-muted); pointer-events: none; z-index: 1; }
+  .input-icon-wrap > i { position: absolute; right: 12px; font-size: 15px; color: var(--text-muted); pointer-events: none; z-index: 1; }
   .filter-input, .filter-select {
     background: var(--bg-surface); border: 1px solid var(--border);
     border-radius: var(--radius-md); color: var(--text-primary);
     font-family: 'Inter', sans-serif; font-size: 13px; padding: 9px 13px; outline: none;
     transition: border-color .15s;
   }
-  .filter-input { padding-left: 38px; width: 220px; }
-  .filter-select--icon { padding-left: 36px; padding-right: 28px; appearance: none; min-width: 170px; }
+  .filter-input { padding-right: 38px; padding-left: 13px; width: 220px; }
+  .filter-select--icon { padding-right: 36px; padding-left: 28px; appearance: none; min-width: 170px; }
   .filter-input:focus, .filter-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
 
   .retard-toggle {
@@ -238,7 +238,7 @@
   .pill-danger  { background: rgba(239,68,68,.10);  color: #dc2626; }
   .pill-neutral { background: rgba(0,0,0,.06);      color: var(--text-secondary); }
 
-  .actions-cell { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+  .actions-cell { display: flex; align-items: center; justify-content: flex-start; gap: 4px; }
   .action-btn {
     display: inline-flex; align-items: center; justify-content: center;
     width: 30px; height: 30px; border-radius: var(--radius-sm);

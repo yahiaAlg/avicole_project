@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Nouvel ajustement de stock — Élevage Avicole{% endblock %}
+{% block title %}تسوية مخزون جديدة — تربية الدواجن{% endblock %}
 
 {% block nav_stock_intrants %}active{% endblock %}
 
-{% block page_title %}Nouvel ajustement de stock{% endblock %}
-{% block page_sub_text %}Correction manuelle du solde physique — génère un mouvement d'audit{% endblock %}
+{% block page_title %}تسوية مخزون جديدة{% endblock %}
+{% block page_sub_text %}تصحيح يدوي للرصيد الفعلي — يُولّد حركة تدقيق تلقائية{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'stock:stock_ajustement_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour aux ajustements
+    <i class="bx bx-arrow-back"></i> العودة إلى التسويات
   </a>
 {% endblock %}
 
@@ -20,7 +20,7 @@
   <!-- Immutability warning -->
   <div class="info-banner">
     <i class="bx bxs-lock-alt"></i>
-    <span>Un ajustement est <strong>immuable</strong> dès sa création — il applique la correction de stock et génère automatiquement un mouvement d'audit. Vérifiez les données avant de soumettre.</span>
+    <span>التسوية <strong>غير قابلة للتعديل</strong> بعد الإنشاء — تُطبّق التصحيح على المخزون وتُولّد حركة تدقيق تلقائياً. تحقق من البيانات قبل الإرسال.</span>
   </div>
 
   <div class="form-layout">
@@ -29,7 +29,7 @@
     <div class="form-main">
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-pencil"></i> Données de l'ajustement</div>
+          <div class="section-eyebrow"><i class="bx bxs-pencil"></i> بيانات التسوية</div>
         </div>
 
         <form method="post" action="" id="ajustement-form" class="form-body">
@@ -38,7 +38,7 @@
           <!-- Segment selector -->
           <div class="field-group">
             <label class="field-label" for="{{ form.segment.id_for_label }}">
-              Segment de stock <span class="field-required">*</span>
+              قسم المخزون <span class="field-required">*</span>
             </label>
             <div class="segment-selector" id="segment-selector">
               {% for val, label in form.fields.segment.choices %}
@@ -57,10 +57,10 @@
           <!-- Intrant selector (shown when segment = intrant) -->
           <div class="field-group" id="intrant-field" style="display:none;">
             <label class="field-label" for="{{ form.intrant.id_for_label }}">
-              Intrant <span class="field-required">*</span>
+              المدخل <span class="field-required">*</span>
             </label>
             <select name="intrant" id="{{ form.intrant.id_for_label }}" class="form-select" id="select-intrant">
-              <option value="">— Sélectionnez un intrant —</option>
+              <option value="">— اختر مدخلاً —</option>
               {% for choice in form.intrant.field.choices %}
               {% if choice.0 %}
               <option value="{{ choice.0 }}" {% if form.intrant.value|stringformat:"s" == choice.0|stringformat:"s" %}selected{% endif %}>{{ choice.1 }}</option>
@@ -75,10 +75,10 @@
           <!-- Produit fini selector (shown when segment = produit_fini) -->
           <div class="field-group" id="produit-fini-field" style="display:none;">
             <label class="field-label" for="{{ form.produit_fini.id_for_label }}">
-              Produit fini <span class="field-required">*</span>
+              المنتج النهائي <span class="field-required">*</span>
             </label>
             <select name="produit_fini" id="{{ form.produit_fini.id_for_label }}" class="form-select" id="select-produit-fini">
-              <option value="">— Sélectionnez un produit fini —</option>
+              <option value="">— اختر منتجاً نهائياً —</option>
               {% for choice in form.produit_fini.field.choices %}
               {% if choice.0 %}
               <option value="{{ choice.0 }}" {% if form.produit_fini.value|stringformat:"s" == choice.0|stringformat:"s" %}selected{% endif %}>{{ choice.1 }}</option>
@@ -93,7 +93,7 @@
           <!-- Date -->
           <div class="field-group">
             <label class="field-label" for="{{ form.date_ajustement.id_for_label }}">
-              Date de l'ajustement <span class="field-required">*</span>
+              تاريخ التسوية <span class="field-required">*</span>
             </label>
             <input type="date" name="date_ajustement" id="{{ form.date_ajustement.id_for_label }}"
                    value="{{ form.date_ajustement.value|default:'' }}" class="form-input" max="{{ today_iso }}">
@@ -106,7 +106,7 @@
           <div class="qty-row">
             <div class="field-group qty-col">
               <label class="field-label" for="{{ form.quantite_avant.id_for_label }}">
-                Quantité avant <span class="field-hint">(automatique)</span>
+                الكمية قبل <span class="field-hint">(تلقائي)</span>
               </label>
               <div class="qty-readonly-wrap">
                 <input type="number" name="quantite_avant" id="{{ form.quantite_avant.id_for_label }}"
@@ -124,7 +124,7 @@
 
             <div class="field-group qty-col">
               <label class="field-label" for="{{ form.quantite_apres.id_for_label }}">
-                Quantité après <span class="field-required">*</span>
+                الكمية بعد <span class="field-required">*</span>
               </label>
               <input type="number" name="quantite_apres" id="{{ form.quantite_apres.id_for_label }}"
                      value="{{ form.quantite_apres.value|default:'' }}"
@@ -144,12 +144,12 @@
           <!-- Raison -->
           <div class="field-group">
             <label class="field-label" for="{{ form.raison.id_for_label }}">
-              Raison / Justification <span class="field-required">*</span>
+              السبب / التبرير <span class="field-required">*</span>
             </label>
             <textarea name="raison" id="{{ form.raison.id_for_label }}"
                       class="form-textarea" rows="4"
-                      placeholder="Décrivez l'écart constaté : comptage physique, perte, erreur de saisie…">{{ form.raison.value|default:'' }}</textarea>
-            <div class="field-hint-text">Obligatoire — cette justification est conservée dans l'audit trail.</div>
+                      placeholder="صِف الفارق المُلاحَظ: جرد فعلي، خسارة، خطأ في الإدخال…">{{ form.raison.value|default:'' }}</textarea>
+            <div class="field-hint-text">إلزامي — يُحفظ هذا التبرير في سجل التدقيق.</div>
             {% if form.raison.errors %}
             <div class="field-error">{{ form.raison.errors.0 }}</div>
             {% endif %}
@@ -169,7 +169,7 @@
 
           <!-- Actions -->
           <div class="form-actions">
-            <a href="{% url 'stock:stock_ajustement_list' %}" class="btn-ghost">Annuler</a>
+            <a href="{% url 'stock:stock_ajustement_list' %}" class="btn-ghost">إلغاء</a>
             <button type="submit" class="btn-primary" id="submit-btn">
               <i class="bx bxs-save"></i> {{ action_label }}
             </button>
@@ -185,14 +185,14 @@
       <!-- Current stock info (AJAX-updated) -->
       <div class="card aside-card" id="stock-info-card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-bar-chart-alt-2"></i> Solde actuel</div>
+          <div class="section-eyebrow"><i class="bx bxs-bar-chart-alt-2"></i> الرصيد الحالي</div>
         </div>
         <div class="stock-info-body" id="stock-info-body">
 
           {% if current_stock %}
           <!-- Pre-loaded when deep-linked from detail page -->
           <div class="stock-metric">
-            <span class="stock-metric__label">Stock actuel</span>
+            <span class="stock-metric__label">المخزون الحالي</span>
             <span class="stock-metric__value" id="info-quantite">
               {{ current_stock.quantite|floatformat:3 }}
               <span class="stock-metric__unit">
@@ -202,58 +202,58 @@
           </div>
           {% if current_stock.intrant %}
           <div class="stock-metric">
-            <span class="stock-metric__label">PMP</span>
-            <span class="stock-metric__value" id="info-pmp">{{ current_stock.prix_moyen_pondere|floatformat:2 }} <span class="stock-metric__unit">DZD</span></span>
+            <span class="stock-metric__label">متوسط التكلفة</span>
+            <span class="stock-metric__value" id="info-pmp">{{ current_stock.prix_moyen_pondere|floatformat:2 }} <span class="stock-metric__unit">دج</span></span>
           </div>
           <div class="stock-metric">
-            <span class="stock-metric__label">Valeur stock</span>
-            <span class="stock-metric__value" id="info-valeur">{{ current_stock.valeur_stock|floatformat:0 }} <span class="stock-metric__unit">DZD</span></span>
+            <span class="stock-metric__label">قيمة المخزون</span>
+            <span class="stock-metric__value" id="info-valeur">{{ current_stock.valeur_stock|floatformat:0 }} <span class="stock-metric__unit">دج</span></span>
           </div>
           <div class="stock-metric">
-            <span class="stock-metric__label">Seuil alerte</span>
+            <span class="stock-metric__label">حد التنبيه</span>
             <span class="stock-metric__value" id="info-seuil">{{ current_stock.intrant.seuil_alerte|floatformat:2 }} <span class="stock-metric__unit">{{ current_stock.intrant.unite_mesure }}</span></span>
           </div>
           {% elif current_stock.produit_fini %}
           <div class="stock-metric">
-            <span class="stock-metric__label">Coût moy. prod.</span>
-            <span class="stock-metric__value" id="info-pmp">{{ current_stock.cout_moyen_production|floatformat:2 }} <span class="stock-metric__unit">DZD</span></span>
+            <span class="stock-metric__label">متوسط تكلفة الإنتاج</span>
+            <span class="stock-metric__value" id="info-pmp">{{ current_stock.cout_moyen_production|floatformat:2 }} <span class="stock-metric__unit">دج</span></span>
           </div>
           <div class="stock-metric">
-            <span class="stock-metric__label">Valeur stock</span>
-            <span class="stock-metric__value" id="info-valeur">{{ current_stock.valeur_stock|floatformat:0 }} <span class="stock-metric__unit">DZD</span></span>
+            <span class="stock-metric__label">قيمة المخزون</span>
+            <span class="stock-metric__value" id="info-valeur">{{ current_stock.valeur_stock|floatformat:0 }} <span class="stock-metric__unit">دج</span></span>
           </div>
           <div class="stock-metric">
-            <span class="stock-metric__label">Seuil alerte</span>
+            <span class="stock-metric__label">حد التنبيه</span>
             <span class="stock-metric__value" id="info-seuil">{{ current_stock.seuil_alerte|floatformat:2 }} <span class="stock-metric__unit">{{ current_stock.produit_fini.unite_mesure }}</span></span>
           </div>
           {% endif %}
           {% if current_stock.en_alerte %}
-          <div class="alert-notice"><i class="bx bxs-bell"></i> Cet article est en dessous du seuil d'alerte.</div>
+          <div class="alert-notice"><i class="bx bxs-bell"></i> هذه المادة دون عتبة التنبيه.</div>
           {% endif %}
 
           {% else %}
           <!-- Placeholder before item selection -->
           <div class="stock-info-empty" id="stock-info-empty">
             <i class="bx bxs-select-multiple"></i>
-            <span>Sélectionnez un article pour afficher son solde.</span>
+            <span>اختر مادة لعرض رصيدها.</span>
           </div>
           <div class="stock-metric" id="info-row-quantite" style="display:none;">
-            <span class="stock-metric__label">Stock actuel</span>
+            <span class="stock-metric__label">المخزون الحالي</span>
             <span class="stock-metric__value"><span id="info-quantite">—</span> <span class="stock-metric__unit" id="info-unite">—</span></span>
           </div>
           <div class="stock-metric" id="info-row-pmp" style="display:none;">
-            <span class="stock-metric__label" id="info-pmp-label">PMP</span>
-            <span class="stock-metric__value"><span id="info-pmp">—</span> <span class="stock-metric__unit">DZD</span></span>
+            <span class="stock-metric__label" id="info-pmp-label">متوسط التكلفة</span>
+            <span class="stock-metric__value"><span id="info-pmp">—</span> <span class="stock-metric__unit">دج</span></span>
           </div>
           <div class="stock-metric" id="info-row-valeur" style="display:none;">
-            <span class="stock-metric__label">Valeur stock</span>
-            <span class="stock-metric__value"><span id="info-valeur">—</span> <span class="stock-metric__unit">DZD</span></span>
+            <span class="stock-metric__label">قيمة المخزون</span>
+            <span class="stock-metric__value"><span id="info-valeur">—</span> <span class="stock-metric__unit">دج</span></span>
           </div>
           <div class="stock-metric" id="info-row-seuil" style="display:none;">
-            <span class="stock-metric__label">Seuil alerte</span>
+            <span class="stock-metric__label">حد التنبيه</span>
             <span class="stock-metric__value"><span id="info-seuil">—</span> <span class="stock-metric__unit" id="info-seuil-unite">—</span></span>
           </div>
-          <div class="alert-notice" id="info-alert-notice" style="display:none;"><i class="bx bxs-bell"></i> Cet article est en dessous du seuil d'alerte.</div>
+          <div class="alert-notice" id="info-alert-notice" style="display:none;"><i class="bx bxs-bell"></i> هذه المادة دون عتبة التنبيه.</div>
           {% endif %}
 
         </div>
@@ -262,24 +262,24 @@
       <!-- Help card -->
       <div class="card aside-card aside-help">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-info-circle"></i> Aide</div>
+          <div class="section-eyebrow"><i class="bx bxs-info-circle"></i> مساعدة</div>
         </div>
         <div class="help-body">
           <div class="help-item">
             <i class="bx bx-check-circle help-icon help-icon--ok"></i>
-            <p>La <strong>quantité après</strong> est la valeur réelle comptée physiquement.</p>
+            <p><strong>الكمية بعد</strong> هي القيمة الفعلية المحسوبة ميدانياً.</p>
           </div>
           <div class="help-item">
             <i class="bx bx-lock help-icon help-icon--lock"></i>
-            <p>La <strong>quantité avant</strong> est automatiquement remplie depuis le solde actuel.</p>
+            <p><strong>الكمية قبل</strong> تُملأ تلقائياً من الرصيد الحالي.</p>
           </div>
           <div class="help-item">
             <i class="bx bx-transfer help-icon help-icon--audit"></i>
-            <p>Un <strong>mouvement d'audit</strong> de type « Ajustement » sera créé automatiquement.</p>
+            <p>يُنشأ تلقائياً <strong>حركة تدقيق</strong> من نوع «تسوية».</p>
           </div>
           <div class="help-item">
             <i class="bx bx-edit help-icon help-icon--reason"></i>
-            <p>La <strong>raison</strong> est obligatoire — soyez précis (comptage, perte, erreur…).</p>
+            <p><strong>السبب</strong> إلزامي — كن دقيقاً (جرد، خسارة، خطأ…).</p>
           </div>
         </div>
       </div>
@@ -295,6 +295,15 @@
 
 {% block extra_css %}
 <style>
+  /* ─── RTL / Arabic ─── */
+  .page-body { direction:rtl;font-family:'Tajawal','Inter',sans-serif; }
+  .form-body { direction:rtl; }
+  .section-eyebrow { letter-spacing:0; }
+  .data-table th, .data-table td { text-align:right; }
+  .qty-unit-badge { right:auto;left:12px; }
+  .form-actions { justify-content:flex-start; }
+  .qty-arrow i { transform:scaleX(-1); }
+
   .page-body { padding:28px 32px; }
   @media(max-width:768px) { .page-body { padding:20px 16px; } }
 
@@ -708,10 +717,10 @@ document.addEventListener('DOMContentLoaded', function () {
         if (infoRowQuantite) infoRowQuantite.style.display = '';
 
         if (isIntrant) {
-          if (infoPmpLabel) infoPmpLabel.textContent = 'PMP';
+          if (infoPmpLabel) infoPmpLabel.textContent = 'متوسط التكلفة';
           if (infoPmp)      infoPmp.textContent      = parseFloat(data.prix_moyen_pondere || 0).toFixed(2);
         } else {
-          if (infoPmpLabel) infoPmpLabel.textContent = 'Coût moy. prod.';
+          if (infoPmpLabel) infoPmpLabel.textContent = 'متوسط تكلفة الإنتاج';
           if (infoPmp)      infoPmp.textContent      = parseFloat(data.cout_moyen_production || 0).toFixed(2);
         }
         if (infoRowPmp) infoRowPmp.style.display = '';

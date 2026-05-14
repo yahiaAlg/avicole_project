@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
 
 {% block nav_categories %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{% if object %}Modification de la catégorie {{ object.code }}{% else %}Nouvelle entrée dans le référentiel{% endif %}{% endblock %}
+{% block page_sub_text %}{% if object %}تعديل الفئة {{ object.code }}{% else %}إدخال جديد في المرجع{% endif %}{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'intrants:categorie_intrant_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour à la liste
+    <i class="bx bx-arrow-back"></i> العودة إلى القائمة
   </a>
 {% endblock %}
 
@@ -20,7 +20,7 @@
 
     <div class="form-card">
       <div class="form-card__header">
-        <div class="section-eyebrow">Informations de la catégorie</div>
+        <div class="section-eyebrow">معلومات الفئة</div>
       </div>
       <div class="form-card__body">
         <form method="post" action="">
@@ -29,7 +29,7 @@
           <!-- Code -->
           <div class="form-group">
             <label class="form-label" for="{{ form.code.id_for_label }}">
-              Code <span class="form-required">*</span>
+              الرمز <span class="form-required">*</span>
             </label>
             <div class="input-wrapper">
               <i class="bx bx-code-alt input-icon"></i>
@@ -46,7 +46,7 @@
           <!-- Libellé -->
           <div class="form-group">
             <label class="form-label" for="{{ form.libelle.id_for_label }}">
-              Libellé <span class="form-required">*</span>
+              التسمية <span class="form-required">*</span>
             </label>
             <div class="input-wrapper">
               <i class="bx bx-tag input-icon"></i>
@@ -59,7 +59,7 @@
 
           <!-- Ordre -->
           <div class="form-group">
-            <label class="form-label" for="{{ form.ordre.id_for_label }}">Ordre d'affichage</label>
+            <label class="form-label" for="{{ form.ordre.id_for_label }}">ترتيب العرض</label>
             <div class="input-wrapper">
               <i class="bx bx-sort input-icon"></i>
               {{ form.ordre }}
@@ -73,9 +73,9 @@
           <div class="form-group form-group--checkbox">
             <label class="checkbox-label">
               {{ form.consommable_en_lot }}
-              <span>Consommable en lot</span>
+              <span>قابل للاستهلاك دفعةً</span>
             </label>
-            <div class="form-hint">Cocher pour les catégories saisissables en Consommation (aliment, médicament).</div>
+            <div class="form-hint">حدّد للفئات القابلة للإدخال في الاستهلاك (علف، دواء).</div>
             {% for err in form.consommable_en_lot.errors %}
             <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
             {% endfor %}
@@ -85,7 +85,7 @@
           <div class="form-group form-group--checkbox">
             <label class="checkbox-label">
               {{ form.actif }}
-              <span>Actif</span>
+              <span>نشط</span>
             </label>
             {% for err in form.actif.errors %}
             <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
@@ -99,7 +99,7 @@
           {% endif %}
 
           <div class="form-actions">
-            <a href="{% url 'intrants:categorie_intrant_list' %}" class="btn-ghost">Annuler</a>
+            <a href="{% url 'intrants:categorie_intrant_list' %}" class="btn-ghost">إلغاء</a>
             <button type="submit" class="btn-primary">
               <i class="bx bx-check"></i> {{ action_label }}
             </button>
@@ -118,6 +118,7 @@
     display: grid;
     grid-template-columns: minmax(0, 520px);
     gap: 18px;
+    direction: rtl;
   }
   .form-card {
     background: var(--bg-surface);
@@ -132,20 +133,20 @@
   .form-card__body { padding: 22px; }
 
   .section-eyebrow {
-    font-size: 10.5px; font-weight: 600; letter-spacing: .1em;
+    font-size: 10.5px; font-weight: 600; letter-spacing: .05em;
     text-transform: uppercase; color: var(--text-muted);
   }
   .form-group { margin-bottom: 18px; }
   .form-group--checkbox { display: flex; flex-direction: column; gap: 4px; }
   .form-label {
     display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary);
-    letter-spacing: .03em; margin-bottom: 6px;
+    letter-spacing: .01em; margin-bottom: 6px;
   }
   .form-required { color: #dc2626; }
   .form-hint { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
   .input-wrapper { position: relative; }
   .input-icon {
-    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+    position: absolute; right: 13px; left: auto; top: 50%; transform: translateY(-50%);
     color: var(--text-muted); font-size: 15px; pointer-events: none;
     transition: color .15s;
   }
@@ -158,7 +159,7 @@
     width: 100%; background: var(--bg-surface); border: 1px solid var(--border);
     border-radius: var(--radius-md); color: var(--text-primary);
     font-family: 'Inter', sans-serif; font-size: 13.5px;
-    padding: 11px 13px 11px 40px;
+    padding: 11px 40px 11px 13px; direction: rtl; text-align: right;
     transition: border-color .15s, box-shadow .15s;
   }
   .input-wrapper input[type="text"]:focus,
@@ -174,6 +175,7 @@
   .checkbox-label {
     display: flex; align-items: center; gap: 9px;
     font-size: 13.5px; color: var(--text-secondary); cursor: pointer;
+    flex-direction: row-reverse; justify-content: flex-end;
   }
   .checkbox-label input[type="checkbox"] {
     width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer;
@@ -181,9 +183,10 @@
   .field-error {
     display: flex; align-items: center; gap: 5px;
     font-size: 12px; color: #dc2626; margin-top: 5px;
+    flex-direction: row-reverse; justify-content: flex-end;
   }
   .form-actions {
-    display: flex; align-items: center; justify-content: flex-end;
+    display: flex; align-items: center; justify-content: flex-start;
     gap: 10px; padding-top: 8px; border-top: 1px solid var(--border); margin-top: 8px;
   }
 

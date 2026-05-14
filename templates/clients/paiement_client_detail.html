@@ -10,10 +10,10 @@
 
 {% block topbar_actions %}
   <a href="{% url 'clients:paiement_client_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour aux paiements
+    <i class="bx bx-arrow-back"></i> العودة إلى المدفوعات
   </a>
   <a href="{% url 'clients:paiement_client_print' paiement.pk %}" class="btn-ghost" target="_blank">
-    <i class="bx bxs-printer"></i> Imprimer le reçu
+    <i class="bx bxs-printer"></i> طباعة الإيصال
   </a>
 {% endblock %}
 
@@ -27,54 +27,54 @@
       <!-- Header card -->
       <div class="card" style="margin-bottom:16px;">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-wallet"></i> Informations paiement</div>
+          <div class="section-eyebrow"><i class="bx bxs-wallet"></i> معلومات الدفعة</div>
           <div style="display:flex;align-items:center;gap:8px;">
             {% if paiement.mode_paiement == 'especes' %}
-              <span class="pill-neutral"><i class="bx bxs-money"></i> Espèces</span>
+              <span class="pill-neutral"><i class="bx bxs-money"></i> نقداً</span>
             {% elif paiement.mode_paiement == 'cheque' %}
-              <span class="pill-info"><i class="bx bx-file-blank"></i> Chèque</span>
+              <span class="pill-info"><i class="bx bx-file-blank"></i> شيك</span>
             {% elif paiement.mode_paiement == 'virement' %}
-              <span class="pill-info"><i class="bx bx-transfer"></i> Virement</span>
+              <span class="pill-info"><i class="bx bx-transfer"></i> تحويل</span>
             {% else %}
               <span class="pill-neutral">{{ paiement.get_mode_paiement_display }}</span>
             {% endif %}
             {% if paiement.solde_non_alloue > 0 %}
-              <span class="pill-warning"><i class="bx bxs-info-circle"></i> Solde non alloué</span>
+              <span class="pill-warning"><i class="bx bxs-info-circle"></i> رصيد غير مخصص</span>
             {% else %}
-              <span class="pill-success"><i class="bx bxs-check-circle"></i> Entièrement alloué</span>
+              <span class="pill-success"><i class="bx bxs-check-circle"></i> مخصص بالكامل</span>
             {% endif %}
           </div>
         </div>
         <div class="card-body-grid">
           <div class="info-row">
-            <span class="info-label">Client</span>
+            <span class="info-label">العميل</span>
             <span class="info-value">
               <a href="{% url 'clients:client_detail' paiement.client.pk %}" style="color:var(--accent-text);text-decoration:none;font-weight:500;">{{ paiement.client.nom }}</a>
             </span>
           </div>
           <div class="info-row">
-            <span class="info-label">Date du paiement</span>
+            <span class="info-label">تاريخ الدفعة</span>
             <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ paiement.date_paiement|date:"d/m/Y" }}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Mode de paiement</span>
+            <span class="info-label">طريقة الدفع</span>
             <span class="info-value">{{ paiement.get_mode_paiement_display }}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Référence</span>
+            <span class="info-label">المرجع</span>
             <span class="info-value" style="color:var(--text-muted);">{{ paiement.reference_paiement|default:"—" }}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Enregistré par</span>
+            <span class="info-label">سجّله</span>
             <span class="info-value" style="color:var(--text-muted);font-size:12px;">{{ paiement.created_by|default:"—" }} · {{ paiement.created_at|date:"d/m/Y H:i" }}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Montant</span>
+            <span class="info-label">المبلغ</span>
             <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;color:var(--text-primary);">{{ paiement.montant|floatformat:0 }} DZD</span>
           </div>
           {% if paiement.notes %}
           <div class="info-row info-row--full">
-            <span class="info-label">Notes</span>
+            <span class="info-label">ملاحظات</span>
             <span class="info-value" style="color:var(--text-muted);font-size:12.5px;white-space:pre-line;">{{ paiement.notes }}</span>
           </div>
           {% endif %}
@@ -84,8 +84,8 @@
       <!-- Allocations table -->
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bx-file"></i> Allocation aux factures</div>
-          <span style="font-size:12px;color:var(--text-muted);">{{ allocations|length }} allocation{{ allocations|length|pluralize }}</span>
+          <div class="section-eyebrow"><i class="bx bx-file"></i> التخصيص للفواتير</div>
+          <span style="font-size:12px;color:var(--text-muted);">{{ allocations|length }} allocation{{ allocations|length|pluralize }} تخصيص</span>
         </div>
 
         {% if allocations %}
@@ -93,11 +93,11 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>Facture</th>
-                <th>Date facture</th>
-                <th>Statut facture</th>
-                <th style="text-align:right;">Montant alloué</th>
-                <th style="text-align:right;">Actions</th>
+                <th>الفاتورة</th>
+                <th>تاريخ الفاتورة</th>
+                <th>حالة الفاتورة</th>
+                <th style="text-align:right;">المبلغ المخصص</th>
+                <th style="text-align:right;">الإجراءات</th>
               </tr>
             </thead>
             <tbody>
@@ -108,17 +108,17 @@
                 </td>
                 <td style="font-size:12px;color:var(--text-muted);">{{ alloc.facture.date_facture|date:"d/m/Y" }}</td>
                 <td>
-                  {% if alloc.facture.statut == 'non_payee' %}<span class="pill-danger">Non payée</span>
-                  {% elif alloc.facture.statut == 'partiellement_payee' %}<span class="pill-warning">Part. payée</span>
-                  {% elif alloc.facture.statut == 'payee' %}<span class="pill-success">Payée</span>
-                  {% elif alloc.facture.statut == 'en_litige' %}<span class="pill-danger">En litige</span>
+                  {% if alloc.facture.statut == 'non_payee' %}<span class="pill-danger">غير مدفوعة</span>
+                  {% elif alloc.facture.statut == 'partiellement_payee' %}<span class="pill-warning">مدفوعة جزئياً</span>
+                  {% elif alloc.facture.statut == 'payee' %}<span class="pill-success">مدفوعة</span>
+                  {% elif alloc.facture.statut == 'en_litige' %}<span class="pill-danger">متنازع عليها</span>
                   {% endif %}
                 </td>
                 <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">{{ alloc.montant_alloue|floatformat:0 }} DZD</td>
                 <td>
                   <div class="actions-cell">
-                    <a href="{% url 'clients:facture_client_detail' alloc.facture.pk %}" class="action-btn" title="Voir la facture"><i class="bx bx-show"></i></a>
-                    <a href="{% url 'clients:facture_client_print' alloc.facture.pk %}" class="action-btn" title="Imprimer la facture" target="_blank"><i class="bx bxs-printer"></i></a>
+                    <a href="{% url 'clients:facture_client_detail' alloc.facture.pk %}" class="action-btn" title="عرض الفاتورة"><i class="bx bx-show"></i></a>
+                    <a href="{% url 'clients:facture_client_print' alloc.facture.pk %}" class="action-btn" title="طباعة الفاتورة" target="_blank"><i class="bx bxs-printer"></i></a>
                   </div>
                 </td>
               </tr>
@@ -129,7 +129,7 @@
         {% else %}
         <div style="padding:32px 16px;text-align:center;color:var(--text-muted);">
           <i class="bx bx-file" style="font-size:26px;display:block;margin-bottom:10px;color:var(--border-strong);"></i>
-          <div style="font-size:13px;">Aucune allocation enregistrée pour ce paiement.</div>
+          <div style="font-size:13px;">لا يوجد تخصيص مسجّل لهذه الدفعة.</div>
         </div>
         {% endif %}
       </div>
@@ -142,19 +142,19 @@
       <!-- Amount breakdown -->
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-coin"></i> Récapitulatif</div>
+          <div class="section-eyebrow"><i class="bx bxs-coin"></i> ملخص</div>
         </div>
         <div style="padding:20px;display:flex;flex-direction:column;gap:0;">
           <div class="total-row">
-            <span class="total-label">Montant reçu</span>
+            <span class="total-label">المبلغ المستلم</span>
             <span class="total-val" style="font-size:16px;font-weight:800;color:var(--text-primary);">{{ paiement.montant|floatformat:0 }} DZD</span>
           </div>
           <div class="total-row total-row--divider">
-            <span class="total-label">Total alloué</span>
+            <span class="total-label">إجمالي المخصص</span>
             <span class="total-val" style="color:#15803d;">{{ paiement.montant_alloue|floatformat:0 }} DZD</span>
           </div>
           <div class="total-row total-row--highlight">
-            <span class="total-label" style="font-weight:700;">Solde non alloué</span>
+            <span class="total-label" style="font-weight:700;">رصيد غير مخصص</span>
             <span class="total-val" style="font-size:18px;font-weight:800;color:{% if paiement.solde_non_alloue > 0 %}#b45309{% else %}#15803d{% endif %};">{{ paiement.solde_non_alloue|floatformat:0 }} DZD</span>
           </div>
         </div>
@@ -176,7 +176,7 @@
             {% endif %}
           </div>
           <a href="{% url 'clients:client_detail' paiement.client.pk %}" class="btn-ghost btn-sm btn-full">
-            <i class="bx bx-user"></i> Fiche client
+            <i class="bx bx-user"></i> ملف العميل
           </a>
         </div>
       </div>
@@ -188,11 +188,11 @@
         </div>
         <div style="padding:16px;display:flex;flex-direction:column;gap:8px;">
           <a href="{% url 'clients:paiement_client_print' paiement.pk %}" class="btn-primary btn-full" target="_blank">
-            <i class="bx bxs-printer"></i> Imprimer le reçu
+            <i class="bx bxs-printer"></i> طباعة الإيصال
           </a>
           {% if not request.user.userprofile.role == 'viewer' %}
           <a href="{% url 'clients:paiement_client_create_for_client' paiement.client.pk %}" class="btn-ghost btn-full">
-            <i class="bx bx-plus"></i> Nouveau paiement
+            <i class="bx bx-plus"></i> دفعة جديدة
           </a>
           {% endif %}
         </div>

@@ -159,9 +159,9 @@ def depenses_dashboard(request):
 
     # ── Label helper for the template (human-readable period description) ─
     if date_debut == premier_du_mois and date_fin == today:
-        periode_label = "Mois en cours"
+        periode_label = "الشهر الجاري"
     elif date_debut == premier_de_lannee and date_fin == today:
-        periode_label = "Depuis le 1ᵉʳ janvier"
+        periode_label = "منذ الأول من يناير"
     else:
         periode_label = (
             f"{date_debut.strftime('%d/%m/%Y')} → {date_fin.strftime('%d/%m/%Y')}"
@@ -191,7 +191,7 @@ def depenses_dashboard(request):
             "premier_du_mois": premier_du_mois,
             "premier_de_lannee": premier_de_lannee,
             "delta_pct": delta_pct,
-            "title": "Tableau de bord — Dépenses",
+            "title": "لوحة تحكم — المصروفات",
         },
     )
 
@@ -226,7 +226,7 @@ def categorie_depense_list(request):
         {
             "categories": qs,
             "actif_param": actif_param,
-            "title": "Catégories de dépenses",
+            "title": "فئات المصروفات",
         },
     )
 
@@ -245,7 +245,7 @@ def categorie_depense_create(request):
                 categorie = form.save()
                 messages.success(
                     request,
-                    f"Catégorie « {categorie.libelle} » créée avec succès.",
+                    f"تم إنشاء الفئة « {categorie.libelle} » بنجاح.",
                 )
                 logger.info(
                     "CategorieDepense pk=%s ('%s') created by '%s'.",
@@ -256,9 +256,9 @@ def categorie_depense_create(request):
                 return redirect("depenses:categorie_depense_list")
             except Exception as exc:
                 logger.exception("Error creating CategorieDepense: %s", exc)
-                messages.error(request, f"Erreur lors de la création : {exc}")
+                messages.error(request, f"خطأ أثناء الإنشاء: {exc}")
         else:
-            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
         form = CategorieDepenseForm()
 
@@ -267,8 +267,8 @@ def categorie_depense_create(request):
         "depenses/categorie_depense_form.html",
         {
             "form": form,
-            "title": "Nouvelle catégorie de dépense",
-            "action_label": "Créer la catégorie",
+            "title": "فئة مصروف جديدة",
+            "action_label": "إنشاء الفئة",
         },
     )
 
@@ -289,7 +289,7 @@ def categorie_depense_edit(request, pk):
                 form.save()
                 messages.success(
                     request,
-                    f"Catégorie « {categorie.libelle} » mise à jour.",
+                    f"تم تحديث الفئة « {categorie.libelle} ».",
                 )
                 logger.info(
                     "CategorieDepense pk=%s updated by '%s'.",
@@ -299,9 +299,9 @@ def categorie_depense_edit(request, pk):
                 return redirect("depenses:categorie_depense_list")
             except Exception as exc:
                 logger.exception("Error updating CategorieDepense pk=%s: %s", pk, exc)
-                messages.error(request, f"Erreur lors de la mise à jour : {exc}")
+                messages.error(request, f"خطأ أثناء التحديث: {exc}")
         else:
-            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
         form = CategorieDepenseForm(instance=categorie)
 
@@ -311,8 +311,8 @@ def categorie_depense_edit(request, pk):
         {
             "form": form,
             "categorie": categorie,
-            "title": f"Modifier — {categorie.libelle}",
-            "action_label": "Enregistrer les modifications",
+            "title": f"تعديل — {categorie.libelle}",
+            "action_label": "حفظ التعديلات",
         },
     )
 
@@ -333,8 +333,8 @@ def categorie_depense_toggle_active(request, pk):
     categorie = get_object_or_404(CategorieDepense, pk=pk)
     categorie.actif = not categorie.actif
     categorie.save(update_fields=["actif"])
-    state = "activée" if categorie.actif else "désactivée"
-    messages.success(request, f"Catégorie « {categorie.libelle} » {state}.")
+    state = "مفعَّلة" if categorie.actif else "معطَّلة"
+    messages.success(request, f"الفئة « {categorie.libelle} » {state}.")
     logger.info(
         "CategorieDepense pk=%s toggled actif=%s by '%s'.",
         categorie.pk,
@@ -403,7 +403,7 @@ def depense_list(request):
             "filter_form": filter_form,
             "q": q,
             "total": total,
-            "title": "Dépenses opérationnelles",
+            "title": "المصروفات التشغيلية",
         },
     )
 
@@ -435,8 +435,7 @@ def depense_create(request):
 
                 messages.success(
                     request,
-                    f"Dépense « {depense.description[:60]} » enregistrée "
-                    f"({depense.montant} DZD).",
+                    f"تم تسجيل المصروف « {depense.description[:60]} » ({depense.montant} دج).",
                 )
                 logger.info(
                     "Depense pk=%s created by '%s' "
@@ -451,9 +450,9 @@ def depense_create(request):
 
             except Exception as exc:
                 logger.exception("Error creating Depense: %s", exc)
-                messages.error(request, f"Erreur lors de l'enregistrement : {exc}")
+                messages.error(request, f"خطأ أثناء التسجيل: {exc}")
         else:
-            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
         import datetime
 
@@ -464,8 +463,8 @@ def depense_create(request):
         "depenses/depense_form.html",
         {
             "form": form,
-            "title": "Enregistrer une dépense",
-            "action_label": "Enregistrer la dépense",
+            "title": "تسجيل مصروف",
+            "action_label": "حفظ المصروف",
         },
     )
 
@@ -488,7 +487,7 @@ def depense_detail(request, pk):
         "depenses/depense_detail.html",
         {
             "depense": depense,
-            "title": f"Dépense — {depense.date} | {depense.categorie.libelle}",
+            "title": f"مصروف — {depense.date} | {depense.categorie.libelle}",
         },
     )
 
@@ -519,16 +518,16 @@ def depense_edit(request, pk):
 
                 messages.success(
                     request,
-                    f"Dépense « {depense.description[:60]} » mise à jour.",
+                    f"تم تحديث المصروف « {depense.description[:60]} ».",
                 )
                 logger.info("Depense pk=%s updated by '%s'.", depense.pk, request.user)
                 return redirect("depenses:depense_detail", pk=depense.pk)
 
             except Exception as exc:
                 logger.exception("Error updating Depense pk=%s: %s", pk, exc)
-                messages.error(request, f"Erreur lors de la mise à jour : {exc}")
+                messages.error(request, f"خطأ أثناء التحديث: {exc}")
         else:
-            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
         form = DepenseForm(instance=depense)
 
@@ -538,8 +537,8 @@ def depense_edit(request, pk):
         {
             "form": form,
             "depense": depense,
-            "title": f"Modifier la dépense — {depense.date}",
-            "action_label": "Enregistrer les modifications",
+            "title": f"تعديل المصروف — {depense.date}",
+            "action_label": "حفظ التعديلات",
         },
     )
 
@@ -566,7 +565,7 @@ def depense_delete(request, pk):
         depense.delete()
         messages.success(
             request,
-            f"Dépense « {description} » du {date} supprimée.",
+            f"تم حذف المصروف « {description} » بتاريخ {date}.",
         )
         logger.info(
             "Depense pk=%s ('%s') deleted by '%s'.",
@@ -576,7 +575,7 @@ def depense_delete(request, pk):
         )
     except Exception as exc:
         logger.exception("Error deleting Depense pk=%s: %s", pk, exc)
-        messages.error(request, f"Erreur lors de la suppression : {exc}")
+        messages.error(request, f"خطأ أثناء الحذف: {exc}")
         return redirect("depenses:depense_detail", pk=pk)
 
     return redirect("depenses:depense_list")

@@ -1,24 +1,24 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
 
 {% block nav_depenses %}active{% endblock %}
 
-{% block page_title %}Dépense — {{ depense.date|date:"d/m/Y" }}{% endblock %}
+{% block page_title %}مصروف — {{ depense.date|date:"d/m/Y" }}{% endblock %}
 {% block page_sub_text %}{{ depense.categorie.libelle }} — {{ depense.montant|floatformat:0 }} DZD{% endblock %}
 
 {% block topbar_actions %}
   {% if not request.user.userprofile.role == 'viewer' %}
   <a href="{% url 'depenses:depense_edit' depense.pk %}" class="btn-primary">
-    <i class="bx bxs-pencil"></i> Modifier
+    <i class="bx bxs-pencil"></i> تعديل
   </a>
   <a href="{% url 'depenses:depense_print' depense.pk %}" class="btn-ghost" target="_blank">
-    <i class="bx bx-printer"></i> Imprimer
+    <i class="bx bx-printer"></i> طباعة
   </a>
   {% endif %}
   <a href="{% url 'depenses:depense_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour à la liste
+    <i class="bx bx-arrow-back"></i> العودة إلى القائمة
   </a>
 {% endblock %}
 
@@ -32,24 +32,24 @@
       <!-- Main info card -->
       <div class="detail-card">
         <div class="detail-card__header">
-          <div class="section-eyebrow"><i class="bx bxs-wallet"></i> Informations générales</div>
+          <div class="section-eyebrow"><i class="bx bxs-wallet"></i> المعلومات العامة</div>
           <span class="pill-cat">{{ depense.categorie.libelle }}</span>
         </div>
         <div class="detail-card__body">
           <dl class="info-grid">
-            <dt>Date</dt>
+            <dt>التاريخ</dt>
             <dd>{{ depense.date|date:"l d N Y"|capfirst }}</dd>
 
-            <dt>Description / Objet</dt>
+            <dt>الوصف / الموضوع</dt>
             <dd style="font-weight:600;color:var(--text-primary);">{{ depense.description }}</dd>
 
-            <dt>Montant</dt>
+            <dt>المبلغ</dt>
             <dd>
               <span style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--text-primary);">{{ depense.montant|floatformat:0 }}</span>
-              <span style="font-size:14px;color:var(--text-muted);margin-left:4px;">DZD</span>
+              <span style="font-size:14px;color:var(--text-muted);margin-left:4px;">دج</span>
             </dd>
 
-            <dt>Mode de paiement</dt>
+            <dt>طريقة الدفع</dt>
             <dd class="mode-cell">
               {% if depense.mode_paiement == 'especes' %}<i class="bx bx-money mode-icon"></i>
               {% elif depense.mode_paiement == 'cheque' %}<i class="bx bxs-receipt mode-icon"></i>
@@ -60,12 +60,12 @@
             </dd>
 
             {% if depense.reference_document %}
-            <dt>Référence document</dt>
+            <dt>مرجع الوثيقة</dt>
             <dd><code class="code-badge">{{ depense.reference_document }}</code></dd>
             {% endif %}
 
             {% if depense.notes %}
-            <dt>Notes</dt>
+            <dt>ملاحظات</dt>
             <dd style="white-space:pre-line;color:var(--text-secondary);">{{ depense.notes }}</dd>
             {% endif %}
           </dl>
@@ -75,24 +75,24 @@
       <!-- Pièce jointe -->
       <div class="detail-card">
         <div class="detail-card__header">
-          <div class="section-eyebrow"><i class="bx bx-paperclip"></i> Pièce jointe</div>
+          <div class="section-eyebrow"><i class="bx bx-paperclip"></i> المستند المرفق</div>
         </div>
         <div class="detail-card__body">
           {% if depense.a_piece_jointe %}
           <div class="attachment-row">
             <div class="attachment-icon"><i class="bx bxs-file"></i></div>
             <div class="attachment-info">
-              <div style="font-size:13px;font-weight:500;color:var(--text-primary);">Document joint</div>
+              <div style="font-size:13px;font-weight:500;color:var(--text-primary);">مستند مرفق</div>
               <div style="font-size:12px;color:var(--text-muted);">{{ depense.piece_jointe.name|slice:"16:" }}</div>
             </div>
             <a href="{{ depense.piece_jointe.url }}" class="btn-ghost btn-sm" target="_blank">
-              <i class="bx bx-download"></i> Télécharger
+              <i class="bx bx-download"></i> تحميل
             </a>
           </div>
           {% else %}
           <div class="no-attachment">
             <i class="bx bx-paperclip" style="font-size:15px;"></i>
-            <span>Aucune pièce jointe enregistrée</span>
+            <span>لا يوجد مستند مرفق</span>
           </div>
           {% endif %}
         </div>
@@ -106,7 +106,7 @@
       <!-- Lot attribution -->
       <div class="detail-card">
         <div class="detail-card__header">
-          <div class="section-eyebrow"><i class="bx bxs-buildings"></i> Lot attribué (BR-DEP-04)</div>
+          <div class="section-eyebrow"><i class="bx bxs-buildings"></i> الدفعة المخصصة (BR-DEP-04)</div>
         </div>
         <div class="detail-card__body">
           {% if depense.lot %}
@@ -116,9 +116,9 @@
               <div style="font-size:13px;font-weight:600;color:var(--text-primary);">{{ depense.lot.designation }}</div>
               <div style="font-size:12px;color:var(--text-muted);">{{ depense.lot.date_ouverture|date:"d/m/Y" }}
                 {% if depense.lot.statut == 'ouvert' %}
-                <span class="pill-success" style="margin-left:6px;"><i class="bx bxs-check-circle"></i> Ouvert</span>
+                <span class="pill-success" style="margin-left:6px;"><i class="bx bxs-check-circle"></i> مفتوحة</span>
                 {% else %}
-                <span class="pill-neutral" style="margin-left:6px;"><i class="bx bx-lock"></i> Clôturé</span>
+                <span class="pill-neutral" style="margin-left:6px;"><i class="bx bx-lock"></i> مغلقة</span>
                 {% endif %}
               </div>
             </div>
@@ -126,7 +126,7 @@
           {% else %}
           <div style="font-size:13px;color:var(--text-muted);padding:4px 0;">
             <i class="bx bx-minus-circle" style="margin-right:5px;"></i>
-            Aucun lot attribué — dépense générale de l'exploitation.
+            لا دفعة محددة — مصروف عام للمزرعة.
           </div>
           {% endif %}
         </div>
@@ -136,13 +136,13 @@
       {% if depense.facture_liee %}
       <div class="detail-card detail-card--service">
         <div class="detail-card__header">
-          <div class="section-eyebrow"><i class="bx bxs-file-doc"></i> Facture fournisseur liée</div>
-          <span class="pill-info">Service</span>
+          <div class="section-eyebrow"><i class="bx bxs-file-doc"></i> فاتورة المورد المرتبطة</div>
+          <span class="pill-info">خدمة</span>
         </div>
         <div class="detail-card__body">
           <div class="service-notice">
             <i class="bx bxs-info-circle service-notice__icon"></i>
-            <span>BR-DEP-03 : seule une facture fournisseur de type <strong>Service</strong> peut être liée à une dépense.</span>
+            <span>BR-DEP-03 : يمكن ربط فاتورة مورد من نوع <strong>خدمة</strong> فقط بالمصروف.</span>
           </div>
           <div style="margin-top:12px;">
             <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:14px;color:var(--text-primary);">{{ depense.facture_liee.reference }}</div>
@@ -156,15 +156,15 @@
       <!-- Metadata -->
       <div class="detail-card">
         <div class="detail-card__header">
-          <div class="section-eyebrow"><i class="bx bx-info-circle"></i> Métadonnées</div>
+          <div class="section-eyebrow"><i class="bx bx-info-circle"></i> البيانات التعريفية</div>
         </div>
         <div class="detail-card__body">
           <dl class="info-grid info-grid--compact">
-            <dt>Enregistré par</dt>
+            <dt>سُجِّل بواسطة</dt>
             <dd>{{ depense.enregistre_par.get_full_name|default:depense.enregistre_par.username|default:"—" }}</dd>
-            <dt>Créé le</dt>
+            <dt>تاريخ الإنشاء</dt>
             <dd>{{ depense.created_at|date:"d/m/Y H:i" }}</dd>
-            <dt>Modifié le</dt>
+            <dt>تاريخ التعديل</dt>
             <dd>{{ depense.updated_at|date:"d/m/Y H:i" }}</dd>
           </dl>
         </div>
@@ -174,13 +174,13 @@
       {% if request.user.userprofile.role == 'admin' %}
       <div class="danger-zone">
         <div style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;margin-bottom:4px;">
-          <i class="bx bxs-error"></i> Zone sensible
+          <i class="bx bxs-error"></i> منطقة حساسة
         </div>
         <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px;">
-          La suppression est définitive. Aucune restauration n'est possible.
+          الحذف نهائي ولا يمكن التراجع عنه.
         </p>
         <button type="button" class="btn-danger" id="open-delete-btn">
-          <i class="bx bxs-trash"></i> Supprimer cette dépense
+          <i class="bx bxs-trash"></i> حذف هذا المصروف
         </button>
       </div>
 
@@ -189,16 +189,16 @@
         <div class="confirm-panel__inner">
           <div class="confirm-panel__icon"><i class="bx bxs-trash"></i></div>
           <div>
-            <div class="confirm-panel__title">Supprimer cette dépense ?</div>
+            <div class="confirm-panel__title">حذف هذا المصروف؟</div>
             <div class="confirm-panel__body">
-              La dépense <strong>{{ depense.description|truncatechars:50 }}</strong> du <strong>{{ depense.date|date:"d/m/Y" }}</strong> ({{ depense.montant|floatformat:0 }} DZD) sera supprimée définitivement.
+              سيتم حذف المصروف <strong>{{ depense.description|truncatechars:50 }}</strong> بتاريخ <strong>{{ depense.date|date:"d/m/Y" }}</strong> ({{ depense.montant|floatformat:0 }} دج) بشكل نهائي.
             </div>
           </div>
           <div class="confirm-panel__actions">
-            <button type="button" id="confirm-delete-cancel" class="btn-ghost">Annuler</button>
+            <button type="button" id="confirm-delete-cancel" class="btn-ghost">إلغاء</button>
             <form method="post" action="{% url 'depenses:depense_delete' depense.pk %}">
               {% csrf_token %}
-              <button type="submit" class="btn-danger"><i class="bx bxs-trash"></i> Supprimer définitivement</button>
+              <button type="submit" class="btn-danger"><i class="bx bxs-trash"></i> حذف نهائي</button>
             </form>
           </div>
         </div>

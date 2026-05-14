@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Ajustements de Stock — Élevage Avicole{% endblock %}
+{% block title %}تسويات المخزون — تربية الدواجن{% endblock %}
 
 {% block nav_stock_intrants %}active{% endblock %}
 
-{% block page_title %}Ajustements de Stock{% endblock %}
-{% block page_sub_text %}{{ page.paginator.count }} ajustement{{ page.paginator.count|pluralize }} enregistré{{ page.paginator.count|pluralize }}{% endblock %}
+{% block page_title %}تسويات المخزون{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} تسوية مسجلة{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'stock:stock_mouvement_list' %}" class="btn-ghost">
-    <i class="bx bx-transfer"></i> Mouvements
+    <i class="bx bx-transfer"></i> الحركات
   </a>
   {% if not request.user.profile.role == 'viewer' %}
   <a href="{% url 'stock:stock_ajustement_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouvel ajustement
+    <i class="bx bx-plus"></i> تسوية جديدة
   </a>
   {% endif %}
 {% endblock %}
@@ -25,24 +25,24 @@
   <!-- Info banner: adjustments are immutable -->
   <div class="info-banner">
     <i class="bx bxs-info-circle"></i>
-    <span>Les ajustements sont <strong>immuables</strong> après création — ils génèrent un mouvement d'audit automatique.</span>
+    <span>التسويات <strong>غير قابلة للتعديل</strong> بعد الإنشاء — تُولّد حركة تدقيق تلقائية.</span>
   </div>
 
   <!-- Filters -->
   <div class="filters-bar">
     <form method="get" action="" class="filters-form" id="filter-form">
       <select name="segment" class="filter-select" id="filter-segment">
-        <option value="">Tous segments</option>
+        <option value="">كل الأقسام</option>
         {% for val, label in segment_choices %}
         <option value="{{ val }}" {% if segment == val %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
-      <input type="date" name="date_debut" value="{{ date_debut }}" class="filter-date" title="Date début">
-      <input type="date" name="date_fin" value="{{ date_fin }}" class="filter-date" title="Date fin">
-      <button type="submit" class="btn-ghost btn-sm"><i class="bx bxs-filter-alt"></i> Filtrer</button>
+      <input type="date" name="date_debut" value="{{ date_debut }}" class="filter-date" title="تاريخ البداية">
+      <input type="date" name="date_fin" value="{{ date_fin }}" class="filter-date" title="تاريخ النهاية">
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bxs-filter-alt"></i> تصفية</button>
       {% if segment or date_debut or date_fin %}
       <a href="{% url 'stock:stock_ajustement_list' %}" class="btn-ghost btn-sm" style="color:#dc2626;border-color:rgba(239,68,68,.2);">
-        <i class="bx bx-x"></i> Réinitialiser
+        <i class="bx bx-x"></i> إعادة ضبط
       </a>
       {% endif %}
     </form>
@@ -50,7 +50,7 @@
 
   <div class="card">
     <div class="card-header-row">
-      <div class="section-eyebrow"><i class="bx bxs-spreadsheet"></i> Historique des ajustements</div>
+      <div class="section-eyebrow"><i class="bx bxs-spreadsheet"></i> سجل التسويات</div>
     </div>
 
     {% if page.object_list %}
@@ -58,14 +58,14 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Segment</th>
-            <th>Article</th>
-            <th>Avant</th>
-            <th>Après</th>
-            <th>Delta</th>
-            <th>Raison</th>
-            <th>Effectué par</th>
+            <th>التاريخ</th>
+            <th>القسم</th>
+            <th>المادة</th>
+            <th>قبل</th>
+            <th>بعد</th>
+            <th>الفرق</th>
+            <th>السبب</th>
+            <th>بواسطة</th>
           </tr>
         </thead>
         <tbody>
@@ -74,9 +74,9 @@
             <td style="white-space:nowrap;color:var(--text-muted);font-size:12px;">{{ aj.date_ajustement|date:"d/m/Y" }}</td>
             <td>
               {% if aj.segment == 'intrant' %}
-                <span class="pill-cat-intrant">Intrant</span>
+                <span class="pill-cat-intrant">مدخل</span>
               {% else %}
-                <span class="pill-cat-pf">Prod. Fini</span>
+                <span class="pill-cat-pf">منتج نهائي</span>
               {% endif %}
             </td>
             <td>
@@ -88,11 +88,11 @@
             <td style="font-size:12.5px;font-weight:600;color:var(--text-primary);">{{ aj.quantite_apres|floatformat:2 }}</td>
             <td>
               {% if aj.quantite_apres > aj.quantite_avant %}
-                <span class="delta-up">↑ positif</span>
+                <span class="delta-up">↑ موجب</span>
               {% elif aj.quantite_apres < aj.quantite_avant %}
-                <span class="delta-down">↓ négatif</span>
+                <span class="delta-down">↓ سالب</span>
               {% else %}
-                <span style="font-size:12px;color:var(--text-muted);">= nul</span>
+                <span style="font-size:12px;color:var(--text-muted);">= معدوم</span>
               {% endif %}
             </td>
             <td style="font-size:12px;color:var(--text-secondary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ aj.raison }}">
@@ -116,7 +116,7 @@
       {% else %}
       <span class="page-btn page-btn--disabled"><i class="bx bx-chevron-left"></i></span>
       {% endif %}
-      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      <span class="page-info">صفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
       {% if page.has_next %}
       <a href="?page={{ page.next_page_number }}{% if segment %}&segment={{ segment }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="page-btn">
         <i class="bx bx-chevron-right"></i>
@@ -130,14 +130,14 @@
     {% else %}
     <div class="empty-state">
       <i class="bx bxs-spreadsheet empty-state__icon"></i>
-      <div class="empty-state__title">Aucun ajustement enregistré</div>
+      <div class="empty-state__title">لا توجد تسويات مسجلة</div>
       <div class="empty-state__body">
-        {% if segment or date_debut or date_fin %}Affinez vos filtres pour voir des résultats.
-        {% else %}Les ajustements manuels de stock seront listés ici.{% endif %}
+        {% if segment or date_debut or date_fin %}عدّل معايير التصفية للحصول على نتائج.
+        {% else %}ستظهر هنا التسويات اليدوية للمخزون.{% endif %}
       </div>
       {% if not request.user.profile.role == 'viewer' %}
       <a href="{% url 'stock:stock_ajustement_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
-        <i class="bx bx-plus"></i> Nouvel ajustement
+        <i class="bx bx-plus"></i> تسوية جديدة
       </a>
       {% endif %}
     </div>
@@ -149,6 +149,15 @@
 
 {% block extra_css %}
 <style>
+  /* ─── RTL / Arabic ─── */
+  .page-body { direction:rtl;font-family:'Tajawal','Inter',sans-serif; }
+  .filters-form { direction:rtl; }
+  .data-table th, .data-table td { text-align:right; }
+  .section-eyebrow { letter-spacing:0; }
+  .info-banner { direction:rtl; }
+  .pagination-bar { direction:rtl; }
+  .bx-chevron-left, .bx-chevron-right { transform:scaleX(-1); }
+
   .page-body { padding:28px 32px; }
   @media(max-width:768px) { .page-body { padding:20px 16px; } }
 

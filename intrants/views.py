@@ -71,7 +71,7 @@ def categorie_intrant_list(request):
         "intrants/categorie_intrant_list.html",
         {
             "categories": categories,
-            "title": "Catégories d'intrants",
+            "title": "فئات المدخلات",
         },
     )
 
@@ -82,10 +82,10 @@ def categorie_intrant_create(request):
         form = CategorieIntrantForm(request.POST)
         if form.is_valid():
             cat = form.save()
-            messages.success(request, f"Catégorie « {cat.libelle} » créée avec succès.")
+            messages.success(request, f"تم إنشاء الفئة « {cat.libelle} » بنجاح.")
             logger.info("CategorieIntrant pk=%s created by '%s'.", cat.pk, request.user)
             return redirect("intrants:categorie_intrant_list")
-        messages.error(request, "Veuillez corriger les erreurs.")
+        messages.error(request, "يرجى تصحيح الأخطاء.")
     else:
         form = CategorieIntrantForm()
     return render(
@@ -93,8 +93,8 @@ def categorie_intrant_create(request):
         "intrants/categorie_intrant_form.html",
         {
             "form": form,
-            "title": "Nouvelle catégorie d'intrant",
-            "action_label": "Créer",
+            "title": "فئة مدخلات جديدة",
+            "action_label": "إنشاء",
         },
     )
 
@@ -106,9 +106,9 @@ def categorie_intrant_edit(request, pk):
         form = CategorieIntrantForm(request.POST, instance=cat)
         if form.is_valid():
             form.save()
-            messages.success(request, f"Catégorie « {cat.libelle} » mise à jour.")
+            messages.success(request, f"تم تحديث الفئة « {cat.libelle} ».")
             return redirect("intrants:categorie_intrant_list")
-        messages.error(request, "Veuillez corriger les erreurs.")
+        messages.error(request, "يرجى تصحيح الأخطاء.")
     else:
         form = CategorieIntrantForm(instance=cat)
     return render(
@@ -117,8 +117,8 @@ def categorie_intrant_edit(request, pk):
         {
             "form": form,
             "object": cat,
-            "title": f"Modifier — {cat.libelle}",
-            "action_label": "Enregistrer",
+            "title": f"تعديل — {cat.libelle}",
+            "action_label": "حفظ",
         },
     )
 
@@ -130,8 +130,8 @@ def categorie_intrant_toggle_active(request, pk):
     cat = get_object_or_404(CategorieIntrant, pk=pk)
     cat.actif = not cat.actif
     cat.save(update_fields=["actif"])
-    state = "activée" if cat.actif else "désactivée"
-    messages.success(request, f"Catégorie « {cat.libelle} » {state}.")
+    state = "مفعَّلة" if cat.actif else "معطَّلة"
+    messages.success(request, f"الفئة « {cat.libelle} » {state}.")
     return redirect("intrants:categorie_intrant_list")
 
 
@@ -148,7 +148,7 @@ def type_fournisseur_list(request):
         "intrants/type_fournisseur_list.html",
         {
             "types": types,
-            "title": "Types de fournisseurs",
+            "title": "أنواع الموردين",
         },
     )
 
@@ -159,9 +159,9 @@ def type_fournisseur_create(request):
         form = TypeFournisseurForm(request.POST)
         if form.is_valid():
             obj = form.save()
-            messages.success(request, f"Type « {obj.libelle} » créé avec succès.")
+            messages.success(request, f"تم إنشاء النوع « {obj.libelle} » بنجاح.")
             return redirect("intrants:type_fournisseur_list")
-        messages.error(request, "Veuillez corriger les erreurs.")
+        messages.error(request, "يرجى تصحيح الأخطاء.")
     else:
         form = TypeFournisseurForm()
     return render(
@@ -169,8 +169,8 @@ def type_fournisseur_create(request):
         "intrants/type_fournisseur_form.html",
         {
             "form": form,
-            "title": "Nouveau type de fournisseur",
-            "action_label": "Créer",
+            "title": "نوع مورد جديد",
+            "action_label": "إنشاء",
         },
     )
 
@@ -182,9 +182,9 @@ def type_fournisseur_edit(request, pk):
         form = TypeFournisseurForm(request.POST, instance=obj)
         if form.is_valid():
             form.save()
-            messages.success(request, f"Type « {obj.libelle} » mis à jour.")
+            messages.success(request, f"تم تحديث النوع « {obj.libelle} ».")
             return redirect("intrants:type_fournisseur_list")
-        messages.error(request, "Veuillez corriger les erreurs.")
+        messages.error(request, "يرجى تصحيح الأخطاء.")
     else:
         form = TypeFournisseurForm(instance=obj)
     return render(
@@ -193,8 +193,8 @@ def type_fournisseur_edit(request, pk):
         {
             "form": form,
             "object": obj,
-            "title": f"Modifier — {obj.libelle}",
-            "action_label": "Enregistrer",
+            "title": f"تعديل — {obj.libelle}",
+            "action_label": "حفظ",
         },
     )
 
@@ -205,8 +205,8 @@ def type_fournisseur_toggle_active(request, pk):
     obj = get_object_or_404(TypeFournisseur, pk=pk)
     obj.actif = not obj.actif
     obj.save(update_fields=["actif"])
-    state = "activé" if obj.actif else "désactivé"
-    messages.success(request, f"Type « {obj.libelle} » {state}.")
+    state = "مفعَّل" if obj.actif else "معطَّل"
+    messages.success(request, f"النوع « {obj.libelle} » {state}.")
     return redirect("intrants:type_fournisseur_list")
 
 
@@ -245,7 +245,7 @@ def fournisseur_list(request):
             "page": page,
             "q": q,
             "afficher": afficher,
-            "title": "Fournisseurs",
+            "title": "الموردين",
         },
     )
 
@@ -303,10 +303,10 @@ def fournisseur_create(request):
         form = FournisseurForm(request.POST)
         if form.is_valid():
             obj = form.save()
-            messages.success(request, f"Fournisseur « {obj.nom} » créé avec succès.")
+            messages.success(request, f"تم إنشاء المورد « {obj.nom} » بنجاح.")
             logger.info("Fournisseur pk=%s created by '%s'.", obj.pk, request.user)
             return redirect("intrants:fournisseur_detail", pk=obj.pk)
-        messages.error(request, "Veuillez corriger les erreurs.")
+        messages.error(request, "يرجى تصحيح الأخطاء.")
     else:
         form = FournisseurForm()
     return render(
@@ -315,7 +315,7 @@ def fournisseur_create(request):
         {
             "form": form,
             "title": "Nouveau fournisseur",
-            "action_label": "Créer",
+            "action_label": "إنشاء",
         },
     )
 
@@ -327,9 +327,9 @@ def fournisseur_edit(request, pk):
         form = FournisseurForm(request.POST, instance=fournisseur)
         if form.is_valid():
             form.save()
-            messages.success(request, f"Fournisseur « {fournisseur.nom} » mis à jour.")
+            messages.success(request, f"تم تحديث المورد « {fournisseur.nom} ».")
             return redirect("intrants:fournisseur_detail", pk=pk)
-        messages.error(request, "Veuillez corriger les erreurs.")
+        messages.error(request, "يرجى تصحيح الأخطاء.")
     else:
         form = FournisseurForm(instance=fournisseur)
     return render(
@@ -338,8 +338,8 @@ def fournisseur_edit(request, pk):
         {
             "form": form,
             "object": fournisseur,
-            "title": f"Modifier — {fournisseur.nom}",
-            "action_label": "Enregistrer",
+            "title": f"تعديل — {fournisseur.nom}",
+            "action_label": "حفظ",
         },
     )
 
@@ -351,8 +351,8 @@ def fournisseur_toggle_active(request, pk):
     fournisseur = get_object_or_404(Fournisseur, pk=pk)
     fournisseur.actif = not fournisseur.actif
     fournisseur.save(update_fields=["actif", "updated_at"])
-    state = "activé" if fournisseur.actif else "désactivé"
-    messages.success(request, f"Fournisseur « {fournisseur.nom} » {state}.")
+    state = "مفعَّل" if fournisseur.actif else "معطَّل"
+    messages.success(request, f"المورد « {fournisseur.nom} » {state}.")
     logger.info(
         "Fournisseur pk=%s set actif=%s by '%s'.",
         pk,
@@ -375,7 +375,7 @@ def batiment_list(request):
         "intrants/batiment_list.html",
         {
             "batiments": batiments,
-            "title": "Bâtiments",
+            "title": "المباني",
         },
     )
 
@@ -386,9 +386,9 @@ def batiment_create(request):
         form = BatimentForm(request.POST)
         if form.is_valid():
             obj = form.save()
-            messages.success(request, f"Bâtiment « {obj.nom} » créé avec succès.")
+            messages.success(request, f"تم إنشاء المبنى « {obj.nom} » بنجاح.")
             return redirect("intrants:batiment_list")
-        messages.error(request, "Veuillez corriger les erreurs.")
+        messages.error(request, "يرجى تصحيح الأخطاء.")
     else:
         form = BatimentForm()
     return render(
@@ -396,8 +396,8 @@ def batiment_create(request):
         "intrants/batiment_form.html",
         {
             "form": form,
-            "title": "Nouveau bâtiment",
-            "action_label": "Créer",
+            "title": "مبنى جديد",
+            "action_label": "إنشاء",
         },
     )
 
@@ -409,9 +409,9 @@ def batiment_edit(request, pk):
         form = BatimentForm(request.POST, instance=batiment)
         if form.is_valid():
             form.save()
-            messages.success(request, f"Bâtiment « {batiment.nom} » mis à jour.")
+            messages.success(request, f"تم تحديث المبنى « {batiment.nom} ».")
             return redirect("intrants:batiment_list")
-        messages.error(request, "Veuillez corriger les erreurs.")
+        messages.error(request, "يرجى تصحيح الأخطاء.")
     else:
         form = BatimentForm(instance=batiment)
     return render(
@@ -420,8 +420,8 @@ def batiment_edit(request, pk):
         {
             "form": form,
             "object": batiment,
-            "title": f"Modifier — {batiment.nom}",
-            "action_label": "Enregistrer",
+            "title": f"تعديل — {batiment.nom}",
+            "action_label": "حفظ",
         },
     )
 
@@ -432,8 +432,8 @@ def batiment_toggle_active(request, pk):
     batiment = get_object_or_404(Batiment, pk=pk)
     batiment.actif = not batiment.actif
     batiment.save(update_fields=["actif"])
-    state = "activé" if batiment.actif else "désactivé"
-    messages.success(request, f"Bâtiment « {batiment.nom} » {state}.")
+    state = "مفعَّل" if batiment.actif else "معطَّل"
+    messages.success(request, f"المبنى « {batiment.nom} » {state}.")
     return redirect("intrants:batiment_list")
 
 
@@ -491,7 +491,7 @@ def intrant_list(request):
             "categorie_pk": categorie_pk,
             "categories": categories,
             "en_alerte_filter": request.GET.get("alerte") == "1",
-            "title": "Catalogue des intrants",
+            "title": "كتالوج المدخلات",
         },
     )
 
@@ -545,12 +545,11 @@ def intrant_create(request):
             obj = form.save()
             messages.success(
                 request,
-                f"Intrant « {obj.designation} » créé avec succès. "
-                f"Une fiche de stock a été initialisée automatiquement.",
+                f"تم إنشاء المدخل « {obj.designation} » بنجاح. تم تهيئة بطاقة المخزون تلقائيًا.",
             )
             logger.info("Intrant pk=%s created by '%s'.", obj.pk, request.user)
             return redirect("intrants:intrant_detail", pk=obj.pk)
-        messages.error(request, "Veuillez corriger les erreurs.")
+        messages.error(request, "يرجى تصحيح الأخطاء.")
     else:
         form = IntrantForm()
     return render(
@@ -558,8 +557,8 @@ def intrant_create(request):
         "intrants/intrant_form.html",
         {
             "form": form,
-            "title": "Nouvel intrant",
-            "action_label": "Créer",
+            "title": "مدخل جديد",
+            "action_label": "إنشاء",
         },
     )
 
@@ -571,10 +570,10 @@ def intrant_edit(request, pk):
         form = IntrantForm(request.POST, instance=intrant)
         if form.is_valid():
             form.save()
-            messages.success(request, f"Intrant « {intrant.designation} » mis à jour.")
+            messages.success(request, f"تم تحديث المدخل « {intrant.designation} ».")
             logger.info("Intrant pk=%s edited by '%s'.", pk, request.user)
             return redirect("intrants:intrant_detail", pk=pk)
-        messages.error(request, "Veuillez corriger les erreurs.")
+        messages.error(request, "يرجى تصحيح الأخطاء.")
     else:
         form = IntrantForm(instance=intrant)
     return render(
@@ -583,8 +582,8 @@ def intrant_edit(request, pk):
         {
             "form": form,
             "object": intrant,
-            "title": f"Modifier — {intrant.designation}",
-            "action_label": "Enregistrer",
+            "title": f"تعديل — {intrant.designation}",
+            "action_label": "حفظ",
         },
     )
 
@@ -596,8 +595,8 @@ def intrant_toggle_active(request, pk):
     intrant = get_object_or_404(Intrant, pk=pk)
     intrant.actif = not intrant.actif
     intrant.save(update_fields=["actif", "updated_at"])
-    state = "activé" if intrant.actif else "désactivé"
-    messages.success(request, f"Intrant « {intrant.designation} » {state}.")
+    state = "مفعَّل" if intrant.actif else "معطَّل"
+    messages.success(request, f"المدخل « {intrant.designation} » {state}.")
     logger.info("Intrant pk=%s set actif=%s by '%s'.", pk, intrant.actif, request.user)
     return redirect("intrants:intrant_list")
 

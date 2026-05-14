@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Dettes en Cours — Élevage Avicole{% endblock %}
+{% block title %}الديون الجارية — تربية الدواجن{% endblock %}
 {% block nav_rapports %}active{% endblock %}
-{% block page_title %}Dettes en Cours par Fournisseur{% endblock %}
-{% block page_sub_text %}{% if fournisseur_obj %}{{ fournisseur_obj.nom }} — {% endif %}{{ rows|length }} fournisseur(s) avec dette — Total : {{ grand_total_dette|floatformat:0 }} DZD{% endblock %}
+{% block page_title %}الديون الجارية لكل مورّد{% endblock %}
+{% block page_sub_text %}{% if fournisseur_obj %}{{ fournisseur_obj.nom }} — {% endif %}{{ rows|length }} مورّد (موردون) بدين — الإجمالي : {{ grand_total_dette|floatformat:0 }} DZD{% endblock %}
 {% block topbar_actions %}
-<a href="?{% if fournisseur_pk %}fournisseur={{ fournisseur_pk }}&{% endif %}export=csv" class="btn-ghost btn-sm"><i class="bx bxs-spreadsheet"></i> Exporter CSV</a>
-<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> Rapports</a>
+<a href="?{% if fournisseur_pk %}fournisseur={{ fournisseur_pk }}&{% endif %}export=csv" class="btn-ghost btn-sm"><i class="bx bxs-spreadsheet"></i> تصدير CSV</a>
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> التقارير</a>
 {% endblock %}
 
 {% block extra_css %}
@@ -26,15 +26,15 @@
       <div class="input-wrapper" style="flex:1;min-width:200px;">
         <i class="bx bxs-building input-icon"></i>
         <select name="fournisseur" class="field-input has-icon" onchange="this.form.submit()">
-          <option value="">Tous les fournisseurs</option>
+          <option value="">كل الموردين</option>
           {% for f in fournisseurs %}
           <option value="{{ f.pk }}" {% if fournisseur_pk == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.nom }}</option>
           {% endfor %}
         </select>
       </div>
-      <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> Filtrer</button>
+      <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> تصفية</button>
       {% if fournisseur_pk %}
-      <a href="{% url 'reporting:dettes_fournisseurs' %}" class="btn-ghost btn-sm">Réinitialiser</a>
+      <a href="{% url 'reporting:dettes_fournisseurs' %}" class="btn-ghost btn-sm">إعادة تعيين</a>
       {% endif %}
     </form>
   </div>
@@ -45,19 +45,19 @@
   <div class="col-xl-4">
     <div class="metric-card" style="margin-bottom:14px;">
       <div class="metric-icon ic-red"><i class="bx bx-hourglass"></i></div>
-      <div class="metric-label">Dette Totale en Cours</div>
+      <div class="metric-label">إجمالي الديون الجارية</div>
       <div class="metric-value" style="color:#dc2626;">{{ grand_total_dette|floatformat:0 }}</div>
       <span style="font-size:12px;color:var(--text-muted);">DZD — {{ today|date:"d/m/Y" }}</span>
     </div>
     <div class="metric-card">
       <div class="metric-icon ic-amber"><i class="bx bxs-file-txt"></i></div>
-      <div class="metric-label">Fournisseurs concernés</div>
+      <div class="metric-label">الموردون المعنيون</div>
       <div class="metric-value sm">{{ rows|length }}</div>
     </div>
   </div>
   <div class="col-xl-8">
     <div class="section-card" style="height:100%;">
-      <div class="section-card__head"><span class="section-card__title">Classement par dette (Top 10)</span></div>
+      <div class="section-card__head"><span class="section-card__title">ترتيب حسب الدين (أفضل 10)</span></div>
       <div class="section-card__body"><div class="chart-wrap"><canvas id="detteBar"></canvas></div></div>
     </div>
   </div>
@@ -66,8 +66,8 @@
 <!-- Detail table -->
 <div class="section-card">
   <div class="section-card__head">
-    <span class="section-card__title">Détail par Fournisseur</span>
-    <span style="font-size:12px;color:var(--text-muted);">Trié par dette décroissante — état au {{ today|date:"d/m/Y" }}</span>
+    <span class="section-card__title">التفاصيل حسب المورّد</span>
+    <span style="font-size:12px;color:var(--text-muted);">مرتّب تنازلياً — الحالة بتاريخ {{ today|date:"d/m/Y" }}</span>
   </div>
   <div class="section-card__body no-pad">
     {% if rows %}
@@ -76,14 +76,14 @@
         <thead>
           <tr>
             <th>#</th>
-            <th>Fournisseur</th>
-            <th style="text-align:right;">Dette Globale</th>
-            <th style="text-align:center;">Factures ouvertes</th>
-            <th>Facture la + ancienne</th>
-            <th>Prochaine échéance</th>
-            <th style="text-align:center;">En Retard</th>
-            <th>Dernier Règlement</th>
-            <th style="text-align:right;">J. sans règlement</th>
+            <th>المورّد</th>
+            <th style="text-align:right;">الدين الإجمالي</th>
+            <th style="text-align:center;">الفواتير المفتوحة</th>
+            <th>أقدم فاتورة</th>
+            <th>الاستحقاق القادم</th>
+            <th style="text-align:center;">متأخر</th>
+            <th>آخر تسوية</th>
+            <th style="text-align:right;">أيام بدون تسوية</th>
           </tr>
         </thead>
         <tbody>
@@ -127,11 +127,11 @@
                 {% if r.nb_retard > 0 %}<i class="bx bxs-error"></i> {{ r.nb_retard }}{% else %}<i class="bx bxs-check-circle"></i> 0{% endif %}
               </span>
             </td>
-            <td style="font-size:12.5px;">{% if r.last_reglement %}{{ r.last_reglement|date:"d/m/Y" }}{% else %}<span class="val-muted">Jamais</span>{% endif %}</td>
+            <td style="font-size:12.5px;">{% if r.last_reglement %}{{ r.last_reglement|date:"d/m/Y" }}{% else %}<span class="val-muted">أبداً</span>{% endif %}</td>
             <td style="text-align:right;">
               {% if r.jours_sans_reglement is not None %}
               <span class="{% if r.jours_sans_reglement > 60 %}val-danger{% elif r.jours_sans_reglement > 30 %}val-warn{% else %}val-muted{% endif %}" style="font-weight:600;">
-                {{ r.jours_sans_reglement }} j
+                {{ r.jours_sans_reglement }} يوم
               </span>
               {% else %}<span class="val-muted">—</span>{% endif %}
             </td>
@@ -140,9 +140,9 @@
         </tbody>
         <tfoot>
           <tr style="background:var(--bg-raised);">
-            <td colspan="2" style="font-weight:700;padding:12px 14px;">TOTAL</td>
+            <td colspan="2" style="font-weight:700;padding:12px 14px;">الإجمالي</td>
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;padding:12px 14px;color:#dc2626;">{{ grand_total_dette|floatformat:0 }} DZD</td>
-            <td colspan="6" style="padding:12px 14px;color:var(--text-muted);font-size:12px;">{{ rows|length }} fournisseur(s) avec dette active</td>
+            <td colspan="6" style="padding:12px 14px;color:var(--text-muted);font-size:12px;">{{ rows|length }} مورّد (موردون) بدين نشط</td>
           </tr>
         </tfoot>
       </table>
@@ -150,8 +150,8 @@
     {% else %}
     <div class="empty-state">
       <i class="bx bxs-check-circle empty-state__icon" style="color:#15803d;"></i>
-      <div class="empty-state__title">Aucune dette active</div>
-      <div class="empty-state__text">Tous les fournisseurs sont à jour.{% if fournisseur_obj %} {{ fournisseur_obj.nom }} n'a aucune dette active.{% endif %}</div>
+      <div class="empty-state__title">لا توجد ديون نشطة</div>
+      <div class="empty-state__text">كل الموردين sont à يومour.{% if fournisseur_obj %} {{ fournisseur_obj.nom }} ليس لديه أي دين نشط.{% endif %}</div>
     </div>
     {% endif %}
   </div>

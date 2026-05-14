@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Tableau de bord Élevage — Élevage Avicole{% endblock %}
+{% block title %}لوحة تحكم التربية — تربية الدواجن{% endblock %}
 
 {% block nav_lots %}active{% endblock %}
 
-{% block page_title %}Tableau de bord — Élevage{% endblock %}
-{% block page_sub_text %}{{ nb_lots_ouverts }} lot{{ nb_lots_ouverts|pluralize }} ouvert{{ nb_lots_ouverts|pluralize }} · {{ total_effectif_vivant|floatformat:0 }} oiseaux vivants{% endblock %}
+{% block page_title %}لوحة التحكم — التربية{% endblock %}
+{% block page_sub_text %}{{ nb_lots_ouverts }} قطيع مفتوح · {{ total_effectif_vivant|floatformat:0 }} طير حي{% endblock %}
 
 {% block topbar_actions %}
   {% if request.user.userprofile.role != 'viewer' %}
   <a href="{% url 'elevage:lot_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouveau lot
+    <i class="bx bx-plus"></i> قطيع جديد
   </a>
   {% endif %}
 {% endblock %}
@@ -24,37 +24,37 @@
     <div class="col-xl-3 col-md-6">
       <div class="metric-card">
         <div class="metric-icon ic-green"><i class="bx bxs-grid-alt"></i></div>
-        <div class="metric-label">LOTS OUVERTS</div>
+        <div class="metric-label">القطعان المفتوحة</div>
         <div class="metric-value">{{ nb_lots_ouverts }}</div>
-        <span class="metric-delta neutral"><i class="bx bx-minus"></i> En cours</span>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> جارية</span>
       </div>
     </div>
     <div class="col-xl-3 col-md-6">
       <div class="metric-card">
         <div class="metric-icon ic-blue"><i class="bx bxs-user-voice"></i></div>
-        <div class="metric-label">EFFECTIF VIVANT TOTAL</div>
+        <div class="metric-label">إجمالي العدد الحي</div>
         <div class="metric-value">{{ total_effectif_vivant|floatformat:0 }}</div>
-        <span class="metric-delta neutral"><i class="bx bx-minus"></i> Tous lots confondus</span>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> جميع القطعان</span>
       </div>
     </div>
     <div class="col-xl-3 col-md-6">
       <div class="metric-card">
         <div class="metric-icon ic-amber"><i class="bxs-error" style="font-family:'boxicons';"></i></div>
         <div class="metric-icon ic-amber"><i class="bx bxs-error"></i></div>
-        <div class="metric-label">ALERTES MORTALITÉ</div>
+        <div class="metric-label">تنبيهات النفوق</div>
         <div class="metric-value {% if lots_alerte_mortalite %}danger{% endif %}">{{ lots_alerte_mortalite|length }}</div>
         <span class="metric-delta {% if lots_alerte_mortalite %}down{% else %}neutral{% endif %}">
           <i class="bx {% if lots_alerte_mortalite %}bxs-error{% else %}bx-minus{% endif %}"></i>
-          {% if lots_alerte_mortalite %}Lots à surveiller{% else %}RAS{% endif %}
+          {% if lots_alerte_mortalite %}قطعان تحتاج مراقبة{% else %}لا شيء{% endif %}
         </span>
       </div>
     </div>
     <div class="col-xl-3 col-md-6">
       <div class="metric-card">
         <div class="metric-icon ic-purple"><i class="bx bxs-lock"></i></div>
-        <div class="metric-label">LOTS FERMÉS</div>
+        <div class="metric-label">القطعان المغلقة</div>
         <div class="metric-value">{{ nb_lots_fermes }}</div>
-        <span class="metric-delta neutral"><i class="bx bx-minus"></i> Clôturés</span>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> مغلقة</span>
       </div>
     </div>
   </div>
@@ -64,11 +64,11 @@
   <div class="alert-banner alert-banner--danger mb-3" style="animation-delay:{{ forloop.counter0 | add:0 }}ms;">
     <i class="bx bxs-error"></i>
     <div>
-      <strong>Mortalité anormale — {{ lot.designation }}</strong>
-      <span> · La mortalité journalière dépasse 5 % de l'effectif initial. Vérifiez l'état du lot.</span>
+      <strong>نفوق غير طبيعي — {{ lot.designation }}</strong>
+      <span> · النفوق اليومي يتجاوز 5% من العدد الأولي. تحقق من حالة القطيع.</span>
     </div>
-    <a href="{% url 'elevage:lot_detail' lot.pk %}" class="btn-ghost" style="margin-left:auto;flex-shrink:0;">
-      Voir le lot
+    <a href="{% url 'elevage:lot_detail' lot.pk %}" class="btn-ghost" style="margin-right:auto;flex-shrink:0;">
+      عرض القطيع
     </a>
   </div>
   {% endfor %}
@@ -78,9 +78,9 @@
     <div class="col-xl-8">
       <div class="card">
         <div class="card-header-row" style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px 14px;border-bottom:1px solid var(--border);">
-          <span class="section-eyebrow">Lots en cours</span>
+          <span class="section-eyebrow">القطعان الجارية</span>
           <a href="{% url 'elevage:lot_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
-            Voir tous <i class="bx bx-right-arrow-alt"></i>
+            عرض الكل <i class="bx bx-right-arrow-alt"></i>
           </a>
         </div>
         <div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
@@ -93,26 +93,26 @@
                   <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
                     <i class="bx bxs-buildings" style="font-size:11px;"></i> {{ lot.batiment.nom }}
                     {% if lot.souche %}· {{ lot.souche }}{% endif %}
-                    · Ouvert le {{ lot.date_ouverture|date:"d/m/Y" }}
+                    · مفتوح بتاريخ {{ lot.date_ouverture|date:"d/m/Y" }}
                   </div>
                 </div>
-                <span class="pill-success">Ouvert</span>
+                <span class="pill-success">مفتوح</span>
               </div>
               <div class="lot-card__grid">
                 <div>
-                  <div class="lot-stat-label">Effectif vivant</div>
+                  <div class="lot-stat-label">العدد الحي</div>
                   <div class="lot-stat-val">{{ lot.effectif_vivant|floatformat:0 }}</div>
                 </div>
                 <div>
-                  <div class="lot-stat-label">Mortalité</div>
+                  <div class="lot-stat-label">النفوق</div>
                   <div class="lot-stat-val {% if lot.taux_mortalite > 5 %}danger{% endif %}">{{ lot.taux_mortalite|floatformat:2 }}%</div>
                 </div>
                 <div>
-                  <div class="lot-stat-label">Aliment (kg)</div>
+                  <div class="lot-stat-label">العلف (كغ)</div>
                   <div class="lot-stat-val">{{ lot.consommation_totale_aliment|floatformat:0 }}</div>
                 </div>
                 <div>
-                  <div class="lot-stat-label">Jours</div>
+                  <div class="lot-stat-label">الأيام</div>
                   <div class="lot-stat-val">{{ lot.duree_elevage }}</div>
                 </div>
               </div>
@@ -121,11 +121,11 @@
           {% else %}
           <div style="text-align:center;padding:40px 20px;color:var(--text-muted);">
             <i class="bx bxs-grid-alt" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
-            <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">Aucun lot ouvert</div>
-            <div style="font-size:13px;">Ouvrez un nouveau lot pour commencer le suivi.</div>
+            <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">لا توجد قطعان مفتوحة</div>
+            <div style="font-size:13px;">افتح قطيعاً جديداً لبدء المتابعة.</div>
             {% if request.user.userprofile.role != 'viewer' %}
             <a href="{% url 'elevage:lot_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
-              <i class="bx bx-plus"></i> Nouveau lot
+              <i class="bx bx-plus"></i> قطيع جديد
             </a>
             {% endif %}
           </div>
@@ -139,9 +139,9 @@
       <!-- Recent mortality -->
       <div class="card mb-3">
         <div class="card-header-row" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 12px;border-bottom:1px solid var(--border);">
-          <span class="section-eyebrow">Mortalités récentes <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(7 j)</span></span>
+          <span class="section-eyebrow">النفوقات الأخيرة <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(7 أيام)</span></span>
           <a href="{% url 'elevage:mortalite_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
-            Voir <i class="bx bx-right-arrow-alt"></i>
+            عرض <i class="bx bx-right-arrow-alt"></i>
           </a>
         </div>
         <div style="padding:0;">
@@ -153,7 +153,7 @@
             </div>
             <div style="flex:1;min-width:0;">
               <div style="font-size:13px;color:var(--text-primary);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ mort.lot.designation }}</div>
-              <div style="font-size:11px;color:var(--text-muted);">{{ mort.date|date:"d/m/Y" }} · {{ mort.cause|default:"Cause inconnue" }}</div>
+              <div style="font-size:11px;color:var(--text-muted);">{{ mort.date|date:"d/m/Y" }} · {{ mort.cause|default:"سبب غير معروف" }}</div>
             </div>
             <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:#dc2626;flex-shrink:0;">–{{ mort.nombre }}</div>
           </div>
@@ -161,7 +161,7 @@
           {% else %}
           <div style="text-align:center;padding:24px 16px;color:var(--text-muted);font-size:13px;">
             <i class="bx bxs-heart" style="font-size:24px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
-            Aucune mortalité cette semaine
+            لا نفوقات هذا الأسبوع
           </div>
           {% endif %}
         </div>
@@ -170,9 +170,9 @@
       <!-- Recent consumptions -->
       <div class="card">
         <div class="card-header-row" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 12px;border-bottom:1px solid var(--border);">
-          <span class="section-eyebrow">Consommations récentes <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(7 j)</span></span>
+          <span class="section-eyebrow">الاستهلاكات الأخيرة <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(7 أيام)</span></span>
           <a href="{% url 'elevage:consommation_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
-            Voir <i class="bx bx-right-arrow-alt"></i>
+            عرض <i class="bx bx-right-arrow-alt"></i>
           </a>
         </div>
         <div style="padding:0;">
@@ -194,7 +194,7 @@
           {% else %}
           <div style="text-align:center;padding:24px 16px;color:var(--text-muted);font-size:13px;">
             <i class="bx bxs-droplet" style="font-size:24px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
-            Aucune consommation cette semaine
+            لا استهلاكات هذا الأسبوع
           </div>
           {% endif %}
         </div>

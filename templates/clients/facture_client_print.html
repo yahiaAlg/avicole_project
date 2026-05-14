@@ -1,20 +1,29 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Facture {{ facture.reference }} — {{ facture.client.nom }}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <title>فاتورة {{ facture.reference }} — {{ facture.client.nom }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Noto+Sans+Arabic:wght@300;400;500&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #f4f6f4; font-family: 'Inter', sans-serif; font-size: 13px; color: #111; }
+    body { background: #f4f6f4; font-family: 'Cairo', 'Noto Sans Arabic', sans-serif; font-size: 13px; color: #111; direction: rtl; }
+    /* RTL layout adjustments */
+    .doc-header { flex-direction: row-reverse; }
+    .doc-title { text-align: left; }
+    .doc-ref  { text-align: left; }
+    .info-grid > .info-block:last-child { text-align: left; }
+    thead th { text-align: right; }
+    .text-right { text-align: left; }
+    .totals-block { justify-content: flex-start; }
+    .totals-row { flex-direction: row-reverse; }
     .no-print { display: block; }
     .print-preview { max-width: 760px; margin: 32px auto; background: #fff; padding: 40px 48px; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,.12); }
 
     .doc-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 32px; padding-bottom: 20px; border-bottom: 2px solid #111; }
-    .doc-brand-name { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 18px; }
+    .doc-brand-name { font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 18px; }
     .doc-brand-sub { font-size: 11.5px; color: #555; margin-top: 2px; }
-    .doc-title { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 24px; text-align: right; }
+    .doc-title { font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 24px; text-align: right; }
     .doc-ref { font-size: 13px; color: #555; text-align: right; margin-top: 4px; }
 
     .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
@@ -39,9 +48,9 @@
     .totals-row { display: flex; justify-content: space-between; padding: 9px 14px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
     .totals-row--divider { border-top: 2px solid #333; border-bottom: 2px solid #333; }
     .totals-row--total { background: #111; color: #fff; border-radius: 0 0 7px 7px; }
-    .totals-row--total span { color: #fff; font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 16px; }
+    .totals-row--total span { color: #fff; font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 16px; }
     .totals-row--rap { background: #fef2f2; }
-    .totals-row--rap span:last-child { color: #dc2626; font-family: 'Nunito', sans-serif; font-weight: 800; }
+    .totals-row--rap span:last-child { color: #dc2626; font-family: 'Cairo', sans-serif; font-weight: 800; }
     .totals-label { color: #555; }
 
     .payment-history { margin-bottom: 28px; }
@@ -50,8 +59,8 @@
     .footer-note { margin-top: 28px; padding-top: 12px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 11px; color: #aaa; }
 
     .no-print-bar { max-width: 760px; margin: 0 auto 16px; display: flex; gap: 10px; justify-content: flex-end; }
-    .btn-print { background: #22c55e; color: #fff; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: 8px; padding: 10px 20px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-    .btn-back { background: transparent; border: 1px solid #ccc; color: #444; font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px; border-radius: 8px; padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+    .btn-print { background: #22c55e; color: #fff; font-family: 'Cairo', sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: 8px; padding: 10px 20px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-back { background: transparent; border: 1px solid #ccc; color: #444; font-family: 'Cairo', sans-serif; font-weight: 600; font-size: 13px; border-radius: 8px; padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
 
     @media print {
       body { background: #fff; }
@@ -64,8 +73,8 @@
 <body>
 
 <div class="no-print no-print-bar">
-  <a href="{% url 'clients:facture_client_detail' facture.pk %}" class="btn-back">← Retour</a>
-  <button class="btn-print" onclick="window.print()">🖨 Imprimer</button>
+  <a href="{% url 'clients:facture_client_detail' facture.pk %}" class="btn-back">رجوع →</a>
+  <button class="btn-print" onclick="window.print()">🖨 طباعة</button>
 </div>
 
 <div class="print-preview">
@@ -75,67 +84,67 @@
     <div>
       <div class="doc-brand-name">{{ company.nom|default:"Élevage Avicole" }}</div>
       {% if company.adresse %}<div class="doc-brand-sub">{{ company.adresse }}</div>{% endif %}
-      {% if company.telephone %}<div class="doc-brand-sub">Tél : {{ company.telephone }}</div>{% endif %}
-      {% if company.nif %}<div class="doc-brand-sub">NIF : {{ company.nif }}</div>{% endif %}
+      {% if company.telephone %}<div class="doc-brand-sub">هاتف : {{ company.telephone }}</div>{% endif %}
+      {% if company.nif %}<div class="doc-brand-sub">رقم التعريف الجبائي : {{ company.nif }}</div>{% endif %}
     </div>
     <div>
-      <div class="doc-title">FACTURE</div>
-      <div class="doc-ref">Réf : {{ facture.reference }}</div>
+      <div class="doc-title">فاتورة</div>
+      <div class="doc-ref">المرجع : {{ facture.reference }}</div>
     </div>
   </div>
 
   <!-- Info grid -->
   <div class="info-grid">
     <div class="info-block">
-      <div class="info-block-title">Facturé à</div>
+      <div class="info-block-title">فاتورة إلى</div>
       <p><strong>{{ facture.client.nom }}</strong></p>
       {% if facture.client.adresse %}<p>{{ facture.client.adresse }}</p>{% endif %}
       {% if facture.client.wilaya %}<p>{{ facture.client.wilaya }}</p>{% endif %}
-      {% if facture.client.telephone %}<p>Tél : {{ facture.client.telephone }}</p>{% endif %}
-      {% if facture.client.nif %}<p>NIF : {{ facture.client.nif }}</p>{% endif %}
-      {% if facture.client.rc %}<p>RC : {{ facture.client.rc }}</p>{% endif %}
+      {% if facture.client.telephone %}<p>هاتف : {{ facture.client.telephone }}</p>{% endif %}
+      {% if facture.client.nif %}<p>رقم التعريف الجبائي : {{ facture.client.nif }}</p>{% endif %}
+      {% if facture.client.rc %}<p>السجل التجاري : {{ facture.client.rc }}</p>{% endif %}
     </div>
     <div class="info-block" style="text-align:right;">
-      <div class="info-block-title">Informations</div>
-      <p>Date : <strong>{{ facture.date_facture|date:"d/m/Y" }}</strong></p>
-      {% if facture.date_echeance %}<p>Échéance : <strong {% if facture.est_en_retard %}style="color:#dc2626;"{% endif %}>{{ facture.date_echeance|date:"d/m/Y" }}</strong></p>{% endif %}
-      <p>Statut : <strong>{{ facture.get_statut_display }}</strong></p>
+      <div class="info-block-title">معلومات</div>
+      <p>التاريخ : <strong>{{ facture.date_facture|date:"d/m/Y" }}</strong></p>
+      {% if facture.date_echeance %}<p>تاريخ الاستحقاق : <strong {% if facture.est_en_retard %}style="color:#dc2626;"{% endif %}>{{ facture.date_echeance|date:"d/m/Y" }}</strong></p>{% endif %}
+      <p>الحالة : <strong>{{ facture.get_statut_display }}</strong></p>
     </div>
   </div>
 
   <!-- Meta -->
   <div class="meta-row">
     <div class="meta-item">
-      <span class="meta-label">Référence</span>
+      <span class="meta-label">المرجع</span>
       <span class="meta-val">{{ facture.reference }}</span>
     </div>
     <div class="meta-item">
-      <span class="meta-label">Date</span>
+      <span class="meta-label">التاريخ</span>
       <span class="meta-val">{{ facture.date_facture|date:"d/m/Y" }}</span>
     </div>
     {% if facture.date_echeance %}
     <div class="meta-item">
-      <span class="meta-label">Échéance</span>
+      <span class="meta-label">تاريخ الاستحقاق</span>
       <span class="meta-val {% if facture.est_en_retard %}meta-val--retard{% endif %}">{{ facture.date_echeance|date:"d/m/Y" }}</span>
     </div>
     {% endif %}
     <div class="meta-item">
-      <span class="meta-label">BL inclus</span>
-      <span class="meta-val">{{ bls|length }} bon{{ bls|length|pluralize }}</span>
+      <span class="meta-label">وصولات مرفقة</span>
+      <span class="meta-val">{{ bls|length }} وصل</span>
     </div>
   </div>
 
   <!-- Lines per BL -->
   {% for bl in bls %}
   <table>
-    <tr><td colspan="5" class="bl-label">BL {{ bl.reference }} — {{ bl.date_bl|date:"d/m/Y" }}</td></tr>
+    <tr><td colspan="5" class="bl-label">وصل تسليم {{ bl.reference }} — {{ bl.date_bl|date:"d/m/Y" }}</td></tr>
     <thead>
       <tr>
         <th>#</th>
-        <th>Désignation</th>
-        <th class="text-right">Qté</th>
-        <th class="text-right">Prix unit. (DZD)</th>
-        <th class="text-right">Total (DZD)</th>
+        <th>البيان</th>
+        <th class="text-right">الكمية</th>
+        <th class="text-right">سعر الوحدة (دج)</th>
+        <th class="text-right">الإجمالي (دج)</th>
       </tr>
     </thead>
     <tbody>
@@ -156,23 +165,23 @@
   <div class="totals-block">
     <div class="totals-table">
       <div class="totals-row">
-        <span class="totals-label">Total HT</span>
+        <span class="totals-label">الإجمالي قبل الضريبة</span>
         <span>{{ facture.montant_ht|floatformat:0 }} DZD</span>
       </div>
       <div class="totals-row">
-        <span class="totals-label">TVA ({{ facture.taux_tva|floatformat:2 }} %)</span>
+        <span class="totals-label">ض.ق.م ({{ facture.taux_tva|floatformat:2 }} %)</span>
         <span>{{ facture.montant_tva|floatformat:0 }} DZD</span>
       </div>
       <div class="totals-row totals-row--divider totals-row--total">
-        <span class="totals-label" style="color:#fff;">TOTAL TTC</span>
+        <span class="totals-label" style="color:#fff;">الإجمالي شامل الضريبة</span>
         <span>{{ facture.montant_ttc|floatformat:0 }} DZD</span>
       </div>
       <div class="totals-row">
-        <span class="totals-label">Déjà réglé</span>
+        <span class="totals-label">المدفوع</span>
         <span style="color:#15803d;font-weight:600;">{{ facture.montant_regle|floatformat:0 }} DZD</span>
       </div>
       <div class="totals-row totals-row--rap">
-        <span class="totals-label" style="font-weight:700;">RESTE À PAYER</span>
+        <span class="totals-label" style="font-weight:700;">المبلغ المتبقي</span>
         <span>{{ facture.reste_a_payer|floatformat:0 }} DZD</span>
       </div>
     </div>
@@ -180,13 +189,13 @@
 
   {% if facture.notes %}
   <div style="background:#f8faf8;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;margin-bottom:24px;">
-    <div class="info-block-title">Notes</div>
+    <div class="info-block-title">ملاحظات/div>
     <p style="white-space:pre-line;margin-top:4px;">{{ facture.notes }}</p>
   </div>
   {% endif %}
 
   <div class="footer-note">
-    Document généré par {{ company.nom|default:"Élevage Avicole" }} — {{ facture.date_facture|date:"d/m/Y" }}
+    وثيقة صادرة عن {{ company.nom|default:"Élevage Avicole" }} — {{ facture.date_facture|date:"d/m/Y" }}
   </div>
 
 </div>

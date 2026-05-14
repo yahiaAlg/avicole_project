@@ -1,26 +1,26 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ intrant.designation }} — Élevage Avicole{% endblock %}
+{% block title %}{{ intrant.designation }} — تربية الدواجن{% endblock %}
 
 {% block nav_intrants %}active{% endblock %}
 
 {% block page_title %}{{ intrant.designation }}{% endblock %}
 {% block page_sub_text %}
   {{ intrant.categorie.libelle }} —
-  {% if intrant.actif %}<span style="color:var(--accent-text);">Actif</span>{% else %}<span style="color:#dc2626;">Inactif</span>{% endif %}
+  {% if intrant.actif %}<span style="color:var(--accent-text);">نشط</span>{% else %}<span style="color:#dc2626;">غير نشط</span>{% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'intrants:intrant_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Intrants
+    <i class="bx bx-arrow-back"></i> المدخلات
   </a>
   <a href="{% url 'intrants:intrant_list' %}?categorie={{ intrant.categorie.pk }}" class="btn-ghost">
     <i class="bx bxs-category"></i> {{ intrant.categorie.libelle }}
   </a>
   {% if not request.user.profile.role == 'viewer' %}
   <a href="{% url 'intrants:intrant_edit' intrant.pk %}" class="btn-primary">
-    <i class="bx bxs-pencil"></i> Modifier
+    <i class="bx bxs-pencil"></i> تعديل
   </a>
   {% endif %}
 {% endblock %}
@@ -31,36 +31,36 @@
   <!-- KPI row -->
   <div class="kpi-row">
     <div class="kpi-card {% if intrant.en_alerte %}kpi-card--danger{% endif %}">
-      <div class="kpi-card__label">Stock actuel</div>
+      <div class="kpi-card__label">المخزون الحالي</div>
       <div class="kpi-card__value">
         {{ intrant.quantite_en_stock|floatformat:3 }}
         <span class="kpi-currency">{{ intrant.unite_mesure }}</span>
       </div>
       <div class="kpi-card__sub">
         {% if intrant.en_alerte %}
-          <span style="color:#dc2626;"><i class="bx bxs-bell" style="font-size:11px;"></i> Sous le seuil d'alerte</span>
+          <span style="color:#dc2626;"><i class="bx bxs-bell" style="font-size:11px;"></i> أقل من حد التنبيه</span>
         {% else %}
-          Solde en stock
+          رصيد المخزون
         {% endif %}
       </div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-card__label">Prix moyen pondéré</div>
+      <div class="kpi-card__label">متوسط السعر المرجح</div>
       <div class="kpi-card__value">
         {% if stock %}{{ stock.prix_moyen_pondere|floatformat:2 }}{% else %}0.00{% endif %}
         <span class="kpi-currency">DZD / {{ intrant.unite_mesure }}</span>
       </div>
-      <div class="kpi-card__sub">Coût moyen pondéré</div>
+      <div class="kpi-card__sub">التكلفة المتوسطة المرجحة</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-card__label">Seuil d'alerte</div>
+      <div class="kpi-card__label">حد التنبيه</div>
       <div class="kpi-card__value">{{ intrant.seuil_alerte|floatformat:3 }} <span class="kpi-currency">{{ intrant.unite_mesure }}</span></div>
-      <div class="kpi-card__sub">Déclenchement alerte</div>
+      <div class="kpi-card__sub">إطلاق التنبيه</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-card__label">Fournisseurs associés</div>
+      <div class="kpi-card__label">الموردون المرتبطون</div>
       <div class="kpi-card__value">{{ fournisseurs|length }}</div>
-      <div class="kpi-card__sub">Actifs liés à cet intrant</div>
+      <div class="kpi-card__sub">موردون نشطون مرتبطون بهذه المادة</div>
     </div>
   </div>
 
@@ -72,63 +72,63 @@
       <!-- Catalogue card -->
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-package"></i> Fiche intrant</div>
+          <div class="section-eyebrow"><i class="bx bxs-package"></i> بطاقة المادة</div>
           {% if not request.user.profile.role == 'viewer' %}
           <a href="{% url 'intrants:intrant_edit' intrant.pk %}" class="btn-ghost btn-sm">
-            <i class="bx bxs-pencil"></i> Modifier
+            <i class="bx bxs-pencil"></i> تعديل
           </a>
           {% endif %}
         </div>
         <div class="card-body">
           <div class="info-grid">
             <div class="info-item info-item--full">
-              <div class="info-label">Désignation</div>
+              <div class="info-label">التسمية</div>
               <div class="info-value" style="font-family:'Nunito',sans-serif;font-weight:700;font-size:15px;">{{ intrant.designation }}</div>
             </div>
             <div class="info-item">
-              <div class="info-label">Catégorie</div>
+              <div class="info-label">الفئة</div>
               <div class="info-value">
                 <span class="pill-cat">{{ intrant.categorie.libelle }}</span>
               </div>
             </div>
             <div class="info-item">
-              <div class="info-label">Unité de mesure</div>
+              <div class="info-label">وحدة القياس</div>
               <div class="info-value">
                 <span class="unit-badge">{{ intrant.get_unite_mesure_display }}</span>
               </div>
             </div>
             <div class="info-item">
-              <div class="info-label">Consommable en lot</div>
+              <div class="info-label">قابل للاستهلاك في الدفعة</div>
               <div class="info-value">
                 {% if intrant.est_consommable_en_lot %}
-                  <span class="pill-success"><i class="bx bxs-check-circle"></i> Oui</span>
+                  <span class="pill-success"><i class="bx bxs-check-circle"></i> نعم</span>
                 {% else %}
-                  <span class="pill-neutral">Non</span>
+                  <span class="pill-neutral">لا</span>
                 {% endif %}
               </div>
             </div>
             <div class="info-item">
-              <div class="info-label">Statut</div>
+              <div class="info-label">الحالة</div>
               <div class="info-value">
                 {% if intrant.actif %}
-                  <span class="pill-success"><i class="bx bxs-check-circle"></i> Actif</span>
+                  <span class="pill-success"><i class="bx bxs-check-circle"></i> نشط</span>
                 {% else %}
-                  <span class="pill-neutral"><i class="bx bx-block"></i> Inactif</span>
+                  <span class="pill-neutral"><i class="bx bx-block"></i> غير نشط</span>
                 {% endif %}
               </div>
             </div>
             <div class="info-item">
-              <div class="info-label">Créé le</div>
+              <div class="info-label">تاريخ الإنشاء</div>
               <div class="info-value">{{ intrant.created_at|date:"d/m/Y" }}</div>
             </div>
             <div class="info-item">
-              <div class="info-label">Mis à jour</div>
+              <div class="info-label">آخر تحديث</div>
               <div class="info-value">{{ intrant.updated_at|date:"d/m/Y" }}</div>
             </div>
           </div>
           {% if intrant.notes %}
           <div class="notes-block">
-            <div class="info-label" style="margin-bottom:6px;">Notes</div>
+            <div class="info-label" style="margin-bottom:6px;">ملاحظات</div>
             <div style="font-size:13px;color:var(--text-secondary);white-space:pre-wrap;">{{ intrant.notes }}</div>
           </div>
           {% endif %}
@@ -138,18 +138,18 @@
       <!-- Recent stock movements -->
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bx-transfer-alt"></i> Mouvements de stock récents</div>
+          <div class="section-eyebrow"><i class="bx bx-transfer-alt"></i> حركات المخزون الأخيرة</div>
         </div>
         {% if mouvements %}
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Type</th>
-                <th style="text-align:right;">Quantité</th>
-                <th style="text-align:right;">Après mouvement</th>
-                <th>Référence</th>
+                <th>التاريخ</th>
+                <th>النوع</th>
+                <th style="text-align:right;">الكمية</th>
+                <th style="text-align:right;">بعد الحركة</th>
+                <th>المرجع</th>
               </tr>
             </thead>
             <tbody>
@@ -158,13 +158,13 @@
                 <td style="color:var(--text-muted);white-space:nowrap;">{{ mv.date_mouvement|date:"d/m/Y" }}</td>
                 <td>
                   {% if mv.type_mouvement == 'entree' %}
-                    <span class="pill-success"><i class="bx bx-plus-circle"></i> Entrée</span>
+                    <span class="pill-success"><i class="bx bx-plus-circle"></i> إدخال</span>
                   {% elif mv.type_mouvement == 'sortie' %}
-                    <span class="pill-danger"><i class="bx bx-minus-circle"></i> Sortie</span>
+                    <span class="pill-danger"><i class="bx bx-minus-circle"></i> إخراج</span>
                   {% elif mv.type_mouvement == 'consommation' %}
-                    <span class="pill-warning"><i class="bx bx-bowl-hot"></i> Consommation</span>
+                    <span class="pill-warning"><i class="bx bx-bowl-hot"></i> استهلاك</span>
                   {% elif mv.type_mouvement == 'ajustement' %}
-                    <span class="pill-info"><i class="bx bx-edit"></i> Ajustement</span>
+                    <span class="pill-info"><i class="bx bx-edit"></i> تعديل</span>
                   {% else %}
                     <span class="pill-neutral">{{ mv.get_type_mouvement_display }}</span>
                   {% endif %}
@@ -177,7 +177,7 @@
                 </td>
                 <td style="font-size:12px;color:var(--text-muted);">
                   {% if mv.lot %}
-                    <span>Lot #{{ mv.lot.pk }}</span>
+                    <span>دفعة #{{ mv.lot.pk }}</span>
                   {% elif mv.reference %}
                     {{ mv.reference }}
                   {% else %}—{% endif %}
@@ -190,7 +190,7 @@
         {% else %}
         <div class="empty-state empty-state--sm">
           <i class="bx bx-transfer-alt empty-state__icon" style="font-size:24px;"></i>
-          <div class="empty-state__title" style="font-size:13.5px;">Aucun mouvement enregistré</div>
+          <div class="empty-state__title" style="font-size:13.5px;">لا توجد حركات مسجلة</div>
         </div>
         {% endif %}
       </div>
@@ -203,9 +203,9 @@
       <!-- Stock card -->
       <div class="card {% if intrant.en_alerte %}card--alert{% endif %}">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-store"></i> Stock</div>
+          <div class="section-eyebrow"><i class="bx bxs-store"></i> المخزون</div>
           {% if intrant.en_alerte %}
-          <span class="pill-danger"><i class="bx bxs-bell"></i> Alerte</span>
+          <span class="pill-danger"><i class="bx bxs-bell"></i> تنبيه</span>
           {% endif %}
         </div>
         <div class="card-body">
@@ -221,20 +221,20 @@
                   style="width: {% if intrant.seuil_alerte > 0 %}{% widthratio intrant.quantite_en_stock intrant.seuil_alerte|default:1 100 %}{% else %}100{% endif %}%;max-width:100%;">
                 </div>
                 {% if intrant.seuil_alerte > 0 %}
-                <div class="stock-gauge__threshold" title="Seuil d'alerte : {{ intrant.seuil_alerte }}"></div>
+                <div class="stock-gauge__threshold" title="حد التنبيه : {{ intrant.seuil_alerte }}"></div>
                 {% endif %}
               </div>
               {% endwith %}
             </div>
             {% if intrant.seuil_alerte > 0 %}
             <div class="stock-gauge__legend">
-              <span>Seuil : {{ intrant.seuil_alerte|floatformat:3 }} {{ intrant.unite_mesure }}</span>
+              <span>الحد : {{ intrant.seuil_alerte|floatformat:3 }} {{ intrant.unite_mesure }}</span>
             </div>
             {% endif %}
           </div>
           {% if stock %}
           <div class="pmp-row">
-            <span class="info-label">PMP</span>
+            <span class="info-label">م.س.م</span>
             <span style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ stock.prix_moyen_pondere|floatformat:2 }} DZD</span>
           </div>
           {% endif %}
@@ -244,7 +244,7 @@
       <!-- Associated suppliers -->
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-business"></i> Fournisseurs associés</div>
+          <div class="section-eyebrow"><i class="bx bxs-business"></i> الموردون المرتبطون</div>
         </div>
         {% if fournisseurs %}
         <div class="fournisseurs-list">
@@ -263,7 +263,7 @@
         {% else %}
         <div class="empty-state empty-state--sm">
           <i class="bx bxs-business empty-state__icon" style="font-size:22px;"></i>
-          <div class="empty-state__title" style="font-size:13px;">Aucun fournisseur associé</div>
+          <div class="empty-state__title" style="font-size:13px;">لا يوجد مورد مرتبط</div>
         </div>
         {% endif %}
       </div>
@@ -272,7 +272,7 @@
       {% if request.user.profile.role == 'admin' %}
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow">Actions</div>
+          <div class="section-eyebrow">الإجراءات</div>
         </div>
         <div class="card-body" style="display:flex;flex-direction:column;gap:8px;">
           <button type="button" id="toggle-active-btn"
@@ -280,9 +280,9 @@
             data-nom="{{ intrant.designation }}"
             data-active="{{ intrant.actif|yesno:'true,false' }}">
             {% if intrant.actif %}
-              <i class="bx bx-block"></i> Désactiver l'intrant
+              <i class="bx bx-block"></i> تعطيل المادة
             {% else %}
-              <i class="bx bxs-check-circle"></i> Réactiver l'intrant
+              <i class="bx bxs-check-circle"></i> إعادة تفعيل المادة
             {% endif %}
           </button>
         </div>
@@ -298,16 +298,16 @@
     <div class="confirm-panel__inner">
       <div class="confirm-panel__icon" id="confirm-icon"><i class="bx bx-block"></i></div>
       <div>
-        <div class="confirm-panel__title" id="confirm-title">Désactiver l'intrant ?</div>
+        <div class="confirm-panel__title" id="confirm-title">تعطيل المادة؟</div>
         <div class="confirm-panel__body" id="confirm-body">
-          L'intrant <strong>{{ intrant.designation }}</strong> sera désactivé. Le stock est conservé.
+          سيتم تعطيل المادة <strong>{{ intrant.designation }}</strong>. المخزون محفوظ.
         </div>
       </div>
       <div class="confirm-panel__actions">
-        <button type="button" id="confirm-cancel-btn" class="btn-ghost">Annuler</button>
+        <button type="button" id="confirm-cancel-btn" class="btn-ghost">إلغاء</button>
         <form method="post" action="{% url 'intrants:intrant_toggle_active' intrant.pk %}">
           {% csrf_token %}
-          <button type="submit" id="confirm-submit-btn" class="btn-danger">Désactiver</button>
+          <button type="submit" id="confirm-submit-btn" class="btn-danger">تعطيل</button>
         </form>
       </div>
     </div>
@@ -319,6 +319,24 @@
 
 {% block extra_css %}
 <style>
+  /* ── RTL fixes ── */
+  .kpi-card, .kpi-card__label, .kpi-card__sub,
+  .card-header-row, .section-eyebrow,
+  .info-grid, .info-item, .info-label, .info-value,
+  .notes-block, .stock-gauge__legend,
+  .fournisseur-item, .pmp-row,
+  .confirm-panel__inner, .confirm-panel__title, .confirm-panel__body,
+  .confirm-panel__actions { direction: rtl; text-align: right; }
+  .data-table thead th { text-align: right; }
+  .data-table td { text-align: right; }
+  .fournisseur-item { flex-direction: row-reverse; }
+  .fournisseur-item i.bx-chevron-right { transform: scaleX(-1); }
+  .stock-gauge { direction: rtl; }
+  .confirm-panel__actions { justify-content: flex-start; }
+  .section-eyebrow { flex-direction: row-reverse; }
+  .card-header-row { flex-direction: row-reverse; }
+  .btn-ghost i, .btn-primary i { transform: scaleX(-1); }
+
   .kpi-row { display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px; }
   @media (max-width:900px) { .kpi-row { grid-template-columns:repeat(2,1fr); } }
   @media (max-width:540px) { .kpi-row { grid-template-columns:1fr; } }
@@ -429,14 +447,14 @@ document.addEventListener('DOMContentLoaded', function () {
     if (isActive) {
       panelIcon.className = 'confirm-panel__icon';
       panelIcon.innerHTML = '<i class="bx bx-block"></i>';
-      panelTitle.textContent = 'Désactiver l\'intrant ?';
-      submitBtn.textContent = 'Désactiver';
+      panelTitle.textContent = 'تعطيل المادة؟';
+      submitBtn.textContent = 'تعطيل';
       submitBtn.className = 'btn-danger';
     } else {
       panelIcon.className = 'confirm-panel__icon activate';
       panelIcon.innerHTML = '<i class="bx bxs-check-circle"></i>';
-      panelTitle.textContent = 'Réactiver l\'intrant ?';
-      submitBtn.textContent = 'Réactiver';
+      panelTitle.textContent = 'إعادة تفعيل المادة؟';
+      submitBtn.textContent = 'إعادة تفعيل';
       submitBtn.className = 'btn-success';
     }
     panel.style.display = '';

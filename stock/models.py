@@ -34,28 +34,26 @@ class StockIntrant(models.Model):
         "intrants.Intrant",
         on_delete=models.CASCADE,
         related_name="stock",
-        verbose_name="Intrant",
+        verbose_name="المدخل",
     )
     quantite = models.DecimalField(
         max_digits=14,
         decimal_places=3,
         default=0,
-        verbose_name="Quantité en stock",
+        verbose_name="الكمية في المخزون",
     )
     # Weighted average cost — updated each time a BL line is validated.
     prix_moyen_pondere = models.DecimalField(
         max_digits=14,
         decimal_places=4,
         default=0,
-        verbose_name="Prix moyen pondéré (DZD)",
+        verbose_name="متوسط التكلفة الموزون (د.ج)",
     )
-    derniere_mise_a_jour = models.DateTimeField(
-        auto_now=True, verbose_name="Dernière mise à jour"
-    )
+    derniere_mise_a_jour = models.DateTimeField(auto_now=True, verbose_name="آخر تحديث")
 
     class Meta:
-        verbose_name = "Stock intrant"
-        verbose_name_plural = "Stocks intrants"
+        verbose_name = "مخزون المدخلات"
+        verbose_name_plural = "مخازن المدخلات"
 
     def __str__(self):
         return (
@@ -87,31 +85,31 @@ class StockProduitFini(models.Model):
         "production.ProduitFini",
         on_delete=models.CASCADE,
         related_name="stock",
-        verbose_name="Produit fini",
+        verbose_name="المنتج النهائي",
     )
     quantite = models.DecimalField(
         max_digits=14,
         decimal_places=3,
         default=0,
-        verbose_name="Quantité en stock",
+        verbose_name="الكمية في المخزون",
     )
     cout_moyen_production = models.DecimalField(
         max_digits=14,
         decimal_places=4,
         default=0,
-        verbose_name="Coût moyen de production (DZD)",
+        verbose_name="متوسط تكلفة الإنتاج (د.ج)",
     )
     seuil_alerte = models.DecimalField(
         max_digits=12,
         decimal_places=3,
         default=0,
-        verbose_name="Seuil d'alerte",
+        verbose_name="حد التنبيه",
     )
     derniere_mise_a_jour = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Stock produit fini"
-        verbose_name_plural = "Stocks produits finis"
+        verbose_name = "مخزون المنتج النهائي"
+        verbose_name_plural = "مخازن المنتجات النهائية"
 
     def __str__(self):
         return f"{self.produit_fini.designation} — {self.quantite} {self.produit_fini.unite_mesure}"
@@ -143,9 +141,9 @@ class StockMouvement(models.Model):
     TYPE_AJUSTEMENT = "ajustement"
 
     TYPE_CHOICES = [
-        (TYPE_ENTREE, "Entrée"),
-        (TYPE_SORTIE, "Sortie"),
-        (TYPE_AJUSTEMENT, "Ajustement"),
+        (TYPE_ENTREE, "إدخال"),
+        (TYPE_SORTIE, "إخراج"),
+        (TYPE_AJUSTEMENT, "تسوية"),
     ]
 
     SOURCE_BL_FOURNISSEUR = "bl_fournisseur"
@@ -155,11 +153,11 @@ class StockMouvement(models.Model):
     SOURCE_AJUSTEMENT = "ajustement"
 
     SOURCE_CHOICES = [
-        (SOURCE_BL_FOURNISSEUR, "BL Fournisseur"),
-        (SOURCE_CONSOMMATION, "Consommation lot"),
-        (SOURCE_PRODUCTION, "Production"),
-        (SOURCE_BL_CLIENT, "BL Client"),
-        (SOURCE_AJUSTEMENT, "Ajustement manuel"),
+        (SOURCE_BL_FOURNISSEUR, "وصل تسليم المورد"),
+        (SOURCE_CONSOMMATION, "استهلاك الدفعة"),
+        (SOURCE_PRODUCTION, "الإنتاج"),
+        (SOURCE_BL_CLIENT, "وصل تسليم العميل"),
+        (SOURCE_AJUSTEMENT, "تسوية يدوية"),
     ]
 
     # Target stock item — exactly one must be set.
@@ -169,7 +167,7 @@ class StockMouvement(models.Model):
         null=True,
         blank=True,
         related_name="mouvements",
-        verbose_name="Intrant",
+        verbose_name="المدخل",
     )
     produit_fini = models.ForeignKey(
         "production.ProduitFini",
@@ -177,36 +175,36 @@ class StockMouvement(models.Model):
         null=True,
         blank=True,
         related_name="mouvements",
-        verbose_name="Produit fini",
+        verbose_name="المنتج النهائي",
     )
 
     type_mouvement = models.CharField(
-        max_length=20, choices=TYPE_CHOICES, verbose_name="Type"
+        max_length=20, choices=TYPE_CHOICES, verbose_name="النوع"
     )
     source = models.CharField(
-        max_length=30, choices=SOURCE_CHOICES, verbose_name="Source"
+        max_length=30, choices=SOURCE_CHOICES, verbose_name="المصدر"
     )
     quantite = models.DecimalField(
         max_digits=14,
         decimal_places=3,
-        verbose_name="Quantité",
-        help_text="Always positive; direction is given by type_mouvement.",
+        verbose_name="الكمية",
+        help_text="دائماً موجبة؛ الاتجاه يُحدده نوع الحركة.",
     )
     quantite_avant = models.DecimalField(
-        max_digits=14, decimal_places=3, verbose_name="Stock avant"
+        max_digits=14, decimal_places=3, verbose_name="المخزون قبل"
     )
     quantite_apres = models.DecimalField(
-        max_digits=14, decimal_places=3, verbose_name="Stock après"
+        max_digits=14, decimal_places=3, verbose_name="المخزون بعد"
     )
-    date_mouvement = models.DateField(verbose_name="Date du mouvement")
+    date_mouvement = models.DateField(verbose_name="تاريخ الحركة")
     # Soft references to source documents (store PK as string for flexibility)
     reference_id = models.PositiveIntegerField(
-        null=True, blank=True, verbose_name="ID document source"
+        null=True, blank=True, verbose_name="معرف الوثيقة المصدر"
     )
     reference_label = models.CharField(
-        max_length=100, blank=True, verbose_name="Référence document"
+        max_length=100, blank=True, verbose_name="مرجع الوثيقة"
     )
-    notes = models.TextField(blank=True, verbose_name="Notes")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -217,8 +215,8 @@ class StockMouvement(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "Mouvement de stock"
-        verbose_name_plural = "Mouvements de stock"
+        verbose_name = "حركة مخزون"
+        verbose_name_plural = "حركات المخزون"
         ordering = ["-date_mouvement", "-created_at"]
 
     def __str__(self):
@@ -244,12 +242,12 @@ class StockAjustement(models.Model):
     SEGMENT_PRODUIT_FINI = "produit_fini"
 
     SEGMENT_CHOICES = [
-        (SEGMENT_INTRANT, "Stock Intrants"),
-        (SEGMENT_PRODUIT_FINI, "Stock Produits Finis"),
+        (SEGMENT_INTRANT, "مخزون المدخلات"),
+        (SEGMENT_PRODUIT_FINI, "مخزون المنتجات النهائية"),
     ]
 
     segment = models.CharField(
-        max_length=20, choices=SEGMENT_CHOICES, verbose_name="Segment de stock"
+        max_length=20, choices=SEGMENT_CHOICES, verbose_name="قطاع المخزون"
     )
     # Exactly one of the two FKs below is populated.
     intrant = models.ForeignKey(
@@ -258,7 +256,7 @@ class StockAjustement(models.Model):
         null=True,
         blank=True,
         related_name="ajustements",
-        verbose_name="Intrant",
+        verbose_name="المدخل",
     )
     produit_fini = models.ForeignKey(
         "production.ProduitFini",
@@ -266,31 +264,31 @@ class StockAjustement(models.Model):
         null=True,
         blank=True,
         related_name="ajustements",
-        verbose_name="Produit fini",
+        verbose_name="المنتج النهائي",
     )
-    date_ajustement = models.DateField(verbose_name="Date de l'ajustement")
+    date_ajustement = models.DateField(verbose_name="تاريخ التسوية")
     quantite_avant = models.DecimalField(
-        max_digits=14, decimal_places=3, verbose_name="Quantité avant ajustement"
+        max_digits=14, decimal_places=3, verbose_name="الكمية قبل التسوية"
     )
     quantite_apres = models.DecimalField(
-        max_digits=14, decimal_places=3, verbose_name="Quantité après ajustement"
+        max_digits=14, decimal_places=3, verbose_name="الكمية بعد التسوية"
     )
     raison = models.TextField(
-        verbose_name="Raison / Justification",
-        help_text="Obligatoire — décrivez l'écart constaté.",
+        verbose_name="السبب / المبرر",
+        help_text="إلزامي — صف الفرق المُلاحظ.",
     )
     effectue_par = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         related_name="ajustements_stock",
-        verbose_name="Effectué par",
+        verbose_name="منفذ من قبل",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "Ajustement de stock"
-        verbose_name_plural = "Ajustements de stock"
+        verbose_name = "تسوية مخزون"
+        verbose_name_plural = "تسويات المخزون"
         ordering = ["-date_ajustement"]
 
     def __str__(self):

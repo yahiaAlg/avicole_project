@@ -69,8 +69,7 @@ def _assert_lot_ouvert(lot, request):
     if lot.statut == LotElevage.STATUT_FERME:
         messages.error(
             request,
-            f"BR-LOT-05 : le lot « {lot.designation} » est fermé. "
-            "Aucune modification n'est possible.",
+            f"BR-LOT-05: الدفعة « {lot.designation} » مغلقة. لا يمكن إجراء أي تعديل.",
         )
         return False
     return True
@@ -128,7 +127,7 @@ def lot_list(request):
             "nb_ouverts": nb_ouverts,
             "nb_fermes": nb_fermes,
             "statut_choices": LotElevage.STATUT_CHOICES,
-            "title": "Lots d'élevage",
+            "title": "دفعات التربية",
         },
     )
 
@@ -158,8 +157,7 @@ def lot_create(request):
 
                 messages.success(
                     request,
-                    f"Lot « {lot.designation} » ouvert avec succès "
-                    f"({lot.nombre_poussins_initial} poussins).",
+                    f"تم فتح الدفعة « {lot.designation} » بنجاح ({lot.nombre_poussins_initial} كتكوت).",
                 )
                 logger.info(
                     "LotElevage pk=%s ('%s') created by '%s'. "
@@ -174,9 +172,9 @@ def lot_create(request):
 
             except Exception as exc:
                 logger.exception("Error creating LotElevage: %s", exc)
-                messages.error(request, f"Erreur lors de l'ouverture du lot : {exc}")
+                messages.error(request, f"خطأ أثناء فتح الدفعة: {exc}")
         else:
-            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
         form = LotElevageForm()
 
@@ -185,8 +183,8 @@ def lot_create(request):
         "elevage/lot_form.html",
         {
             "form": form,
-            "title": "Ouvrir un nouveau lot",
-            "action_label": "Ouvrir le lot",
+            "title": "فتح دفعة جديدة",
+            "action_label": "فتح الدفعة",
         },
     )
 
@@ -242,7 +240,7 @@ def lot_detail(request, pk):
             "productions": summary["productions"],
             "depenses": summary["depenses"],
             "suggest_fermeture": suggest_fermeture,
-            "title": f"Lot — {lot.designation}",
+            "title": f"الدفعة — {lot.designation}",
         },
     )
 
@@ -266,7 +264,7 @@ def lot_edit(request, pk):
     if lot.statut == LotElevage.STATUT_FERME:
         messages.error(
             request,
-            f"BR-LOT-05 : le lot « {lot.designation} » est fermé et ne peut plus être modifié.",
+            f"BR-LOT-05: الدفعة « {lot.designation} » مغلقة ولا يمكن تعديلها.",
         )
         return redirect("elevage:lot_detail", pk=lot.pk)
 
@@ -275,14 +273,14 @@ def lot_edit(request, pk):
         if form.is_valid():
             try:
                 form.save()
-                messages.success(request, f"Lot « {lot.designation} » mis à jour.")
+                messages.success(request, f"تم تحديث الدفعة « {lot.designation} ».")
                 logger.info("LotElevage pk=%s updated by '%s'.", lot.pk, request.user)
                 return redirect("elevage:lot_detail", pk=lot.pk)
             except Exception as exc:
                 logger.exception("Error updating LotElevage pk=%s: %s", pk, exc)
-                messages.error(request, f"Erreur lors de la mise à jour : {exc}")
+                messages.error(request, f"خطأ أثناء التحديث: {exc}")
         else:
-            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
         form = LotElevageForm(instance=lot)
 
@@ -292,8 +290,8 @@ def lot_edit(request, pk):
         {
             "form": form,
             "lot": lot,
-            "title": f"Modifier — {lot.designation}",
-            "action_label": "Enregistrer les modifications",
+            "title": f"تعديل — {lot.designation}",
+            "action_label": "حفظ التعديلات",
         },
     )
 
@@ -318,7 +316,7 @@ def lot_fermer(request, pk):
     lot = get_object_or_404(LotElevage, pk=pk)
 
     if lot.statut == LotElevage.STATUT_FERME:
-        messages.warning(request, f"Le lot « {lot.designation} » est déjà fermé.")
+        messages.warning(request, f"الدفعة « {lot.designation} » مغلقة مسبقًا.")
         return redirect("elevage:lot_detail", pk=lot.pk)
 
     # BR-LOT-04: at least one validated production record required.
@@ -332,8 +330,7 @@ def lot_fermer(request, pk):
     if not has_production:
         messages.error(
             request,
-            "BR-LOT-04 : impossible de fermer le lot sans au moins un enregistrement "
-            "de production validé. Veuillez d'abord enregistrer et valider la production.",
+            "BR-LOT-04: لا يمكن إغلاق الدفعة دون وجود سجل إنتاج محقق. يرجى تسجيل الإنتاج والتحقق منه أولًا.",
         )
         return redirect("elevage:lot_detail", pk=lot.pk)
 
@@ -345,8 +342,7 @@ def lot_fermer(request, pk):
                 lot.fermer(date_fermeture=date_fermeture)
                 messages.success(
                     request,
-                    f"Lot « {lot.designation} » fermé le {date_fermeture}. "
-                    f"Effectif final : {lot.effectif_vivant} oiseaux.",
+                    f"تم إغلاق الدفعة « {lot.designation} » بتاريخ {date_fermeture}. التعداد النهائي: {lot.effectif_vivant} طير.",
                 )
                 logger.info(
                     "LotElevage pk=%s ('%s') closed by '%s' on %s.",
@@ -358,9 +354,9 @@ def lot_fermer(request, pk):
                 return redirect("elevage:lot_detail", pk=lot.pk)
             except Exception as exc:
                 logger.exception("Error closing LotElevage pk=%s: %s", pk, exc)
-                messages.error(request, f"Erreur lors de la fermeture : {exc}")
+                messages.error(request, f"خطأ أثناء الإغلاق: {exc}")
         else:
-            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
         form = LotFermetureForm()
 
@@ -393,7 +389,7 @@ def lot_fermer(request, pk):
             "conso_aliment": conso_aliment,
             "poids_total": poids_total,
             "ic": ic,
-            "title": f"Fermer le lot — {lot.designation}",
+            "title": f"إغلاق الدفعة — {lot.designation}",
         },
     )
 
@@ -427,8 +423,7 @@ def mortalite_create(request, lot_pk):
 
                 messages.success(
                     request,
-                    f"{mortalite.nombre} mort(s) enregistré(s) le {mortalite.date}. "
-                    f"Effectif vivant : {lot.effectif_vivant}.",
+                    f"تم تسجيل {mortalite.nombre} نفوق بتاريخ {mortalite.date}. التعداد الحي: {lot.effectif_vivant}.",
                 )
                 logger.info(
                     "Mortalite pk=%s created (lot pk=%s, nombre=%s, date=%s) by '%s'.",
@@ -443,8 +438,7 @@ def mortalite_create(request, lot_pk):
                 if verifier_mortalite_anormale(lot):
                     messages.warning(
                         request,
-                        "⚠ Alerte : la mortalité journalière dépasse le seuil "
-                        "habituel (≥ 5 % du troupeau initial). Vérifiez l'état du lot.",
+                        "⚠ تنبيه: النفوق اليومي تجاوز الحد المعتاد (≥ 5%). يرجى مراجعة حالة الدفعة.",
                     )
 
                 return redirect("elevage:lot_detail", pk=lot.pk)
@@ -453,9 +447,9 @@ def mortalite_create(request, lot_pk):
                 logger.exception(
                     "Error creating Mortalite for lot pk=%s: %s", lot.pk, exc
                 )
-                messages.error(request, f"Erreur lors de l'enregistrement : {exc}")
+                messages.error(request, f"خطأ أثناء التسجيل: {exc}")
         else:
-            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
         import datetime
 
@@ -467,8 +461,8 @@ def mortalite_create(request, lot_pk):
         {
             "form": form,
             "lot": lot,
-            "title": f"Enregistrer une mortalité — {lot.designation}",
-            "action_label": "Enregistrer",
+            "title": f"تسجيل نفوق — {lot.designation}",
+            "action_label": "حفظ",
         },
     )
 
@@ -499,8 +493,7 @@ def mortalite_edit(request, pk):
                 form.save()
                 messages.success(
                     request,
-                    f"Mortalité du {mortalite.date} mise à jour. "
-                    f"Effectif vivant : {lot.effectif_vivant}.",
+                    f"تم تحديث النفوق بتاريخ {mortalite.date}. التعداد الحي: {lot.effectif_vivant}.",
                 )
                 logger.info(
                     "Mortalite pk=%s updated by '%s'.", mortalite.pk, request.user
@@ -508,9 +501,9 @@ def mortalite_edit(request, pk):
                 return redirect("elevage:lot_detail", pk=lot.pk)
             except Exception as exc:
                 logger.exception("Error updating Mortalite pk=%s: %s", pk, exc)
-                messages.error(request, f"Erreur lors de la mise à jour : {exc}")
+                messages.error(request, f"خطأ أثناء التحديث: {exc}")
         else:
-            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
         form = MortaliteForm(instance=mortalite, lot=lot)
 
@@ -521,8 +514,8 @@ def mortalite_edit(request, pk):
             "form": form,
             "lot": lot,
             "mortalite": mortalite,
-            "title": f"Modifier la mortalité du {mortalite.date}",
-            "action_label": "Enregistrer les modifications",
+            "title": f"تعديل النفوق بتاريخ {mortalite.date}",
+            "action_label": "حفظ التعديلات",
         },
     )
 
@@ -553,7 +546,7 @@ def mortalite_delete(request, pk):
         mortalite.delete()
         messages.success(
             request,
-            f"Enregistrement de mortalité du {date_ref} ({nombre_ref} mort(s)) supprimé.",
+            f"تم حذف سجل النفوق بتاريخ {date_ref} ({nombre_ref} نفوق).",
         )
         logger.info(
             "Mortalite pk=%s deleted by '%s' (lot pk=%s).",
@@ -563,7 +556,7 @@ def mortalite_delete(request, pk):
         )
     except Exception as exc:
         logger.exception("Error deleting Mortalite pk=%s: %s", pk, exc)
-        messages.error(request, f"Erreur lors de la suppression : {exc}")
+        messages.error(request, f"خطأ أثناء الحذف: {exc}")
 
     return redirect("elevage:lot_detail", pk=lot.pk)
 
@@ -621,8 +614,8 @@ def consommation_create(request, lot_pk):
                                 {
                                     "form": form,
                                     "lot": lot,
-                                    "title": f"Enregistrer une consommation — {lot.designation}",
-                                    "action_label": "Enregistrer",
+                                    "title": f"تسجيل استهلاك — {lot.designation}",
+                                    "action_label": "حفظ",
                                 },
                             )
                     except StockIntrant.DoesNotExist:
@@ -637,8 +630,8 @@ def consommation_create(request, lot_pk):
                             {
                                 "form": form,
                                 "lot": lot,
-                                "title": f"Enregistrer une consommation — {lot.designation}",
-                                "action_label": "Enregistrer",
+                                "title": f"تسجيل استهلاك — {lot.designation}",
+                                "action_label": "حفظ",
                             },
                         )
 
@@ -649,8 +642,7 @@ def consommation_create(request, lot_pk):
 
                 messages.success(
                     request,
-                    f"Consommation enregistrée : {conso.quantite} {intrant.unite_mesure} "
-                    f"de « {intrant.designation} » le {conso.date}.",
+                    f"تم تسجيل الاستهلاك: {conso.quantite} {intrant.unite_mesure} من « {intrant.designation} » بتاريخ {conso.date}.",
                 )
                 logger.info(
                     "Consommation pk=%s created (lot pk=%s, intrant pk=%s, "
@@ -668,9 +660,9 @@ def consommation_create(request, lot_pk):
                 logger.exception(
                     "Error creating Consommation for lot pk=%s: %s", lot.pk, exc
                 )
-                messages.error(request, f"Erreur lors de l'enregistrement : {exc}")
+                messages.error(request, f"خطأ أثناء التسجيل: {exc}")
         else:
-            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
         import datetime
 
@@ -682,8 +674,8 @@ def consommation_create(request, lot_pk):
         {
             "form": form,
             "lot": lot,
-            "title": f"Enregistrer une consommation — {lot.designation}",
-            "action_label": "Enregistrer",
+            "title": f"تسجيل استهلاك — {lot.designation}",
+            "action_label": "حفظ",
         },
     )
 
@@ -753,14 +745,14 @@ def consommation_edit(request, pk):
                                         "form": form,
                                         "lot": lot,
                                         "conso": conso,
-                                        "title": f"Modifier la consommation",
-                                        "action_label": "Enregistrer les modifications",
+                                        "title": "تعديل الاستهلاك",
+                                        "action_label": "حفظ التعديلات",
                                     },
                                 )
                         except StockIntrant.DoesNotExist:
                             messages.error(
                                 request,
-                                f"Aucun stock disponible pour « {intrant.designation} ».",
+                                f"لا يوجد مخزون لـ « {intrant.designation} ».",
                             )
                             return render(
                                 request,
@@ -770,7 +762,7 @@ def consommation_edit(request, pk):
                                     "lot": lot,
                                     "conso": conso,
                                     "title": "Modifier la consommation",
-                                    "action_label": "Enregistrer les modifications",
+                                    "action_label": "حفظ التعديلات",
                                 },
                             )
 
@@ -778,7 +770,7 @@ def consommation_edit(request, pk):
 
                 messages.success(
                     request,
-                    f"Consommation du {conso.date} mise à jour.",
+                    f"تم تحديث الاستهلاك بتاريخ {conso.date}.",
                 )
                 logger.info(
                     "Consommation pk=%s updated by '%s'.", conso.pk, request.user
@@ -787,9 +779,9 @@ def consommation_edit(request, pk):
 
             except Exception as exc:
                 logger.exception("Error updating Consommation pk=%s: %s", pk, exc)
-                messages.error(request, f"Erreur lors de la mise à jour : {exc}")
+                messages.error(request, f"خطأ أثناء التحديث: {exc}")
         else:
-            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
         form = ConsommationForm(instance=conso, lot=lot)
 
@@ -800,8 +792,8 @@ def consommation_edit(request, pk):
             "form": form,
             "lot": lot,
             "conso": conso,
-            "title": f"Modifier la consommation du {conso.date}",
-            "action_label": "Enregistrer les modifications",
+            "title": f"تعديل الاستهلاك بتاريخ {conso.date}",
+            "action_label": "حفظ التعديلات",
         },
     )
 
@@ -842,8 +834,7 @@ def consommation_delete(request, pk):
 
         messages.success(
             request,
-            f"Consommation du {date_ref} ({quantite_ref} {unite_ref} "
-            f"de « {intrant_ref} ») supprimée. Stock restauré.",
+            f"تم حذف الاستهلاك بتاريخ {date_ref} ({quantite_ref} {unite_ref} من « {intrant_ref} »). تم استعادة المخزون.",
         )
         logger.info(
             "Consommation pk=%s deleted by '%s' (lot pk=%s). "
@@ -855,7 +846,7 @@ def consommation_delete(request, pk):
         )
     except Exception as exc:
         logger.exception("Error deleting Consommation pk=%s: %s", pk, exc)
-        messages.error(request, f"Erreur lors de la suppression : {exc}")
+        messages.error(request, f"خطأ أثناء الحذف: {exc}")
 
     return redirect("elevage:lot_detail", pk=lot.pk)
 
@@ -931,7 +922,7 @@ def consommation_list(request):
             "lots": lots,
             "intrants": intrants,
             "total_par_intrant": total_par_intrant,
-            "title": "Consommations",
+            "title": "الاستهلاكات",
         },
     )
 
@@ -985,7 +976,7 @@ def mortalite_list(request):
             "date_fin": date_fin,
             "lots": lots,
             "total_mortalite": total_mortalite,
-            "title": "Mortalités",
+            "title": "النفوق",
         },
     )
 
@@ -1048,7 +1039,7 @@ def elevage_dashboard(request):
             "total_effectif_vivant": total_effectif_vivant,
             "nb_lots_ouverts": nb_lots_ouverts,
             "nb_lots_fermes": nb_lots_fermes,
-            "title": "Tableau de bord — Élevage",
+            "title": "لوحة تحكم — التربية",
         },
     )
 

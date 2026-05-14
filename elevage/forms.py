@@ -72,12 +72,12 @@ class LotFermetureForm(forms.Form):
     """
 
     date_fermeture = forms.DateField(
-        label="Date de fermeture",
+        label="تاريخ الإغلاق",
         widget=forms.DateInput(attrs={"type": "date"}),
         initial=datetime.date.today,
     )
     notes = forms.CharField(
-        label="Notes de clôture",
+        label="ملاحظات الإغلاق",
         widget=forms.Textarea(attrs={"rows": 2}),
         required=False,
     )

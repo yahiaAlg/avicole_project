@@ -1,11 +1,11 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Connexion — Élevage Avicole</title>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <title>تسجيل الدخول — تربية الدواجن</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Nunito:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
   <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet" />
   <style>
     :root {
@@ -30,9 +30,10 @@
     html, body {
       height: 100%;
       background: var(--bg-base);
-      font-family: 'Inter', sans-serif;
-      font-size: 13px;
+      font-family: 'Tajawal', 'Inter', sans-serif;
+      font-size: 14px;
       color: var(--text-secondary);
+      direction: rtl;
       -webkit-font-smoothing: antialiased;
     }
 
@@ -98,7 +99,7 @@
     .input-wrapper { position: relative; }
     .input-icon {
       position: absolute;
-      left: 13px; top: 50%; transform: translateY(-50%);
+      right: 13px; top: 50%; transform: translateY(-50%);
       font-size: 15px;
       color: var(--text-muted);
       pointer-events: none;
@@ -110,9 +111,9 @@
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
       color: var(--text-primary);
-      font-family: 'Inter', sans-serif;
-      font-size: 13.5px;
-      padding: 11px 13px 11px 40px;
+      font-family: 'Tajawal', 'Inter', sans-serif;
+      font-size: 14px;
+      padding: 11px 40px 11px 13px;
       transition: border-color .15s, box-shadow .15s;
     }
     .field-input:focus {
@@ -170,8 +171,8 @@
       <div class="brand-icon">
         <i class="bx bxs-leaf"></i>
       </div>
-      <div class="brand-name">Élevage Avicole</div>
-      <div class="brand-subtitle">Système de gestion interne</div>
+      <div class="brand-name">تربية الدواجن</div>
+      <div class="brand-subtitle">نظام الإدارة الداخلية</div>
     </div>
 
     {% if error %}
@@ -186,7 +187,7 @@
       {% if next %}<input type="hidden" name="next" value="{{ next }}" />{% endif %}
 
       <div class="field-group">
-        <label class="field-label" for="id_username">Nom d'utilisateur</label>
+        <label class="field-label" for="id_username">اسم المستخدم</label>
         <div class="input-wrapper">
           <input
             class="field-input"
@@ -194,7 +195,7 @@
             id="id_username"
             name="username"
             autocomplete="username"
-            placeholder="Votre identifiant"
+            placeholder="أدخل اسم المستخدم"
             autofocus
             required
           />
@@ -203,7 +204,7 @@
       </div>
 
       <div class="field-group">
-        <label class="field-label" for="id_password">Mot de passe</label>
+        <label class="field-label" for="id_password">كلمة المرور</label>
         <div class="input-wrapper">
           <input
             class="field-input"
@@ -219,12 +220,12 @@
       </div>
 
       <button type="submit" class="btn-submit">
-        <i class="bx bx-log-in"></i> Se connecter
+        <i class="bx bx-log-in"></i> تسجيل الدخول
       </button>
     </form>
 
     <div class="login-footer">
-      Accès réservé au personnel autorisé
+      الوصول مخصص للموظفين المخوّلين فقط
     </div>
 
   </div>

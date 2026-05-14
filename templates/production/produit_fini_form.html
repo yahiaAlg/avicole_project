@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
 
 {% block nav_production %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
 {% block page_sub_text %}
-  {% if produit %}Modifier les informations du produit fini{% else %}Ajouter un nouveau type de produit au catalogue{% endif %}
+  {% if produit %}تعديل معلومات المنتج النهائي{% else %}إضافة نوع منتج جديد إلى الكتالوج{% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
   <a href="{% if produit %}{% url 'production:produit_fini_detail' produit.pk %}{% else %}{% url 'production:produit_fini_list' %}{% endif %}"
      class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Annuler
+    <i class="bx bx-arrow-back"></i> إلغاء
   </a>
 {% endblock %}
 
@@ -27,14 +27,14 @@
 
         <div class="card">
           <div class="card-header-row">
-            <div class="section-eyebrow">Informations du produit fini</div>
+            <div class="section-eyebrow">معلومات المنتج النهائي</div>
           </div>
           <div style="padding:22px 24px;display:flex;flex-direction:column;gap:18px;">
 
             <!-- Désignation -->
             <div class="form-field">
               <label class="field-label" for="{{ form.designation.id_for_label }}">
-                Désignation <span class="required-star">*</span>
+                التسمية <span class="required-star">*</span>
               </label>
               <div class="field-wrap">
                 <i class="bx bxs-badge-check field-icon"></i>
@@ -48,7 +48,7 @@
             <!-- Type produit -->
             <div class="form-field">
               <label class="field-label" for="{{ form.type_produit.id_for_label }}">
-                Type de produit <span class="required-star">*</span>
+                نوع المنتج <span class="required-star">*</span>
               </label>
               <div class="field-wrap">
                 <i class="bx bx-refresh field-icon"></i>
@@ -62,7 +62,7 @@
             <!-- Unité de mesure -->
             <div class="form-field">
               <label class="field-label" for="{{ form.unite_mesure.id_for_label }}">
-                Unité de mesure <span class="required-star">*</span>
+                وحدة القياس <span class="required-star">*</span>
               </label>
               <div class="field-wrap">
                 <i class="bx bxs-cube-alt field-icon"></i>
@@ -76,13 +76,13 @@
             <!-- Prix vente par défaut -->
             <div class="form-field">
               <label class="field-label" for="{{ form.prix_vente_defaut.id_for_label }}">
-                Prix de vente par défaut (DZD)
+                سعر البيع الافتراضي (دج)
               </label>
               <div class="field-wrap">
                 <i class="bx bxs-coin field-icon"></i>
                 {{ form.prix_vente_defaut }}
               </div>
-              <div class="field-hint">Pré-rempli sur les lignes BL client — modifiable à la saisie.</div>
+              <div class="field-hint">يُملأ تلقائياً في بنود فواتير العملاء — قابل للتعديل عند الإدخال.</div>
               {% if form.prix_vente_defaut.errors %}
                 <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.prix_vente_defaut.errors.0 }}</div>
               {% endif %}
@@ -92,16 +92,16 @@
             <div class="form-field marge-section">
               <label class="field-label">
                 <i class="bx bx-trending-up" style="font-size:12px;color:var(--accent-text);"></i>
-                Simulateur de marge (facultatif)
+                محاكي الهامش (اختياري)
               </label>
 
               <!-- Row 1: cost base -->
               <div class="marge-row marge-row--base">
                 <div class="marge-col marge-col--full">
-                  <span class="marge-sublabel">Coût de base (DZD) <span class="marge-sublabel-hint">— coût de revient unitaire estimé</span></span>
+                  <span class="marge-sublabel">التكلفة الأساسية (دج) <span class="marge-sublabel-hint">— التكلفة الوحدوية التقديرية</span></span>
                   <div class="field-wrap">
                     <i class="bx bxs-layer field-icon"></i>
-                    <input type="number" id="cout-base" class="field-input" step="0.01" min="0" placeholder="ex : 450">
+                    <input type="number" id="cout-base" class="field-input" step="0.01" min="0" placeholder="مثال: 450">
                   </div>
                 </div>
               </div>
@@ -109,23 +109,23 @@
               <!-- Row 2: margin inputs + computed price -->
               <div class="marge-row">
                 <div class="marge-col">
-                  <span class="marge-sublabel">Marge %</span>
+                  <span class="marge-sublabel">الهامش %</span>
                   <div class="field-wrap">
                     <i class="bx bx-trending-up field-icon"></i>
-                    <input type="number" id="marge-pct" class="field-input" step="0.01" min="0" max="9999" placeholder="ex : 25">
+                    <input type="number" id="marge-pct" class="field-input" step="0.01" min="0" max="9999" placeholder="مثال: 25">
                   </div>
                 </div>
-                <div class="marge-ou">ou</div>
+                <div class="marge-ou">أو</div>
                 <div class="marge-col">
-                  <span class="marge-sublabel">Marge DZD</span>
+                  <span class="marge-sublabel">الهامش دج</span>
                   <div class="field-wrap">
                     <i class="bx bxs-coin field-icon"></i>
-                    <input type="number" id="marge-dzd" class="field-input" step="0.01" min="0" placeholder="ex : 150">
+                    <input type="number" id="marge-dzd" class="field-input" step="0.01" min="0" placeholder="مثال: 150">
                   </div>
                 </div>
                 <div class="marge-eq">=</div>
                 <div class="marge-col marge-col--result">
-                  <span class="marge-sublabel">Prix suggéré</span>
+                  <span class="marge-sublabel">السعر المقترح</span>
                   <div class="field-wrap">
                     <i class="bx bxs-purchase-tag field-icon" style="color:var(--accent-text);"></i>
                     <input type="text" id="prix-calc" class="field-input prix-calc-input" readonly placeholder="—">
@@ -139,25 +139,25 @@
                 <i class="bx bxs-purchase-tag"></i>
                 <span id="marge-notif-text"></span>
                 <button type="button" id="apply-marge-btn" class="marge-apply-btn">
-                  <i class="bx bx-check"></i> Appliquer au prix de vente
+                  <i class="bx bx-check"></i> تطبيق على سعر البيع
                 </button>
               </div>
 
               <!-- Warning: no cost base -->
               <div id="marge-no-base-warn" class="marge-warn" style="display:none;">
-                <i class="bx bx-error-circle"></i> Saisissez d'abord le coût de base pour calculer un prix de vente.
+                <i class="bx bx-error-circle"></i> أدخل التكلفة الأساسية أولاً لحساب سعر البيع.
               </div>
             </div>
 
             <!-- Actif -->
             <div class="form-field-check">
               {{ form.actif }}
-              <label class="check-label" for="{{ form.actif.id_for_label }}">Produit actif</label>
+              <label class="check-label" for="{{ form.actif.id_for_label }}">المنتج نشط</label>
             </div>
 
             <!-- Notes -->
             <div class="form-field">
-              <label class="field-label" for="{{ form.notes.id_for_label }}">Notes</label>
+              <label class="field-label" for="{{ form.notes.id_for_label }}">ملاحظات</label>
               {{ form.notes }}
               {% if form.notes.errors %}
                 <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.notes.errors.0 }}</div>
@@ -171,9 +171,9 @@
               <i class="bx bxs-check-circle"></i> {{ action_label }}
             </button>
             {% if produit %}
-            <a href="{% url 'production:produit_fini_detail' produit.pk %}" class="btn-ghost">Annuler</a>
+            <a href="{% url 'production:produit_fini_detail' produit.pk %}" class="btn-ghost">إلغاء</a>
             {% else %}
-            <a href="{% url 'production:produit_fini_list' %}" class="btn-ghost">Annuler</a>
+            <a href="{% url 'production:produit_fini_list' %}" class="btn-ghost">إلغاء</a>
             {% endif %}
           </div>
         </div>
@@ -230,8 +230,8 @@ document.addEventListener('DOMContentLoaded', function () {
       const margePctDisplay = ((result - cout) / cout * 100).toFixed(1);
       prixCalc.value = formatted;
       notifText.textContent =
-        'Prix suggéré : ' + parseFloat(formatted).toLocaleString('fr-FR', {minimumFractionDigits:2}) + ' DZD'
-        + '  (marge : ' + parseFloat(margeAbs).toLocaleString('fr-FR', {minimumFractionDigits:2}) + ' DZD / ' + margePctDisplay + ' %)';
+        'السعر المقترح: ' + parseFloat(formatted).toLocaleString('ar-DZ', {minimumFractionDigits:2}) + ' دج'
+        + '  (الهامش: ' + parseFloat(margeAbs).toLocaleString('ar-DZ', {minimumFractionDigits:2}) + ' دج / ' + margePctDisplay + ' %)';
       notif.style.display = 'flex';
       if (notifTimer) clearTimeout(notifTimer);
     } else {
@@ -285,7 +285,7 @@ document.addEventListener('DOMContentLoaded', function () {
   .field-label { font-size:12px;font-weight:500;color:var(--text-secondary);letter-spacing:.03em; }
   .required-star { color:#dc2626; }
   .field-wrap { position:relative; }
-  .field-icon { position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--text-muted);pointer-events:none;transition:color .15s; }
+  .field-icon { position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--text-muted);pointer-events:none;transition:color .15s; }
   .field-wrap:focus-within .field-icon { color:var(--accent-text); }
 
   .field-wrap input,
@@ -293,7 +293,7 @@ document.addEventListener('DOMContentLoaded', function () {
     width:100%;background:var(--bg-surface);border:1px solid var(--border);
     border-radius:var(--radius-md);color:var(--text-primary);
     font-family:'Inter',sans-serif;font-size:13.5px;
-    padding:11px 13px 11px 40px;
+    padding:11px 40px 11px 13px;
     transition:border-color .15s,box-shadow .15s;
   }
   .field-wrap input:focus,
@@ -333,11 +333,11 @@ document.addEventListener('DOMContentLoaded', function () {
   .marge-sublabel { font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted); }
   .marge-ou { font-size:11px;font-weight:600;color:var(--text-muted);padding-bottom:10px;align-self:flex-end; }
   .marge-eq { font-size:16px;font-weight:700;color:var(--accent-text);padding-bottom:8px;align-self:flex-end; }
-  .prix-calc-input { background:var(--bg-surface)!important;border-color:rgba(34,197,94,.3)!important;color:var(--accent-text)!important;font-family:'Nunito',sans-serif!important;font-weight:700!important;cursor:default!important;padding-right:48px!important; }
-  .prix-unit-badge { position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:600;color:var(--text-muted);background:var(--bg-raised);border:1px solid var(--border);border-radius:4px;padding:1px 5px;pointer-events:none; }
+  .prix-calc-input { background:var(--bg-surface)!important;border-color:rgba(34,197,94,.3)!important;color:var(--accent-text)!important;font-family:'Nunito',sans-serif!important;font-weight:700!important;cursor:default!important;padding-left:48px!important; }
+  .prix-unit-badge { position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:600;color:var(--text-muted);background:var(--bg-raised);border:1px solid var(--border);border-radius:4px;padding:1px 5px;pointer-events:none; }
   .marge-notification { display:flex;align-items:center;gap:10px;background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.22);border-radius:var(--radius-md);padding:10px 14px;font-size:12.5px;color:var(--text-secondary);animation:slideIn .25s ease both; }
   .marge-notification i { color:var(--accent-text);font-size:15px;flex-shrink:0; }
-  .marge-apply-btn { margin-left:auto;flex-shrink:0;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:5px 11px;font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:opacity .15s; }
+  .marge-apply-btn { margin-right:auto;flex-shrink:0;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:5px 11px;font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:opacity .15s; }
   .marge-apply-btn:hover { opacity:.85; }
   .marge-row--base { margin-bottom:2px; }
   .marge-col--full { flex:1 1 100%; min-width:0; }

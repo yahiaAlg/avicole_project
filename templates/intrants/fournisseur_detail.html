@@ -1,26 +1,26 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ fournisseur.nom }} — Élevage Avicole{% endblock %}
+{% block title %}{{ fournisseur.nom }} — تربية الدواجن{% endblock %}
 
 {% block nav_fournisseurs %}active{% endblock %}
 
 {% block page_title %}{{ fournisseur.nom }}{% endblock %}
 {% block page_sub_text %}
   {% if fournisseur.type_principal %}{{ fournisseur.type_principal.libelle }} — {% endif %}
-  {% if fournisseur.actif %}Fournisseur actif{% else %}<span style="color:#dc2626;">Inactif</span>{% endif %}
+  {% if fournisseur.actif %}مورد نشط{% else %}<span style="color:#dc2626;">غير نشط</span>{% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'intrants:fournisseur_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Fournisseurs
+    <i class="bx bx-arrow-back"></i> الموردون
   </a>
   {% if not request.user.profile.role == 'viewer' %}
   <a href="{% url 'intrants:fournisseur_edit' fournisseur.pk %}" class="btn-ghost">
-    <i class="bx bxs-pencil"></i> Modifier
+    <i class="bx bxs-pencil"></i> تعديل
   </a>
   <a href="{% url 'achats:bl_fournisseur_create_for_fournisseur' fournisseur.pk %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouveau BL
+    <i class="bx bx-plus"></i> وصل استلام جديد
   </a>
   {% endif %}
 {% endblock %}
@@ -31,24 +31,24 @@
   <!-- KPI row -->
   <div class="kpi-row">
     <div class="kpi-card kpi-card--danger">
-      <div class="kpi-card__label">Dette globale</div>
+      <div class="kpi-card__label">الدين الإجمالي</div>
       <div class="kpi-card__value">{{ solde.dette_globale|floatformat:0 }} <span class="kpi-currency">DZD</span></div>
-      <div class="kpi-card__sub">Factures non soldées</div>
+      <div class="kpi-card__sub">فواتير غير مسوّاة</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-card__label">Acompte disponible</div>
+      <div class="kpi-card__label">السلفة المتاحة</div>
       <div class="kpi-card__value">{{ solde.acompte_disponible|floatformat:0 }} <span class="kpi-currency">DZD</span></div>
-      <div class="kpi-card__sub">Avances non imputées</div>
+      <div class="kpi-card__sub">سلف غير مُحسوبة</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-card__label">Total réglements</div>
+      <div class="kpi-card__label">إجمالي المدفوعات</div>
       <div class="kpi-card__value">{{ solde.total_reglements|floatformat:0 }} <span class="kpi-currency">DZD</span></div>
-      <div class="kpi-card__sub">Cumul des paiements</div>
+      <div class="kpi-card__sub">مجموع المدفوعات</div>
     </div>
     <div class="kpi-card {% if solde.nb_factures_retard > 0 %}kpi-card--warning{% endif %}">
-      <div class="kpi-card__label">Factures en retard</div>
+      <div class="kpi-card__label">الفواتير المتأخرة</div>
       <div class="kpi-card__value">{{ solde.nb_factures_retard }}</div>
-      <div class="kpi-card__sub">Dépassement d'échéance</div>
+      <div class="kpi-card__sub">تجاوز تاريخ الاستحقاق</div>
     </div>
   </div>
 
@@ -60,34 +60,34 @@
       <!-- Identité & coordonnées -->
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow">Fiche fournisseur</div>
+          <div class="section-eyebrow">بطاقة المورد</div>
           {% if not request.user.profile.role == 'viewer' %}
           <a href="{% url 'intrants:fournisseur_edit' fournisseur.pk %}" class="btn-ghost btn-sm">
-            <i class="bx bxs-pencil"></i> Modifier
+            <i class="bx bxs-pencil"></i> تعديل
           </a>
           {% endif %}
         </div>
         {% if not request.user.profile.role == 'viewer' %}
         <div style="display:flex;gap:8px;padding:0 20px 16px;flex-wrap:wrap;">
           <a href="{% url 'achats:bl_fournisseur_create_for_fournisseur' fournisseur.pk %}" class="btn-primary" style="font-size:12.5px;padding:8px 14px;">
-            <i class="bx bx-plus"></i> Nouveau BL
+            <i class="bx bx-plus"></i> وصل استلام جديد
           </a>
           <a href="{% url 'achats:facture_fournisseur_create' %}?fournisseur={{ fournisseur.pk }}" class="btn-ghost btn-sm">
-            <i class="bx bxs-receipt"></i> Facturer
+            <i class="bx bxs-receipt"></i> فوترة
           </a>
           <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ fournisseur.pk }}" class="btn-ghost btn-sm">
-            <i class="bx bxs-credit-card"></i> Règlement
+            <i class="bx bxs-credit-card"></i> تسوية
           </a>
         </div>
         {% endif %}
         <div class="card-body">
           <div class="info-grid">
             <div class="info-item">
-              <div class="info-label">Nom</div>
+              <div class="info-label">الاسم</div>
               <div class="info-value">{{ fournisseur.nom }}</div>
             </div>
             <div class="info-item">
-              <div class="info-label">Type principal</div>
+              <div class="info-label">النوع الرئيسي</div>
               <div class="info-value">
                 {% if fournisseur.type_principal %}
                   <span class="pill-neutral">{{ fournisseur.type_principal.libelle }}</span>
@@ -96,30 +96,30 @@
             </div>
             {% if fournisseur.adresse %}
             <div class="info-item info-item--full">
-              <div class="info-label">Adresse</div>
+              <div class="info-label">العنوان</div>
               <div class="info-value">{{ fournisseur.adresse }}</div>
             </div>
             {% endif %}
             <div class="info-item">
-              <div class="info-label">Wilaya</div>
+              <div class="info-label">الولاية</div>
               <div class="info-value">{{ fournisseur.wilaya|default:"—" }}</div>
             </div>
             <div class="info-item">
-              <div class="info-label">Téléphone</div>
+              <div class="info-label">الهاتف</div>
               <div class="info-value">{{ fournisseur.telephone|default:"—" }}</div>
             </div>
             {% if fournisseur.telephone_2 %}
             <div class="info-item">
-              <div class="info-label">Téléphone 2</div>
+              <div class="info-label">هاتف 2</div>
               <div class="info-value">{{ fournisseur.telephone_2 }}</div>
             </div>
             {% endif %}
             <div class="info-item">
-              <div class="info-label">Email</div>
+              <div class="info-label">البريد الإلكتروني</div>
               <div class="info-value">{{ fournisseur.email|default:"—" }}</div>
             </div>
             <div class="info-item">
-              <div class="info-label">Contact</div>
+              <div class="info-label">جهة الاتصال</div>
               <div class="info-value">{{ fournisseur.contact_nom|default:"—" }}</div>
             </div>
             {% if fournisseur.nif %}
@@ -135,23 +135,23 @@
             </div>
             {% endif %}
             <div class="info-item">
-              <div class="info-label">Statut</div>
+              <div class="info-label">الحالة</div>
               <div class="info-value">
                 {% if fournisseur.actif %}
-                  <span class="pill-success"><i class="bx bxs-check-circle"></i> Actif</span>
+                  <span class="pill-success"><i class="bx bxs-check-circle"></i> نشط</span>
                 {% else %}
-                  <span class="pill-neutral"><i class="bx bx-block"></i> Inactif</span>
+                  <span class="pill-neutral"><i class="bx bx-block"></i> غير نشط</span>
                 {% endif %}
               </div>
             </div>
             <div class="info-item">
-              <div class="info-label">Créé le</div>
+              <div class="info-label">تاريخ الإنشاء</div>
               <div class="info-value">{{ fournisseur.created_at|date:"d/m/Y" }}</div>
             </div>
           </div>
           {% if fournisseur.notes %}
           <div class="notes-block">
-            <div class="info-label" style="margin-bottom:6px;">Notes</div>
+            <div class="info-label" style="margin-bottom:6px;">ملاحظات</div>
             <div style="font-size:13px;color:var(--text-secondary);white-space:pre-wrap;">{{ fournisseur.notes }}</div>
           </div>
           {% endif %}
@@ -161,9 +161,9 @@
       <!-- BLs récents -->
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow">BL Fournisseur récents</div>
+          <div class="section-eyebrow">وصولات الاستلام الأخيرة</div>
           <a href="{% url 'achats:bl_fournisseur_list' %}" class="btn-ghost btn-sm">
-            <i class="bx bx-list-ul"></i> Voir tous
+            <i class="bx bx-list-ul"></i> عرض الكل
           </a>
         </div>
         {% if bls_recents %}
@@ -171,10 +171,10 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>N° BL</th>
-                <th>Date</th>
-                <th>Statut</th>
-                <th style="text-align:right;">Actions</th>
+                <th>رقم وصل الاستلام</th>
+                <th>التاريخ</th>
+                <th>الحالة</th>
+                <th style="text-align:left;">الإجراءات</th>
               </tr>
             </thead>
             <tbody>
@@ -188,18 +188,18 @@
                 <td style="color:var(--text-muted);">{{ bl.date_bl|date:"d/m/Y" }}</td>
                 <td>
                   {% if bl.statut == 'brouillon' %}
-                    <span class="pill-neutral">Brouillon</span>
+                    <span class="pill-neutral">مسودة</span>
                   {% elif bl.statut == 'livre' %}
-                    <span class="pill-success"><i class="bx bxs-check-circle"></i> Livré</span>
+                    <span class="pill-success"><i class="bx bxs-check-circle"></i> مُسلَّم</span>
                   {% elif bl.statut == 'facture' %}
-                    <span class="pill-info">Facturé</span>
+                    <span class="pill-info">مُفوتَر</span>
                   {% else %}
                     <span class="pill-neutral">{{ bl.statut }}</span>
                   {% endif %}
                 </td>
                 <td>
                   <div class="actions-cell">
-                    <a href="{% url 'achats:bl_fournisseur_detail' bl.pk %}" class="action-btn" title="Voir">
+                    <a href="{% url 'achats:bl_fournisseur_detail' bl.pk %}" class="action-btn" title="عرض">
                       <i class="bx bx-show"></i>
                     </a>
                   </div>
@@ -212,8 +212,8 @@
         {% else %}
         <div class="empty-state empty-state--sm">
           <i class="bx bx-receipt empty-state__icon"></i>
-          <div class="empty-state__title">Aucun BL</div>
-          <div class="empty-state__body">Aucun bon de livraison enregistré pour ce fournisseur.</div>
+          <div class="empty-state__title">لا توجد وصولات</div>
+          <div class="empty-state__body">لا توجد وصولات استلام مسجّلة لهذا المورد.</div>
         </div>
         {% endif %}
       </div>
@@ -226,7 +226,7 @@
       <!-- Intrants liés -->
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow">Intrants associés</div>
+          <div class="section-eyebrow">المستلزمات المرتبطة</div>
         </div>
         {% if intrants_lies %}
         <div class="intrants-list">
@@ -243,8 +243,8 @@
         {% else %}
         <div class="empty-state empty-state--sm">
           <i class="bx bx-package empty-state__icon"></i>
-          <div class="empty-state__title">Aucun intrant</div>
-          <div class="empty-state__body">Ce fournisseur n'est associé à aucun intrant actif.</div>
+          <div class="empty-state__title">لا توجد مستلزمات</div>
+          <div class="empty-state__body">لا يرتبط هذا المورد بأي مستلزم نشط.</div>
         </div>
         {% endif %}
       </div>
@@ -253,12 +253,12 @@
       {% if request.user.profile.role == 'admin' %}
       <div class="card card--danger">
         <div class="card-header-row">
-          <div class="section-eyebrow" style="color:#dc2626;">Zone de danger</div>
+          <div class="section-eyebrow" style="color:#dc2626;">منطقة الخطر</div>
         </div>
         <div class="card-body">
           <div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:14px;">
-            La désactivation empêche ce fournisseur d'être sélectionné pour de nouveaux BL et Factures.
-            Les données existantes ne sont pas supprimées.
+            سيمنع التعطيل اختيار هذا المورد في وصولات الاستلام والفواتير الجديدة.
+            البيانات الموجودة لن تُحذف.
           </div>
           <button type="button"
             id="toggle-active-btn"
@@ -266,9 +266,9 @@
             data-active="{{ fournisseur.actif|yesno:'true,false' }}"
             data-nom="{{ fournisseur.nom }}">
             {% if fournisseur.actif %}
-              <i class="bx bx-block"></i> Désactiver le fournisseur
+              <i class="bx bx-block"></i> تعطيل المورد
             {% else %}
-              <i class="bx bxs-check-circle"></i> Réactiver le fournisseur
+              <i class="bx bxs-check-circle"></i> إعادة تفعيل المورد
             {% endif %}
           </button>
         </div>
@@ -285,11 +285,11 @@
             <div class="confirm-panel__body" id="confirm-body"></div>
           </div>
           <div class="confirm-panel__actions">
-            <button type="button" id="confirm-cancel-btn" class="btn-ghost">Annuler</button>
+            <button type="button" id="confirm-cancel-btn" class="btn-ghost">إلغاء</button>
             <form id="confirm-toggle-form" method="post"
               action="{% url 'intrants:fournisseur_toggle_active' fournisseur.pk %}">
               {% csrf_token %}
-              <button type="submit" id="confirm-submit-btn" class="btn-danger">Confirmer</button>
+              <button type="submit" id="confirm-submit-btn" class="btn-danger">تأكيد</button>
             </form>
           </div>
         </div>
@@ -320,7 +320,7 @@
   }
   .kpi-card--danger { border-color: rgba(239,68,68,.25); background: rgba(239,68,68,.04); }
   .kpi-card--warning { border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.04); }
-  .kpi-card__label { font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+  .kpi-card__label { font-size: 10.5px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-muted); margin-bottom: 8px; }
   .kpi-card__value { font-family: 'Nunito',sans-serif; font-weight: 800; font-size: 22px; color: var(--text-primary); line-height: 1; }
   .kpi-card--danger .kpi-card__value { color: #dc2626; }
   .kpi-card--warning .kpi-card__value { color: #b45309; }
@@ -351,8 +351,8 @@
   }
   .card-body { padding: 20px; }
   .section-eyebrow {
-    font-size: 10.5px; font-weight: 600; letter-spacing: .1em;
-    text-transform: uppercase; color: var(--text-muted);
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0;
+    text-transform: none; color: var(--text-muted);
   }
 
   .info-grid {
@@ -362,7 +362,7 @@
   }
   .info-item { }
   .info-item--full { grid-column: 1 / -1; }
-  .info-label { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+  .info-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-muted); margin-bottom: 4px; }
   .info-value { font-size: 13.5px; color: var(--text-primary); }
   .mono-code {
     font-family: 'Inter', monospace; font-size: 12px;
@@ -377,8 +377,8 @@
   .table-wrapper { overflow-x: auto; }
   .data-table { width: 100%; border-collapse: collapse; }
   .data-table thead th {
-    font-size: 10.5px; font-weight: 600; letter-spacing: .07em;
-    text-transform: uppercase; color: var(--text-muted);
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0;
+    text-transform: none; color: var(--text-muted);
     padding: 11px 14px; border-bottom: 1px solid var(--border);
     white-space: nowrap;
   }
@@ -475,16 +475,16 @@ document.addEventListener('DOMContentLoaded', function () {
     if (isActive) {
       panelIcon.className = 'confirm-panel__icon';
       panelIcon.innerHTML = '<i class="bx bx-block"></i>';
-      panelTitle.textContent = 'Désactiver le fournisseur ?';
-      panelBody.innerHTML = 'Le fournisseur <strong>' + nom + '</strong> sera désactivé. Les données existantes sont conservées.';
-      submitBtn.textContent = 'Désactiver';
+      panelTitle.textContent = 'تعطيل المورد؟';
+      panelBody.innerHTML = 'سيتم تعطيل المورد <strong>' + nom + '</strong>. البيانات الموجودة محفوظة.';
+      submitBtn.textContent = 'تعطيل';
       submitBtn.className = 'btn-danger';
     } else {
       panelIcon.className = 'confirm-panel__icon activate';
       panelIcon.innerHTML = '<i class="bx bxs-check-circle"></i>';
-      panelTitle.textContent = 'Réactiver le fournisseur ?';
-      panelBody.innerHTML = 'Le fournisseur <strong>' + nom + '</strong> sera réactivé.';
-      submitBtn.textContent = 'Réactiver';
+      panelTitle.textContent = 'إعادة تفعيل المورد؟';
+      panelBody.innerHTML = 'سيتم إعادة تفعيل المورد <strong>' + nom + '</strong>.';
+      submitBtn.textContent = 'إعادة تفعيل';
       submitBtn.className = 'btn-success';
     }
     panel.style.display = '';

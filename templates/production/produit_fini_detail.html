@@ -1,23 +1,23 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ produit.designation }} — Élevage Avicole{% endblock %}
+{% block title %}{{ produit.designation }} — تربية الدواجن{% endblock %}
 
 {% block nav_production %}active{% endblock %}
 
 {% block page_title %}{{ produit.designation }}{% endblock %}
 {% block page_sub_text %}
   {{ produit.get_type_produit_display }} —
-  {% if produit.actif %}<span style="color:var(--accent-text);">Actif</span>{% else %}<span style="color:#dc2626;">Inactif</span>{% endif %}
+  {% if produit.actif %}<span style="color:var(--accent-text);">نشط</span>{% else %}<span style="color:#dc2626;">غير نشط</span>{% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'production:produit_fini_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Catalogue produits
+    <i class="bx bx-arrow-back"></i> كتالوج المنتجات
   </a>
   {% if request.user.userprofile.is_admin %}
   <a href="{% url 'production:produit_fini_edit' produit.pk %}" class="btn-primary">
-    <i class="bx bxs-pencil"></i> Modifier
+    <i class="bx bxs-pencil"></i> تعديل
   </a>
   {% endif %}
 {% endblock %}
@@ -28,36 +28,36 @@
   <!-- KPI row -->
   <div class="kpi-row">
     <div class="kpi-card {% if stock and stock.en_alerte %}kpi-card--danger{% endif %}">
-      <div class="kpi-card__label">Stock actuel</div>
+      <div class="kpi-card__label">المخزون الحالي</div>
       <div class="kpi-card__value">
         {% if stock %}{{ stock.quantite|floatformat:3 }}{% else %}0.000{% endif %}
         <span class="kpi-currency">{{ produit.get_unite_mesure_display }}</span>
       </div>
       <div class="kpi-card__sub">
         {% if stock and stock.en_alerte %}
-          <span style="color:#dc2626;"><i class="bx bxs-bell" style="font-size:11px;"></i> Sous le seuil d'alerte</span>
+          <span style="color:#dc2626;"><i class="bx bxs-bell" style="font-size:11px;"></i> دون حد التنبيه</span>
         {% else %}
-          Solde en stock
+          رصيد المخزون
         {% endif %}
       </div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-card__label">Coût moyen de production</div>
+      <div class="kpi-card__label">متوسط تكلفة الإنتاج</div>
       <div class="kpi-card__value">
         {% if stock %}{{ stock.cout_moyen_production|floatformat:2 }}{% else %}0.00{% endif %}
-        <span class="kpi-currency">DZD / {{ produit.unite_mesure }}</span>
+        <span class="kpi-currency">دج / {{ produit.unite_mesure }}</span>
       </div>
-      <div class="kpi-card__sub">Coût moyen pondéré</div>
+      <div class="kpi-card__sub">المتوسط المرجح</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-card__label">Prix vente par défaut</div>
-      <div class="kpi-card__value">{{ produit.prix_vente_defaut|floatformat:0 }} <span class="kpi-currency">DZD</span></div>
-      <div class="kpi-card__sub">Pré-rempli sur les BL client</div>
+      <div class="kpi-card__label">سعر البيع الافتراضي</div>
+      <div class="kpi-card__value">{{ produit.prix_vente_defaut|floatformat:0 }} <span class="kpi-currency">دج</span></div>
+      <div class="kpi-card__sub">يُملأ تلقائياً في فواتير العملاء</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-card__label">Lignes de production</div>
+      <div class="kpi-card__label">بنود الإنتاج</div>
       <div class="kpi-card__value">{{ lignes_recentes|length }}</div>
-      <div class="kpi-card__sub">Enregistrements récents</div>
+      <div class="kpi-card__sub">سجلات حديثة</div>
     </div>
   </div>
 
@@ -69,21 +69,21 @@
       <!-- Fiche produit -->
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-badge-check"></i> Fiche produit</div>
+          <div class="section-eyebrow"><i class="bx bxs-badge-check"></i> بطاقة المنتج</div>
           {% if request.user.userprofile.is_admin %}
           <a href="{% url 'production:produit_fini_edit' produit.pk %}" class="btn-ghost btn-sm">
-            <i class="bx bxs-pencil"></i> Modifier
+            <i class="bx bxs-pencil"></i> تعديل
           </a>
           {% endif %}
         </div>
         <div class="card-body">
           <div class="info-grid">
             <div class="info-item info-item--full">
-              <div class="info-label">Désignation</div>
+              <div class="info-label">التسمية</div>
               <div class="info-value" style="font-family:'Nunito',sans-serif;font-weight:700;font-size:15px;">{{ produit.designation }}</div>
             </div>
             <div class="info-item">
-              <div class="info-label">Type de produit</div>
+              <div class="info-label">نوع المنتج</div>
               <div class="info-value">
                 {% if produit.type_produit == "volaille_vivante" %}<span class="pill-success">{{ produit.get_type_produit_display }}</span>
                 {% elif produit.type_produit == "carcasse" %}<span class="pill-info">{{ produit.get_type_produit_display }}</span>
@@ -93,32 +93,32 @@
               </div>
             </div>
             <div class="info-item">
-              <div class="info-label">Unité de mesure</div>
+              <div class="info-label">وحدة القياس</div>
               <div class="info-value"><span class="unit-badge">{{ produit.get_unite_mesure_display }}</span></div>
             </div>
             <div class="info-item">
-              <div class="info-label">Prix vente par défaut</div>
-              <div class="info-value" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ produit.prix_vente_defaut|floatformat:0 }} DZD</div>
+              <div class="info-label">سعر البيع الافتراضي</div>
+              <div class="info-value" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ produit.prix_vente_defaut|floatformat:0 }} دج</div>
             </div>
             <div class="info-item">
-              <div class="info-label">Statut</div>
+              <div class="info-label">الحالة</div>
               <div class="info-value">
-                {% if produit.actif %}<span class="pill-success"><i class="bx bxs-check-circle"></i> Actif</span>
-                {% else %}<span class="pill-neutral"><i class="bx bx-block"></i> Inactif</span>{% endif %}
+                {% if produit.actif %}<span class="pill-success"><i class="bx bxs-check-circle"></i> نشط</span>
+                {% else %}<span class="pill-neutral"><i class="bx bx-block"></i> غير نشط</span>{% endif %}
               </div>
             </div>
             <div class="info-item">
-              <div class="info-label">Créé le</div>
+              <div class="info-label">تاريخ الإنشاء</div>
               <div class="info-value">{{ produit.created_at|date:"d/m/Y" }}</div>
             </div>
             <div class="info-item">
-              <div class="info-label">Mis à jour</div>
+              <div class="info-label">آخر تحديث</div>
               <div class="info-value">{{ produit.updated_at|date:"d/m/Y" }}</div>
             </div>
           </div>
           {% if produit.notes %}
           <div class="notes-block">
-            <div class="info-label" style="margin-bottom:6px;">Notes</div>
+            <div class="info-label" style="margin-bottom:6px;">ملاحظات</div>
             <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">{{ produit.notes }}</div>
           </div>
           {% endif %}
@@ -128,19 +128,19 @@
       <!-- Lignes de production récentes -->
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bx-refresh"></i> Dernières lignes de production</div>
+          <div class="section-eyebrow"><i class="bx bx-refresh"></i> آخر بنود الإنتاج</div>
         </div>
         {% if lignes_recentes %}
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Lot</th>
-                <th style="text-align:right;">Quantité</th>
-                <th style="text-align:right;">Poids unit. (kg)</th>
-                <th style="text-align:right;">Coût unit. (DZD)</th>
-                <th style="text-align:right;">Valeur totale (DZD)</th>
+                <th>التاريخ</th>
+                <th>الدفعة</th>
+                <th style="text-align:right;">الكمية</th>
+                <th style="text-align:right;">الوزن الوحدوي (كغ)</th>
+                <th style="text-align:right;">التكلفة الوحدوية (دج)</th>
+                <th style="text-align:right;">القيمة الإجمالية (دج)</th>
               </tr>
             </thead>
             <tbody>
@@ -167,8 +167,8 @@
         {% else %}
         <div class="empty-state">
           <i class="bx bx-refresh empty-state__icon"></i>
-          <div class="empty-state__title">Aucune ligne de production</div>
-          <div style="font-size:13px;">Ce produit n'a pas encore été généré en production.</div>
+          <div class="empty-state__title">لا توجد بنود إنتاج</div>
+          <div style="font-size:13px;">لم يُنتج هذا المنتج بعد.</div>
         </div>
         {% endif %}
       </div>
@@ -176,20 +176,20 @@
       <!-- Mouvements de stock -->
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bx-transfer-alt"></i> Historique des mouvements de stock (30 derniers)</div>
+          <div class="section-eyebrow"><i class="bx bx-transfer-alt"></i> سجل حركات المخزون (آخر 30)</div>
         </div>
         {% if mouvements %}
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Type</th>
-                <th>Source</th>
-                <th>Référence</th>
-                <th style="text-align:right;">Quantité</th>
-                <th style="text-align:right;">Stock avant</th>
-                <th style="text-align:right;">Stock après</th>
+                <th>التاريخ</th>
+                <th>النوع</th>
+                <th>المصدر</th>
+                <th>المرجع</th>
+                <th style="text-align:right;">الكمية</th>
+                <th style="text-align:right;">المخزون قبل</th>
+                <th style="text-align:right;">المخزون بعد</th>
               </tr>
             </thead>
             <tbody>
@@ -197,9 +197,9 @@
               <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
                 <td style="color:var(--text-muted);">{{ m.date_mouvement|date:"d/m/Y" }}</td>
                 <td>
-                  {% if m.type_mouvement == "entree" %}<span class="pill-success"><i class="bx bx-plus"></i> Entrée</span>
-                  {% elif m.type_mouvement == "sortie" %}<span class="pill-danger"><i class="bx bx-minus"></i> Sortie</span>
-                  {% else %}<span class="pill-info">Ajustement</span>{% endif %}
+                  {% if m.type_mouvement == "entree" %}<span class="pill-success"><i class="bx bx-plus"></i> وارد</span>
+                  {% elif m.type_mouvement == "sortie" %}<span class="pill-danger"><i class="bx bx-minus"></i> صادر</span>
+                  {% else %}<span class="pill-info">تسوية</span>{% endif %}
                 </td>
                 <td style="color:var(--text-muted);">{{ m.get_source_display }}</td>
                 <td style="font-size:12px;color:var(--text-muted);">{{ m.reference_label|default:"—" }}</td>
@@ -217,8 +217,8 @@
         {% else %}
         <div class="empty-state empty-state--sm">
           <i class="bx bxs-archive empty-state__icon"></i>
-          <div class="empty-state__title">Aucun mouvement</div>
-          <div style="font-size:13px;">Aucun mouvement de stock enregistré pour ce produit.</div>
+          <div class="empty-state__title">لا توجد حركات</div>
+          <div style="font-size:13px;">لا توجد حركات مخزون مسجلة لهذا المنتج.</div>
         </div>
         {% endif %}
       </div>
@@ -231,7 +231,7 @@
       <!-- Stock actuel -->
       <div class="card {% if stock and stock.en_alerte %}card--alert{% endif %}">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-package"></i> Stock actuel</div>
+          <div class="section-eyebrow"><i class="bx bxs-package"></i> المخزون الحالي</div>
         </div>
         <div class="card-body">
           {% if stock %}
@@ -246,35 +246,35 @@
                   <div class="stock-gauge__fill {% if stock.en_alerte %}fill--danger{% endif %}"
                        style="width:{% widthratio stock.quantite stock.seuil_alerte 100 %}%;max-width:100%;"></div>
                 </div>
-                <div class="stock-gauge__legend">Seuil : {{ stock.seuil_alerte|floatformat:2 }} {{ produit.unite_mesure }}</div>
+                <div class="stock-gauge__legend">الحد: {{ stock.seuil_alerte|floatformat:2 }} {{ produit.unite_mesure }}</div>
               </div>
               {% endif %}
               {% if stock.en_alerte %}
-                <div style="margin-top:12px;"><span class="pill-danger"><i class="bx bxs-error"></i> Seuil d'alerte atteint</span></div>
+                <div style="margin-top:12px;"><span class="pill-danger"><i class="bx bxs-error"></i> تم بلوغ حد التنبيه</span></div>
               {% endif %}
             </div>
             <div style="border-top:1px solid var(--border);padding-top:14px;">
               <div class="aside-info-row">
-                <span class="aside-info-label">Coût moyen de production</span>
-                <span class="aside-info-val">{{ stock.cout_moyen_production|floatformat:2 }} DZD</span>
+                <span class="aside-info-label">متوسط تكلفة الإنتاج</span>
+                <span class="aside-info-val">{{ stock.cout_moyen_production|floatformat:2 }} دج</span>
               </div>
               <div class="aside-info-row">
-                <span class="aside-info-label">Valeur stock estimée</span>
-                <span class="aside-info-val" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ stock.valeur_stock|floatformat:0 }} DZD</span>
+                <span class="aside-info-label">القيمة التقديرية للمخزون</span>
+                <span class="aside-info-val" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ stock.valeur_stock|floatformat:0 }} دج</span>
               </div>
               <div class="aside-info-row">
-                <span class="aside-info-label">Seuil d'alerte</span>
+                <span class="aside-info-label">حد التنبيه</span>
                 <span class="aside-info-val">{{ stock.seuil_alerte|floatformat:2 }} {{ produit.unite_mesure }}</span>
               </div>
               <div class="aside-info-row">
-                <span class="aside-info-label">Dernière mise à jour</span>
+                <span class="aside-info-label">آخر تحديث</span>
                 <span class="aside-info-val" style="color:var(--text-muted);">{{ stock.derniere_mise_a_jour|date:"d/m/Y" }}</span>
               </div>
             </div>
           {% else %}
             <div class="empty-state empty-state--sm">
               <i class="bx bxs-archive empty-state__icon"></i>
-              <div class="empty-state__title">Stock non initialisé</div>
+              <div class="empty-state__title">المخزون غير محدد</div>
             </div>
           {% endif %}
         </div>
@@ -284,11 +284,11 @@
       {% if request.user.userprofile.is_admin %}
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-cog"></i> Actions</div>
+          <div class="section-eyebrow"><i class="bx bxs-cog"></i> الإجراءات</div>
         </div>
         <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
           <a href="{% url 'production:produit_fini_edit' produit.pk %}" class="btn-ghost btn-block">
-            <i class="bx bxs-pencil"></i> Modifier le produit
+            <i class="bx bxs-pencil"></i> تعديل المنتج
           </a>
           <button type="button"
                   id="toggle-active-btn"
@@ -296,9 +296,9 @@
                   data-nom="{{ produit.designation }}"
                   class="{% if produit.actif %}btn-danger{% else %}btn-success{% endif %} btn-block">
             {% if produit.actif %}
-              <i class="bx bx-block"></i> Désactiver le produit
+              <i class="bx bx-block"></i> تعطيل المنتج
             {% else %}
-              <i class="bx bxs-check-circle"></i> Réactiver le produit
+              <i class="bx bxs-check-circle"></i> إعادة تفعيل المنتج
             {% endif %}
           </button>
         </div>
@@ -308,14 +308,14 @@
       <!-- ── Calculateur de marge ──────────────────────────────────── -->
       <div class="card calc-card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bx-trending-up"></i> Calculateur de marge</div>
+          <div class="section-eyebrow"><i class="bx bx-trending-up"></i> حاسبة الهامش</div>
         </div>
         <div class="card-body" style="display:flex;flex-direction:column;gap:14px;">
 
           <!-- Base price display -->
           <div class="calc-base-row">
             <div class="calc-base-item">
-              <span class="calc-base-label">Coût moyen prod.</span>
+              <span class="calc-base-label">متوسط تكلفة الإنتاج</span>
               <span class="calc-base-val" id="calc-cmp">
                 {% if stock %}{{ stock.cout_moyen_production|floatformat:2 }}{% else %}0.00{% endif %}
               </span>
@@ -323,7 +323,7 @@
             </div>
             <div class="calc-base-arrow">→</div>
             <div class="calc-base-item">
-              <span class="calc-base-label">Prix vente actuel</span>
+              <span class="calc-base-label">سعر البيع الحالي</span>
               <span class="calc-base-val">{{ produit.prix_vente_defaut|floatformat:2 }}</span>
               <span class="calc-base-unit">DZD</span>
             </div>
@@ -336,36 +336,36 @@
               <div class="calc-marge-bar" id="calc-marge-bar"></div>
             </div>
             <div class="calc-marge-label">
-              Marge actuelle : <strong id="calc-marge-pct-current"></strong>
-              (<strong id="calc-marge-dzd-current"></strong> DZD / {{ produit.unite_mesure }})
+              الهامش الحالي: <strong id="calc-marge-pct-current"></strong>
+              (<strong id="calc-marge-dzd-current"></strong> دج / {{ produit.unite_mesure }})
             </div>
           </div>
           {% endif %}
 
           <div style="border-top:1px solid var(--border);padding-top:14px;">
-            <div style="font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Simuler une marge</div>
+            <div style="font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">محاكاة الهامش</div>
             <!-- Marge % -->
             <div class="calc-field">
-              <label class="calc-label">Marge %</label>
+              <label class="calc-label">الهامش %</label>
               <div class="calc-input-wrap">
                 <i class="bx bx-trending-up calc-icon"></i>
-                <input type="number" id="calc-marge-pct" step="0.01" min="0" placeholder="ex : 30" class="calc-input">
+                <input type="number" id="calc-marge-pct" step="0.01" min="0" placeholder="مثال: 30" class="calc-input">
               </div>
             </div>
-            <div class="calc-ou">ou</div>
+            <div class="calc-ou">أو</div>
             <!-- Marge DZD -->
             <div class="calc-field">
-              <label class="calc-label">Marge DZD / {{ produit.unite_mesure }}</label>
+              <label class="calc-label">الهامش دج / {{ produit.unite_mesure }}</label>
               <div class="calc-input-wrap">
                 <i class="bx bxs-coin calc-icon"></i>
-                <input type="number" id="calc-marge-dzd" step="0.01" min="0" placeholder="ex : 200" class="calc-input">
+                <input type="number" id="calc-marge-dzd" step="0.01" min="0" placeholder="مثال: 200" class="calc-input">
               </div>
             </div>
           </div>
 
           <!-- Result -->
           <div id="calc-result" class="calc-result" style="display:none;">
-            <div class="calc-result__label">Prix de vente suggéré</div>
+            <div class="calc-result__label">السعر المقترح للبيع</div>
             <div class="calc-result__val" id="calc-result-val">—</div>
             <div class="calc-result__sub" id="calc-result-sub"></div>
           </div>
@@ -384,16 +384,16 @@
         <i class="bx bx-block"></i>
       </div>
       <div>
-        <div id="confirm-title" class="confirm-panel__title">Désactiver le produit ?</div>
+        <div id="confirm-title" class="confirm-panel__title">تعطيل المنتج؟</div>
         <div class="confirm-panel__body">
-          Le produit <strong>{{ produit.designation }}</strong> ne sera plus disponible pour les nouveaux enregistrements de production.
+          المنتج <strong>{{ produit.designation }}</strong> لن يكون متاحاً لتسجيلات الإنتاج الجديدة.
         </div>
       </div>
       <div class="confirm-panel__actions">
-        <button type="button" id="confirm-cancel-btn" class="btn-ghost">Annuler</button>
+        <button type="button" id="confirm-cancel-btn" class="btn-ghost">إلغاء</button>
         <form method="post" action="{% url 'production:produit_fini_toggle_active' produit.pk %}">
           {% csrf_token %}
-          <button type="submit" id="confirm-submit-btn" class="btn-danger">Désactiver</button>
+          <button type="submit" id="confirm-submit-btn" class="btn-danger">تعطيل</button>
         </form>
       </div>
     </div>
@@ -507,8 +507,8 @@
   .calc-field { display:flex;flex-direction:column;gap:4px;margin-bottom:8px; }
   .calc-label { font-size:11px;font-weight:500;color:var(--text-muted); }
   .calc-input-wrap { position:relative; }
-  .calc-icon { position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--text-muted);pointer-events:none; }
-  .calc-input { width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13px;padding:8px 10px 8px 30px;transition:border-color .15s,box-shadow .15s;box-sizing:border-box; }
+  .calc-icon { position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--text-muted);pointer-events:none; }
+  .calc-input { width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13px;padding:8px 30px 8px 10px;transition:border-color .15s,box-shadow .15s;box-sizing:border-box; }
   .calc-input:focus { border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);outline:none; }
   .calc-input[disabled] { opacity:.4;cursor:not-allowed; }
   .calc-ou { font-size:11px;font-weight:600;color:var(--text-muted);text-align:center;margin:2px 0 10px; }
@@ -546,14 +546,14 @@ document.addEventListener('DOMContentLoaded', function () {
     if (isActive) {
       panelIcon.className = 'confirm-panel__icon';
       panelIcon.innerHTML = '<i class="bx bx-block"></i>';
-      panelTitle.textContent = 'Désactiver le produit ?';
-      submitBtn.textContent = 'Désactiver';
+      panelTitle.textContent = 'تعطيل المنتج؟';
+      submitBtn.textContent = 'تعطيل';
       submitBtn.className = 'btn-danger';
     } else {
       panelIcon.className = 'confirm-panel__icon activate';
       panelIcon.innerHTML = '<i class="bx bxs-check-circle"></i>';
-      panelTitle.textContent = 'Réactiver le produit ?';
-      submitBtn.textContent = 'Réactiver';
+      panelTitle.textContent = 'إعادة تفعيل المنتج؟';
+      submitBtn.textContent = 'إعادة تفعيل';
       submitBtn.className = 'btn-success';
     }
     panel.style.display = '';
@@ -613,7 +613,7 @@ document.addEventListener('DOMContentLoaded', function () {
       calcVal.textContent = result.toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' DZD';
       var mPct = ((result - base) / base * 100).toFixed(1);
       var mDzd = (result - base).toFixed(2);
-      calcSub.textContent = '+ ' + mPct + ' % de marge   (+' + mDzd + ' DZD / {{ produit.unite_mesure }})';
+      calcSub.textContent = '+ ' + mPct + ' % هامش   (+' + mDzd + ' دج / {{ produit.unite_mesure }})';
       calcResult.style.display = '';
       // Update bar dynamically
       if (barEl) {

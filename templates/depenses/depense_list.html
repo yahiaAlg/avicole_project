@@ -1,21 +1,21 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Dépenses opérationnelles — Élevage Avicole{% endblock %}
+{% block title %}المصاريف التشغيلية — تربية الدواجن{% endblock %}
 
 {% block nav_depenses %}active{% endblock %}
 
-{% block page_title %}Dépenses opérationnelles{% endblock %}
-{% block page_sub_text %}{{ page.paginator.count }} dépense{{ page.paginator.count|pluralize }} — Total filtré : {{ total|floatformat:0 }} DZD{% endblock %}
+{% block page_title %}المصاريف التشغيلية{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} مصروف — المجموع المصفى: {{ total|floatformat:0 }} دج{% endblock %}
 
 {% block topbar_actions %}
   {% if not request.user.userprofile.role == 'viewer' %}
   <a href="{% url 'depenses:depense_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouvelle dépense
+    <i class="bx bx-plus"></i> مصروف جديد
   </a>
   {% endif %}
   <a href="{% url 'depenses:dashboard' %}" class="btn-ghost">
-    <i class="bx bxs-pie-chart-alt-2"></i> Tableau de bord
+    <i class="bx bxs-pie-chart-alt-2"></i> لوحة التحكم
   </a>
 {% endblock %}
 
@@ -28,28 +28,28 @@
       <!-- Text search -->
       <div class="search-wrapper">
         <i class="bx bx-search search-icon"></i>
-        <input type="text" name="q" value="{{ q }}" placeholder="Description, référence, notes…" class="search-input" autocomplete="off">
+        <input type="text" name="q" value="{{ q }}" placeholder="الوصف، المرجع، الملاحظات…" class="search-input" autocomplete="off">
       </div>
-      <!-- Catégorie -->
+      <!-- الفئة -->
       {{ filter_form.categorie }}
-      <!-- Date début -->
+      <!-- من تاريخ -->
       <div class="date-field-wrap">
-        <label class="date-field-label">Du</label>
+        <label class="date-field-label">من</label>
         {{ filter_form.date_debut }}
       </div>
-      <!-- Date fin -->
+      <!-- إلى تاريخ -->
       <div class="date-field-wrap">
-        <label class="date-field-label">Au</label>
+        <label class="date-field-label">إلى</label>
         {{ filter_form.date_fin }}
       </div>
-      <!-- Lot -->
+      <!-- الدفعة -->
       {{ filter_form.lot }}
-      <!-- Mode de paiement -->
+      <!-- طريقة الدفع -->
       {{ filter_form.mode_paiement }}
-      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> Filtrer</button>
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> تصفية</button>
       {% if q or request.GET.categorie or request.GET.date_debut or request.GET.date_fin or request.GET.lot or request.GET.mode_paiement %}
       <a href="{% url 'depenses:depense_list' %}" class="btn-ghost btn-sm" style="color:var(--text-muted);">
-        <i class="bx bx-x"></i> Réinitialiser
+        <i class="bx bx-x"></i> إعادة ضبط
       </a>
       {% endif %}
     </form>
@@ -57,7 +57,7 @@
 
   <div class="card">
     <div class="card-header-row">
-      <div class="section-eyebrow"><i class="bx bxs-wallet"></i> Dépenses</div>
+      <div class="section-eyebrow"><i class="bx bxs-wallet"></i> المصاريف</div>
       <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:14px;color:var(--text-primary);">{{ total|floatformat:0 }} DZD</span>
     </div>
 
@@ -66,14 +66,14 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Catégorie</th>
-            <th>Description</th>
-            <th style="text-align:right;">Montant</th>
-            <th>Mode</th>
-            <th>Lot</th>
-            <th>Réf. doc.</th>
-            <th style="text-align:right;">Actions</th>
+            <th>التاريخ</th>
+            <th>الفئة</th>
+            <th>الوصف</th>
+            <th style="text-align:right;">المبلغ</th>
+            <th>طريقة الدفع</th>
+            <th>الدفعة</th>
+            <th>مرجع الوثيقة</th>
+            <th style="text-align:right;">الإجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -113,14 +113,14 @@
             </td>
             <td>
               <div class="actions-cell">
-                <a href="{% url 'depenses:depense_detail' dep.pk %}" class="action-btn" title="Détail">
+                <a href="{% url 'depenses:depense_detail' dep.pk %}" class="action-btn" title="التفاصيل">
                   <i class="bx bx-show"></i>
                 </a>
                 {% if not request.user.userprofile.role == 'viewer' %}
-                <a href="{% url 'depenses:depense_edit' dep.pk %}" class="action-btn" title="Modifier">
+                <a href="{% url 'depenses:depense_edit' dep.pk %}" class="action-btn" title="تعديل">
                   <i class="bx bxs-pencil"></i>
                 </a>
-                <a href="{% url 'depenses:depense_print' dep.pk %}" class="action-btn" title="Imprimer" target="_blank">
+                <a href="{% url 'depenses:depense_print' dep.pk %}" class="action-btn" title="طباعة" target="_blank">
                   <i class="bx bx-printer"></i>
                 </a>
                 {% if request.user.userprofile.role == 'admin' %}
@@ -129,7 +129,7 @@
                   data-delete-pk="{{ dep.pk }}"
                   data-delete-desc="{{ dep.description|truncatechars:50|escapejs }}"
                   data-delete-date="{{ dep.date|date:'d/m/Y' }}"
-                  title="Supprimer">
+                  title="حذف">
                   <i class="bx bxs-trash"></i>
                 </button>
                 {% endif %}
@@ -146,13 +146,13 @@
     {% if page.has_other_pages %}
     <div class="pagination-bar">
       {% if page.has_previous %}
-      <a href="?{% if q %}q={{ q }}&{% endif %}page={{ page.previous_page_number }}" class="page-btn" title="Page précédente"><i class="bx bx-chevron-left"></i></a>
+      <a href="?{% if q %}q={{ q }}&{% endif %}page={{ page.previous_page_number }}" class="page-btn" title="الصفحة السابقة"><i class="bx bx-chevron-left"></i></a>
       {% else %}
       <span class="page-btn page-btn--disabled"><i class="bx bx-chevron-left"></i></span>
       {% endif %}
-      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      <span class="page-info">صفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
       {% if page.has_next %}
-      <a href="?{% if q %}q={{ q }}&{% endif %}page={{ page.next_page_number }}" class="page-btn" title="Page suivante"><i class="bx bx-chevron-right"></i></a>
+      <a href="?{% if q %}q={{ q }}&{% endif %}page={{ page.next_page_number }}" class="page-btn" title="الصفحة التالية"><i class="bx bx-chevron-right"></i></a>
       {% else %}
       <span class="page-btn page-btn--disabled"><i class="bx bx-chevron-right"></i></span>
       {% endif %}
@@ -162,15 +162,15 @@
     {% else %}
     <div class="empty-state">
       <i class="bx bxs-wallet empty-state__icon"></i>
-      <div class="empty-state__title">Aucune dépense trouvée</div>
+      <div class="empty-state__title">لا توجد مصاريف</div>
       <div class="empty-state__body">
         {% if q or request.GET.categorie or request.GET.date_debut %}
-          Aucune dépense ne correspond aux filtres sélectionnés.
-          <br><a href="{% url 'depenses:depense_list' %}" style="color:var(--accent-text);">Réinitialiser les filtres</a>
+          لا توجد مصاريف تطابق المرشحات المحددة.
+          <br><a href="{% url 'depenses:depense_list' %}" style="color:var(--accent-text);">إعادة ضبط المرشحات</a>
         {% else %}
-          Aucune dépense enregistrée. Commencez par créer votre première dépense.
+          لا توجد مصاريف مسجلة. ابدأ بإنشاء أول مصروف.
           {% if not request.user.userprofile.role == 'viewer' %}
-          <br><a href="{% url 'depenses:depense_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;"><i class="bx bx-plus"></i> Nouvelle dépense</a>
+          <br><a href="{% url 'depenses:depense_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;"><i class="bx bx-plus"></i> مصروف جديد</a>
           {% endif %}
         {% endif %}
       </div>
@@ -183,14 +183,14 @@
     <div class="confirm-panel__inner">
       <div class="confirm-panel__icon"><i class="bx bxs-trash"></i></div>
       <div>
-        <div class="confirm-panel__title">Supprimer cette dépense ?</div>
+        <div class="confirm-panel__title">حذف هذا المصروف؟</div>
         <div id="confirm-delete-body" class="confirm-panel__body"></div>
       </div>
       <div class="confirm-panel__actions">
-        <button type="button" id="confirm-delete-cancel" class="btn-ghost">Annuler</button>
+        <button type="button" id="confirm-delete-cancel" class="btn-ghost">إلغاء</button>
         <form id="confirm-delete-form" method="post" action="">
           {% csrf_token %}
-          <button type="submit" class="btn-danger"><i class="bx bxs-trash"></i> Supprimer définitivement</button>
+          <button type="submit" class="btn-danger"><i class="bx bxs-trash"></i> حذف نهائي</button>
         </form>
       </div>
     </div>
@@ -208,8 +208,8 @@
   .filters-form { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
   .search-wrapper { position: relative; }
-  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; pointer-events: none; }
-  .search-input { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 9px 12px 9px 36px; width: 220px; transition: border-color .15s; }
+  .search-icon { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; pointer-events: none; }
+  .search-input { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text-primary); font-family: 'Tajawal', sans-serif; font-size: 13px; padding: 9px 36px 9px 12px; width: 220px; transition: border-color .15s; }
   .search-input:focus { border-color: var(--accent); outline: none; }
 
   .filters-form select { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text-secondary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 9px 12px; cursor: pointer; transition: border-color .15s; }
@@ -301,7 +301,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const desc = btn.dataset.deleteDesc;
       const date = btn.dataset.deleteDate;
       form.action = '/depenses/depenses/' + pk + '/supprimer/';
-      bodyEl.innerHTML = 'La dépense <strong>' + desc + '</strong> du <strong>' + date + '</strong> sera supprimée définitivement. Cette action est irréversible.';
+      bodyEl.innerHTML = 'سيتم حذف المصروف <strong>' + desc + '</strong> بتاريخ <strong>' + date + '</strong> بشكل نهائي. هذا الإجراء لا يمكن التراجع عنه.';
       panel.style.display = '';
     });
   });

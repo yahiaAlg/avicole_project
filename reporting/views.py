@@ -75,7 +75,7 @@ def _require_role(request, allowed_roles: set):
         return True
     messages.error(
         request,
-        "Vous n'avez pas les permissions nécessaires pour accéder à ce rapport.",
+        "ليس لديك الصلاحيات اللازمة للوصول إلى هذا التقرير.",
     )
     return False
 
@@ -215,7 +215,7 @@ def reporting_dashboard(request):
         request,
         "reporting/dashboard.html",
         {
-            "title": "Rapports & Tableaux de Bord",
+            "title": "التقارير ولوحات التحكم",
             "role": role,
             "is_financial": role in FINANCIAL_ROLES,
             "is_admin": role in ADMIN_ROLES,
@@ -312,7 +312,7 @@ def rapport_supplier_aging(request):
         request,
         "reporting/supplier_aging.html",
         {
-            "title": "Balance Fournisseur par Ancienneté",
+            "title": "رصيد المورد حسب الأقدمية",
             "buckets": buckets,
             "totaux": totaux,
             "fournisseurs": fournisseurs,
@@ -409,7 +409,7 @@ def rapport_historique_reglements(request):
         request,
         "reporting/historique_reglements.html",
         {
-            "title": "Historique des Règlements",
+            "title": "سجل التسويات",
             "page": page,
             "totaux": totaux,
             "fournisseurs": fournisseurs,
@@ -523,7 +523,7 @@ def rapport_repartition_reglements(request):
         request,
         "reporting/repartition_reglements.html",
         {
-            "title": "Répartition des Règlements",
+            "title": "توزيع التسويات",
             "page": page,
             "supplier_totals": supplier_totals,
             "mode_totals": mode_totals_display,
@@ -653,7 +653,7 @@ def rapport_dettes_fournisseurs(request):
         request,
         "reporting/dettes_fournisseurs.html",
         {
-            "title": "Dettes en Cours par Fournisseur",
+            "title": "الديون الجارية حسب المورد",
             "rows": rows,
             "grand_total_dette": grand_total_dette,
             "today": today,
@@ -791,7 +791,7 @@ def rapport_rentabilite_lot(request):
         request,
         "reporting/rentabilite_lot.html",
         {
-            "title": "Rentabilité par Lot",
+            "title": "ربحية الدفعة",
             "lot_rows": lot_rows,
             "totaux": totaux,
             "lot_obj": lot_obj,
@@ -885,7 +885,7 @@ def rapport_cash_flow(request):
         request,
         "reporting/cash_flow.html",
         {
-            "title": "Résumé de Trésorerie",
+            "title": "ملخص الخزينة",
             "summary": summary,
             "date_debut": date_debut,
             "date_fin": date_fin,
@@ -1012,7 +1012,7 @@ def rapport_etat_stocks(request):
         request,
         "reporting/etat_stocks.html",
         {
-            "title": "État des Stocks",
+            "title": "حالة المخزون",
             "stocks_intrants": stocks_intrants,
             "stocks_produits": stocks_produits,
             "valeur_intrants": valeur_intrants,
@@ -1123,7 +1123,7 @@ def rapport_consommation_lot(request):
         request,
         "reporting/consommation_lot.html",
         {
-            "title": "Consommation par Lot",
+            "title": "الاستهلاك حسب الدفعة",
             "page": page,
             "par_intrant": par_intrant,
             "nb_total": nb_total,
@@ -1219,7 +1219,7 @@ def rapport_creances_clients(request):
         request,
         "reporting/creances_clients.html",
         {
-            "title": "Créances Clients",
+            "title": "مستحقات العملاء",
             "buckets": buckets,
             "totaux": totaux,
             "clients": clients,
@@ -1289,7 +1289,7 @@ def rapport_historique_bl_clients(request):
                 bl.date_bl,
                 bl.get_statut_display(),
                 bl.montant_total,
-                "Oui" if bl.statut == BLClient.STATUT_FACTURE else "Non",
+                "نعم" if bl.statut == BLClient.STATUT_FACTURE else "لا",
             ]
             for bl in qs
         ]
@@ -1302,7 +1302,7 @@ def rapport_historique_bl_clients(request):
         request,
         "reporting/historique_bl_clients.html",
         {
-            "title": "Historique BL Clients",
+            "title": "سجل وصولات تسليم العملاء",
             "page": page,
             "nb_total": agg["nb"] or 0,
             "clients": clients,
@@ -1377,7 +1377,7 @@ def rapport_production_dashboard(request):
         request,
         "reporting/production_dashboard.html",
         {
-            "title": "Tableau de Bord Production",
+            "title": "لوحة تحكم الإنتاج",
             "rows": rows,
             "totaux": totaux,
             "date_debut": date_debut,
@@ -1466,7 +1466,7 @@ def rapport_depenses(request):
         request,
         "reporting/depenses.html",
         {
-            "title": "Rapport des Dépenses",
+            "title": "تقرير المصروفات",
             "summary": summary,
             "page": page,
             "categories": categories,
@@ -1518,7 +1518,7 @@ def rapport_consommation_lot_detail(request, lot_pk):
         request,
         "reporting/consommation_lot_detail.html",
         {
-            "title": f"Consommation — {lot.designation}",
+            "title": f"الاستهلاك — {lot.designation}",
             "lot": lot,
             "summary": summary,
         },

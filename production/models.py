@@ -24,50 +24,50 @@ class ProduitFini(models.Model):
     TYPE_AUTRE = "autre"
 
     TYPE_CHOICES = [
-        (TYPE_VOLAILLE_VIVANTE, "Volaille vivante"),
-        (TYPE_CARCASSE, "Carcasse entière"),
-        (TYPE_DECOUPE, "Découpe"),
-        (TYPE_ABATS, "Abats"),
-        (TYPE_OEUFS, "Œufs"),
-        (TYPE_AUTRE, "Autre"),
+        (TYPE_VOLAILLE_VIVANTE, "دواجن حية"),
+        (TYPE_CARCASSE, "ذبيحة كاملة"),
+        (TYPE_DECOUPE, "قطع"),
+        (TYPE_ABATS, "مخلفات الذبح"),
+        (TYPE_OEUFS, "بيض"),
+        (TYPE_AUTRE, "أخرى"),
     ]
 
     UNITE_CHOICES = [
-        ("unite", "Unité / Tête"),
-        ("kg", "Kilogramme (kg)"),
-        ("plateau", "Plateau"),
-        ("caisse", "Caisse"),
-        ("paquet", "Paquet"),
+        ("unite", "وحدة / رأس"),
+        ("kg", "كيلوغرام (كغ)"),
+        ("plateau", "صينية"),
+        ("caisse", "صندوق"),
+        ("paquet", "طرد"),
     ]
 
-    designation = models.CharField(max_length=255, verbose_name="Désignation")
+    designation = models.CharField(max_length=255, verbose_name="التسمية")
     type_produit = models.CharField(
         max_length=30,
         choices=TYPE_CHOICES,
         default=TYPE_VOLAILLE_VIVANTE,
-        verbose_name="Type de produit",
+        verbose_name="نوع المنتج",
     )
     unite_mesure = models.CharField(
         max_length=20,
         choices=UNITE_CHOICES,
         default="unite",
-        verbose_name="Unité de mesure",
+        verbose_name="وحدة القياس",
     )
     prix_vente_defaut = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         default=0,
-        verbose_name="Prix de vente par défaut (DZD)",
-        help_text="Pré-rempli sur les lignes BL client — modifiable.",
+        verbose_name="سعر البيع الافتراضي (د.ج)",
+        help_text="يُملأ مسبقاً في أسطر وصل تسليم العميل — قابل للتعديل.",
     )
-    actif = models.BooleanField(default=True, verbose_name="Actif")
-    notes = models.TextField(blank=True, verbose_name="Notes")
+    actif = models.BooleanField(default=True, verbose_name="نشط")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Produit fini"
-        verbose_name_plural = "Produits finis"
+        verbose_name = "منتج نهائي"
+        verbose_name_plural = "المنتجات النهائية"
         ordering = ["type_produit", "designation"]
 
     def __str__(self):
@@ -93,41 +93,41 @@ class ProductionRecord(models.Model):
     STATUT_BROUILLON = "brouillon"
     STATUT_VALIDE = "valide"
     STATUT_CHOICES = [
-        (STATUT_BROUILLON, "Brouillon"),
-        (STATUT_VALIDE, "Validé"),
+        (STATUT_BROUILLON, "مسودة"),
+        (STATUT_VALIDE, "معتمد"),
     ]
 
     lot = models.ForeignKey(
         "elevage.LotElevage",
         on_delete=models.PROTECT,
         related_name="productions",
-        verbose_name="Lot d'élevage",
+        verbose_name="دفعة التربية",
     )
-    date_production = models.DateField(verbose_name="Date de production / abattage")
+    date_production = models.DateField(verbose_name="تاريخ الإنتاج / الذبح")
     nombre_oiseaux_abattus = models.PositiveIntegerField(
-        verbose_name="Nombre d'oiseaux abattus / récoltés",
+        verbose_name="عدد الطيور المذبوحة / المحصودة",
         validators=[MinValueValidator(1)],
     )
     poids_total_kg = models.DecimalField(
         max_digits=12,
         decimal_places=3,
-        verbose_name="Poids total (kg)",
+        verbose_name="الوزن الإجمالي (كغ)",
         default=0,
     )
     poids_moyen_kg = models.DecimalField(
         max_digits=8,
         decimal_places=3,
-        verbose_name="Poids moyen par oiseau (kg)",
+        verbose_name="متوسط الوزن لكل طير (كغ)",
         default=0,
-        help_text="Auto-calculé si poids_total fourni.",
+        help_text="يُحسب تلقائياً إذا تم إدخال الوزن الإجمالي.",
     )
     statut = models.CharField(
         max_length=20,
         choices=STATUT_CHOICES,
         default=STATUT_BROUILLON,
-        verbose_name="Statut",
+        verbose_name="الحالة",
     )
-    notes = models.TextField(blank=True, verbose_name="Notes")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -139,8 +139,8 @@ class ProductionRecord(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Enregistrement de production"
-        verbose_name_plural = "Enregistrements de production"
+        verbose_name = "سجل إنتاج"
+        verbose_name_plural = "سجلات الإنتاج"
         ordering = ["-date_production"]
 
     def __str__(self):
@@ -165,38 +165,38 @@ class ProductionLigne(models.Model):
         ProductionRecord,
         on_delete=models.CASCADE,
         related_name="lignes",
-        verbose_name="Enregistrement de production",
+        verbose_name="سجل الإنتاج",
     )
     produit_fini = models.ForeignKey(
         ProduitFini,
         on_delete=models.PROTECT,
         related_name="lignes_production",
-        verbose_name="Produit fini",
+        verbose_name="المنتج النهائي",
     )
     quantite = models.DecimalField(
         max_digits=12,
         decimal_places=3,
-        verbose_name="Quantité produite",
+        verbose_name="الكمية المنتجة",
         validators=[MinValueValidator(0.001)],
     )
     poids_unitaire_kg = models.DecimalField(
         max_digits=8,
         decimal_places=3,
         default=0,
-        verbose_name="Poids unitaire (kg)",
+        verbose_name="الوزن لكل وحدة (كغ)",
     )
     cout_unitaire_estime = models.DecimalField(
         max_digits=12,
         decimal_places=4,
         default=0,
-        verbose_name="Coût unitaire estimé (DZD)",
-        help_text="Alloué depuis le coût total du lot.",
+        verbose_name="التكلفة الوحدوية المقدرة (د.ج)",
+        help_text="مخصص من التكلفة الإجمالية للدفعة.",
     )
-    notes = models.TextField(blank=True, verbose_name="Notes")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
 
     class Meta:
-        verbose_name = "Ligne de production"
-        verbose_name_plural = "Lignes de production"
+        verbose_name = "سطر إنتاج"
+        verbose_name_plural = "أسطر الإنتاج"
 
     def __str__(self):
         return (

@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Acompte — {{ acompte.fournisseur.nom }} — Élevage Avicole{% endblock %}
+{% block title %}دفعة مقدمة — {{ acompte.fournisseur.nom }} — تربية الدواجن{% endblock %}
 
 {% block nav_reglements %}active{% endblock %}
 
-{% block page_title %}Acompte Fournisseur{% endblock %}
+{% block page_title %}دفعة مقدمة للمورد{% endblock %}
 {% block page_sub_text %}{{ acompte.fournisseur.nom }} · {{ acompte.date|date:"d/m/Y" }}{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'achats:acompte_fournisseur_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour
+    <i class="bx bx-arrow-back"></i> رجوع
   </a>
 {% endblock %}
 
@@ -27,13 +27,13 @@
           <i class="bx bxs-piggy-bank"></i>
         </div>
         <div class="header-meta">
-          <div class="header-label">Acompte fournisseur</div>
+          <div class="header-label">دفعة مقدمة للمورد</div>
           <div class="header-amount">{{ acompte.montant|floatformat:0 }} DZD</div>
-          <div class="header-date">Généré le {{ acompte.date|date:"d/m/Y" }}</div>
+          <div class="header-date">تاريخ الإنشاء: {{ acompte.date|date:"d/m/Y" }}</div>
         </div>
         <div class="header-status">
           {% if acompte.utilise %}
-            <span class="pill-neutral pill-lg"><i class="bx bxs-check-circle"></i> Utilisé</span>
+            <span class="pill-neutral pill-lg"><i class="bx bxs-check-circle"></i> مستخدمة</span>
           {% else %}
             <span class="pill-warning pill-lg"><i class="bx bxs-piggy-bank"></i> En attente</span>
           {% endif %}
@@ -45,19 +45,19 @@
     <div class="explain-banner">
       <i class="bx bxs-info-circle" style="flex-shrink:0;color:var(--accent-text);font-size:16px;"></i>
       <div>
-        Cet acompte a été généré <strong>automatiquement</strong> par le moteur FIFO car le règlement
+        تم إنشاء هذه الدفعة المقدمة <strong>تلقائيًا</strong> بواسطة محرك FIFO لأن التسوية
         {% if acompte.reglement %}du {{ acompte.reglement.date_reglement|date:"d/m/Y" }}{% endif %}
-        dépassait la dette totale du fournisseur (BR-REG-04).
-        Il sera automatiquement déduit lors des prochaines allocations de règlement.
+        تجاوزت إجمالي ديون المورد (BR-REG-04).
+        سيتم خصمه تلقائيًا عند تخصيصات التسوية القادمة.
       </div>
     </div>
 
     <!-- Detail grid -->
     <div class="detail-card">
-      <div class="form-card__title"><i class="bx bxs-file-txt"></i> Informations</div>
+      <div class="form-card__title"><i class="bx bxs-file-txt"></i> معلومات</div>
       <div class="info-grid">
         <div class="info-cell">
-          <div class="info-cell__label">Fournisseur</div>
+          <div class="info-cell__label">المورد</div>
           <div class="info-cell__val">
             <a href="{% url 'achats:fournisseur_tableau_de_bord' acompte.fournisseur.pk %}" class="link-accent">
               {{ acompte.fournisseur.nom }}
@@ -65,32 +65,32 @@
           </div>
         </div>
         <div class="info-cell">
-          <div class="info-cell__label">Montant</div>
+          <div class="info-cell__label">المبلغ</div>
           <div class="info-cell__val info-cell__val--big {% if not acompte.utilise %}info-cell__val--amber{% endif %}">
             {{ acompte.montant|floatformat:0 }} DZD
           </div>
         </div>
         <div class="info-cell">
-          <div class="info-cell__label">Date</div>
+          <div class="info-cell__label">التاريخ</div>
           <div class="info-cell__val">{{ acompte.date|date:"d/m/Y" }}</div>
         </div>
         <div class="info-cell">
-          <div class="info-cell__label">Statut</div>
+          <div class="info-cell__label">الحالة</div>
           <div class="info-cell__val">
             {% if acompte.utilise %}
-              <span class="pill-neutral"><i class="bx bxs-check-circle"></i> Utilisé</span>
+              <span class="pill-neutral"><i class="bx bxs-check-circle"></i> مستخدمة</span>
             {% else %}
-              <span class="pill-warning"><i class="bx bxs-piggy-bank"></i> En attente d'utilisation</span>
+              <span class="pill-warning"><i class="bx bxs-piggy-bank"></i> في انتظار الاستخدام</span>
             {% endif %}
           </div>
         </div>
 
         {% if acompte.reglement %}
         <div class="info-cell info-cell--full">
-          <div class="info-cell__label">Règlement source</div>
+          <div class="info-cell__label">مصدر التسوية</div>
           <div class="info-cell__val">
             <a href="{% url 'achats:reglement_fournisseur_detail' acompte.reglement.pk %}" class="ref-link">
-              Règlement #{{ acompte.reglement.pk }}
+              تسوية #{{ acompte.reglement.pk }}
             </a>
             <span style="color:var(--text-muted);font-size:12px;margin-left:8px;">
               {{ acompte.reglement.date_reglement|date:"d/m/Y" }}
@@ -103,7 +103,7 @@
 
         {% if acompte.notes %}
         <div class="info-cell info-cell--full">
-          <div class="info-cell__label">Notes</div>
+          <div class="info-cell__label">ملاحظات</div>
           <div class="info-cell__val" style="font-size:13px;color:var(--text-muted);line-height:1.6;">{{ acompte.notes }}</div>
         </div>
         {% endif %}
@@ -112,14 +112,14 @@
 
     <!-- Timeline / audit trail -->
     <div class="detail-card">
-      <div class="form-card__title"><i class="bx bx-history"></i> Traçabilité</div>
+      <div class="form-card__title"><i class="bx bx-history"></i> تتبع العمليات</div>
       <div class="timeline">
         <!-- Step 1: reglement created -->
         {% if acompte.reglement %}
         <div class="timeline-item timeline-item--done">
           <div class="timeline-dot timeline-dot--green"></div>
           <div class="timeline-body">
-            <div class="timeline-title">Règlement enregistré</div>
+            <div class="timeline-title">تسوية مسجلة</div>
             <div class="timeline-meta">
               {{ acompte.reglement.date_reglement|date:"d/m/Y" }}
               · {{ acompte.reglement.montant|floatformat:0 }} DZD
@@ -132,8 +132,8 @@
         <div class="timeline-item timeline-item--done">
           <div class="timeline-dot timeline-dot--green"></div>
           <div class="timeline-body">
-            <div class="timeline-title">Surplus détecté — Acompte créé (BR-REG-04)</div>
-            <div class="timeline-meta">{{ acompte.date|date:"d/m/Y" }} · {{ acompte.montant|floatformat:0 }} DZD crédité</div>
+            <div class="timeline-title">اكتشاف فائض — دفعة مقدمة تم إنشاؤها (BR-REG-04)</div>
+            <div class="timeline-meta">{{ acompte.date|date:"d/m/Y" }} · {{ acompte.montant|floatformat:0 }} DZD مُقيَّدة</div>
           </div>
         </div>
         <!-- Step 3: utilisation -->
@@ -141,13 +141,13 @@
           <div class="timeline-dot {% if acompte.utilise %}timeline-dot--green{% else %}timeline-dot--amber{% endif %}"></div>
           <div class="timeline-body">
             <div class="timeline-title">
-              {% if acompte.utilise %}Acompte utilisé{% else %}En attente d'utilisation{% endif %}
+              {% if acompte.utilise %}تم استخدام الدفعة المقدمة{% else %}في انتظار الاستخدام{% endif %}
             </div>
             <div class="timeline-meta">
               {% if acompte.utilise %}
-                Déduit lors d'un règlement ultérieur.
+                سيتم خصمه عند التسوية التالية.
               {% else %}
-                Sera automatiquement alloué lors du prochain règlement FIFO pour ce fournisseur.
+                سيُخصص تلقائيًا عند تسوية FIFO القادمة لهذا المورد.
               {% endif %}
             </div>
           </div>
@@ -164,46 +164,46 @@
       <div class="aside-metric-card__icon">
         <i class="bx bxs-piggy-bank"></i>
       </div>
-      <div class="aside-metric-card__label">Montant acompte</div>
+      <div class="aside-metric-card__label">مبلغ الدفعة المقدمة</div>
       <div class="aside-metric-card__val">{{ acompte.montant|floatformat:0 }}<span class="aside-metric-card__currency">DZD</span></div>
       <div class="aside-metric-card__status">
         {% if acompte.utilise %}
-          <span class="pill-neutral">Utilisé</span>
+          <span class="pill-neutral">مستخدمة</span>
         {% else %}
-          <span class="pill-warning">Disponible</span>
+          <span class="pill-warning">متاحة</span>
         {% endif %}
       </div>
     </div>
 
     <div class="aside-info-card">
-      <div class="aside-info-card__title">Actions rapides</div>
+      <div class="aside-info-card__title">إجراءات سريعة</div>
       <div style="display:flex;flex-direction:column;gap:6px;">
         <a href="{% url 'achats:fournisseur_tableau_de_bord' acompte.fournisseur.pk %}" class="aside-action-btn aside-action-btn--primary">
-          <i class="bx bxs-dashboard"></i> Tableau de bord fournisseur
+          <i class="bx bxs-dashboard"></i> لوحة تحكم المورد
         </a>
         <a href="{% url 'achats:acompte_fournisseur_list' %}?fournisseur={{ acompte.fournisseur.pk }}" class="aside-action-btn">
-          <i class="bx bxs-piggy-bank"></i> Acomptes de {{ acompte.fournisseur.nom }}
+          <i class="bx bxs-piggy-bank"></i> دفعات مقدمة لـ {{ acompte.fournisseur.nom }}
         </a>
         {% if acompte.reglement %}
         <a href="{% url 'achats:reglement_fournisseur_detail' acompte.reglement.pk %}" class="aside-action-btn">
-          <i class="bx bxs-coin"></i> Voir le règlement source
+          <i class="bx bxs-coin"></i> عرض مصدر التسوية
         </a>
         {% endif %}
         <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ acompte.fournisseur.pk }}" class="aside-action-btn">
-          <i class="bx bxs-coin"></i> Nouveau règlement
+          <i class="bx bxs-coin"></i> تسوية جديدة
         </a>
       </div>
     </div>
 
     <div class="aside-info-card">
-      <div class="aside-info-card__title">Informations système</div>
+      <div class="aside-info-card__title">معلومات النظام</div>
       <div class="aside-info-row">
-        <span class="aside-info-label">Créé le</span>
+        <span class="aside-info-label">تاريخ الإنشاء</span>
         <span class="aside-info-val">{{ acompte.created_at|date:"d/m/Y" }}</span>
       </div>
       <div class="aside-info-row">
         <span class="aside-info-label">Statut</span>
-        <span class="aside-info-val">{% if acompte.utilise %}Utilisé{% else %}Disponible{% endif %}</span>
+        <span class="aside-info-val">{% if acompte.utilise %}Utilisé{% else %}متاحة{% endif %}</span>
       </div>
     </div>
 
@@ -273,7 +273,7 @@
   }
   .timeline-item:not(:last-child)::after {
     content: ''; position: absolute;
-    left: 9px; top: 20px; bottom: 0;
+    right: 9px; top: 20px; bottom: 0;
     width: 2px; background: var(--border);
   }
   .timeline-item--done::after { background: var(--accent); }
@@ -307,7 +307,7 @@
   }
   .aside-metric-card__label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--text-muted); font-weight: 600; margin-bottom: 6px; }
   .aside-metric-card__val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 28px; color: var(--text-primary); line-height: 1; }
-  .aside-metric-card__currency { font-size: 14px; font-weight: 600; color: var(--text-muted); margin-left: 4px; }
+  .aside-metric-card__currency { font-size: 14px; font-weight: 600; color: var(--text-muted); margin-right: 4px; }
   .aside-metric-card__status { margin-top: 10px; }
 
   .aside-info-card {

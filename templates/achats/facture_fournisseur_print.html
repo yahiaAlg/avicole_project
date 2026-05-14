@@ -1,14 +1,14 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Facture {{ facture.reference }} — {{ facture.fournisseur.nom }}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Nunito:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #f4f6f4; color: #111; font-family: 'Inter', sans-serif; font-size: 13px; }
+    body { background: #f4f6f4; color: #111; font-family: 'Tajawal', 'Inter', sans-serif; font-size: 13px; direction: rtl; }
 
     /* Toolbar (no-print) */
     .no-print-bar {
@@ -39,7 +39,7 @@
     /* Header */
     .doc-header {
       display: flex; justify-content: space-between; align-items: flex-start;
-      margin-bottom: 28px; padding-bottom: 20px; border-bottom: 2px solid #111;
+      margin-bottom: 28px; padding-bottom: 20px; border-bottom: 2px solid #111; direction: rtl;
     }
     .company-name { font-family: 'Nunito', sans-serif; font-size: 20px; font-weight: 800; color: #111; margin-bottom: 4px; }
     .company-meta { font-size: 11px; color: #555; line-height: 1.7; }
@@ -62,7 +62,7 @@
 
     /* Financial summary */
     .fin-row {
-      display: flex; justify-content: flex-end; gap: 32px;
+      display: flex; justify-content: flex-start; gap: 32px;
       background: #f8f9f8; border: 1px solid #e5e7e5;
       border-radius: 8px; padding: 14px 18px; margin-bottom: 24px;
     }
@@ -99,7 +99,7 @@
       padding: 9px 10px; font-weight: 700; font-size: 13px;
       border-top: 2px solid #111; background: #f8f9f8;
     }
-    .total-row td:last-child { font-size: 15px; text-align: right; }
+    .total-row td:last-child { font-size: 15px; text-align: left; }
 
     /* Allocations */
     .alloc-section { margin-top: 24px; }
@@ -124,9 +124,9 @@
 <body>
 
 <div class="no-print no-print-bar">
-  <a href="javascript:history.back()" class="btn-back">← Retour</a>
-  <span>Facture {{ facture.reference }} — {{ facture.fournisseur.nom }}</span>
-  <button class="btn-print" id="print-btn">🖨 Imprimer</button>
+  <a href="javascript:history.back()" class="btn-back">→ رجوع</a>
+  <span>فاتورة {{ facture.reference }} — {{ facture.fournisseur.nom }}</span>
+  <button class="btn-print" id="print-btn">🖨 طباعة</button>
 </div>
 
 <div class="print-preview">
@@ -140,18 +140,18 @@
       <div class="company-name">{{ company.nom }}</div>
       <div class="company-meta">
         {{ company.adresse }}{% if company.wilaya %} — {{ company.wilaya }}{% endif %}<br>
-        {% if company.telephone %}Tél : {{ company.telephone }}{% if company.telephone_2 %} / {{ company.telephone_2 }}{% endif %}<br>{% endif %}
+        {% if company.telephone %}هاتف : {{ company.telephone }}{% if company.telephone_2 %} / {{ company.telephone_2 }}{% endif %}<br>{% endif %}
         {% if company.nif %}NIF : {{ company.nif }}{% if company.rc %} — RC : {{ company.rc }}{% endif %}{% endif %}
       </div>
     </div>
     <div class="doc-title-block">
-      <div class="doc-title">FACTURE FOURNISSEUR</div>
+      <div class="doc-title">فاتورة مورد</div>
       <div class="doc-ref">{{ facture.reference }}</div>
       <div style="margin-top:8px;">
-        {% if facture.statut == "non_paye" %}<span class="status-badge status-non-paye">Non payée</span>
-        {% elif facture.statut == "partiellement_paye" %}<span class="status-badge status-part-paye">Part. payée</span>
-        {% elif facture.statut == "paye" %}<span class="status-badge status-paye">Payée</span>
-        {% elif facture.statut == "en_litige" %}<span class="status-badge status-en-litige">En litige</span>
+        {% if facture.statut == "non_paye" %}<span class="status-badge status-non-paye">غير مدفوعة</span>
+        {% elif facture.statut == "partiellement_paye" %}<span class="status-badge status-part-paye">مدفوعة جزئياً</span>
+        {% elif facture.statut == "paye" %}<span class="status-badge status-paye">مدفوعة</span>
+        {% elif facture.statut == "en_litige" %}<span class="status-badge status-en-litige">نزاع</span>
         {% endif %}
       </div>
     </div>
@@ -160,20 +160,20 @@
   <!-- Meta info -->
   <div class="meta-grid">
     <div class="meta-box">
-      <div class="meta-label">Fournisseur</div>
+      <div class="meta-label">المورد</div>
       <div class="meta-val">{{ facture.fournisseur.nom }}</div>
       {% if facture.fournisseur.adresse %}<div style="font-size:12px;color:#555;margin-top:3px;">{{ facture.fournisseur.adresse }}</div>{% endif %}
       {% if facture.fournisseur.telephone %}<div style="font-size:12px;color:#555;">{{ facture.fournisseur.telephone }}</div>{% endif %}
       {% if facture.fournisseur.nif %}<div style="font-size:11px;color:#7a8c78;margin-top:2px;">NIF : {{ facture.fournisseur.nif }}</div>{% endif %}
     </div>
     <div class="meta-box">
-      <div class="meta-label">Informations facture</div>
-      <div class="meta-val">Date : {{ facture.date_facture|date:"d/m/Y" }}</div>
+      <div class="meta-label">معلومات الفاتورة</div>
+      <div class="meta-val">التاريخ : {{ facture.date_facture|date:"d/m/Y" }}</div>
       {% if facture.date_echeance %}
-      <div style="font-size:12px;color:#555;margin-top:3px;">Échéance : {{ facture.date_echeance|date:"d/m/Y" }}</div>
+      <div style="font-size:12px;color:#555;margin-top:3px;">الاستحقاق : {{ facture.date_echeance|date:"d/m/Y" }}</div>
       {% endif %}
       <div style="font-size:12px;color:#555;margin-top:3px;">
-        Type : {% if facture.type_facture == "service" %}Service{% else %}Marchandises{% endif %}
+        النوع : {% if facture.type_facture == "service" %}خدمة{% else %}بضائع{% endif %}
       </div>
     </div>
   </div>
@@ -181,15 +181,15 @@
   <!-- Financial summary -->
   <div class="fin-row">
     <div class="fin-item">
-      <div class="fin-item__label">Montant total</div>
+      <div class="fin-item__label">المبلغ الإجمالي</div>
       <div class="fin-item__val">{{ facture.montant_total|floatformat:0 }} DZD</div>
     </div>
     <div class="fin-item">
-      <div class="fin-item__label">Montant réglé</div>
+      <div class="fin-item__label">المبلغ المدفوع</div>
       <div class="fin-item__val fin-item__val--green">{{ facture.montant_regle|floatformat:0 }} DZD</div>
     </div>
     <div class="fin-item">
-      <div class="fin-item__label">Reste à payer</div>
+      <div class="fin-item__label">المتبقي للدفع</div>
       <div class="fin-item__val {% if facture.reste_a_payer > 0 %}fin-item__val--red{% else %}fin-item__val--green{% endif %}">
         {{ facture.reste_a_payer|floatformat:0 }} DZD
       </div>
@@ -202,18 +202,18 @@
     <div class="bl-section__header">
       <span>BL : {{ bl.reference }}</span>
       <span class="bl-section__date">{{ bl.date_bl|date:"d/m/Y" }}{% if bl.reference_fournisseur %} · Réf. four. : {{ bl.reference_fournisseur }}{% endif %}</span>
-      <span style="font-family:'Nunito',sans-serif;font-weight:700;">{{ bl.montant_total|floatformat:0 }} DZD</span>
+      <span style="font-family:'Nunito',sans-serif;font-weight:700;margin-right:auto;">{{ bl.montant_total|floatformat:0 }} DZD</span>
     </div>
     <table>
       <thead>
         <tr>
           <th>#</th>
-          <th>Désignation</th>
-          <th>Catégorie</th>
-          <th>Unité</th>
-          <th style="text-align:right;">Quantité</th>
-          <th style="text-align:right;">Prix unitaire</th>
-          <th style="text-align:right;">Montant (DZD)</th>
+          <th>التسمية</th>
+          <th>الفئة</th>
+          <th>الوحدة</th>
+          <th style="text-align:left;">الكمية</th>
+          <th style="text-align:left;">سعر الوحدة</th>
+          <th style="text-align:left;">المبلغ (دج)</th>
         </tr>
       </thead>
       <tbody>
@@ -223,9 +223,9 @@
           <td style="font-weight:600;">{{ ligne.intrant.designation }}</td>
           <td>{{ ligne.intrant.categorie.libelle }}</td>
           <td>{{ ligne.intrant.unite_mesure }}</td>
-          <td style="text-align:right;">{{ ligne.quantite|floatformat:3 }}</td>
-          <td style="text-align:right;color:#555;">{{ ligne.prix_unitaire|floatformat:4 }}</td>
-          <td style="text-align:right;font-weight:600;">{{ ligne.montant_total|floatformat:0 }}</td>
+          <td style="text-align:left;">{{ ligne.quantite|floatformat:3 }}</td>
+          <td style="text-align:left;color:#555;">{{ ligne.prix_unitaire|floatformat:4 }}</td>
+          <td style="text-align:left;font-weight:600;">{{ ligne.montant_total|floatformat:0 }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -237,7 +237,7 @@
   <table class="total-section">
     <tfoot>
       <tr class="total-row">
-        <td style="text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#555;">Total général</td>
+        <td style="text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#555;">المجموع الكلي</td>
         <td style="width:140px;">{{ facture.montant_total|floatformat:0 }} DZD</td>
       </tr>
     </tfoot>
@@ -246,14 +246,14 @@
   <!-- Allocations -->
   {% if allocations %}
   <div class="alloc-section">
-    <div class="alloc-section__title">Historique des règlements</div>
+    <div class="alloc-section__title">سجل المدفوعات</div>
     <table>
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Mode de paiement</th>
-          <th>Référence paiement</th>
-          <th style="text-align:right;">Montant alloué (DZD)</th>
+          <th>التاريخ</th>
+          <th>طريقة الدفع</th>
+          <th>مرجع الدفع</th>
+          <th style="text-align:left;">المبلغ المخصص (دج)</th>
         </tr>
       </thead>
       <tbody>
@@ -262,7 +262,7 @@
           <td>{{ alloc.reglement.date_reglement|date:"d/m/Y" }}</td>
           <td>{{ alloc.reglement.get_mode_paiement_display }}</td>
           <td style="color:#7a8c78;">{{ alloc.reglement.reference_paiement|default:"—" }}</td>
-          <td style="text-align:right;font-weight:600;color:#15803d;">{{ alloc.montant_alloue|floatformat:0 }}</td>
+          <td style="text-align:left;font-weight:600;color:#15803d;">{{ alloc.montant_alloue|floatformat:0 }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -273,7 +273,7 @@
   <!-- Notes -->
   {% if facture.notes %}
   <div style="margin-top:20px;padding:12px 14px;background:#f8f9f8;border-radius:6px;border:1px solid #e5e7e5;">
-    <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#7a8c78;margin-bottom:5px;">Notes</div>
+    <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#7a8c78;margin-bottom:5px;">ملاحظات</div>
     <div style="font-size:12.5px;color:#333;line-height:1.5;">{{ facture.notes }}</div>
   </div>
   {% endif %}

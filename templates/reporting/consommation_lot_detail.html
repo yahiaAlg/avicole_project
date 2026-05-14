@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Consommation — {{ lot.designation }} — Élevage Avicole{% endblock %}
+{% block title %}الاستهلاك — {{ lot.designation }} — تربية الدواجن{% endblock %}
 {% block nav_rapports %}active{% endblock %}
 
-{% block page_title %}Consommation — {{ lot.designation }}{% endblock %}
+{% block page_title %}الاستهلاك — {{ lot.designation }}{% endblock %}
 {% block page_sub_text %}
-  Durée : {{ summary.duree_elevage }} j —
-  Aliment : {{ summary.consommation_totale_aliment_kg|floatformat:2 }} kg —
-  IC : {% if summary.ic %}{{ summary.ic|floatformat:3 }}{% else %}N/A{% endif %}
+  المدة: {{ summary.duree_elevage }} يوم —
+  الأعلاف: {{ summary.consommation_totale_aliment_kg|floatformat:2 }} كغ —
+  م.ت: {% if summary.ic %}{{ summary.ic|floatformat:3 }}{% else %}N/A{% endif %}
 {% endblock %}
 {% block topbar_actions %}
-<a href="?export=csv" class="btn-ghost btn-sm"><i class="bx bxs-spreadsheet"></i> Exporter CSV</a>
-<a href="{% url 'reporting:consommation_lot' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> Tous les lots</a>
+<a href="?export=csv" class="btn-ghost btn-sm"><i class="bx bxs-spreadsheet"></i> تصدير CSV</a>
+<a href="{% url 'reporting:consommation_lot' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> كل الدفعات</a>
 {% endblock %}
 
 {% block extra_css %}
@@ -52,12 +52,12 @@
   <div class="section-card__body" style="padding: 14px 20px;">
     <div style="display:flex; gap: 14px; flex-wrap: wrap; align-items: center;">
       <span class="lot-meta-badge"><i class="bx bxs-home" style="color:var(--accent-text);"></i> {{ lot.batiment.nom }}</span>
-      <span class="lot-meta-badge"><i class="bx bxs-calendar" style="color:#0284c7;"></i> Ouvert le {{ lot.date_ouverture|date:"d/m/Y" }}</span>
-      {% if lot.date_fermeture %}<span class="lot-meta-badge"><i class="bx bxs-lock" style="color:#b45309;"></i> Clôturé le {{ lot.date_fermeture|date:"d/m/Y" }}</span>{% endif %}
-      <span class="lot-meta-badge"><i class="bx bxs-bird" style="color:#7c3aed;"></i> {{ lot.nombre_poussins_initial }} poussins</span>
+      <span class="lot-meta-badge"><i class="bx bxs-calendar" style="color:#0284c7;"></i> مفتوح بتاريخ {{ lot.date_ouverture|date:"d/m/Y" }}</span>
+      {% if lot.date_fermeture %}<span class="lot-meta-badge"><i class="bx bxs-lock" style="color:#b45309;"></i> مُغلق بتاريخ {{ lot.date_fermeture|date:"d/m/Y" }}</span>{% endif %}
+      <span class="lot-meta-badge"><i class="bx bxs-bird" style="color:#7c3aed;"></i> {{ lot.nombre_poussins_initial }} صوص</span>
       {% if lot.souche %}<span class="lot-meta-badge"><i class="bx bxs-tag" style="color:var(--text-muted);"></i> {{ lot.souche }}</span>{% endif %}
       <span class="pill-base {% if lot.statut == 'ouvert' %}pill-success{% else %}pill-neutral{% endif %}" style="margin-left:auto;">
-        {% if lot.statut == 'ouvert' %}Ouvert{% else %}Clôturé{% endif %}
+        {% if lot.statut == 'ouvert' %}مفتوح{% else %}مُغلق{% endif %}
       </span>
     </div>
   </div>
@@ -66,31 +66,31 @@
 <!-- KPI chips row -->
 <div class="kpi-inline">
   <div class="kpi-chip">
-    <div class="kpi-chip__label">Effectif vivant</div>
-    <div class="kpi-chip__val">{{ summary.effectif_vivant }}<span class="kpi-chip__unit">têtes</span></div>
+    <div class="kpi-chip__label">العدد الحي</div>
+    <div class="kpi-chip__val">{{ summary.effectif_vivant }}<span class="kpi-chip__unit">رأس</span></div>
   </div>
   <div class="kpi-chip">
-    <div class="kpi-chip__label">Mortalité</div>
+    <div class="kpi-chip__label">النفوق</div>
     <div class="kpi-chip__val" style="color:{% if summary.taux_mortalite > 5 %}#dc2626{% elif summary.taux_mortalite > 2 %}#b45309{% else %}#15803d{% endif %};">
       {{ summary.taux_mortalite|floatformat:2 }}<span class="kpi-chip__unit">%</span>
     </div>
   </div>
   <div class="kpi-chip">
-    <div class="kpi-chip__label">Aliment consommé</div>
+    <div class="kpi-chip__label">الأعلاف المستهلكة</div>
     <div class="kpi-chip__val">{{ summary.consommation_totale_aliment_kg|floatformat:2 }}<span class="kpi-chip__unit">kg</span></div>
   </div>
   <div class="kpi-chip">
-    <div class="kpi-chip__label">Indice consommation</div>
+    <div class="kpi-chip__label">معامل التحويل</div>
     <div class="kpi-chip__val">
       {% if summary.ic %}{{ summary.ic|floatformat:3 }}{% else %}<span style="color:var(--text-muted);font-size:14px;">N/A</span>{% endif %}
     </div>
   </div>
   <div class="kpi-chip">
-    <div class="kpi-chip__label">Durée élevage</div>
+    <div class="kpi-chip__label">مدة التربية</div>
     <div class="kpi-chip__val">{{ summary.duree_elevage }}<span class="kpi-chip__unit">j</span></div>
   </div>
   <div class="kpi-chip">
-    <div class="kpi-chip__label">Coût intrants</div>
+    <div class="kpi-chip__label">تكلفة المدخلات</div>
     <div class="kpi-chip__val" style="font-size:14px;">{{ summary.cout_total_intrants|floatformat:0 }}<span class="kpi-chip__unit">DZD</span></div>
   </div>
 </div>
@@ -100,7 +100,7 @@
   <div class="col-xl-8">
     <div class="section-card" style="height:100%;">
       <div class="section-card__head">
-        <span class="section-card__title">Consommation par Intrant (quantités cumulées)</span>
+        <span class="section-card__title">الاستهلاك حسب المدخل (كميات مجمّعة)</span>
       </div>
       <div class="section-card__body">
         <div class="chart-wrap"><canvas id="consoBar"></canvas></div>
@@ -110,7 +110,7 @@
   <div class="col-xl-4">
     <div class="section-card" style="height:100%;">
       <div class="section-card__head">
-        <span class="section-card__title">Répartition par Catégorie</span>
+        <span class="section-card__title">التوزيع حسب الفئة</span>
       </div>
       <div class="section-card__body">
         <div class="chart-wrap" style="height:180px;"><canvas id="catDonut"></canvas></div>
@@ -126,8 +126,8 @@
 <!-- Consumption summary table by intrant -->
 <div class="section-card mb-4">
   <div class="section-card__head">
-    <span class="section-card__title">Résumé par Intrant</span>
-    <span style="font-size:12px;color:var(--text-muted);">{{ summary.consommations|length }} enregistrement(s)</span>
+    <span class="section-card__title">ملخص حسب المدخل</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ summary.consommations|length }} سجل(ات)</span>
   </div>
   <div class="section-card__body no-pad">
     {% if summary.consommations %}
@@ -135,11 +135,11 @@
       <table class="table-base" id="conso-summary">
         <thead>
           <tr>
-            <th>Intrant</th>
-            <th>Catégorie</th>
-            <th style="text-align:right;">Quantité Totale</th>
-            <th>Unité</th>
-            <th>Proportion</th>
+            <th>المدخل</th>
+            <th>الفئة</th>
+            <th style="text-align:left;">إجمالي الكمية</th>
+            <th>الوحدة</th>
+            <th>النسبة</th>
           </tr>
         </thead>
         <tbody id="conso-summary-body">
@@ -150,8 +150,8 @@
     {% else %}
     <div class="empty-state">
       <i class="bx bxs-droplet empty-state__icon"></i>
-      <div class="empty-state__title">Aucune consommation enregistrée</div>
-      <div class="empty-state__text">Ce lot n'a pas encore de données de consommation.</div>
+      <div class="empty-state__title">لا توجد استهلاكات مسجّلة</div>
+      <div class="empty-state__text">هذه الدفعة لا تحتوي بعد على بيانات استهلاك.</div>
     </div>
     {% endif %}
   </div>
@@ -160,8 +160,8 @@
 <!-- Detailed consumption log -->
 <div class="section-card">
   <div class="section-card__head">
-    <span class="section-card__title">Journal de Consommation</span>
-    <span style="font-size:12px;color:var(--text-muted);">Chronologique décroissant</span>
+    <span class="section-card__title">سجل الاستهلاك</span>
+    <span style="font-size:12px;color:var(--text-muted);">ترتيب زمني تنازلي</span>
   </div>
   <div class="section-card__body no-pad">
     {% if summary.consommations %}
@@ -169,12 +169,12 @@
       <table class="table-base">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Intrant</th>
-            <th>Catégorie</th>
-            <th style="text-align:right;">Quantité</th>
-            <th>Unité</th>
-            <th>Notes</th>
+            <th>التاريخ</th>
+            <th>المدخل</th>
+            <th>الفئة</th>
+            <th style="text-align:left;">الكمية</th>
+            <th>الوحدة</th>
+            <th>ملاحظات</th>
           </tr>
         </thead>
         <tbody>
@@ -204,7 +204,7 @@
     {% else %}
     <div class="empty-state">
       <i class="bx bxs-droplet empty-state__icon"></i>
-      <div class="empty-state__title">Aucune consommation</div>
+      <div class="empty-state__title">لا توجد استهلاكات</div>
     </div>
     {% endif %}
   </div>
@@ -272,7 +272,7 @@ document.addEventListener('DOMContentLoaded', function () {
       data: {
         labels: intrantLabels,
         datasets: [{
-          label: 'Quantité consommée',
+          label: 'الكمية المستهلكة',
           data: intrantVals,
           backgroundColor: intrantLabels.map((_, i) => COLORS[i % COLORS.length] + 'bb'),
           borderColor: intrantLabels.map((_, i) => COLORS[i % COLORS.length]),

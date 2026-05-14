@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Tableau de Bord Production — Élevage Avicole{% endblock %}
+{% block title %}لوحة تحكم الإنتاج — تربية الدواجن{% endblock %}
 {% block nav_rapports %}active{% endblock %}
 
-{% block page_title %}Tableau de Bord Production{% endblock %}
+{% block page_title %}لوحة تحكم الإنتاج{% endblock %}
 {% block page_sub_text %}
   {{ rows|length }} lot(s) — {{ totaux.nb_oiseaux_abattus }} oiseaux — {{ totaux.poids_total_kg|floatformat:2 }} kg
 {% endblock %}
 {% block topbar_actions %}
 <a href="?{% if date_debut %}date_debut={{ date_debut|date:'Y-m-d' }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:'Y-m-d' }}&{% endif %}export=csv" class="btn-ghost btn-sm">
-  <i class="bx bxs-spreadsheet"></i> Exporter CSV
+  <i class="bx bxs-spreadsheet"></i> تصدير CSV
 </a>
-<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> Rapports</a>
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> التقارير</a>
 {% endblock %}
 
 {% block extra_css %}
@@ -24,7 +24,7 @@
 .prod-kpi-cell { background:var(--bg-surface); padding:16px 20px; }
 .prod-kpi-cell__label { font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--text-muted); margin-bottom:5px; }
 .prod-kpi-cell__val { font-family:'Nunito',sans-serif; font-weight:800; font-size:20px; color:var(--text-primary); }
-.prod-kpi-cell__unit { font-size:11.5px; color:var(--text-muted); margin-left:3px; font-weight:400; }
+.prod-kpi-cell__unit { font-size:11.5px; color:var(--text-muted); margin-right:3px; font-weight:400; }
 </style>
 {% endblock %}
 
@@ -35,19 +35,19 @@
   <div class="section-card__body" style="padding:14px 20px;">
     <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
       <div style="display:flex;align-items:center;gap:8px;">
-        <label style="font-size:12px;color:var(--text-muted);white-space:nowrap;">Période :</label>
+        <label style="font-size:12px;color:var(--text-muted);white-space:nowrap;">الفترة :</label>
         <div class="input-wrapper" style="min-width:150px;">
           <i class="bx bxs-calendar input-icon"></i>
           <input type="date" name="date_debut" class="field-input has-icon" value="{{ date_debut|date:'Y-m-d' }}">
         </div>
-        <span style="color:var(--text-muted);font-size:13px;">→</span>
+        <span style="color:var(--text-muted);font-size:13px;">←</span>
         <div class="input-wrapper" style="min-width:150px;">
           <i class="bx bxs-calendar input-icon"></i>
           <input type="date" name="date_fin" class="field-input has-icon" value="{{ date_fin|date:'Y-m-d' }}">
         </div>
       </div>
-      <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> Filtrer</button>
-      <a href="{% url 'reporting:production_dashboard' %}" class="btn-ghost btn-sm">Réinitialiser</a>
+      <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> تصفية</button>
+      <a href="{% url 'reporting:production_dashboard' %}" class="btn-ghost btn-sm">إعادة تعيين</a>
     </form>
   </div>
 </div>
@@ -55,24 +55,24 @@
 <!-- Summary KPI strip -->
 <div class="prod-kpi-row">
   <div class="prod-kpi-cell">
-    <div class="prod-kpi-cell__label">Lots en production</div>
-    <div class="prod-kpi-cell__val">{{ rows|length }}<span class="prod-kpi-cell__unit">lots</span></div>
+    <div class="prod-kpi-cell__label">الدُّفعات في الإنتاج</div>
+    <div class="prod-kpi-cell__val">{{ rows|length }}<span class="prod-kpi-cell__unit">دُفعة</span></div>
   </div>
   <div class="prod-kpi-cell">
-    <div class="prod-kpi-cell__label">Oiseaux abattus</div>
-    <div class="prod-kpi-cell__val">{{ totaux.nb_oiseaux_abattus|floatformat:0 }}<span class="prod-kpi-cell__unit">têtes</span></div>
+    <div class="prod-kpi-cell__label">الطيور المذبوحة</div>
+    <div class="prod-kpi-cell__val">{{ totaux.nb_oiseaux_abattus|floatformat:0 }}<span class="prod-kpi-cell__unit">رأس</span></div>
   </div>
   <div class="prod-kpi-cell">
-    <div class="prod-kpi-cell__label">Poids total</div>
-    <div class="prod-kpi-cell__val">{{ totaux.poids_total_kg|floatformat:2 }}<span class="prod-kpi-cell__unit">kg</span></div>
+    <div class="prod-kpi-cell__label">الوزن الإجمالي</div>
+    <div class="prod-kpi-cell__val">{{ totaux.poids_total_kg|floatformat:2 }}<span class="prod-kpi-cell__unit">كغ</span></div>
   </div>
   <div class="prod-kpi-cell">
-    <div class="prod-kpi-cell__label">Coût total estimé</div>
+    <div class="prod-kpi-cell__label">التكلفة الإجمالية المقدّرة</div>
     <div class="prod-kpi-cell__val" style="color:#dc2626;">{{ totaux.cout_total_dzd|floatformat:0 }}<span class="prod-kpi-cell__unit">DZD</span></div>
   </div>
   <div class="prod-kpi-cell" id="kpi-poids-moyen-cell">
-    <div class="prod-kpi-cell__label">Poids moyen global</div>
-    <div class="prod-kpi-cell__val" id="kpi-poids-moyen">—<span class="prod-kpi-cell__unit">kg</span></div>
+    <div class="prod-kpi-cell__label">متوسط الوزن الإجمالي</div>
+    <div class="prod-kpi-cell__val" id="kpi-poids-moyen">—<span class="prod-kpi-cell__unit">كغ</span></div>
   </div>
 </div>
 
@@ -80,13 +80,13 @@
 <div class="row g-3 mb-4">
   <div class="col-xl-7">
     <div class="section-card" style="height:100%;">
-      <div class="section-card__head"><span class="section-card__title">Oiseaux Abattus par Lot</span></div>
+      <div class="section-card__head"><span class="section-card__title">الطيور المذبوحة حسب الدُّفعة</span></div>
       <div class="section-card__body"><div class="chart-wrap"><canvas id="abattageBar"></canvas></div></div>
     </div>
   </div>
   <div class="col-xl-5">
     <div class="section-card" style="height:100%;">
-      <div class="section-card__head"><span class="section-card__title">Poids Moyen par Lot (kg)</span></div>
+      <div class="section-card__head"><span class="section-card__title">متوسط الوزن حسب الدُّفعة (كغ)</span></div>
       <div class="section-card__body"><div class="chart-wrap"><canvas id="poidsLine"></canvas></div></div>
     </div>
   </div>
@@ -95,8 +95,8 @@
 <!-- Coût vs production scatter-like bar -->
 <div class="section-card mb-4">
   <div class="section-card__head">
-    <span class="section-card__title">Coût Estimé par Lot</span>
-    <span style="font-size:12px;color:var(--text-muted);">DZD — trié par date de production</span>
+    <span class="section-card__title">التكلفة المقدّرة حسب الدُّفعة</span>
+    <span style="font-size:12px;color:var(--text-muted);">دج — مرتّبة حسب تاريخ الإنتاج</span>
   </div>
   <div class="section-card__body">
     <div class="chart-wrap" style="height:200px;"><canvas id="coutBar"></canvas></div>
@@ -106,9 +106,9 @@
 <!-- Detail table -->
 <div class="section-card">
   <div class="section-card__head">
-    <span class="section-card__title">Détail par Lot</span>
+    <span class="section-card__title">التفاصيل حسب الدُّفعة</span>
     <span style="font-size:12px;color:var(--text-muted);">
-      Période : {{ date_debut|date:"d/m/Y" }} → {{ date_fin|date:"d/m/Y" }}
+      الفترة : {{ date_debut|date:"d/m/Y" }} → {{ date_fin|date:"d/m/Y" }}
     </span>
   </div>
   <div class="section-card__body no-pad">
@@ -118,13 +118,13 @@
         <thead>
           <tr>
             <th>#</th>
-            <th>Lot</th>
-            <th>Dernière Production</th>
-            <th style="text-align:right;">Oiseaux Abattus</th>
-            <th style="text-align:right;">Poids Total (kg)</th>
-            <th style="text-align:right;">Poids Moyen (kg)</th>
-            <th style="text-align:right;">Coût Estimé</th>
-            <th style="text-align:right;">Coût / kg</th>
+            <th>الدُّفعة</th>
+            <th>آخر إنتاج</th>
+            <th style="text-align:right;">الطيور المذبوحة</th>
+            <th style="text-align:right;">الوزن الإجمالي (كغ)</th>
+            <th style="text-align:right;">متوسط الوزن (كغ)</th>
+            <th style="text-align:right;">التكلفة المقدّرة</th>
+            <th style="text-align:right;">التكلفة / كغ</th>
           </tr>
         </thead>
         <tbody>
@@ -162,7 +162,7 @@
         </tbody>
         <tfoot>
           <tr style="background:var(--bg-raised);">
-            <td colspan="3" style="font-weight:700;padding:12px 14px;">TOTAL</td>
+            <td colspan="3" style="font-weight:700;padding:12px 14px;">المجموع</td>
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;padding:12px 14px;">{{ totaux.nb_oiseaux_abattus|floatformat:0 }}</td>
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;padding:12px 14px;">{{ totaux.poids_total_kg|floatformat:2 }}</td>
             <td style="padding:12px 14px;"></td>
@@ -175,8 +175,8 @@
     {% else %}
     <div class="empty-state">
       <i class="bx bx-refresh empty-state__icon"></i>
-      <div class="empty-state__title">Aucune production validée</div>
-      <div class="empty-state__text">Aucun enregistrement de production pour la période sélectionnée.</div>
+      <div class="empty-state__title">لا يوجد إنتاج مُعتمَد</div>
+      <div class="empty-state__text">لا توجد سجلات إنتاج للفترة المحددة.</div>
     </div>
     {% endif %}
   </div>
@@ -203,12 +203,12 @@ document.addEventListener('DOMContentLoaded', function () {
   };
   const fmt = v => new Intl.NumberFormat('fr-DZ').format(Math.round(v));
 
-  // Poids moyen global
+  // متوسط الوزن الإجمالي
   const totalPoids = d.poids_total.reduce((a, b) => a + parseFloat(b), 0);
   const totalAbattus = d.abattus.reduce((a, b) => a + b, 0);
   const poidsEl = document.getElementById('kpi-poids-moyen');
   if (poidsEl && totalAbattus > 0) {
-    poidsEl.innerHTML = (totalPoids / totalAbattus).toFixed(3) + '<span class="prod-kpi-cell__unit">kg</span>';
+    poidsEl.innerHTML = (totalPoids / totalAbattus).toFixed(3) + '<span class="prod-kpi-cell__unit">كغ</span>';
   }
 
   // Coût / kg in table
@@ -226,12 +226,12 @@ document.addEventListener('DOMContentLoaded', function () {
       type: 'bar',
       data: {
         labels: d.lots,
-        datasets: [{ label: 'Oiseaux abattus', data: d.abattus,
+        datasets: [{ label: 'الطيور المذبوحة', data: d.abattus,
           backgroundColor: 'rgba(34,197,94,.7)', borderColor:'#22c55e', borderWidth:1, borderRadius:6, borderSkipped:false }]
       },
       options: {
         indexAxis:'y', responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{display:false}, tooltip:{ ...tip, callbacks:{ label:c=>' '+fmt(c.raw)+' têtes' } } },
+        plugins:{ legend:{display:false}, tooltip:{ ...tip, callbacks:{ label:c=>' '+fmt(c.raw)+'رأس' } } },
         scales:{ x:{grid:{color:'rgba(0,0,0,.05)'},ticks:{color:'#7a8c78'}}, y:{grid:{display:false},ticks:{font:{size:11}}} }
       }
     });
@@ -244,12 +244,12 @@ document.addEventListener('DOMContentLoaded', function () {
       type: 'bar',
       data: {
         labels: d.lots,
-        datasets: [{ label: 'Poids moyen (kg)', data: d.poids_moyen,
+        datasets: [{ label: 'متوسط الوزن (كغ)', data: d.poids_moyen,
           backgroundColor: 'rgba(56,189,248,.7)', borderColor:'#38bdf8', borderWidth:1, borderRadius:6, borderSkipped:false }]
       },
       options: {
         responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{display:false}, tooltip:{ ...tip, callbacks:{ label:c=>' '+parseFloat(c.raw).toFixed(3)+' kg' } } },
+        plugins:{ legend:{display:false}, tooltip:{ ...tip, callbacks:{ label:c=>' '+parseFloat(c.raw).toFixed(3)+' كغ' } } },
         scales:{ x:{grid:{display:false},ticks:{color:'#7a8c78',font:{size:10}}}, y:{grid:{color:'rgba(0,0,0,.05)'},ticks:{color:'#7a8c78'}} }
       }
     });
@@ -262,13 +262,13 @@ document.addEventListener('DOMContentLoaded', function () {
       type: 'bar',
       data: {
         labels: d.lots,
-        datasets: [{ label: 'Coût estimé (DZD)', data: d.cout,
+        datasets: [{ label: 'التكلفة المقدّرة (دج)', data: d.cout,
           backgroundColor: 'rgba(239,68,68,.65)', borderColor:'#ef4444', borderWidth:1, borderRadius:6, borderSkipped:false }]
       },
       options: {
         responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{display:false}, tooltip:{ ...tip, callbacks:{ label:c=>' '+fmt(c.raw)+' DZD' } } },
-        scales:{ x:{grid:{display:false},ticks:{color:'#7a8c78',font:{size:10}}}, y:{grid:{color:'rgba(0,0,0,.05)'},ticks:{callback:v=>(v/1000).toFixed(0)+'k DZD'}} }
+        plugins:{ legend:{display:false}, tooltip:{ ...tip, callbacks:{ label:c=>' '+fmt(c.raw)+' دج' } } },
+        scales:{ x:{grid:{display:false},ticks:{color:'#7a8c78',font:{size:10}}}, y:{grid:{color:'rgba(0,0,0,.05)'},ticks:{callback:v=>(v/1000).toFixed(0)+'ألف دج'}} }
       }
     });
   }

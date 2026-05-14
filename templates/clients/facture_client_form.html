@@ -1,27 +1,27 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}{{ title }} — مزرعة الدواجن{% endblock %}
 
 {% block nav_facturation %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{% if client %}Facture pour {{ client.nom }}{% else %}Sélectionnez le client et les BL à facturer{% endif %}{% endblock %}
+{% block page_sub_text %}{% if client %}فاتورة للعميل {{ client.nom }}{% else %}اختر العميل ووصولات التسليم للفوترة{% endif %}{% endblock %}
 
 {% block topbar_actions %}
   {% if client %}
   <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour à la fiche
+    <i class="bx bx-arrow-back"></i> الرجوع إلى الملف
   </a>
   {% else %}
   <a href="{% url 'clients:facture_client_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour aux factures
+    <i class="bx bx-arrow-back"></i> الرجوع إلى الفواتير
   </a>
   {% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="page-body">
+<div class="page-body" dir="rtl">
   <form method="post" id="facture-form">
     {% csrf_token %}
     <div class="form-grid">
@@ -32,12 +32,12 @@
         <!-- Identification -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bx-file"></i> Identification</div>
+            <div class="section-eyebrow"><i class="bx bx-file"></i> التعريف</div>
           </div>
           <div class="form-card__body">
 
             <div class="form-group">
-              <label class="form-label" for="{{ form.reference.id_for_label }}">Référence <span class="form-required">*</span></label>
+              <label class="form-label" for="{{ form.reference.id_for_label }}">المرجع <span class="form-required">*</span></label>
               <div class="input-wrapper">
                 <i class="bx bx-hash input-icon"></i>
                 {{ form.reference }}
@@ -47,7 +47,7 @@
 
             {% if not client %}
             <div class="form-group">
-              <label class="form-label" for="{{ form.client.id_for_label }}">Client <span class="form-required">*</span></label>
+              <label class="form-label" for="{{ form.client.id_for_label }}">العميل <span class="form-required">*</span></label>
               <div class="input-wrapper">
                 <i class="bx bxs-group input-icon"></i>
                 {{ form.client }}
@@ -57,14 +57,14 @@
             {% else %}
             {{ form.client }}
             <div class="form-group">
-              <label class="form-label">Client</label>
+              <label class="form-label">العميل</label>
               <div style="padding:10px 14px;background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);font-size:13.5px;font-weight:500;color:var(--text-primary);">{{ client.nom }}</div>
             </div>
             {% endif %}
 
             <div class="form-row-2">
               <div class="form-group">
-                <label class="form-label" for="{{ form.date_facture.id_for_label }}">Date de facturation <span class="form-required">*</span></label>
+                <label class="form-label" for="{{ form.date_facture.id_for_label }}">تاريخ الفاتورة <span class="form-required">*</span></label>
                 <div class="input-wrapper">
                   <i class="bx bx-calendar input-icon"></i>
                   {{ form.date_facture }}
@@ -72,7 +72,7 @@
                 {% for err in form.date_facture.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
               </div>
               <div class="form-group">
-                <label class="form-label" for="{{ form.date_echeance.id_for_label }}">Date d'échéance</label>
+                <label class="form-label" for="{{ form.date_echeance.id_for_label }}">تاريخ الاستحقاق</label>
                 <div class="input-wrapper">
                   <i class="bx bx-calendar-check input-icon"></i>
                   {{ form.date_echeance }}
@@ -83,16 +83,16 @@
 
             <div class="form-row-2">
               <div class="form-group">
-                <label class="form-label" for="{{ form.taux_tva.id_for_label }}">Taux TVA (%)</label>
+                <label class="form-label" for="{{ form.taux_tva.id_for_label }}">نسبة ض.ق.م (%)</label>
                 <div class="input-wrapper">
                   <i class="bx bx-percent input-icon"></i>
                   {{ form.taux_tva }}
                 </div>
-                <div class="form-hint">0 pour exonéré.</div>
+                <div class="form-hint">0 للإعفاء./div>
                 {% for err in form.taux_tva.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
               </div>
               <div class="form-group">
-                <label class="form-label" for="{{ form.statut.id_for_label }}">Statut <span class="form-required">*</span></label>
+                <label class="form-label" for="{{ form.statut.id_for_label }}">الحالة <span class="form-required">*</span></label>
                 <div class="input-wrapper">
                   <i class="bx bx-badge-check input-icon"></i>
                   {{ form.statut }}
@@ -107,7 +107,7 @@
         <!-- Notes -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bx-note"></i> Notes</div>
+            <div class="section-eyebrow"><i class="bx bx-note"></i> ملاحظات</div>
           </div>
           <div class="form-card__body">
             <div class="form-group" style="margin-bottom:0;">
@@ -124,15 +124,15 @@
 
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bx-link-external"></i> BL Clients à facturer</div>
+            <div class="section-eyebrow"><i class="bx bx-link-external"></i> وصولات تسليم العملاء للفوترة</div>
           </div>
           <div class="form-card__body">
-            <div class="form-hint" style="margin-bottom:12px;">Sélectionnez les bons de livraison au statut <strong>Livré</strong> à inclure dans cette facture. Le montant HT sera calculé automatiquement.</div>
+            <div class="form-hint" style="margin-bottom:12px;">اختر وصولات التسليم بحالة <strong>مُسلَّم</strong> لإدراجها في هذه الفاتورة. سيُحسب المبلغ قبل الضريبة تلقائياً.</div>
 
             {% if form.bls.field.queryset.count == 0 %}
             <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-md);padding:12px 14px;display:flex;align-items:center;gap:10px;">
               <i class="bx bxs-info-circle" style="color:#b45309;font-size:15px;"></i>
-              <span style="font-size:13px;color:var(--text-secondary);">Aucun BL au statut Livré disponible pour ce client.</span>
+              <span style="font-size:13px;color:var(--text-secondary);">لا تتوفر وصولات تسليم بحالة مُسلَّم لهذا العميل.</span>
             </div>
             {% else %}
             <div class="bl-checkbox-list">
@@ -166,9 +166,9 @@
 
         <div class="form-actions-footer">
           {% if client %}
-          <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost">Annuler</a>
+          <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost">إلغاء</a>
           {% else %}
-          <a href="{% url 'clients:facture_client_list' %}" class="btn-ghost">Annuler</a>
+          <a href="{% url 'clients:facture_client_list' %}" class="btn-ghost">إلغاء</a>
           {% endif %}
           <button type="submit" class="btn-primary"><i class="bx bx-check"></i> {{ action_label }}</button>
         </div>
@@ -198,7 +198,7 @@
   .form-hint { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
 
   .input-wrapper { position: relative; }
-  .input-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; pointer-events: none; transition: color .15s; }
+  .input-icon { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; pointer-events: none; transition: color .15s; }
   .input-wrapper:focus-within .input-icon { color: var(--accent-text); }
   .input-wrapper input[type="text"],
   .input-wrapper input[type="date"],
@@ -207,7 +207,7 @@
     width: 100%; background: var(--bg-surface); border: 1px solid var(--border);
     border-radius: var(--radius-md); color: var(--text-primary);
     font-family: 'Inter', sans-serif; font-size: 13.5px;
-    padding: 10px 12px 10px 40px;
+    padding: 10px 40px 10px 12px;
     transition: border-color .15s, box-shadow .15s;
   }
   .input-wrapper input:focus, .input-wrapper select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none; }

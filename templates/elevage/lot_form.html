@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
 
 {% block nav_lots %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{% if lot %}Lot créé le {{ lot.date_ouverture|date:"d/m/Y" }} · {{ lot.batiment.nom }}{% else %}Renseigner les informations du nouveau lot{% endif %}{% endblock %}
+{% block page_sub_text %}{% if lot %}Lot créé le {{ lot.date_ouverture|date:"d/m/Y" }} · {{ lot.batiment.nom }}{% else %}إدخال معلومات الدفعة الجديدة{% endif %}{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% if lot %}{% url 'elevage:lot_detail' lot.pk %}{% else %}{% url 'elevage:lot_list' %}{% endif %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour
+    <i class="bx bx-arrow-back"></i> رجوع
   </a>
 {% endblock %}
 
@@ -24,7 +24,7 @@
           <div class="form-card__icon ic-green"><i class="bx bxs-grid-alt"></i></div>
           <div>
             <div class="form-card__title">{{ title }}</div>
-            <div class="form-card__sub">Informations du lot d'élevage</div>
+            <div class="form-card__sub">معلومات دفعة التربية</div>
           </div>
         </div>
 
@@ -45,7 +45,7 @@
           <!-- Désignation -->
           <div class="form-group">
             <label class="form-label" for="{{ form.designation.id_for_label }}">
-              Désignation du lot <span class="required-star">*</span>
+              اسم الدفعة <span class="required-star">*</span>
             </label>
             <div class="input-wrap">
               <i class="bx bxs-grid-alt input-icon"></i>
@@ -61,7 +61,7 @@
             <div class="col-md-6">
               <div class="form-group">
                 <label class="form-label" for="{{ form.date_ouverture.id_for_label }}">
-                  Date d'ouverture <span class="required-star">*</span>
+                  تاريخ الفتح <span class="required-star">*</span>
                 </label>
                 <div class="input-wrap">
                   <i class="bx bxs-calendar input-icon"></i>
@@ -76,7 +76,7 @@
             <div class="col-md-6">
               <div class="form-group">
                 <label class="form-label" for="{{ form.batiment.id_for_label }}">
-                  Bâtiment <span class="required-star">*</span>
+                  المبنى <span class="required-star">*</span>
                 </label>
                 <div class="input-wrap">
                   <i class="bx bxs-buildings input-icon"></i>
@@ -94,7 +94,7 @@
             <div class="col-md-6">
               <div class="form-group">
                 <label class="form-label" for="{{ form.nombre_poussins_initial.id_for_label }}">
-                  Nombre de poussins initial <span class="required-star">*</span>
+                  عدد الكتاكيت الأولي <span class="required-star">*</span>
                 </label>
                 <div class="input-wrap">
                   <i class="bx bxs-user-voice input-icon"></i>
@@ -108,7 +108,7 @@
             <!-- Souche -->
             <div class="col-md-6">
               <div class="form-group">
-                <label class="form-label" for="{{ form.souche.id_for_label }}">Souche (race)</label>
+                <label class="form-label" for="{{ form.souche.id_for_label }}">السلالة</label>
                 <div class="input-wrap">
                   <i class="bx bx-dna input-icon"></i>
                   {{ form.souche }}
@@ -123,7 +123,7 @@
           <!-- Fournisseur poussins -->
           <div class="form-group">
             <label class="form-label" for="{{ form.fournisseur_poussins.id_for_label }}">
-              Fournisseur des poussins <span class="required-star">*</span>
+              مورد الكتاكيت <span class="required-star">*</span>
             </label>
             <div class="input-wrap">
               <i class="bx bxs-building input-icon"></i>
@@ -137,13 +137,13 @@
           <!-- BL fournisseur poussins -->
           <div class="form-group">
             <label class="form-label" for="{{ form.bl_fournisseur_poussins.id_for_label }}">
-              BL Fournisseur (poussins) <span style="font-size:11px;color:var(--text-muted);font-weight:400;">— optionnel</span>
+              وصل التسليم (كتاكيت) <span style="font-size:11px;color:var(--text-muted);font-weight:400;">— اختياري</span>
             </label>
             <div class="input-wrap">
               <i class="bx bxs-truck input-icon"></i>
               {{ form.bl_fournisseur_poussins }}
             </div>
-            <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Sélectionnez le BL de réception des poussins si disponible (statut Reçu ou Facturé).</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">اختر وصل استلام الكتاكيت إن توفّر (بحالة مُستلم أو مُفوتر).</div>
             {% if form.bl_fournisseur_poussins.errors %}
             <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.bl_fournisseur_poussins.errors|join:", " }}</div>
             {% endif %}
@@ -151,7 +151,7 @@
 
           <!-- Notes -->
           <div class="form-group">
-            <label class="form-label" for="{{ form.notes.id_for_label }}">Notes</label>
+            <label class="form-label" for="{{ form.notes.id_for_label }}">ملاحظات</label>
             <div class="input-wrap input-wrap--textarea">
               <i class="bx bx-note input-icon" style="top:14px;transform:none;"></i>
               {{ form.notes }}
@@ -163,7 +163,7 @@
 
           <div class="form-actions">
             <a href="{% if lot %}{% url 'elevage:lot_detail' lot.pk %}{% else %}{% url 'elevage:lot_list' %}{% endif %}" class="btn-ghost">
-              Annuler
+              إلغاء
             </a>
             <button type="submit" class="btn-primary">
               <i class="bx bxs-save"></i> {{ action_label }}
@@ -221,7 +221,7 @@
   .input-wrap { position: relative; }
   .input-icon {
     position: absolute;
-    left: 13px; top: 50%; transform: translateY(-50%);
+    right: 13px; top: 50%; transform: translateY(-50%);
     color: var(--text-muted); font-size: 15px;
     pointer-events: none;
     transition: color .15s;
@@ -236,7 +236,7 @@
     color: var(--text-primary);
     font-family: 'Inter', sans-serif;
     font-size: 13.5px;
-    padding: 11px 13px 11px 40px;
+    padding: 11px 40px 11px 13px;
     transition: border-color .15s, box-shadow .15s;
     appearance: none; -webkit-appearance: none;
   }
@@ -250,7 +250,7 @@
   }
   .input-wrap input:focus ~ .input-icon,
   .input-wrap select:focus ~ .input-icon { color: var(--accent-text); }
-  .input-wrap--textarea .input-icon { top: 14px; transform: none; }
+  .input-wrap--textarea .input-icon { top: 14px; transform: none; right: 13px; left: auto; }
 
   .field-error {
     display: flex; align-items: center; gap: 5px;

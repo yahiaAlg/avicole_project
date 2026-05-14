@@ -24,7 +24,7 @@ class CategorieDepenseForm(forms.ModelForm):
         fields = ["code", "libelle", "description", "ordre", "actif"]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 2}),
-            "code": forms.TextInput(attrs={"placeholder": "Ex : ENERGIE"}),
+            "code": forms.TextInput(attrs={"placeholder": "مثال: ENERGIE"}),
         }
 
 
@@ -56,7 +56,7 @@ class DepenseForm(forms.ModelForm):
             "montant": forms.NumberInput(attrs={"step": "0.01", "min": "0.01"}),
             "notes": forms.Textarea(attrs={"rows": 2}),
             "reference_document": forms.TextInput(
-                attrs={"placeholder": "N° de la pièce justificative"}
+                attrs={"placeholder": "رقم الوثيقة المثبتة"}
             ),
         }
 
@@ -80,7 +80,7 @@ class DepenseForm(forms.ModelForm):
         ).order_by("-date_facture")
         self.fields["facture_liee"].required = False
         self.fields["facture_liee"].help_text = (
-            "Optionnel — uniquement pour les factures fournisseur de type Service (BR-DEP-03)."
+            "اختياري — للفواتير من النوع خدمة فقط (BR-DEP-03)."
         )
 
         self.fields["reference_document"].required = False
@@ -138,29 +138,29 @@ class DepenseFilterForm(forms.Form):
             "ordre", "libelle"
         ),
         required=False,
-        empty_label="Toutes les catégories",
-        label="Catégorie",
+        empty_label="كل الفئات",
+        label="الفئة",
     )
     date_debut = forms.DateField(
         required=False,
         widget=forms.DateInput(attrs={"type": "date"}),
-        label="Date de début",
+        label="تاريخ البداية",
     )
     date_fin = forms.DateField(
         required=False,
         widget=forms.DateInput(attrs={"type": "date"}),
-        label="Date de fin",
+        label="تاريخ النهاية",
     )
     lot = forms.ModelChoiceField(
         queryset=LotElevage.objects.order_by("-date_ouverture"),
         required=False,
-        empty_label="Tous les lots",
-        label="Lot attribué",
+        empty_label="كل الدفعات",
+        label="الدفعة المخصصة",
     )
     mode_paiement = forms.ChoiceField(
-        choices=[("", "Tous les modes")] + list(Depense.MODE_CHOICES),
+        choices=[("", "كل طرق الدفع")] + list(Depense.MODE_CHOICES),
         required=False,
-        label="Mode de paiement",
+        label="طريقة الدفع",
     )
 
     def clean(self):
@@ -188,12 +188,12 @@ class DashboardFilterForm(forms.Form):
     date_debut = forms.DateField(
         required=False,
         widget=forms.DateInput(attrs={"type": "date"}),
-        label="Du",
+        label="من",
     )
     date_fin = forms.DateField(
         required=False,
         widget=forms.DateInput(attrs={"type": "date"}),
-        label="Au",
+        label="إلى",
     )
 
     def clean(self):

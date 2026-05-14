@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Catalogue Produits Finis — Élevage Avicole{% endblock %}
+{% block title %}كتالوج المنتجات النهائية — تربية الدواجن{% endblock %}
 
 {% block nav_production %}active{% endblock %}
 
-{% block page_title %}Catalogue — Produits finis{% endblock %}
-{% block page_sub_text %}{{ page.paginator.count }} produit{{ page.paginator.count|pluralize }} au catalogue{% endblock %}
+{% block page_title %}الكتالوج — المنتجات النهائية{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} منتج في الكتالوج{% endblock %}
 
 {% block topbar_actions %}
   {% if request.user.profile.role in 'admin,manager' %}
   <a href="{% url 'production:produit_fini_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouveau produit
+    <i class="bx bx-plus"></i> منتج جديد
   </a>
   {% endif %}
 {% endblock %}
@@ -24,22 +24,22 @@
     <form method="get" action="" class="filters-form" id="filter-form">
       <div class="search-wrapper">
         <i class="bx bx-search search-icon"></i>
-        <input type="text" name="q" value="{{ q }}" placeholder="Rechercher par désignation…" class="search-input" autocomplete="off">
+        <input type="text" name="q" value="{{ q }}" placeholder="البحث بالتسمية..." class="search-input" autocomplete="off">
       </div>
       <select name="type_produit" class="filter-select" id="filter-type">
-        <option value="">Tous les types</option>
+        <option value="">جميع الأنواع</option>
         {% for val, label in type_choices %}
           <option value="{{ val }}" {% if type_produit == val %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
       <select name="actif" class="filter-select" id="filter-actif">
-        <option value="1" {% if actif_param == "1" %}selected{% endif %}>Actifs</option>
-        <option value="0" {% if actif_param == "0" %}selected{% endif %}>Tous (incl. inactifs)</option>
+        <option value="1" {% if actif_param == "1" %}selected{% endif %}>النشطة</option>
+        <option value="0" {% if actif_param == "0" %}selected{% endif %}>الكل (بما فيها غير النشطة)</option>
       </select>
-      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> Filtrer</button>
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> تصفية</button>
       {% if q or type_produit or actif_param == "0" %}
         <a href="{% url 'production:produit_fini_list' %}" class="btn-ghost btn-sm" style="color:var(--text-muted);">
-          <i class="bx bx-x"></i> Effacer
+          <i class="bx bx-x"></i> مسح
         </a>
       {% endif %}
     </form>
@@ -47,7 +47,7 @@
 
   <div class="card">
     <div class="card-header-row">
-      <div class="section-eyebrow">Produits finis du catalogue</div>
+      <div class="section-eyebrow">المنتجات النهائية في الكتالوج</div>
     </div>
 
     {% if page.object_list %}
@@ -55,13 +55,13 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Désignation</th>
-            <th>Type</th>
-            <th>Unité</th>
-            <th style="text-align:right;">Stock actuel</th>
-            <th style="text-align:right;">Prix vente défaut (DZD)</th>
-            <th>Statut</th>
-            <th style="text-align:right;">Actions</th>
+            <th>التسمية</th>
+            <th>النوع</th>
+            <th>الوحدة</th>
+            <th style="text-align:right;">المخزون الحالي</th>
+            <th style="text-align:right;">سعر البيع الافتراضي (دج)</th>
+            <th>الحالة</th>
+            <th style="text-align:right;">الإجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -97,18 +97,18 @@
             </td>
             <td>
               {% if produit.actif %}
-                <span class="pill-success"><i class="bx bxs-check-circle"></i> Actif</span>
+                <span class="pill-success"><i class="bx bxs-check-circle"></i> نشط</span>
               {% else %}
-                <span class="pill-neutral"><i class="bx bx-block"></i> Inactif</span>
+                <span class="pill-neutral"><i class="bx bx-block"></i> غير نشط</span>
               {% endif %}
             </td>
             <td>
               <div class="actions-cell">
-                <a href="{% url 'production:produit_fini_detail' produit.pk %}" class="action-btn" title="Voir le détail">
+                <a href="{% url 'production:produit_fini_detail' produit.pk %}" class="action-btn" title="عرض التفاصيل">
                   <i class="bx bx-show"></i>
                 </a>
                 {% if request.user.profile.role in 'admin,manager' %}
-                <a href="{% url 'production:produit_fini_edit' produit.pk %}" class="action-btn" title="Modifier">
+                <a href="{% url 'production:produit_fini_edit' produit.pk %}" class="action-btn" title="تعديل">
                   <i class="bx bxs-pencil"></i>
                 </a>
                 {% endif %}
@@ -118,7 +118,7 @@
                   data-toggle-produit="{{ produit.pk }}"
                   data-designation="{{ produit.designation }}"
                   data-actif="{{ produit.actif|yesno:'true,false' }}"
-                  title="{% if produit.actif %}Désactiver{% else %}Activer{% endif %}">
+                  title="{% if produit.actif %}تعطيل{% else %}تفعيل{% endif %}">
                   <i class="bx {% if produit.actif %}bx-block{% else %}bxs-check-circle{% endif %}"></i>
                 </button>
                 {% endif %}
@@ -136,7 +136,7 @@
       {% if page.has_previous %}
         <a href="?page={{ page.previous_page_number }}&q={{ q }}&type_produit={{ type_produit }}&actif={{ actif_param }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
       {% endif %}
-      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      <span class="page-info">الصفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
       {% if page.has_next %}
         <a href="?page={{ page.next_page_number }}&q={{ q }}&type_produit={{ type_produit }}&actif={{ actif_param }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
       {% endif %}
@@ -147,12 +147,12 @@
     <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
       <i class="bx bxs-badge-check" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
       <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
-        Aucun produit fini
+        لا توجد منتجات نهائية
       </div>
-      <div style="font-size:13px;">Aucun produit ne correspond aux filtres sélectionnés.</div>
+      <div style="font-size:13px;">لا يوجد منتج يطابق المرشحات المختارة.</div>
       {% if request.user.profile.role in 'admin,manager' %}
       <a href="{% url 'production:produit_fini_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
-        <i class="bx bx-plus"></i> Créer un produit
+        <i class="bx bx-plus"></i> إنشاء منتج
       </a>
       {% endif %}
     </div>
@@ -164,16 +164,16 @@
     <div class="confirm-panel__inner">
       <div class="confirm-panel__icon" id="confirm-icon"><i class="bx bx-block"></i></div>
       <div>
-        <div class="confirm-panel__title" id="confirm-title">Désactiver le produit ?</div>
+        <div class="confirm-panel__title" id="confirm-title">تعطيل المنتج؟</div>
         <div class="confirm-panel__body" id="confirm-body">
-          Le produit <strong id="confirm-designation"></strong> sera marqué inactif.
+          المنتج <strong id="confirm-designation"></strong> سيُعلَّم كغير نشط.
         </div>
       </div>
       <div class="confirm-panel__actions">
-        <button type="button" id="confirm-cancel-btn" class="btn-ghost">Annuler</button>
+        <button type="button" id="confirm-cancel-btn" class="btn-ghost">إلغاء</button>
         <form id="confirm-toggle-form" method="post" action="">
           {% csrf_token %}
-          <button type="submit" id="confirm-submit-btn" class="btn-danger">Confirmer</button>
+          <button type="submit" id="confirm-submit-btn" class="btn-danger">تأكيد</button>
         </form>
       </div>
     </div>
@@ -190,8 +190,8 @@
   .filters-bar { margin-bottom:16px; }
   .filters-form { display:flex;align-items:center;gap:10px;flex-wrap:wrap; }
   .search-wrapper { position:relative;flex:1;min-width:200px; }
-  .search-icon { position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none; }
-  .search-input { width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13.5px;padding:9px 12px 9px 36px;transition:border-color .15s,box-shadow .15s; }
+  .search-icon { position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none; }
+  .search-input { width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13.5px;padding:9px 36px 9px 12px;transition:border-color .15s,box-shadow .15s; }
   .search-input:focus { border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.15);outline:none; }
   .search-input::placeholder { color:var(--text-muted); }
   .filter-select { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-secondary);font-family:'Inter',sans-serif;font-size:13px;padding:9px 12px;cursor:pointer;transition:border-color .15s; }
@@ -307,16 +307,16 @@ document.addEventListener('DOMContentLoaded', function () {
       if (isActif) {
         panelIcon.className  = 'confirm-panel__icon';
         panelIcon.innerHTML  = '<i class="bx bx-block"></i>';
-        panelTitle.textContent = 'Désactiver le produit ?';
-        panelBody.innerHTML  = 'Le produit <strong>' + desig + '</strong> sera marqué inactif et retiré des formulaires.';
-        submitBtn.textContent = 'Désactiver';
+        panelTitle.textContent = 'تعطيل المنتج؟';
+        panelBody.innerHTML  = 'المنتج <strong>' + desig + '</strong> سيُعلَّم كغير نشط ويُحذف من النماذج.';
+        submitBtn.textContent = 'تعطيل';
         submitBtn.className  = 'btn-danger';
       } else {
         panelIcon.className  = 'confirm-panel__icon activate';
         panelIcon.innerHTML  = '<i class="bx bxs-check-circle"></i>';
-        panelTitle.textContent = 'Activer le produit ?';
-        panelBody.innerHTML  = 'Le produit <strong>' + desig + '</strong> sera à nouveau disponible dans les formulaires.';
-        submitBtn.textContent = 'Activer';
+        panelTitle.textContent = 'تفعيل المنتج؟';
+        panelBody.innerHTML  = 'المنتج <strong>' + desig + '</strong> سيكون متاحاً مجدداً في النماذج.';
+        submitBtn.textContent = 'تفعيل';
         submitBtn.className  = 'btn-success';
       }
       panel.style.display = '';

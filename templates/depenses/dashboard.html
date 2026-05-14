@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Tableau de bord Dépenses — Élevage Avicole{% endblock %}
+{% block title %}لوحة تحكم المصاريف — تربية الدواجن{% endblock %}
 {% block nav_depenses_dashboard %}active{% endblock %}
 
-{% block page_title %}Dépenses{% endblock %}
-{% block page_sub_text %}Tableau de bord · {{ periode_label }} · Analyse par catégorie{% endblock %}
+{% block page_title %}المصاريف{% endblock %}
+{% block page_sub_text %}لوحة التحكم · {{ periode_label }} · تحليل حسب الفئة{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'depenses:depense_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouvelle dépense
+    <i class="bx bx-plus"></i> مصروف جديد
   </a>
   <a href="{% url 'depenses:depense_list' %}" class="btn-ghost">
-    <i class="bx bx-list-ul"></i> Toutes les dépenses
+    <i class="bx bx-list-ul"></i> جميع المصاريف
   </a>
 {% endblock %}
 
@@ -22,21 +22,21 @@
   <!-- ══ Date-range filter bar ══════════════════════════════════════════════ -->
   <form method="get" class="filter-bar" id="dashFilterForm">
     <div class="filter-presets">
-      <button type="button" class="preset-btn" data-preset="month">Ce mois</button>
-      <button type="button" class="preset-btn" data-preset="prev_month">Mois préc.</button>
-      <button type="button" class="preset-btn" data-preset="3months">3 mois</button>
+      <button type="button" class="preset-btn" data-preset="month">هذا الشهر</button>
+      <button type="button" class="preset-btn" data-preset="prev_month">الشهر الماضي</button>
+      <button type="button" class="preset-btn" data-preset="3months">3 أشهر</button>
       <button type="button" class="preset-btn" data-preset="ytd">YTD</button>
-      <button type="button" class="preset-btn" data-preset="year">Cette année</button>
+      <button type="button" class="preset-btn" data-preset="year">هذه السنة</button>
     </div>
     <div class="filter-inputs">
-      <label class="filter-label">Du
+      <label class="filter-label">من
         {{ filter_form.date_debut }}
       </label>
-      <label class="filter-label">Au
+      <label class="filter-label">إلى
         {{ filter_form.date_fin }}
       </label>
       <button type="submit" class="btn-primary btn-sm">
-        <i class="bx bx-filter-alt"></i> Filtrer
+        <i class="bx bx-filter-alt"></i> تصفية
       </button>
       <a href="{% url 'depenses:dashboard' %}" class="btn-ghost btn-sm">
         <i class="bx bx-reset"></i>
@@ -50,7 +50,7 @@
     <div class="kpi-card kpi-red">
       <div class="kpi-icon"><i class="bx bxs-wallet-alt"></i></div>
       <div class="kpi-body">
-        <div class="kpi-label">TOTAL PÉRIODE</div>
+        <div class="kpi-label">إجمالي الفترة</div>
         <div class="kpi-value">{{ summary_periode.total|floatformat:0 }}<span class="kpi-unit">DZD</span></div>
         <div class="kpi-sub">{{ date_debut|date:"d/m/Y" }} → {{ date_fin|date:"d/m/Y" }}</div>
       </div>
@@ -59,31 +59,31 @@
     <div class="kpi-card kpi-orange">
       <div class="kpi-icon"><i class="bx bxs-receipt"></i></div>
       <div class="kpi-body">
-        <div class="kpi-label">NB DÉPENSES</div>
+        <div class="kpi-label">عدد المصاريف</div>
         <div class="kpi-value">{{ summary_periode.nb_depenses }}</div>
-        <div class="kpi-sub">opérations enregistrées</div>
+        <div class="kpi-sub">عملية مسجلة</div>
       </div>
     </div>
 
     <div class="kpi-card kpi-indigo">
       <div class="kpi-icon"><i class="bx bxs-bar-chart-alt-2"></i></div>
       <div class="kpi-body">
-        <div class="kpi-label">TOTAL ANNUEL (YTD)</div>
+        <div class="kpi-label">الإجمالي السنوي (YTD)</div>
         <div class="kpi-value">{{ summary_annee.total|floatformat:0 }}<span class="kpi-unit">DZD</span></div>
-        <div class="kpi-sub">depuis le 1ᵉʳ janvier</div>
+        <div class="kpi-sub">منذ 1 يناير</div>
       </div>
     </div>
 
     <div class="kpi-card kpi-teal">
       <div class="kpi-icon"><i class="bx bxs-calculator"></i></div>
       <div class="kpi-body">
-        <div class="kpi-label">MOYENNE / JOUR</div>
+        <div class="kpi-label">المتوسط / يوم</div>
         <div class="kpi-value">
           {% if summary_periode.moyenne_par_jour %}
             {{ summary_periode.moyenne_par_jour|floatformat:0 }}<span class="kpi-unit">DZD</span>
           {% else %}—{% endif %}
         </div>
-        <div class="kpi-sub">moyenne quotidienne sur la période</div>
+        <div class="kpi-sub">المتوسط اليومي خلال الفترة</div>
       </div>
     </div>
 
@@ -92,22 +92,22 @@
         <i class="bx {% if delta_pct is not None %}{% if delta_pct > 0 %}bxs-up-arrow{% elif delta_pct < 0 %}bxs-down-arrow{% else %}bx-minus{% endif %}{% else %}bx-minus{% endif %}"></i>
       </div>
       <div class="kpi-body">
-        <div class="kpi-label">VS PÉRIODE PRÉC.</div>
+        <div class="kpi-label">مقارنة بالفترة السابقة</div>
         <div class="kpi-value">
           {% if delta_pct is not None %}
             {% if delta_pct > 0 %}+{% endif %}{{ delta_pct }}<span class="kpi-unit">%</span>
           {% else %}—{% endif %}
         </div>
-        <div class="kpi-sub">{{ summary_precedent.total|floatformat:0 }} DZD la période préc.</div>
+        <div class="kpi-sub">{{ summary_precedent.total|floatformat:0 }} دج في الفترة السابقة</div>
       </div>
     </div>
 
     <div class="kpi-card kpi-slate">
       <div class="kpi-icon"><i class="bx bxs-category"></i></div>
       <div class="kpi-body">
-        <div class="kpi-label">CATÉGORIES ACTIVES</div>
+        <div class="kpi-label">الفئات النشطة</div>
         <div class="kpi-value">{{ nb_categories_actives }}</div>
-        <div class="kpi-sub"><a href="{% url 'depenses:categorie_depense_list' %}" class="kpi-link">Gérer les catégories</a></div>
+        <div class="kpi-sub"><a href="{% url 'depenses:categorie_depense_list' %}" class="kpi-link">إدارة الفئات</a></div>
       </div>
     </div>
 
@@ -119,12 +119,12 @@
     <div class="chart-card">
       <div class="chart-header">
         <div>
-          <div class="chart-eyebrow">Tendance mensuelle</div>
-          <div class="chart-title">Dépenses des 6 derniers mois</div>
+          <div class="chart-eyebrow">الاتجاه الشهري</div>
+          <div class="chart-title">مصاريف الأشهر الـ 6 الماضية</div>
         </div>
         <div class="chart-legend">
-          <span class="legend-dot" style="background:#f87171;"></span>Total DZD
-          <span class="legend-dot" style="background:#fb923c;margin-left:12px;"></span>Nb opérations
+          <span class="legend-dot" style="background:#f87171;"></span>الإجمالي (دج)
+          <span class="legend-dot" style="background:#fb923c;margin-inline-start:12px;"></span>عدد العمليات
         </div>
       </div>
       <div class="chart-body">
@@ -135,8 +135,8 @@
     <div class="chart-card">
       <div class="chart-header">
         <div>
-          <div class="chart-eyebrow">Répartition annuelle</div>
-          <div class="chart-title">Par catégorie (YTD)</div>
+          <div class="chart-eyebrow">التوزيع السنوي</div>
+          <div class="chart-title">حسب الفئة (YTD)</div>
         </div>
       </div>
       <div class="chart-body chart-body-donut">
@@ -153,19 +153,19 @@
     <!-- Top categories table -->
     <div class="data-card span-2">
       <div class="data-header">
-        <div class="data-title">Répartition par catégorie <span class="data-period">· {{ periode_label }}</span></div>
-        <a href="{% url 'depenses:categorie_depense_list' %}" class="link-all">Gérer <i class="bx bx-right-arrow-alt"></i></a>
+        <div class="data-title">التوزيع حسب الفئة <span class="data-period">· {{ periode_label }}</span></div>
+        <a href="{% url 'depenses:categorie_depense_list' %}" class="link-all">إدارة <i class="bx bx-right-arrow-alt"></i></a>
       </div>
       {% if par_categorie_periode %}
       <div class="tbl-wrap">
         <table class="dtable">
           <thead>
             <tr>
-              <th>Catégorie</th>
-              <th class="num">Nb dépenses</th>
-              <th class="num">Total DZD</th>
-              <th class="num">Part</th>
-              <th>Répartition</th>
+              <th>الفئة</th>
+              <th class="num">عدد المصاريف</th>
+              <th class="num">الإجمالي (دج)</th>
+              <th class="num">الحصة</th>
+              <th>التوزيع</th>
             </tr>
           </thead>
           <tbody>
@@ -190,7 +190,7 @@
       {% else %}
       <div class="empty-state">
         <i class="bx bx-category"></i>
-        <p>Aucune dépense enregistrée sur cette période.</p>
+        <p>لا توجد مصاريف مسجلة في هذه الفترة.</p>
       </div>
       {% endif %}
     </div>
@@ -198,28 +198,28 @@
     <!-- Payment methods breakdown -->
     <div class="data-card">
       <div class="data-header">
-        <div class="data-title">Modes de paiement <span class="data-period">· {{ periode_label }}</span></div>
+        <div class="data-title">طرق الدفع <span class="data-period">· {{ periode_label }}</span></div>
       </div>
       {% if summary_periode.par_mode_paiement %}
         {% for mode in summary_periode.par_mode_paiement %}
         <div class="list-row" style="--i:{{ forloop.counter0 }}">
           <div class="list-main">
             <div class="list-name">{{ mode.label }}</div>
-            <div class="list-sub">{{ mode.nb }} opération{{ mode.nb|pluralize }}</div>
+            <div class="list-sub">{{ mode.nb }} عملية</div>
           </div>
           <span class="amount-badge">{{ mode.total|floatformat:0 }} DZD</span>
         </div>
         {% endfor %}
       {% else %}
-        <div class="empty-state small"><i class="bx bx-credit-card"></i><p>Aucune dépense sur cette période.</p></div>
+        <div class="empty-state small"><i class="bx bx-credit-card"></i><p>لا توجد مصاريف في هذه الفترة.</p></div>
       {% endif %}
     </div>
 
     <!-- Recent expenses -->
     <div class="data-card">
       <div class="data-header">
-        <div class="data-title">10 dernières dépenses</div>
-        <a href="{% url 'depenses:depense_list' %}" class="link-all">Tout voir <i class="bx bx-right-arrow-alt"></i></a>
+        <div class="data-title">آخر 10 مصاريف</div>
+        <a href="{% url 'depenses:depense_list' %}" class="link-all">عرض الكل <i class="bx bx-right-arrow-alt"></i></a>
       </div>
       {% if depenses_recentes %}
         {% for dep in depenses_recentes %}
@@ -235,7 +235,7 @@
         </a>
         {% endfor %}
       {% else %}
-        <div class="empty-state small"><i class="bx bx-time"></i><p>Aucune dépense enregistrée.</p></div>
+        <div class="empty-state small"><i class="bx bx-time"></i><p>لا توجد مصاريف مسجلة.</p></div>
       {% endif %}
     </div>
 
@@ -395,6 +395,17 @@
   color:var(--text-primary);outline:none;transition:border-color .15s;
 }
 .filter-label input[type="date"]:focus { border-color:var(--accent); }
+
+/* RTL overrides */
+[dir="rtl"] .filter-bar { direction:rtl; }
+[dir="rtl"] .kpi-unit { margin-left:0; margin-right:2px; }
+[dir="rtl"] .amount-badge { margin-left:0; margin-inline-start:10px; }
+[dir="rtl"] .dtable th.num,
+[dir="rtl"] .dtable td.num { text-align:left; }
+[dir="rtl"] .data-header { direction:rtl; }
+[dir="rtl"] .list-row { direction:rtl; }
+[dir="rtl"] .chart-header { direction:rtl; }
+[dir="rtl"] @keyframes fadeRow { from{opacity:0;transform:translateX(4px)} to{opacity:1;transform:none} }
 </style>
 {% endblock %}
 
@@ -435,10 +446,10 @@
       data: {
         labels,
         datasets: [
-          { type:'bar',  label:'Total DZD',    data:totals, yAxisID:'y',
+          { type:'bar',  label:'الإجمالي (دج)',    data:totals, yAxisID:'y',
             backgroundColor:'rgba(248,113,113,.22)', borderColor:'#f87171',
             borderWidth:2, borderRadius:5 },
-          { type:'line', label:'Nb opérations', data:counts, yAxisID:'y2',
+          { type:'line', label:'عدد العمليات', data:counts, yAxisID:'y2',
             borderColor:'#fb923c', backgroundColor:'rgba(251,146,60,.07)',
             borderWidth:2.5, pointBackgroundColor:'#fb923c',
             pointRadius:4, pointHoverRadius:6, tension:0.35, fill:true },
@@ -471,11 +482,11 @@
     const rawLabels = [{% for row in par_categorie_periode %}"{{ row.categorie.libelle }}"{% if not forloop.last %},{% endif %}{% endfor %}];
     const rawValues = [{% for row in par_categorie_periode %}{{ row.total|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}];
 
-    if (!rawLabels.length) { centerEl.textContent = 'Aucune donnée'; return; }
+    if (!rawLabels.length) { centerEl.textContent = 'لا توجد بيانات'; return; }
 
     const total   = rawValues.reduce((a,b) => a+b, 0);
     const PALETTE = ['#f87171','#fb923c','#fbbf24','#34d399','#38bdf8','#818cf8','#e879f9','#f472b6'];
-    const fmt     = n => n.toLocaleString('fr-FR', { maximumFractionDigits:0 });
+    const fmt     = n => n.toLocaleString('ar-DZ', { maximumFractionDigits:0 });
 
     centerEl.innerHTML = `<div style="font-size:17px;font-weight:800;">${fmt(total)}</div><div style="font-size:10px;color:var(--text-muted);">DZD total</div>`;
 
@@ -493,7 +504,7 @@
         responsive:true, maintainAspectRatio:false, cutout:'68%',
         plugins:{
           legend:{ display:true, position:'bottom', labels:{ padding:10, boxWidth:10, boxHeight:10, font:{ size:10.5 }, color:C.textMuted } },
-          tooltip:{ ...tipDefaults, callbacks:{ label: c => ` ${c.label}: ${c.parsed.toLocaleString('fr-FR',{maximumFractionDigits:0})} DZD` } },
+          tooltip:{ ...tipDefaults, callbacks:{ label: c => ` ${c.label}: ${c.parsed.toLocaleString('ar-DZ',{maximumFractionDigits:0})} DZD` } },
         },
       },
     });

@@ -6,11 +6,11 @@
 {% block nav_type_fournisseurs %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{% if object %}Modification du type {{ object.code }}{% else %}Nouvelle entrée dans le référentiel{% endif %}{% endblock %}
+{% block page_sub_text %}{% if object %}تعديل النوع {{ object.code }}{% else %}إدخال جديد في المرجعية{% endif %}{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'intrants:type_fournisseur_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour à la liste
+    <i class="bx bx-arrow-back"></i> العودة إلى القائمة
   </a>
 {% endblock %}
 
@@ -19,7 +19,7 @@
   <div class="form-page-grid">
     <div class="form-card">
       <div class="form-card__header">
-        <div class="section-eyebrow">Informations du type</div>
+        <div class="section-eyebrow">معلومات النوع</div>
       </div>
       <div class="form-card__body">
         <form method="post" action="">
@@ -28,7 +28,7 @@
           <!-- Code -->
           <div class="form-group">
             <label class="form-label" for="{{ form.code.id_for_label }}">
-              Code <span class="form-required">*</span>
+              الرمز <span class="form-required">*</span>
             </label>
             <div class="input-wrapper">
               <i class="bx bx-code-alt input-icon"></i>
@@ -43,7 +43,7 @@
           <!-- Libellé -->
           <div class="form-group">
             <label class="form-label" for="{{ form.libelle.id_for_label }}">
-              Libellé <span class="form-required">*</span>
+              التسمية <span class="form-required">*</span>
             </label>
             <div class="input-wrapper">
               <i class="bx bx-tag input-icon"></i>
@@ -56,7 +56,7 @@
 
           <!-- Ordre -->
           <div class="form-group">
-            <label class="form-label" for="{{ form.ordre.id_for_label }}">Ordre d'affichage</label>
+            <label class="form-label" for="{{ form.ordre.id_for_label }}">ترتيب العرض</label>
             <div class="input-wrapper">
               <i class="bx bx-sort input-icon"></i>
               {{ form.ordre }}
@@ -70,7 +70,7 @@
           <div class="form-group form-group--checkbox">
             <label class="checkbox-label">
               {{ form.actif }}
-              <span>Actif</span>
+              <span>نشط</span>
             </label>
             {% for err in form.actif.errors %}
             <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
@@ -84,7 +84,7 @@
           {% endif %}
 
           <div class="form-actions">
-            <a href="{% url 'intrants:type_fournisseur_list' %}" class="btn-ghost">Annuler</a>
+            <a href="{% url 'intrants:type_fournisseur_list' %}" class="btn-ghost">إلغاء</a>
             <button type="submit" class="btn-primary">
               <i class="bx bx-check"></i> {{ action_label }}
             </button>
@@ -98,6 +98,26 @@
 
 {% block extra_css %}
 <style>
+  /* ── RTL support ── */
+  .form-page-grid,
+  .form-card,
+  .form-card__body,
+  .form-group,
+  .form-label,
+  .form-hint,
+  .field-error,
+  .checkbox-label,
+  .form-actions,
+  .section-eyebrow { direction: rtl; text-align: right; }
+  .input-wrapper input[type="text"],
+  .input-wrapper input[type="number"],
+  .input-wrapper select { padding: 11px 40px 11px 13px; text-align: right; }
+  .input-icon { left: auto; right: 13px; }
+  .checkbox-label { flex-direction: row-reverse; justify-content: flex-end; }
+  .form-actions { justify-content: flex-start; }
+  .field-error { flex-direction: row-reverse; justify-content: flex-end; }
+  .btn-ghost i, .btn-primary i { transform: scaleX(-1); }
+
   .form-page-grid { display:grid;grid-template-columns:minmax(0,520px);gap:18px; }
   .form-card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden; }
   .form-card__header { padding:18px 22px 14px;border-bottom:1px solid var(--border); }

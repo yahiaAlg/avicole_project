@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
 
 {% block nav_lots %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}Lot : {{ lot.designation }} · Effectif vivant : {{ lot.effectif_vivant|floatformat:0 }} oiseaux{% endblock %}
+{% block page_sub_text %}القطيع : {{ lot.designation }} · العدد الحي : {{ lot.effectif_vivant|floatformat:0 }} طير{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'elevage:lot_detail' lot.pk %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour au lot
+    <i class="bx bx-arrow-back"></i> العودة إلى القطيع
   </a>
 {% endblock %}
 
@@ -23,7 +23,7 @@
       {% if lot.statut == 'ferme' %}
       <div class="locked-banner mb-3">
         <i class="bx bxs-lock" style="color:#b45309;font-size:15px;"></i>
-        <span>Ce lot est <strong style="color:#b45309;">clôturé</strong> — aucune saisie n'est possible.</span>
+        <span>هذا القطيع <strong style="color:#b45309;">مغلق</strong> — لا يمكن إدخال أي بيانات.</span>
       </div>
       {% endif %}
 
@@ -31,16 +31,16 @@
       <div class="card mb-3">
         <div style="padding:14px 18px;display:flex;gap:16px;flex-wrap:wrap;">
           <div style="text-align:center;flex:1;min-width:80px;">
-            <div class="ctx-label">Effectif vivant</div>
+            <div class="ctx-label">العدد الحي</div>
             <div class="ctx-val" style="color:var(--accent-text);">{{ lot.effectif_vivant|floatformat:0 }}</div>
           </div>
           <div style="text-align:center;flex:1;min-width:80px;">
-            <div class="ctx-label">Conso. aliment</div>
-            <div class="ctx-val">{{ lot.consommation_totale_aliment|floatformat:2 }} kg</div>
+            <div class="ctx-label">استهلاك العلف</div>
+            <div class="ctx-val">{{ lot.consommation_totale_aliment|floatformat:2 }} كغ</div>
           </div>
           <div style="text-align:center;flex:1;min-width:80px;">
-            <div class="ctx-label">Durée</div>
-            <div class="ctx-val">{{ lot.duree_elevage }} j</div>
+            <div class="ctx-label">المدة</div>
+            <div class="ctx-val">{{ lot.duree_elevage }} ي</div>
           </div>
         </div>
       </div>
@@ -52,7 +52,7 @@
           </div>
           <div>
             <div class="form-card__title">{{ title }}</div>
-            <div class="form-card__sub">Consommation d'intrant — lot {{ lot.designation }}</div>
+            <div class="form-card__sub">استهلاك المدخلات — القطيع {{ lot.designation }}</div>
           </div>
         </div>
 
@@ -71,7 +71,7 @@
             <!-- Date -->
             <div class="col-md-6">
               <div class="form-group">
-                <label class="form-label" for="{{ form.date.id_for_label }}">Date <span class="required-star">*</span></label>
+                <label class="form-label" for="{{ form.date.id_for_label }}">التاريخ <span class="required-star">*</span></label>
                 <div class="input-wrap">
                   <i class="bx bxs-calendar input-icon"></i>
                   {{ form.date }}
@@ -83,7 +83,7 @@
             <!-- Intrant -->
             <div class="col-md-6">
               <div class="form-group">
-                <label class="form-label" for="{{ form.intrant.id_for_label }}">Intrant <span class="required-star">*</span></label>
+                <label class="form-label" for="{{ form.intrant.id_for_label }}">المدخل <span class="required-star">*</span></label>
                 <div class="input-wrap">
                   <i class="bx bxs-package input-icon"></i>
                   {{ form.intrant }}
@@ -97,7 +97,7 @@
 
           <!-- Quantité -->
           <div class="form-group">
-            <label class="form-label" for="{{ form.quantite.id_for_label }}">Quantité <span class="required-star">*</span></label>
+            <label class="form-label" for="{{ form.quantite.id_for_label }}">الكمية <span class="required-star">*</span></label>
             <div class="input-wrap">
               <i class="bx bx-cube input-icon"></i>
               {{ form.quantite }}
@@ -112,7 +112,7 @@
 
           <!-- Notes -->
           <div class="form-group">
-            <label class="form-label" for="{{ form.notes.id_for_label }}">Notes</label>
+            <label class="form-label" for="{{ form.notes.id_for_label }}">ملاحظات</label>
             <div class="input-wrap input-wrap--textarea">
               <i class="bx bx-note input-icon" style="top:14px;transform:none;"></i>
               {{ form.notes }}
@@ -121,7 +121,7 @@
           </div>
 
           <div class="form-actions">
-            <a href="{% url 'elevage:lot_detail' lot.pk %}" class="btn-ghost">Annuler</a>
+            <a href="{% url 'elevage:lot_detail' lot.pk %}" class="btn-ghost">إلغاء</a>
             {% if lot.statut == 'ouvert' %}
             <button type="submit" class="btn-primary" id="submit-btn">
               <i class="bx bxs-save"></i> {{ action_label }}
@@ -141,6 +141,53 @@
 
 {% block extra_css %}
 <style>
+  /* ── RTL overrides ─────────────────────────────────────────── */
+  .page-body,
+  .form-card,
+  .card,
+  .locked-banner,
+  .form-group,
+  .form-actions,
+  .form-errors-global {
+    direction: rtl;
+    text-align: right;
+  }
+
+  /* Flip icon side: icons sit on the right in RTL */
+  .input-icon {
+    left: auto !important;
+    right: 13px;
+  }
+  .input-wrap input,
+  .input-wrap select,
+  .input-wrap textarea {
+    padding-left: 13px !important;
+    padding-right: 40px !important;
+    text-align: right;
+  }
+  /* Unit suffix flips to the left */
+  #unite-suffix {
+    right: auto !important;
+    left: 13px !important;
+  }
+  /* Form header icon gap */
+  .form-card__header {
+    flex-direction: row-reverse;
+  }
+  /* Reverse action buttons order visually */
+  .form-actions {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+  }
+  /* Stock caption & field errors align right */
+  #stock-caption,
+  .field-error,
+  .form-errors-global {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+  }
+  /* ────────────────────────────────────────────────────────────── */
+
   .mb-3 { margin-bottom: 16px; }
 
   .locked-banner {
@@ -243,7 +290,7 @@ document.addEventListener('DOMContentLoaded', function () {
     clearStockState();
     if (!intrantPk) return;
 
-    stockCaption.innerHTML = '<i class="bx bx-loader-circle" style="animation:spin .8s linear infinite;font-size:13px;"></i> Vérification du stock…';
+    stockCaption.innerHTML = '<i class="bx bx-loader-circle" style="animation:spin .8s linear infinite;font-size:13px;"></i> جارٍ التحقق من المخزون…';
 
     fetch(urlBase + intrantPk + '/stock.json', {
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -257,14 +304,14 @@ document.addEventListener('DOMContentLoaded', function () {
       const qty = currentStock;
       let cls = qty > 0 ? 'stock-ok' : 'stock-zero';
       let icon = qty > 0 ? 'bxs-check-circle' : 'bxs-error-circle';
-      let txt  = 'Stock disponible : ' + qty.toLocaleString('fr-DZ', {maximumFractionDigits:3}) + ' ' + currentUnite;
-      if (qty === 0) { cls = 'stock-zero'; txt = 'Stock épuisé — aucune quantité disponible.'; }
+      let txt  = 'المخزون المتاح : ' + qty.toLocaleString('ar-DZ', {maximumFractionDigits:3}) + ' ' + currentUnite;
+      if (qty === 0) { cls = 'stock-zero'; txt = 'المخزون نفد — لا توجد كمية متاحة.'; }
 
       stockCaption.innerHTML = '<i class="bx ' + icon + ' ' + cls + '" style="font-size:13px;"></i> <span class="' + cls + '">' + txt + '</span>';
       validateQuantite();
     })
     .catch(function () {
-      stockCaption.innerHTML = '<span style="color:var(--text-muted);">Impossible de vérifier le stock.</span>';
+      stockCaption.innerHTML = '<span style="color:var(--text-muted);">تعذّر التحقق من المخزون.</span>';
     });
   }
 
@@ -273,10 +320,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const val = parseFloat(quantiteInput.value);
     if (!isNaN(val) && val > 0 && val > currentStock) {
       showStockError(
-        'BR-INT-03 : stock insuffisant. Disponible : ' +
-        currentStock.toLocaleString('fr-DZ', {maximumFractionDigits:3}) +
-        ' ' + currentUnite + ' — Demandé : ' +
-        val.toLocaleString('fr-DZ', {maximumFractionDigits:3}) +
+        'BR-INT-03 : مخزون غير كافٍ. المتاح : ' +
+        currentStock.toLocaleString('ar-DZ', {maximumFractionDigits:3}) +
+        ' ' + currentUnite + ' — المطلوب : ' +
+        val.toLocaleString('ar-DZ', {maximumFractionDigits:3}) +
         ' ' + currentUnite + '.'
       );
     } else {

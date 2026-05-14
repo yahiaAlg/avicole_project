@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BL {{ bl.reference }} — {{ bl.client.nom }}</title>
+  <title>وصل التسليم {{ bl.reference }} — {{ bl.client.nom }}</title>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #f4f6f4; font-family: 'Inter', sans-serif; font-size: 13px; color: #111; }
+    body { background: #f4f6f4; font-family: 'Inter', sans-serif; font-size: 13px; color: #111; direction: rtl; }
 
     .no-print { display: block; }
     .print-preview {
@@ -17,10 +17,10 @@
 
     /* Header */
     .doc-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 32px; padding-bottom: 20px; border-bottom: 2px solid #111; }
-    .doc-brand { display: flex; flex-direction: column; gap: 2px; }
+    .doc-brand { display: flex; flex-direction: column; gap: 2px; text-align: right; }
     .doc-brand-name { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 18px; color: #111; }
     .doc-brand-sub { font-size: 11.5px; color: #555; }
-    .doc-title-block { text-align: right; }
+    .doc-title-block { text-align: left; }
     .doc-title { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 22px; color: #111; }
     .doc-ref { font-size: 13px; color: #555; margin-top: 4px; }
 
@@ -30,23 +30,26 @@
     .info-block-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: #888; margin-bottom: 6px; }
     .info-block p { font-size: 13px; color: #222; line-height: 1.6; }
     .info-block strong { font-weight: 600; font-size: 14px; color: #111; }
+    /* right block: flush right; left block: flush left */
+    .info-block--right { text-align: right; }
+    .info-block--left  { text-align: left; }
 
     /* Meta row */
-    .meta-row { display: flex; gap: 28px; background: #f8faf8; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 16px; margin-bottom: 28px; }
-    .meta-item { display: flex; flex-direction: column; gap: 2px; }
+    .meta-row { display: flex; gap: 28px; background: #f8faf8; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 16px; margin-bottom: 28px; justify-content: flex-end; }
+    .meta-item { display: flex; flex-direction: column; gap: 2px; text-align: right; }
     .meta-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: #888; }
     .meta-val { font-size: 13px; font-weight: 500; color: #111; }
 
     /* Lines table */
     table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-bottom: 24px; }
-    thead th { background: #f3f4f6; padding: 9px 11px; text-align: left; font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: #555; }
-    tbody td { padding: 9px 11px; border-bottom: 1px solid #e5e7eb; color: #222; }
+    thead th { background: #f3f4f6; padding: 9px 11px; text-align: right; font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: #555; }
+    tbody td { padding: 9px 11px; border-bottom: 1px solid #e5e7eb; color: #222; text-align: right; }
     tbody tr:last-child td { border-bottom: none; }
-    tfoot td { padding: 10px 11px; border-top: 2px solid #111; font-weight: 700; font-size: 13.5px; background: #f8faf8; }
-    .text-right { text-align: right; }
+    tfoot td { padding: 10px 11px; border-top: 2px solid #111; font-weight: 700; font-size: 13.5px; background: #f8faf8; text-align: right; }
+    .text-left { text-align: left; }
 
     /* Totals block */
-    .totals-block { display: flex; justify-content: flex-end; margin-bottom: 32px; }
+    .totals-block { display: flex; justify-content: flex-start; margin-bottom: 32px; }
     .totals-table { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; min-width: 260px; }
     .totals-row { display: flex; justify-content: space-between; padding: 9px 14px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
     .totals-row:last-child { border-bottom: none; background: #111; color: #fff; border-radius: 0 0 7px 7px; }
@@ -63,7 +66,7 @@
     .doc-footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 11px; color: #aaa; }
 
     /* No-print toolbar */
-    .no-print-bar { max-width: 760px; margin: 0 auto 16px; display: flex; gap: 10px; justify-content: flex-end; }
+    .no-print-bar { max-width: 760px; margin: 0 auto 16px; display: flex; gap: 10px; justify-content: flex-start; }
     .btn-print { background: #22c55e; color: #fff; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: 8px; padding: 10px 20px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
     .btn-back { background: transparent; border: 1px solid #ccc; color: #444; font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px; border-radius: 8px; padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
 
@@ -78,42 +81,42 @@
 <body>
 
 <div class="no-print no-print-bar">
-  <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="btn-back">← Retour</a>
-  <button class="btn-print" onclick="window.print()">🖨 Imprimer</button>
+  <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="btn-back">رجوع ←</a>
+  <button class="btn-print" onclick="window.print()">🖨 طباعة</button>
 </div>
 
 <div class="print-preview">
 
   <!-- Header -->
   <div class="doc-header">
-    <div class="doc-brand">
-      <div class="doc-brand-name">{{ company.nom|default:"Élevage Avicole" }}</div>
-      {% if company.adresse %}<div class="doc-brand-sub">{{ company.adresse }}</div>{% endif %}
-      {% if company.telephone %}<div class="doc-brand-sub">Tél : {{ company.telephone }}</div>{% endif %}
-      {% if company.nif %}<div class="doc-brand-sub">NIF : {{ company.nif }}</div>{% endif %}
-    </div>
     <div class="doc-title-block">
-      <div class="doc-title">BON DE LIVRAISON</div>
-      <div class="doc-ref">Réf : {{ bl.reference }}</div>
+      <div class="doc-title">وصل التسليم</div>
+      <div class="doc-ref">المرجع : {{ bl.reference }}</div>
+    </div>
+    <div class="doc-brand">
+      <div class="doc-brand-name">{{ company.nom|default:"تربية الدواجن" }}</div>
+      {% if company.adresse %}<div class="doc-brand-sub">{{ company.adresse }}</div>{% endif %}
+      {% if company.telephone %}<div class="doc-brand-sub">هاتف : {{ company.telephone }}</div>{% endif %}
+      {% if company.nif %}<div class="doc-brand-sub">الرقم الجبائي : {{ company.nif }}</div>{% endif %}
     </div>
   </div>
 
   <!-- Info grid -->
   <div class="info-grid">
-    <div class="info-block">
-      <div class="info-block-title">Livré à</div>
+    <div class="info-block info-block--right">
+      <div class="info-block-title">مُسلَّم إلى</div>
       <p><strong>{{ bl.client.nom }}</strong></p>
       {% if bl.client.adresse %}<p>{{ bl.client.adresse }}</p>{% endif %}
       {% if bl.client.wilaya %}<p>{{ bl.client.wilaya }}</p>{% endif %}
-      {% if bl.client.telephone %}<p>Tél : {{ bl.client.telephone }}</p>{% endif %}
-      {% if bl.client.nif %}<p>NIF : {{ bl.client.nif }}</p>{% endif %}
+      {% if bl.client.telephone %}<p>هاتف : {{ bl.client.telephone }}</p>{% endif %}
+      {% if bl.client.nif %}<p>الرقم الجبائي : {{ bl.client.nif }}</p>{% endif %}
     </div>
-    <div class="info-block" style="text-align:right;">
-      <div class="info-block-title">Adresse de livraison</div>
+    <div class="info-block info-block--left">
+      <div class="info-block-title">عنوان التسليم</div>
       {% if bl.adresse_livraison %}
       <p style="white-space:pre-line;">{{ bl.adresse_livraison }}</p>
       {% else %}
-      <p style="color:#aaa;">Identique à l'adresse du client</p>
+      <p style="color:#aaa;">نفس عنوان العميل</p>
       {% endif %}
     </div>
   </div>
@@ -121,16 +124,16 @@
   <!-- Meta row -->
   <div class="meta-row">
     <div class="meta-item">
-      <span class="meta-label">Date BL</span>
+      <span class="meta-label">تاريخ الوصل</span>
       <span class="meta-val">{{ bl.date_bl|date:"d/m/Y" }}</span>
     </div>
     <div class="meta-item">
-      <span class="meta-label">Statut</span>
+      <span class="meta-label">الحالة</span>
       <span class="meta-val">{{ bl.get_statut_display }}</span>
     </div>
     {% if bl.signe_par %}
     <div class="meta-item">
-      <span class="meta-label">Signé par</span>
+      <span class="meta-label">موقع من طرف</span>
       <span class="meta-val">{{ bl.signe_par }}</span>
     </div>
     {% endif %}
@@ -141,10 +144,10 @@
     <thead>
       <tr>
         <th>#</th>
-        <th>Désignation</th>
-        <th class="text-right">Qté</th>
-        <th class="text-right">Prix unitaire (DZD)</th>
-        <th class="text-right">Total (DZD)</th>
+        <th>التسمية</th>
+        <th class="text-left">الكمية</th>
+        <th class="text-left">سعر الوحدة (دج)</th>
+        <th class="text-left">المجموع (دج)</th>
       </tr>
     </thead>
     <tbody>
@@ -155,16 +158,16 @@
           <strong>{{ ligne.produit_fini.designation }}</strong>
           <span style="font-size:11px;color:#888;display:block;">{{ ligne.produit_fini.get_type_produit_display }}</span>
         </td>
-        <td class="text-right">{{ ligne.quantite|floatformat:2 }} {{ ligne.produit_fini.unite_mesure }}</td>
-        <td class="text-right">{{ ligne.prix_unitaire|floatformat:2 }}</td>
-        <td class="text-right"><strong>{{ ligne.montant_total|floatformat:0 }}</strong></td>
+        <td class="text-left">{{ ligne.quantite|floatformat:2 }} {{ ligne.produit_fini.unite_mesure }}</td>
+        <td class="text-left">{{ ligne.prix_unitaire|floatformat:2 }}</td>
+        <td class="text-left"><strong>{{ ligne.montant_total|floatformat:0 }}</strong></td>
       </tr>
       {% endfor %}
     </tbody>
     <tfoot>
       <tr>
-        <td colspan="4" class="text-right">TOTAL</td>
-        <td class="text-right">{{ montant_total|floatformat:0 }} DZD</td>
+        <td colspan="4" class="text-left">المجموع الكلي</td>
+        <td class="text-left">{{ montant_total|floatformat:0 }} دج</td>
       </tr>
     </tfoot>
   </table>
@@ -173,23 +176,23 @@
   <div class="totals-block">
     <div class="totals-table">
       <div class="totals-row">
-        <span class="totals-label">Total HT</span>
-        <span>{{ montant_total|floatformat:0 }} DZD</span>
+        <span class="totals-label">المجموع (خارج الضريبة)</span>
+        <span>{{ montant_total|floatformat:0 }} دج</span>
       </div>
       <div class="totals-row">
-        <span class="totals-label">TVA</span>
-        <span>0,00 DZD</span>
+        <span class="totals-label">الرسم على القيمة المضافة</span>
+        <span>0,00 دج</span>
       </div>
       <div class="totals-row">
-        <span class="totals-label">TOTAL TTC</span>
-        <span>{{ montant_total|floatformat:0 }} DZD</span>
+        <span class="totals-label">المجموع الكلي (شامل الضريبة)</span>
+        <span>{{ montant_total|floatformat:0 }} دج</span>
       </div>
     </div>
   </div>
 
   {% if bl.notes %}
   <div style="background:#f8faf8;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;margin-bottom:24px;">
-    <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:4px;">Notes</div>
+    <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:4px;">ملاحظات</div>
     <p style="font-size:13px;color:#333;white-space:pre-line;">{{ bl.notes }}</p>
   </div>
   {% endif %}
@@ -197,18 +200,18 @@
   <!-- Signatures -->
   <div class="signatures">
     <div class="sig-block">
-      <div class="sig-label">Signature du livreur</div>
-      <div class="sig-line">Nom & signature :</div>
+      <div class="sig-label">توقيع العميل (الاستلام)</div>
+      <div class="sig-line">{{ bl.signe_par|default:"الاسم والتوقيع :" }}</div>
     </div>
     <div class="sig-block">
-      <div class="sig-label">Signature du client (réception)</div>
-      <div class="sig-line">{{ bl.signe_par|default:"Nom & signature :" }}</div>
+      <div class="sig-label">توقيع المُسلِّم</div>
+      <div class="sig-line">الاسم والتوقيع :</div>
     </div>
   </div>
 
   <!-- Footer -->
   <div class="doc-footer">
-    Document généré par {{ company.nom|default:"Élevage Avicole" }} — {{ bl.date_bl|date:"d/m/Y" }}
+    وثيقة صادرة عن {{ company.nom|default:"تربية الدواجن" }} — {{ bl.date_bl|date:"d/m/Y" }}
   </div>
 
 </div>

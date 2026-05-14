@@ -1,23 +1,23 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Tableau de bord Stock — Élevage Avicole{% endblock %}
+{% block title %}لوحة قيادة المخزون — تربية الدواجن{% endblock %}
 
 {% block nav_stock_intrants %}active{% endblock %}
 
-{% block page_title %}Tableau de bord Stock{% endblock %}
-{% block page_sub_text %}Vue d'ensemble des stocks intrants et produits finis{% endblock %}
+{% block page_title %}لوحة قيادة المخزون{% endblock %}
+{% block page_sub_text %}نظرة عامة على مخزون المدخلات والمنتجات النهائية{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'stock:stock_intrant_list' %}" class="btn-ghost">
-    <i class="bx bxs-archive"></i> Stock Intrants
+    <i class="bx bxs-archive"></i> مخزون المدخلات
   </a>
   <a href="{% url 'stock:stock_produit_fini_list' %}" class="btn-ghost">
-    <i class="bx bxs-badge-check"></i> Produits Finis
+    <i class="bx bxs-badge-check"></i> المنتجات النهائية
   </a>
   {% if not request.user.profile.role == 'viewer' %}
   <a href="{% url 'stock:stock_ajustement_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Ajustement
+    <i class="bx bx-plus"></i> تسوية
   </a>
   {% endif %}
 {% endblock %}
@@ -30,13 +30,13 @@
     <div class="col-xl-3 col-md-6">
       <div class="metric-card">
         <div class="metric-icon ic-green"><i class="bx bxs-archive" style="font-size:19px;"></i></div>
-        <div class="metric-label">RÉFÉRENCES INTRANTS</div>
+        <div class="metric-label">مراجع المدخلات</div>
         <div class="metric-value">{{ nb_intrants }}</div>
         <span class="metric-delta {% if intrants_en_alerte %}down{% else %}neutral{% endif %}">
           {% if intrants_en_alerte %}
-            <i class="bx bxs-bell"></i> {{ intrants_en_alerte|length }} en alerte
+            <i class="bx bxs-bell"></i> {{ intrants_en_alerte|length }} في حالة تنبيه
           {% else %}
-            <i class="bx bxs-check-circle"></i> Aucune alerte
+            <i class="bx bxs-check-circle"></i> لا توجد تنبيهات
           {% endif %}
         </span>
       </div>
@@ -44,21 +44,21 @@
     <div class="col-xl-3 col-md-6">
       <div class="metric-card">
         <div class="metric-icon ic-amber"><i class="bx bxs-coin" style="font-size:19px;"></i></div>
-        <div class="metric-label">VALEUR STOCK INTRANTS</div>
-        <div class="metric-value" style="font-size:20px;">{{ valeur_intrants|floatformat:0 }} <span style="font-size:13px;font-weight:600;color:var(--text-muted);">DZD</span></div>
-        <span class="metric-delta neutral"><i class="bx bx-minus"></i> Prix moyen pondéré</span>
+        <div class="metric-label">قيمة مخزون المدخلات</div>
+        <div class="metric-value" style="font-size:20px;">{{ valeur_intrants|floatformat:0 }} <span style="font-size:13px;font-weight:600;color:var(--text-muted);">دج</span></div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> متوسط التكلفة المرجح</span>
       </div>
     </div>
     <div class="col-xl-3 col-md-6">
       <div class="metric-card">
         <div class="metric-icon ic-blue"><i class="bx bxs-badge-check" style="font-size:19px;"></i></div>
-        <div class="metric-label">RÉFÉRENCES PRODUITS FINIS</div>
+        <div class="metric-label">مراجع المنتجات النهائية</div>
         <div class="metric-value">{{ nb_pf }}</div>
         <span class="metric-delta {% if pf_en_alerte %}down{% else %}neutral{% endif %}">
           {% if pf_en_alerte %}
-            <i class="bx bxs-bell"></i> {{ pf_en_alerte|length }} en alerte
+            <i class="bx bxs-bell"></i> {{ pf_en_alerte|length }} في حالة تنبيه
           {% else %}
-            <i class="bx bxs-check-circle"></i> Aucune alerte
+            <i class="bx bxs-check-circle"></i> لا توجد تنبيهات
           {% endif %}
         </span>
       </div>
@@ -66,9 +66,9 @@
     <div class="col-xl-3 col-md-6">
       <div class="metric-card">
         <div class="metric-icon ic-purple"><i class="bx bxs-coin" style="font-size:19px;"></i></div>
-        <div class="metric-label">VALEUR PRODUITS FINIS</div>
-        <div class="metric-value" style="font-size:20px;">{{ valeur_pf|floatformat:0 }} <span style="font-size:13px;font-weight:600;color:var(--text-muted);">DZD</span></div>
-        <span class="metric-delta neutral"><i class="bx bx-minus"></i> Coût moyen production</span>
+        <div class="metric-label">قيمة المنتجات النهائية</div>
+        <div class="metric-value" style="font-size:20px;">{{ valeur_pf|floatformat:0 }} <span style="font-size:13px;font-weight:600;color:var(--text-muted);">دج</span></div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> متوسط تكلفة الإنتاج</span>
       </div>
     </div>
   </div>
@@ -78,22 +78,22 @@
     <!-- Alerts columns -->
     {% if intrants_en_alerte or pf_en_alerte %}
     <div class="col-xl-5">
-      <!-- Intrants en alerte -->
+      <!-- Intrants في حالة تنبيه -->
       {% if intrants_en_alerte %}
       <div class="card mb-3">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-bell" style="color:#dc2626;"></i> Intrants en alerte</div>
+          <div class="section-eyebrow"><i class="bx bxs-bell" style="color:#dc2626;"></i> Intrants في حالة تنبيه</div>
           <a href="{% url 'stock:stock_intrant_list' %}?alerte=1" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;text-decoration:none;">
-            Voir tout <i class="bx bx-right-arrow-alt"></i>
+            عرض الكل <i class="bx bx-right-arrow-alt"></i>
           </a>
         </div>
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Intrant</th>
-                <th>Stock actuel</th>
-                <th>Seuil</th>
+                <th>المدخل</th>
+                <th>المخزون الحالي</th>
+                <th>العتبة</th>
                 <th></th>
               </tr>
             </thead>
@@ -110,7 +110,7 @@
                 </td>
                 <td style="color:var(--text-muted);font-size:12.5px;">{{ s.intrant.seuil_alerte|floatformat:2 }}</td>
                 <td>
-                  <a href="{% url 'stock:stock_intrant_detail' s.pk %}" class="action-btn" title="Détail">
+                  <a href="{% url 'stock:stock_intrant_detail' s.pk %}" class="action-btn" title="التفاصيل">
                     <i class="bx bx-show"></i>
                   </a>
                 </td>
@@ -122,22 +122,22 @@
       </div>
       {% endif %}
 
-      <!-- Produits finis en alerte -->
+      <!-- Produits finis في حالة تنبيه -->
       {% if pf_en_alerte %}
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-bell" style="color:#dc2626;"></i> Produits finis en alerte</div>
+          <div class="section-eyebrow"><i class="bx bxs-bell" style="color:#dc2626;"></i> Produits finis في حالة تنبيه</div>
           <a href="{% url 'stock:stock_produit_fini_list' %}?alerte=1" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;text-decoration:none;">
-            Voir tout <i class="bx bx-right-arrow-alt"></i>
+            عرض الكل <i class="bx bx-right-arrow-alt"></i>
           </a>
         </div>
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Produit</th>
-                <th>Stock actuel</th>
-                <th>Seuil</th>
+                <th>المنتج</th>
+                <th>المخزون الحالي</th>
+                <th>العتبة</th>
                 <th></th>
               </tr>
             </thead>
@@ -154,7 +154,7 @@
                 </td>
                 <td style="color:var(--text-muted);font-size:12.5px;">{{ s.seuil_alerte|floatformat:2 }}</td>
                 <td>
-                  <a href="{% url 'stock:stock_produit_fini_detail' s.pk %}" class="action-btn" title="Détail">
+                  <a href="{% url 'stock:stock_produit_fini_detail' s.pk %}" class="action-btn" title="التفاصيل">
                     <i class="bx bx-show"></i>
                   </a>
                 </td>
@@ -172,9 +172,9 @@
     <div class="{% if intrants_en_alerte or pf_en_alerte %}col-xl-7{% else %}col-xl-12{% endif %}">
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bx-transfer"></i> Derniers mouvements</div>
+          <div class="section-eyebrow"><i class="bx bx-transfer"></i> آخر الحركات</div>
           <a href="{% url 'stock:stock_mouvement_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;text-decoration:none;">
-            Voir tout <i class="bx bx-right-arrow-alt"></i>
+            عرض الكل <i class="bx bx-right-arrow-alt"></i>
           </a>
         </div>
         {% if mouvements_recents %}
@@ -182,12 +182,12 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Article</th>
-                <th>Type</th>
-                <th>Source</th>
-                <th>Qté</th>
-                <th>Avant → Après</th>
+                <th>التاريخ</th>
+                <th>المادة</th>
+                <th>النوع</th>
+                <th>المصدر</th>
+                <th>الكمية</th>
+                <th>قبل → بعد</th>
               </tr>
             </thead>
             <tbody>
@@ -204,11 +204,11 @@
                 </td>
                 <td>
                   {% if m.type_mouvement == 'entree' %}
-                    <span class="pill-success"><i class="bx bx-trending-up"></i> Entrée</span>
+                    <span class="pill-success"><i class="bx bx-trending-up"></i> دخول</span>
                   {% elif m.type_mouvement == 'sortie' %}
-                    <span class="pill-danger"><i class="bx bx-trending-down"></i> Sortie</span>
+                    <span class="pill-danger"><i class="bx bx-trending-down"></i> خروج</span>
                   {% else %}
-                    <span class="pill-warning"><i class="bx bx-transfer"></i> Ajust.</span>
+                    <span class="pill-warning"><i class="bx bx-transfer"></i> تسوية</span>
                   {% endif %}
                 </td>
                 <td style="font-size:12px;color:var(--text-muted);">{{ m.get_source_display }}</td>
@@ -228,8 +228,8 @@
         {% else %}
         <div class="empty-state">
           <i class="bx bx-transfer empty-state__icon"></i>
-          <div class="empty-state__title">Aucun mouvement</div>
-          <div class="empty-state__body">Les mouvements de stock s'afficheront ici dès leur création.</div>
+          <div class="empty-state__title">لا توجد حركات</div>
+          <div class="empty-state__body">ستظهر حركات المخزون هنا عند إنشائها.</div>
         </div>
         {% endif %}
       </div>
@@ -242,13 +242,13 @@
     <div class="col-12">
       <div class="card" style="padding:16px 20px;">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-          <span style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);">Accès rapide</span>
-          <a href="{% url 'stock:stock_intrant_list' %}" class="btn-ghost btn-sm"><i class="bx bxs-archive"></i> Stock Intrants</a>
-          <a href="{% url 'stock:stock_produit_fini_list' %}" class="btn-ghost btn-sm"><i class="bx bxs-badge-check"></i> Stock Produits Finis</a>
-          <a href="{% url 'stock:stock_mouvement_list' %}" class="btn-ghost btn-sm"><i class="bx bx-transfer"></i> Mouvements</a>
-          <a href="{% url 'stock:stock_ajustement_list' %}" class="btn-ghost btn-sm"><i class="bx bxs-spreadsheet"></i> Ajustements</a>
+          <span style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);">وصول سريع</span>
+          <a href="{% url 'stock:stock_intrant_list' %}" class="btn-ghost btn-sm"><i class="bx bxs-archive"></i> مخزون المدخلات</a>
+          <a href="{% url 'stock:stock_produit_fini_list' %}" class="btn-ghost btn-sm"><i class="bx bxs-badge-check"></i> Stock المنتجات النهائية</a>
+          <a href="{% url 'stock:stock_mouvement_list' %}" class="btn-ghost btn-sm"><i class="bx bx-transfer"></i> الحركات</a>
+          <a href="{% url 'stock:stock_ajustement_list' %}" class="btn-ghost btn-sm"><i class="bx bxs-spreadsheet"></i> تسويةs</a>
           {% if not request.user.profile.role == 'viewer' %}
-          <a href="{% url 'stock:stock_ajustement_create' %}" class="btn-primary btn-sm"><i class="bx bx-plus"></i> Nouvel ajustement</a>
+          <a href="{% url 'stock:stock_ajustement_create' %}" class="btn-primary btn-sm"><i class="bx bx-plus"></i> تسوية جديدة</a>
           {% endif %}
         </div>
       </div>
@@ -260,6 +260,12 @@
 
 {% block extra_css %}
 <style>
+  /* ─── RTL / Arabic ─── */
+  .page-body { direction:rtl;font-family:'Tajawal','Inter',sans-serif; }
+  .data-table th, .data-table td { text-align:right; }
+  .section-eyebrow { letter-spacing:0; }
+  .metric-label { letter-spacing:0; }
+
   .page-body { padding:28px 32px; }
   @media(max-width:768px) { .page-body { padding:20px 16px; } }
 

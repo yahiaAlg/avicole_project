@@ -41,29 +41,29 @@ class UserCreateForm(forms.ModelForm):
     """
 
     password1 = forms.CharField(
-        label="Mot de passe",
+        label="كلمة المرور",
         widget=forms.PasswordInput,
         min_length=8,
     )
     password2 = forms.CharField(
-        label="Confirmer le mot de passe",
+        label="تأكيد كلمة المرور",
         widget=forms.PasswordInput,
     )
 
     # Profile fields embedded in the same form
     role = forms.ChoiceField(
         choices=UserProfile.ROLE_CHOICES,
-        label="Rôle",
+        label="الدور",
     )
     telephone = forms.CharField(
         max_length=30,
         required=False,
-        label="Téléphone",
+        label="الهاتف",
     )
     notes = forms.CharField(
         widget=forms.Textarea(attrs={"rows": 2}),
         required=False,
-        label="Notes",
+        label="ملاحظات",
     )
 
     class Meta:
@@ -102,10 +102,10 @@ class UserUpdateForm(forms.ModelForm):
     Password is NOT changed here — use Django's PasswordChangeForm for that.
     """
 
-    role = forms.ChoiceField(choices=UserProfile.ROLE_CHOICES, label="Rôle")
-    telephone = forms.CharField(max_length=30, required=False, label="Téléphone")
+    role = forms.ChoiceField(choices=UserProfile.ROLE_CHOICES, label="الدور")
+    telephone = forms.CharField(max_length=30, required=False, label="الهاتف")
     notes = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": 2}), required=False, label="Notes"
+        widget=forms.Textarea(attrs={"rows": 2}), required=False, label="ملاحظات"
     )
 
     class Meta:

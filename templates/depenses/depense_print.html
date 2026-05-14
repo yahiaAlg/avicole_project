@@ -1,13 +1,13 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pièce Justificative — Dépense N° {{ depense.pk }} — {{ company.nom }}</title>
+  <title>وثيقة إثبات مصروف — رقم {{ depense.pk }} — {{ company.nom }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Nunito:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     /* ── Reset ──────────────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -15,11 +15,12 @@
     /* ── Screen base ────────────────────────────────────────────────────── */
     body {
       background: #f4f6f4;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Tajawal', 'Inter', sans-serif;
       font-size: 13px;
       color: #1a2219;
       min-height: 100vh;
       padding: 24px 16px 48px;
+      direction: rtl;
     }
 
     /* ── Action bar (screen only) ───────────────────────────────────────── */
@@ -112,7 +113,7 @@
       color: #555;
       line-height: 1.65;
     }
-    .doc-header__title { text-align: right; flex-shrink: 0; }
+    .doc-header__title { text-align: left; flex-shrink: 0; }
     .doc-header__title h1 {
       font-family: 'Nunito', sans-serif;
       font-size: 20px;
@@ -160,7 +161,7 @@
       margin-top: 3px;
     }
     .amount-banner__amount {
-      text-align: right;
+      text-align: left;
       flex-shrink: 0;
     }
     .amount-banner__figure {
@@ -173,7 +174,7 @@
     .amount-banner__currency {
       font-size: 13px;
       color: #555;
-      margin-left: 4px;
+      margin-right: 4px;
     }
 
     /* ── Info sections ───────────────────────────────────────────────────── */
@@ -207,7 +208,7 @@
       font-size: 12.5px;
       color: #111;
       font-weight: 500;
-      padding: 9px 0 9px 12px;
+      padding: 9px 12px 9px 0;
       border-bottom: 1px solid #f3f4f6;
     }
     .info-grid dt:last-of-type,
@@ -375,14 +376,14 @@
   <div class="action-bar no-print">
     <div class="action-bar__left">
       <i class="bx bxs-receipt"></i>
-      Pièce Justificative de Dépense N°&nbsp;<strong>{{ depense.pk }}</strong>
+      وثيقة إثبات مصروف رقم&nbsp;<strong>{{ depense.pk }}</strong>
     </div>
     <div class="action-bar__right">
       <a href="{% url 'depenses:depense_detail' depense.pk %}" class="btn-back">
-        <i class="bx bx-arrow-back"></i> Retour
+        <i class="bx bx-arrow-back"></i> رجوع
       </a>
       <button class="btn-print" id="print-btn">
-        <i class="bx bx-printer"></i> Imprimer
+        <i class="bx bx-printer"></i> طباعة
       </button>
     </div>
   </div>
@@ -396,14 +397,14 @@
         <div class="doc-header__company-name">{{ company.nom }}</div>
         <div class="doc-header__company-meta">
           {% if company.adresse %}{{ company.adresse }}{% if company.wilaya %}, {{ company.wilaya }}{% endif %}<br>{% endif %}
-          {% if company.telephone %}Tél : {{ company.telephone }}{% if company.telephone_2 %} / {{ company.telephone_2 }}{% endif %}<br>{% endif %}
+          {% if company.telephone %}هاتف: {{ company.telephone }}{% if company.telephone_2 %} / {{ company.telephone_2 }}{% endif %}<br>{% endif %}
           {% if company.nif %}NIF : {{ company.nif }}{% if company.rc %} &nbsp;|&nbsp; RC : {{ company.rc }}{% endif %}<br>{% endif %}
           {% if company.nis %}NIS : {{ company.nis }}{% if company.ai %} &nbsp;|&nbsp; AI : {{ company.ai }}{% endif %}{% endif %}
         </div>
       </div>
       <div class="doc-header__title">
-        <h1>Pièce Justificative<br>de Dépense</h1>
-        <span class="doc-header__voucher-no">N°&nbsp;DEP-{{ depense.pk|stringformat:"05d" }}</span>
+        <h1>وثيقة إثبات<br>مصروف</h1>
+        <span class="doc-header__voucher-no">رقم&nbsp;DEP-{{ depense.pk|stringformat:"05d" }}</span>
       </div>
     </div>
 
@@ -420,38 +421,38 @@
     </div>
 
     <!-- Section: Détails de la dépense -->
-    <div class="section-title">Détails de la dépense</div>
+    <div class="section-title">تفاصيل المصروف</div>
     <dl class="info-grid">
-      <dt>Date</dt>
+      <dt>التاريخ</dt>
       <dd>{{ depense.date|date:"d/m/Y" }}</dd>
 
-      <dt>Catégorie</dt>
+      <dt>الفئة</dt>
       <dd><span class="cat-pill">{{ depense.categorie.libelle }}</span></dd>
 
-      <dt>Description / Objet</dt>
+      <dt>الوصف / الموضوع</dt>
       <dd>{{ depense.description }}</dd>
 
-      <dt>Montant</dt>
-      <dd><strong>{{ depense.montant|floatformat:2 }} DZD</strong></dd>
+      <dt>المبلغ</dt>
+      <dd><strong>{{ depense.montant|floatformat:2 }} دج</strong></dd>
 
-      <dt>Mode de paiement</dt>
+      <dt>طريقة الدفع</dt>
       <dd><span class="mode-badge">{{ depense.get_mode_paiement_display }}</span></dd>
 
       {% if depense.reference_document %}
-      <dt>Référence document</dt>
+      <dt>مرجع الوثيقة</dt>
       <dd>{{ depense.reference_document }}</dd>
       {% endif %}
 
-      <dt>Pièce jointe</dt>
+      <dt>المستند المرفق</dt>
       <dd>
         {% if depense.a_piece_jointe %}
-          Oui — {{ depense.piece_jointe.name|default:"fichier joint" }}
+          نعم — {{ depense.piece_jointe.name|default:"ملف مرفق" }}
         {% else %}
-          <span style="color:#dc2626;font-size:12px;">Aucune pièce jointe</span>
+          <span style="color:#dc2626;font-size:12px;">لا يوجد مستند مرفق</span>
         {% endif %}
       </dd>
 
-      <dt>Enregistré par</dt>
+      <dt>سُجِّل بواسطة</dt>
       <dd>
         {% if depense.enregistre_par %}
           {{ depense.enregistre_par.get_full_name|default:depense.enregistre_par.username }}
@@ -460,81 +461,81 @@
         {% endif %}
       </dd>
 
-      <dt>Date d'enregistrement</dt>
+      <dt>تاريخ التسجيل</dt>
       <dd>{{ depense.created_at|date:"d/m/Y" }}</dd>
     </dl>
 
     <!-- Section: Lot attribué (BR-DEP-04) — only when set -->
     {% if depense.lot %}
-    <div class="section-title">Attribution — Lot d'élevage</div>
+    <div class="section-title">التخصيص — دفعة التربية</div>
     <dl class="info-grid">
-      <dt>Lot attribué</dt>
+      <dt>الدفعة المخصصة</dt>
       <dd>
         <span class="lot-badge">{{ depense.lot.designation }}</span>
       </dd>
-      <dt>Date d'ouverture du lot</dt>
+      <dt>تاريخ فتح الدفعة</dt>
       <dd>{{ depense.lot.date_ouverture|date:"d/m/Y" }}</dd>
-      <dt>Statut du lot</dt>
-      <dd>{% if depense.lot.statut == 'ouvert' %}Ouvert{% else %}Clôturé{% endif %}</dd>
+      <dt>حالة الدفعة</dt>
+      <dd>{% if depense.lot.statut == 'ouvert' %}مفتوحة{% else %}مغلقة{% endif %}</dd>
     </dl>
     {% endif %}
 
     <!-- Section: Facture fournisseur liée (BR-DEP-03) — only when set -->
     {% if depense.facture_liee %}
-    <div class="section-title">Facture fournisseur liée</div>
+    <div class="section-title">فاتورة المورد المرتبطة</div>
     <dl class="info-grid">
-      <dt>Référence facture</dt>
+      <dt>مرجع الفاتورة</dt>
       <dd class="service-notice">{{ depense.facture_liee.reference }}</dd>
-      <dt>Fournisseur</dt>
+      <dt>المورد</dt>
       <dd>{{ depense.facture_liee.fournisseur.nom }}</dd>
-      <dt>Type de facture</dt>
+      <dt>نوع الفاتورة</dt>
       <dd>{{ depense.facture_liee.get_type_facture_display }}</dd>
-      <dt>Date de la facture</dt>
+      <dt>تاريخ الفاتورة</dt>
       <dd>{{ depense.facture_liee.date_facture|date:"d/m/Y" }}</dd>
-      <dt>Montant de la facture</dt>
-      <dd>{{ depense.facture_liee.montant_total|floatformat:2 }} DZD</dd>
+      <dt>مبلغ الفاتورة</dt>
+      <dd>{{ depense.facture_liee.montant_total|floatformat:2 }} دج</dd>
     </dl>
     <div class="br-notice">
-      BR-DEP-03 : seules les factures de type Service peuvent être liées à une dépense opérationnelle.
-      Une facture de marchandises ne génère jamais une dépense.
+      BR-DEP-03 : فواتير الخدمات فقط يمكن ربطها بمصروف تشغيلي.
+      فاتورة البضائع لا تُنشئ مصروفاً أبداً.
     </div>
     <br>
     {% endif %}
 
     <!-- Notes -->
     {% if depense.notes %}
-    <div class="section-title">Notes</div>
+    <div class="section-title">ملاحظات</div>
     <div class="notes-block">{{ depense.notes }}</div>
     {% endif %}
 
     <!-- Signature section -->
     <div class="signature-section">
-      <div class="section-title" style="margin-bottom:16px;">Validation &amp; Signatures</div>
+      <div class="section-title" style="margin-bottom:16px;">التوقيع والمصادقة</div>
       <div class="signature-grid">
 
         <div class="signature-box">
-          <div class="signature-box__label">Établi par</div>
+          <div class="signature-box__label">أعدّه</div>
           <div class="signature-box__name">
             {% if depense.enregistre_par %}
               {{ depense.enregistre_par.get_full_name|default:depense.enregistre_par.username }}
             {% endif %}
           </div>
           <div class="signature-box__line"></div>
-          <div class="signature-box__sublabel">Signature</div>
+          <div class="signature-box__sublabel">التوقيع</div>
         </div>
 
         <div class="signature-box">
-          <div class="signature-box__label">Vérifié par</div>
+          <div class="signature-box__label">راجعه</div>
           <div class="signature-box__name">&nbsp;</div>
           <div class="signature-box__line"></div>
-          <div class="signature-box__sublabel">Signature</div>
+          <div class="signature-box__sublabel">التوقيع</div>
         </div>
 
         <div class="signature-box">
-          <div class="signature-box__label">Approuvé par</div>
+          <div class="signature-box__label">اعتمده</div>
           <div class="signature-box__name">&nbsp;</div>
           <div class="signature-box__line"></div>
-          <div class="signature-box__sublabel">Signature &amp; Cachet</div>
+          <div class="signature-box__sublabel">التوقيع والختم</div>
         </div>
 
       </div>
@@ -545,8 +546,8 @@
       {% if company.pied_de_page %}
         {{ company.pied_de_page }}<br>
       {% endif %}
-      Document généré le {{ depense.created_at|date:"d/m/Y" }} —
-      Dépense N°&nbsp;DEP-{{ depense.pk|stringformat:"05d" }} —
+      وثيقة صادرة بتاريخ {{ depense.created_at|date:"d/m/Y" }} —
+      مصروف رقم&nbsp;DEP-{{ depense.pk|stringformat:"05d" }} —
       {{ company.nom }}
       {% if company.nif %} — NIF : {{ company.nif }}{% endif %}
     </div>

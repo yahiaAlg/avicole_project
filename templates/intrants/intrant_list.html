@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Catalogue des intrants — Élevage Avicole{% endblock %}
+{% block title %}كتالوج المدخلات — تربية الدواجن{% endblock %}
 
 {% block nav_intrants %}active{% endblock %}
 
-{% block page_title %}Catalogue des intrants{% endblock %}
-{% block page_sub_text %}{{ page.paginator.count }} intrant{{ page.paginator.count|pluralize }}{% endblock %}
+{% block page_title %}كتالوج المدخلات{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} مادة{% endblock %}
 
 {% block topbar_actions %}
   {% if not request.user.profile.role == 'viewer' %}
   <a href="{% url 'intrants:intrant_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouvel intrant
+    <i class="bx bx-plus"></i> مادة جديدة
   </a>
   {% endif %}
 {% endblock %}
@@ -24,32 +24,32 @@
     <form method="get" action="" class="filters-form" id="filter-form">
       <div class="search-wrapper">
         <i class="bx bx-search search-icon"></i>
-        <input type="text" name="q" value="{{ q }}" placeholder="Désignation, catégorie…" class="search-input" autocomplete="off">
+        <input type="text" name="q" value="{{ q }}" placeholder="التسمية، الفئة…" class="search-input" autocomplete="off">
       </div>
       <select name="categorie" class="filter-select" id="filter-categorie">
-        <option value="">Toutes catégories</option>
+        <option value="">كل الفئات</option>
         {% for cat in categories %}
         <option value="{{ cat.pk }}" {% if categorie_pk == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.libelle }}</option>
         {% endfor %}
       </select>
       <select name="afficher" class="filter-select" id="filter-afficher">
-        <option value="actifs" {% if afficher == 'actifs' %}selected{% endif %}>Actifs</option>
-        <option value="inactifs" {% if afficher == 'inactifs' %}selected{% endif %}>Inactifs</option>
-        <option value="tous" {% if afficher == 'tous' %}selected{% endif %}>Tous</option>
+        <option value="actifs" {% if afficher == 'actifs' %}selected{% endif %}>نشطة</option>
+        <option value="inactifs" {% if afficher == 'inactifs' %}selected{% endif %}>غير نشطة</option>
+        <option value="tous" {% if afficher == 'tous' %}selected{% endif %}>الكل</option>
       </select>
       <label class="alerte-toggle {% if en_alerte_filter %}alerte-toggle--on{% endif %}">
         <input type="checkbox" name="alerte" value="1" {% if en_alerte_filter %}checked{% endif %} id="filter-alerte">
-        <i class="bx bxs-bell"></i> Alertes stock
+        <i class="bx bxs-bell"></i> تنبيهات المخزون
       </label>
-      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> Filtrer</button>
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> تصفية</button>
     </form>
   </div>
 
   <div class="card">
     <div class="card-header-row">
-      <div class="section-eyebrow">Intrants</div>
+      <div class="section-eyebrow">المدخلات</div>
       {% if en_alerte_filter %}
-      <span class="pill-danger"><i class="bx bxs-bell"></i> Filtre alertes actif</span>
+      <span class="pill-danger"><i class="bx bxs-bell"></i> فلتر التنبيهات نشط</span>
       {% endif %}
     </div>
 
@@ -58,13 +58,13 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Désignation</th>
-            <th>Catégorie</th>
-            <th>Unité</th>
-            <th>Stock</th>
-            <th>Seuil alerte</th>
-            <th>Statut</th>
-            <th style="text-align:right;">Actions</th>
+            <th>التسمية</th>
+            <th>الفئة</th>
+            <th>الوحدة</th>
+            <th>المخزون</th>
+            <th>حد التنبيه</th>
+            <th>الحالة</th>
+            <th style="text-align:right;">الإجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -99,18 +99,18 @@
             </td>
             <td>
               {% if intrant.actif %}
-                <span class="pill-success"><i class="bx bxs-check-circle"></i> Actif</span>
+                <span class="pill-success"><i class="bx bxs-check-circle"></i> نشط</span>
               {% else %}
-                <span class="pill-neutral"><i class="bx bx-block"></i> Inactif</span>
+                <span class="pill-neutral"><i class="bx bx-block"></i> غير نشط</span>
               {% endif %}
             </td>
             <td>
               <div class="actions-cell">
-                <a href="{% url 'intrants:intrant_detail' intrant.pk %}" class="action-btn" title="Détail">
+                <a href="{% url 'intrants:intrant_detail' intrant.pk %}" class="action-btn" title="التفاصيل">
                   <i class="bx bx-show"></i>
                 </a>
                 {% if not request.user.profile.role == 'viewer' %}
-                <a href="{% url 'intrants:intrant_edit' intrant.pk %}" class="action-btn" title="Modifier">
+                <a href="{% url 'intrants:intrant_edit' intrant.pk %}" class="action-btn" title="تعديل">
                   <i class="bx bxs-pencil"></i>
                 </a>
                 {% if request.user.profile.role == 'admin' %}
@@ -119,7 +119,7 @@
                   data-toggle-item="{{ intrant.pk }}"
                   data-libelle="{{ intrant.designation }}"
                   data-active="{{ intrant.actif|yesno:'true,false' }}"
-                  title="{% if intrant.actif %}Désactiver{% else %}Activer{% endif %}">
+                  title="{% if intrant.actif %}تعطيل{% else %}تفعيل{% endif %}">
                   <i class="bx {% if intrant.actif %}bx-block{% else %}bxs-check-circle{% endif %}"></i>
                 </button>
                 {% endif %}
@@ -140,7 +140,7 @@
       {% else %}
         <span class="page-btn page-btn--disabled"><i class="bx bx-chevron-left"></i></span>
       {% endif %}
-      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      <span class="page-info">صفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
       {% if page.has_next %}
         <a href="?q={{ q }}&afficher={{ afficher }}&categorie={{ categorie_pk }}&alerte={% if en_alerte_filter %}1{% endif %}&page={{ page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
       {% else %}
@@ -152,18 +152,18 @@
     {% else %}
     <div class="empty-state">
       <i class="bx bxs-package empty-state__icon"></i>
-      <div class="empty-state__title">Aucun intrant trouvé</div>
+      <div class="empty-state__title">لم يتم العثور على مدخلات</div>
       <div class="empty-state__body">
         {% if q or categorie_pk or en_alerte_filter %}
-          Aucun intrant ne correspond aux filtres actifs.
-          <a href="{% url 'intrants:intrant_list' %}" style="color:var(--accent-text);">Réinitialiser</a>
+          لا توجد مدخلات تطابق الفلاتر النشطة.
+          <a href="{% url 'intrants:intrant_list' %}" style="color:var(--accent-text);">إعادة ضبط</a>
         {% else %}
-          Créez le premier intrant du catalogue.
+          أنشئ أول مادة في الكتالوج.
         {% endif %}
       </div>
       {% if not q and not categorie_pk and not request.user.profile.role == 'viewer' %}
       <a href="{% url 'intrants:intrant_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
-        <i class="bx bx-plus"></i> Créer
+        <i class="bx bx-plus"></i> إنشاء
       </a>
       {% endif %}
     </div>
@@ -175,14 +175,14 @@
     <div class="confirm-panel__inner">
       <div class="confirm-panel__icon" id="confirm-icon"><i class="bx bx-block"></i></div>
       <div>
-        <div class="confirm-panel__title" id="confirm-title">Désactiver l'intrant ?</div>
-        <div class="confirm-panel__body" id="confirm-body">L'intrant <strong id="confirm-libelle"></strong> sera désactivé.</div>
+        <div class="confirm-panel__title" id="confirm-title">تعطيل المادة؟</div>
+        <div class="confirm-panel__body" id="confirm-body">سيتم تعطيل المادة <strong id="confirm-libelle"></strong>.</div>
       </div>
       <div class="confirm-panel__actions">
-        <button type="button" id="confirm-cancel-btn" class="btn-ghost">Annuler</button>
+        <button type="button" id="confirm-cancel-btn" class="btn-ghost">إلغاء</button>
         <form id="confirm-toggle-form" method="post" action="">
           {% csrf_token %}
-          <button type="submit" id="confirm-submit-btn" class="btn-danger">Confirmer</button>
+          <button type="submit" id="confirm-submit-btn" class="btn-danger">تأكيد</button>
         </form>
       </div>
     </div>
@@ -303,16 +303,16 @@ document.addEventListener('DOMContentLoaded', function () {
       if (isActive) {
         panelIcon.className = 'confirm-panel__icon';
         panelIcon.innerHTML = '<i class="bx bx-block"></i>';
-        panelTitle.textContent = 'Désactiver l\'intrant ?';
-        panelBody.innerHTML = 'L\'intrant <strong>' + libelle + '</strong> sera désactivé. Le stock est conservé.';
-        submitBtn.textContent = 'Désactiver';
+        panelTitle.textContent = 'تعطيل المادة؟';
+        panelBody.innerHTML = 'سيتم تعطيل المادة <strong>' + libelle + '</strong>. المخزون محفوظ.';
+        submitBtn.textContent = 'تعطيل';
         submitBtn.className = 'btn-danger';
       } else {
         panelIcon.className = 'confirm-panel__icon activate';
         panelIcon.innerHTML = '<i class="bx bxs-check-circle"></i>';
-        panelTitle.textContent = 'Activer l\'intrant ?';
-        panelBody.innerHTML = 'L\'intrant <strong>' + libelle + '</strong> sera réactivé.';
-        submitBtn.textContent = 'Activer';
+        panelTitle.textContent = 'تفعيل المادة؟';
+        panelBody.innerHTML = 'سيتم إعادة تفعيل المادة <strong>' + libelle + '</strong>.';
+        submitBtn.textContent = 'تفعيل';
         submitBtn.className = 'btn-success';
       }
       panel.style.display = '';

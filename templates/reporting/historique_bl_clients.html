@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Historique BL Clients — Élevage Avicole{% endblock %}
+{% block title %}سجل وصولات التسليم للعملاء — تربية الدواجن{% endblock %}
 {% block nav_rapports %}active{% endblock %}
 
-{% block page_title %}Historique BL Clients{% endblock %}
-{% block page_sub_text %}{{ nb_total }} bon(s) de livraison{% if client_pk %} — client filtré{% endif %}{% endblock %}
+{% block page_title %}سجل وصولات التسليم للعملاء{% endblock %}
+{% block page_sub_text %}{{ nb_total }} وصل(ات) تسليم{% if client_pk %} — عميل مُصفَّى{% endif %}{% endblock %}
 {% block topbar_actions %}
 <a href="?{% if client_pk %}client={{ client_pk }}&{% endif %}{% if statut %}statut={{ statut }}&{% endif %}{% if date_debut %}date_debut={{ date_debut|date:'Y-m-d' }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:'Y-m-d' }}&{% endif %}{% if q %}q={{ q }}&{% endif %}export=csv" class="btn-ghost btn-sm">
-  <i class="bx bxs-spreadsheet"></i> Exporter CSV
+  <i class="bx bxs-spreadsheet"></i> تصدير CSV
 </a>
-<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> Rapports</a>
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> التقارير</a>
 {% endblock %}
 
 {% block extra_css %}
@@ -26,19 +26,19 @@
     <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
       <div class="input-wrapper" style="flex:1;min-width:180px;">
         <i class="bx bx-search input-icon"></i>
-        <input type="text" name="q" class="field-input has-icon" placeholder="Référence ou client…" value="{{ q }}">
+        <input type="text" name="q" class="field-input has-icon" placeholder="مرجع أو عميل…" value="{{ q }}">
       </div>
       <div class="input-wrapper" style="min-width:180px;">
         <i class="bx bxs-group input-icon"></i>
         <select name="client" class="field-input has-icon">
-          <option value="">Tous les clients</option>
+          <option value="">كل العملاء</option>
           {% for c in clients %}<option value="{{ c.pk }}" {% if client_pk == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nom }}</option>{% endfor %}
         </select>
       </div>
       <div class="input-wrapper" style="min-width:150px;">
         <i class="bx bxs-circle input-icon"></i>
         <select name="statut" class="field-input has-icon">
-          <option value="">Tous les statuts</option>
+          <option value="">كل الحالات</option>
           {% for val, lbl in statut_choices %}<option value="{{ val }}" {% if statut == val %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
         </select>
       </div>
@@ -50,9 +50,9 @@
         <i class="bx bxs-calendar input-icon"></i>
         <input type="date" name="date_fin" class="field-input has-icon" value="{{ date_fin|date:'Y-m-d' }}">
       </div>
-      <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> Filtrer</button>
+      <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> تصفية</button>
       {% if q or client_pk or statut or date_debut or date_fin %}
-      <a href="{% url 'reporting:historique_bl_clients' %}" class="btn-ghost btn-sm">Réinitialiser</a>
+      <a href="{% url 'reporting:historique_bl_clients' %}" class="btn-ghost btn-sm">إعادة تعيين</a>
       {% endif %}
     </form>
   </div>
@@ -63,28 +63,28 @@
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-blue"><i class="bx bxs-file-txt"></i></div>
-      <div class="metric-label">Total BL</div>
+      <div class="metric-label">إجمالي وصولات التسليم</div>
       <div class="metric-value sm">{{ nb_total }}</div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-green"><i class="bx bxs-check-circle"></i></div>
-      <div class="metric-label">Facturés</div>
+      <div class="metric-label">مُفوتَرة</div>
       <div class="metric-value sm" id="kpi-factures">—</div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-amber"><i class="bx bx-package"></i></div>
-      <div class="metric-label">Livrés (non facturés)</div>
+      <div class="metric-label">مُسلَّمة (غير مُفوتَرة)</div>
       <div class="metric-value sm" id="kpi-livres">—</div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-teal"><i class="bx bxs-wallet"></i></div>
-      <div class="metric-label">Valeur totale BL</div>
+      <div class="metric-label">القيمة الإجمالية للوصولات</div>
       <div class="metric-value sm" style="font-size:16px;" id="kpi-valeur">—</div>
     </div>
   </div>
@@ -93,7 +93,7 @@
 <div class="row g-3 mb-4">
   <div class="col-xl-5">
     <div class="section-card" style="height:100%;">
-      <div class="section-card__head"><span class="section-card__title">Répartition par Statut</span></div>
+      <div class="section-card__head"><span class="section-card__title">التوزيع حسب الحالة</span></div>
       <div class="section-card__body">
         <div class="chart-wrap" style="height:180px;"><canvas id="statutDonut"></canvas></div>
       </div>
@@ -101,7 +101,7 @@
   </div>
   <div class="col-xl-7">
     <div class="section-card" style="height:100%;">
-      <div class="section-card__head"><span class="section-card__title">Volume par Client (Top 10)</span></div>
+      <div class="section-card__head"><span class="section-card__title">الحجم حسب العميل (أعلى 10)</span></div>
       <div class="section-card__body">
         <div class="chart-wrap"><canvas id="clientBar"></canvas></div>
       </div>
@@ -112,8 +112,8 @@
 <!-- BL table -->
 <div class="section-card">
   <div class="section-card__head">
-    <span class="section-card__title">Journal BL Clients</span>
-    <span style="font-size:12px;color:var(--text-muted);">{{ page.paginator.count }} résultat(s) — Page {{ page.number }}/{{ page.paginator.num_pages }}</span>
+    <span class="section-card__title">سجل وصولات التسليم</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ page.paginator.count }} نتيجة(نتائج) — صفحة {{ page.number }}/{{ page.paginator.num_pages }}</span>
   </div>
   <div class="section-card__body no-pad">
     {% if page.object_list %}
@@ -121,13 +121,13 @@
       <table class="table-base">
         <thead>
           <tr>
-            <th>Référence</th>
-            <th>Client</th>
-            <th>Date BL</th>
-            <th style="text-align:center;">Statut</th>
-            <th style="text-align:right;">Montant Total</th>
-            <th>Facture(s)</th>
-            <th>Notes</th>
+            <th>المرجع</th>
+            <th>العميل</th>
+            <th>تاريخ الوصل</th>
+            <th style="text-align:center;">الحالة</th>
+            <th style="text-align:left;">المبلغ الإجمالي</th>
+            <th>الفاتورة(فواتير)</th>
+            <th>ملاحظات</th>
           </tr>
         </thead>
         <tbody>
@@ -144,13 +144,13 @@
             </td>
             <td style="text-align:center;">
               {% if bl.statut == 'brouillon' %}
-                <span class="pill-base pill-warning">Brouillon</span>
+                <span class="pill-base pill-warning">مسودة</span>
               {% elif bl.statut == 'livre' %}
-                <span class="pill-base pill-info">Livré</span>
+                <span class="pill-base pill-info">مُسلَّم</span>
               {% elif bl.statut == 'facture' %}
-                <span class="pill-base pill-success">Facturé</span>
+                <span class="pill-base pill-success">مُفوتَر</span>
               {% elif bl.statut == 'litige' %}
-                <span class="pill-base pill-danger">En Litige</span>
+                <span class="pill-base pill-danger">في نزاع</span>
               {% endif %}
             </td>
             <td style="text-align:right;">
@@ -175,7 +175,7 @@
     </div>
     {% if page.has_other_pages %}
     <div class="pagination-bar">
-      <span>Page {{ page.number }} / {{ page.paginator.num_pages }} — {{ page.paginator.count }} BL</span>
+      <span>صفحة {{ page.number }} / {{ page.paginator.num_pages }} — {{ page.paginator.count }} وصل</span>
       <div class="page-links">
         {% if page.has_previous %}
         <a href="?page={{ page.previous_page_number }}{% if client_pk %}&client={{ client_pk }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if date_debut %}&date_debut={{ date_debut|date:'Y-m-d' }}{% endif %}{% if date_fin %}&date_fin={{ date_fin|date:'Y-m-d' }}{% endif %}{% if q %}&q={{ q }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>
@@ -190,8 +190,8 @@
     {% else %}
     <div class="empty-state">
       <i class="bx bxs-file-txt empty-state__icon"></i>
-      <div class="empty-state__title">Aucun BL trouvé</div>
-      <div class="empty-state__text">Modifiez les filtres pour élargir la recherche.</div>
+      <div class="empty-state__title">لم يتم العثور على وصولات تسليم</div>
+      <div class="empty-state__text">عدّل الفلاتر لتوسيع البحث.</div>
     </div>
     {% endif %}
   </div>
@@ -248,7 +248,7 @@ document.addEventListener('DOMContentLoaded', function () {
     new Chart(donutEl, {
       type: 'doughnut',
       data: {
-        labels: ['Brouillon', 'Livré', 'Facturé', 'En Litige'],
+        labels: ['مسودة', 'مُسلَّم', 'مُفوتَر', 'في نزاع'],
         datasets: [{ data: [statuts.brouillon, statuts.livre, statuts.facture, statuts.litige],
           backgroundColor: ['#f59e0b','#38bdf8','#22c55e','#ef4444'],
           borderColor: '#fff', borderWidth: 3 }]
@@ -271,7 +271,7 @@ document.addEventListener('DOMContentLoaded', function () {
       type: 'bar',
       data: {
         labels: clientEntries.map(e => e[0]),
-        datasets: [{ label: 'Valeur BL (DZD)', data: clientEntries.map(e => e[1]),
+        datasets: [{ label: 'قيمة الوصل (دج)', data: clientEntries.map(e => e[1]),
           backgroundColor: 'rgba(56,189,248,.7)', borderColor: '#38bdf8', borderWidth:1, borderRadius:6, borderSkipped:false }]
       },
       options: {

@@ -1,22 +1,22 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Résumé de Trésorerie — Élevage Avicole{% endblock %}
+{% block title %}ملخص التدفق النقدي — تربية الدواجن{% endblock %}
 {% block nav_rapports %}active{% endblock %}
-{% block page_title %}Résumé de Trésorerie{% endblock %}
+{% block page_title %}ملخص التدفق النقدي{% endblock %}
 {% block page_sub_text %}
   {% if date_debut %}{{ date_debut|date:"d/m/Y" }}{% else %}—{% endif %}
   au
   {% if date_fin %}{{ date_fin|date:"d/m/Y" }}{% else %}—{% endif %}
-  — Solde net :
+  — صافي الرصيد:
   <span style="font-weight:700;{% if summary.solde_net >= 0 %}color:#15803d;{% else %}color:#dc2626;{% endif %}">
     {{ summary.solde_net|floatformat:0 }} DZD
   </span>
 {% endblock %}
 {% block topbar_actions %}
 <a href="?{% if date_debut %}date_debut={{ date_debut|date:"Y-m-d" }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:"Y-m-d" }}&{% endif %}export=csv" class="btn-ghost btn-sm">
-  <i class="bx bxs-spreadsheet"></i> Exporter CSV
+  <i class="bx bxs-spreadsheet"></i> تصدير CSV
 </a>
-<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> Rapports</a>
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> التقارير</a>
 {% endblock %}
 
 {% block extra_css %}
@@ -46,21 +46,21 @@
   <div class="section-card__body" style="padding:14px 20px;">
     <form method="get" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
       <div>
-        <label style="font-size:12px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:4px;">Du</label>
+        <label style="font-size:12px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:4px;">من</label>
         <div class="input-wrapper" style="min-width:160px;">
           <i class="bx bxs-calendar input-icon"></i>
           <input type="date" name="date_debut" class="field-input has-icon" value="{{ date_debut|date:'Y-m-d' }}">
         </div>
       </div>
       <div>
-        <label style="font-size:12px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:4px;">Au</label>
+        <label style="font-size:12px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:4px;">إلى</label>
         <div class="input-wrapper" style="min-width:160px;">
           <i class="bx bxs-calendar input-icon"></i>
           <input type="date" name="date_fin" class="field-input has-icon" value="{{ date_fin|date:'Y-m-d' }}">
         </div>
       </div>
-      <button type="submit" class="btn-primary btn-sm" style="margin-bottom:1px;"><i class="bx bxs-filter-alt"></i> Appliquer</button>
-      <a href="{% url 'reporting:cash_flow' %}" class="btn-ghost btn-sm" style="margin-bottom:1px;">Ce mois</a>
+      <button type="submit" class="btn-primary btn-sm" style="margin-bottom:1px;"><i class="bx bxs-filter-alt"></i> تطبيق</button>
+      <a href="{% url 'reporting:cash_flow' %}" class="btn-ghost btn-sm" style="margin-bottom:1px;">هذا الشهر</a>
     </form>
   </div>
 </div>
@@ -70,28 +70,28 @@
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-green"><i class="bx bxs-down-arrow-circle"></i></div>
-      <div class="metric-label">Encaissements Clients</div>
+      <div class="metric-label">تحصيلات العملاء</div>
       <div class="metric-value sm" style="color:#15803d;">{{ summary.total_encaissements|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-red"><i class="bx bxs-up-arrow-circle"></i></div>
-      <div class="metric-label">Règlements Fournisseurs</div>
+      <div class="metric-label">مدفوعات الموردين</div>
       <div class="metric-value sm" style="color:#dc2626;">{{ summary.total_reglements_fournisseurs|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-orange"><i class="bx bxs-wallet"></i></div>
-      <div class="metric-label">Dépenses Opérationnelles</div>
+      <div class="metric-label">المصاريف التشغيلية</div>
       <div class="metric-value sm" style="color:#ea580c;">{{ summary.total_depenses|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon {% if summary.solde_net >= 0 %}ic-green{% else %}ic-red{% endif %}"><i class="bx bxs-bar-chart-alt-2"></i></div>
-      <div class="metric-label">Solde Net de Trésorerie</div>
+      <div class="metric-label">صافي الرصيد النقدي</div>
       <div class="metric-value sm {% if summary.solde_net >= 0 %}" style="color:#15803d;{% else %}" style="color:#dc2626;{% endif %}">
         {% if summary.solde_net >= 0 %}+{% endif %}{{ summary.solde_net|floatformat:0 }} <small style="font-size:12px;">DZD</small>
       </div>
@@ -103,12 +103,12 @@
   <!-- Waterfall / flow visualization -->
   <div class="col-xl-5">
     <div class="section-card" style="height:100%;">
-      <div class="section-card__head"><span class="section-card__title">Flux de Trésorerie</span></div>
+      <div class="section-card__head"><span class="section-card__title">التدفق النقدي</span></div>
       <div class="section-card__body">
         <div class="flow-section in">
-          <div class="flow-section__title"><i class="bx bxs-down-arrow-circle"></i> Encaissements (Entrées)</div>
+          <div class="flow-section__title"><i class="bx bxs-down-arrow-circle"></i> التحصيلات (المداخيل)</div>
           <div class="flow-total in">{{ summary.total_encaissements|floatformat:0 }} DZD</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">Paiements clients reçus</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">مدفوعات العملاء المستلمة</div>
           {% for m in summary.par_mode_encaissement %}
           <div class="mode-row">
             <span>{{ m.label }}</span>
@@ -120,9 +120,9 @@
           {% endfor %}
         </div>
         <div class="flow-section out">
-          <div class="flow-section__title"><i class="bx bxs-up-arrow-circle"></i> Décaissements (Sorties)</div>
+          <div class="flow-section__title"><i class="bx bxs-up-arrow-circle"></i> المدفوعات (المخارج)</div>
           <div class="flow-total out">{{ summary.total_sorties|floatformat:0 }} DZD</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">Règlements fournisseurs + dépenses</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">مدفوعات الموردين + المصاريف</div>
           {% for m in summary.par_mode_sortie %}
           <div class="mode-row">
             <span>{{ m.label }}</span>
@@ -134,11 +134,11 @@
           {% endfor %}
         </div>
         <div class="flow-section net">
-          <div class="flow-section__title"><i class="bx bxs-analyse"></i> Solde Net</div>
+          <div class="flow-section__title"><i class="bx bxs-analyse"></i> صافي الرصيد</div>
           <div class="flow-total net {% if summary.solde_net >= 0 %}pos{% else %}neg{% endif %}">
             {% if summary.solde_net >= 0 %}+{% endif %}{{ summary.solde_net|floatformat:0 }} DZD
           </div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">Encaissements − Décaissements</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">التحصيلات − المدفوعات</div>
         </div>
       </div>
     </div>
@@ -146,7 +146,7 @@
   <!-- Chart -->
   <div class="col-xl-7">
     <div class="section-card" style="height:100%;">
-      <div class="section-card__head"><span class="section-card__title">Comparaison Flux</span></div>
+      <div class="section-card__head"><span class="section-card__title">مقارنة التدفقات</span></div>
       <div class="section-card__body">
         <div class="chart-wrap" style="height:300px;"><canvas id="cashflowChart"></canvas></div>
       </div>
@@ -157,7 +157,7 @@
 <!-- Paiements clients table -->
 <div class="section-card mb-3">
   <div class="section-card__head">
-    <span class="section-card__title"><i class="bx bxs-down-arrow-circle" style="color:#22c55e;margin-right:6px;"></i>Encaissements Clients</span>
+    <span class="section-card__title"><i class="bx bxs-down-arrow-circle" style="color:#22c55e;margin-right:6px;"></i>تحصيلات العملاء</span>
     <span class="pill-base pill-success">{{ summary.total_encaissements|floatformat:0 }} DZD</span>
   </div>
   <div class="section-card__body no-pad">
@@ -166,11 +166,11 @@
       <table class="table-base">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Client</th>
-            <th>Mode</th>
-            <th>Référence</th>
-            <th style="text-align:right;">Montant</th>
+            <th>التاريخ</th>
+            <th>العميل</th>
+            <th>طريقة الدفع</th>
+            <th>المرجع</th>
+            <th style="text-align:left;">المبلغ</th>
           </tr>
         </thead>
         <tbody>
@@ -189,7 +189,7 @@
     {% else %}
     <div class="empty-state" style="padding:30px 20px;">
       <i class="bx bxs-down-arrow-circle empty-state__icon" style="color:#22c55e;"></i>
-      <div class="empty-state__title">Aucun encaissement sur cette période</div>
+      <div class="empty-state__title">لا توجد تحصيلات في هذه الفترة</div>
     </div>
     {% endif %}
   </div>
@@ -198,7 +198,7 @@
 <!-- Règlements fournisseurs table -->
 <div class="section-card mb-3">
   <div class="section-card__head">
-    <span class="section-card__title"><i class="bx bxs-building" style="color:#ef4444;margin-right:6px;"></i>Règlements Fournisseurs</span>
+    <span class="section-card__title"><i class="bx bxs-building" style="color:#ef4444;margin-right:6px;"></i>مدفوعات الموردين</span>
     <span class="pill-base pill-danger">{{ summary.total_reglements_fournisseurs|floatformat:0 }} DZD</span>
   </div>
   <div class="section-card__body no-pad">
@@ -207,11 +207,11 @@
       <table class="table-base">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Fournisseur</th>
-            <th>Mode</th>
-            <th>Référence</th>
-            <th style="text-align:right;">Montant</th>
+            <th>التاريخ</th>
+            <th>المورد</th>
+            <th>طريقة الدفع</th>
+            <th>المرجع</th>
+            <th style="text-align:left;">المبلغ</th>
           </tr>
         </thead>
         <tbody>
@@ -230,7 +230,7 @@
     {% else %}
     <div class="empty-state" style="padding:30px 20px;">
       <i class="bx bxs-building empty-state__icon"></i>
-      <div class="empty-state__title">Aucun règlement fournisseur sur cette période</div>
+      <div class="empty-state__title">لا توجد مدفوعات موردين في هذه الفترة</div>
     </div>
     {% endif %}
   </div>
@@ -239,7 +239,7 @@
 <!-- Dépenses table -->
 <div class="section-card">
   <div class="section-card__head">
-    <span class="section-card__title"><i class="bx bxs-wallet" style="color:#ea580c;margin-right:6px;"></i>Dépenses Opérationnelles</span>
+    <span class="section-card__title"><i class="bx bxs-wallet" style="color:#ea580c;margin-right:6px;"></i>المصاريف التشغيلية</span>
     <span class="pill-base pill-warning">{{ summary.total_depenses|floatformat:0 }} DZD</span>
   </div>
   <div class="section-card__body no-pad">
@@ -248,11 +248,11 @@
       <table class="table-base">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Catégorie</th>
-            <th>Description</th>
-            <th>Mode</th>
-            <th style="text-align:right;">Montant</th>
+            <th>التاريخ</th>
+            <th>الفئة</th>
+            <th>الوصف</th>
+            <th>طريقة الدفع</th>
+            <th style="text-align:left;">المبلغ</th>
           </tr>
         </thead>
         <tbody>
@@ -271,7 +271,7 @@
     {% else %}
     <div class="empty-state" style="padding:30px 20px;">
       <i class="bx bxs-wallet empty-state__icon"></i>
-      <div class="empty-state__title">Aucune dépense sur cette période</div>
+      <div class="empty-state__title">لا توجد مصاريف في هذه الفترة</div>
     </div>
     {% endif %}
   </div>
@@ -303,9 +303,9 @@ document.addEventListener('DOMContentLoaded', function () {
     new Chart(cashflowEl, {
       type: 'bar',
       data: {
-        labels: ['Encaissements', 'Règlements Fournisseurs', 'Dépenses Opér.', 'Solde Net'],
+        labels: ['تحصيلات', 'مدفوعات الموردين', 'مصاريف التشغيل', 'صافي الرصيد'],
         datasets: [{
-          label: 'Montant (DZD)',
+          label: 'المبلغ (دج)',
           data: [d.encaissements, d.reglements, d.depenses, d.solde],
           backgroundColor: [
             'rgba(34,197,94,.7)',

@@ -46,9 +46,9 @@ class BLFournisseurForm(forms.ModelForm):
 
     # Statut choices available to the user (FACTURE is system-controlled).
     STATUT_USER_CHOICES = [
-        (BLFournisseur.STATUT_BROUILLON, "Brouillon"),
-        (BLFournisseur.STATUT_RECU, "Reçu"),
-        (BLFournisseur.STATUT_LITIGE, "En litige"),
+        (BLFournisseur.STATUT_BROUILLON, "مسودة"),
+        (BLFournisseur.STATUT_RECU, "مستلم"),
+        (BLFournisseur.STATUT_LITIGE, "في نزاع"),
     ]
 
     class Meta:
@@ -160,8 +160,8 @@ class FactureFournisseurForm(forms.ModelForm):
 
     # Statut choices available to the user.
     STATUT_USER_CHOICES = [
-        (FactureFournisseur.STATUT_NON_PAYE, "Non payée"),
-        (FactureFournisseur.STATUT_EN_LITIGE, "En litige"),
+        (FactureFournisseur.STATUT_NON_PAYE, "غير مدفوعة"),
+        (FactureFournisseur.STATUT_EN_LITIGE, "في نزاع"),
     ]
 
     class Meta:

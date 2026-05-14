@@ -1,21 +1,21 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
 
 {% block nav_depenses %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{% if depense %}Modification de la dépense du {{ depense.date|date:"d/m/Y" }}{% else %}Enregistrement d'une nouvelle dépense opérationnelle{% endif %}{% endblock %}
+{% block page_sub_text %}{% if depense %}تعديل المصروف بتاريخ {{ depense.date|date:"d/m/Y" }}{% else %}تسجيل مصروف تشغيلي جديد{% endif %}{% endblock %}
 
 {% block topbar_actions %}
   {% if depense %}
   <a href="{% url 'depenses:depense_detail' depense.pk %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour à la fiche
+    <i class="bx bx-arrow-back"></i> العودة إلى البطاقة
   </a>
   {% else %}
   <a href="{% url 'depenses:depense_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour à la liste
+    <i class="bx bx-arrow-back"></i> العودة إلى القائمة
   </a>
   {% endif %}
 {% endblock %}
@@ -32,14 +32,14 @@
         <!-- Identification -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bxs-wallet"></i> Identification</div>
+            <div class="section-eyebrow"><i class="bx bxs-wallet"></i> البيانات الأساسية</div>
           </div>
           <div class="form-card__body">
 
             <!-- Date -->
             <div class="form-group">
               <label class="form-label" for="{{ form.date.id_for_label }}">
-                Date <span class="form-required">*</span>
+                التاريخ <span class="form-required">*</span>
               </label>
               <div class="input-wrapper">
                 <i class="bx bxs-calendar input-icon"></i>
@@ -53,7 +53,7 @@
             <!-- Catégorie -->
             <div class="form-group">
               <label class="form-label" for="{{ form.categorie.id_for_label }}">
-                Catégorie <span class="form-required">*</span>
+                الفئة <span class="form-required">*</span>
               </label>
               <div class="input-wrapper">
                 <i class="bx bxs-category input-icon"></i>
@@ -67,7 +67,7 @@
             <!-- Description -->
             <div class="form-group">
               <label class="form-label" for="{{ form.description.id_for_label }}">
-                Description / Objet <span class="form-required">*</span>
+                الوصف / الموضوع <span class="form-required">*</span>
               </label>
               <div class="input-wrapper">
                 <i class="bx bx-text input-icon"></i>
@@ -84,16 +84,16 @@
         <!-- Attribution au lot -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bxs-buildings"></i> Lot attribué (optionnel — BR-DEP-04)</div>
+            <div class="section-eyebrow"><i class="bx bxs-buildings"></i> الدفعة المخصصة (اختياري — BR-DEP-04)</div>
           </div>
           <div class="form-card__body">
             <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" for="{{ form.lot.id_for_label }}">Lot d'élevage</label>
+              <label class="form-label" for="{{ form.lot.id_for_label }}">دفعة التربية</label>
               <div class="input-wrapper">
                 <i class="bx bxs-leaf input-icon"></i>
                 {{ form.lot }}
               </div>
-              <div class="form-hint">Optionnel — attribuez cette dépense à un lot pour le calcul de rentabilité par lot.</div>
+              <div class="form-hint">اختياري — خصص هذا المصروف لدفعة لحساب الربحية لكل دفعة.</div>
               {% for err in form.lot.errors %}
               <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
               {% endfor %}
@@ -104,7 +104,7 @@
         <!-- Notes -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bx-note"></i> Notes</div>
+            <div class="section-eyebrow"><i class="bx bx-note"></i> ملاحظات</div>
           </div>
           <div class="form-card__body">
             <div class="form-group" style="margin-bottom:0;">
@@ -126,14 +126,14 @@
         <!-- Paiement -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bxs-credit-card"></i> Paiement</div>
+            <div class="section-eyebrow"><i class="bx bxs-credit-card"></i> الدفع</div>
           </div>
           <div class="form-card__body">
 
             <!-- Montant -->
             <div class="form-group">
               <label class="form-label" for="{{ form.montant.id_for_label }}">
-                Montant (DZD) <span class="form-required">*</span>
+                المبلغ (دج) <span class="form-required">*</span>
               </label>
               <div class="input-wrapper amount-wrapper">
                 <i class="bx bx-money input-icon"></i>
@@ -148,7 +148,7 @@
             <!-- Mode de paiement -->
             <div class="form-group">
               <label class="form-label" for="{{ form.mode_paiement.id_for_label }}">
-                Mode de paiement <span class="form-required">*</span>
+                طريقة الدفع <span class="form-required">*</span>
               </label>
               <div class="input-wrapper">
                 <i class="bx bxs-credit-card-alt input-icon"></i>
@@ -162,13 +162,13 @@
             <!-- Référence document -->
             <div class="form-group">
               <label class="form-label" for="{{ form.reference_document.id_for_label }}">
-                Référence document (optionnel)
+                مرجع الوثيقة (اختياري)
               </label>
               <div class="input-wrapper">
                 <i class="bx bx-hash input-icon"></i>
                 {{ form.reference_document }}
               </div>
-              <div class="form-hint">Numéro du reçu, de la facture papier ou de la pièce justificative.</div>
+              <div class="form-hint">رقم الإيصال أو الفاتورة الورقية أو وثيقة الإثبات.</div>
               {% for err in form.reference_document.errors %}
               <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
               {% endfor %}
@@ -180,21 +180,21 @@
         <!-- Pièce jointe -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bx-paperclip"></i> Pièce jointe (optionnel)</div>
+            <div class="section-eyebrow"><i class="bx bx-paperclip"></i> المستند المرفق (اختياري)</div>
           </div>
           <div class="form-card__body">
             <div class="form-group" style="margin-bottom:0;">
               <div class="file-upload-area" id="file-upload-area">
                 <i class="bx bx-cloud-upload file-upload__icon"></i>
-                <div class="file-upload__label">Glissez un fichier ou cliquez pour sélectionner</div>
-                <div class="file-upload__hint">PDF, JPG ou PNG — max 5 Mo</div>
+                <div class="file-upload__label">اسحب ملفاً أو انقر للاختيار</div>
+                <div class="file-upload__hint">PDF، JPG أو PNG — الحد الأقصى 5 ميغابايت</div>
                 {{ form.piece_jointe }}
               </div>
               {% if depense and depense.a_piece_jointe %}
               <div class="current-attachment">
                 <i class="bx bxs-file" style="color:#0284c7;font-size:15px;"></i>
-                <span>Fichier actuel : {{ depense.piece_jointe.name|slice:"16:" }}</span>
-                <a href="{{ depense.piece_jointe.url }}" target="_blank" style="font-size:12px;color:var(--accent-text);margin-left:auto;">Voir</a>
+                <span>الملف الحالي: {{ depense.piece_jointe.name|slice:"16:" }}</span>
+                <a href="{{ depense.piece_jointe.url }}" target="_blank" style="font-size:12px;color:var(--accent-text);margin-left:auto;">عرض</a>
               </div>
               {% endif %}
               {% for err in form.piece_jointe.errors %}
@@ -207,16 +207,16 @@
         <!-- Facture liée (Service only — BR-DEP-03) -->
         <div class="form-card form-card--service">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bxs-file-doc"></i> Facture fournisseur liée</div>
-            <span class="pill-info">Service uniquement</span>
+            <div class="section-eyebrow"><i class="bx bxs-file-doc"></i> فاتورة المورد المرتبطة</div>
+            <span class="pill-info">الخدمات فقط</span>
           </div>
           <div class="form-card__body">
             <div class="service-notice">
               <i class="bx bxs-info-circle service-notice__icon"></i>
-              <span><strong>BR-DEP-03 :</strong> ce champ est optionnel et limité aux factures de type <strong>Service</strong>. Ne jamais relier une facture de marchandises.</span>
+              <span><strong>BR-DEP-03 :</strong> هذا الحقل اختياري ومخصص لفواتير <strong>الخدمات</strong> فقط. لا يجوز ربط فاتورة بضائع أبداً.</span>
             </div>
             <div class="form-group" style="margin-top:12px;margin-bottom:0;">
-              <label class="form-label" for="{{ form.facture_liee.id_for_label }}">Facture de service (optionnel)</label>
+              <label class="form-label" for="{{ form.facture_liee.id_for_label }}">فاتورة الخدمة (اختياري)</label>
               <div class="input-wrapper">
                 <i class="bx bxs-file-doc input-icon"></i>
                 {{ form.facture_liee }}
@@ -240,9 +240,9 @@
         <!-- Actions -->
         <div class="form-actions-footer">
           {% if depense %}
-          <a href="{% url 'depenses:depense_detail' depense.pk %}" class="btn-ghost">Annuler</a>
+          <a href="{% url 'depenses:depense_detail' depense.pk %}" class="btn-ghost">إلغاء</a>
           {% else %}
-          <a href="{% url 'depenses:depense_list' %}" class="btn-ghost">Annuler</a>
+          <a href="{% url 'depenses:depense_list' %}" class="btn-ghost">إلغاء</a>
           {% endif %}
           <button type="submit" class="btn-primary">
             <i class="bx bx-check"></i> {{ action_label }}
@@ -277,7 +277,7 @@
   .form-hint { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
 
   .input-wrapper { position: relative; }
-  .input-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; pointer-events: none; transition: color .15s; }
+  .input-icon { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; pointer-events: none; transition: color .15s; }
   .input-wrapper:focus-within .input-icon { color: var(--accent-text); }
 
   .input-wrapper input[type="text"],
@@ -286,15 +286,15 @@
   .input-wrapper select {
     width: 100%; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md);
     color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13.5px;
-    padding: 10px 12px 10px 40px; transition: border-color .15s, box-shadow .15s; box-sizing: border-box;
+    padding: 10px 40px 10px 12px; transition: border-color .15s, box-shadow .15s; box-sizing: border-box;
   }
   .input-wrapper input:focus,
   .input-wrapper select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none; }
   .input-wrapper input::placeholder { color: var(--text-muted); }
 
   /* Amount field with suffix */
-  .amount-wrapper input { padding-right: 48px; }
-  .amount-suffix { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--text-muted); pointer-events: none; font-weight: 600; }
+  .amount-wrapper input { padding-left: 48px; }
+  .amount-suffix { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--text-muted); pointer-events: none; font-weight: 600; }
 
   .input-wrapper--textarea textarea {
     width: 100%; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md);
@@ -339,7 +339,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (fileInput.files.length > 0) {
         fileLabel.textContent = fileInput.files[0].name;
       } else {
-        fileLabel.textContent = 'Glissez un fichier ou cliquez pour sélectionner';
+        fileLabel.textContent = 'اسحب ملفاً أو انقر للاختيار';
       }
     });
   }

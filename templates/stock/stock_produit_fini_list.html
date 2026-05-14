@@ -1,26 +1,26 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Stock Produits Finis — Élevage Avicole{% endblock %}
+{% block title %}مخزون المنتجات النهائية — تربية الدواجن{% endblock %}
 
 {% block nav_stock_produits %}active{% endblock %}
 
-{% block page_title %}Stock Produits Finis{% endblock %}
+{% block page_title %}مخزون المنتجات النهائية{% endblock %}
 {% block page_sub_text %}
   {% if en_alerte %}
-    <span style="color:#dc2626;"><i class="bx bxs-bell" style="font-size:12px;"></i> Affichage alertes uniquement</span>
+    <span style="color:#dc2626;"><i class="bx bxs-bell" style="font-size:12px;"></i> عرض التنبيهات فقط</span>
   {% else %}
-    {{ page.paginator.count }} article{{ page.paginator.count|pluralize }}{% if valeur_totale %} — valeur totale : <strong>{{ valeur_totale|floatformat:0 }} DZD</strong>{% endif %}
+    {{ page.paginator.count }} منتج{% if valeur_totale %} — القيمة الإجمالية : <strong>{{ valeur_totale|floatformat:0 }} دج</strong>{% endif %}
   {% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'stock:stock_mouvement_list' %}?segment=produit_fini" class="btn-ghost">
-    <i class="bx bx-transfer"></i> Mouvements
+    <i class="bx bx-transfer"></i> الحركات
   </a>
   {% if not request.user.profile.role == 'viewer' %}
   <a href="{% url 'stock:stock_ajustement_create' %}?segment=produit_fini" class="btn-primary">
-    <i class="bx bx-plus"></i> Ajustement
+    <i class="bx bx-plus"></i> تسوية
   </a>
   {% endif %}
 {% endblock %}
@@ -33,27 +33,27 @@
     <form method="get" action="" class="filters-form" id="filter-form">
       <div class="search-wrapper">
         <i class="bx bx-search search-icon"></i>
-        <input type="text" name="q" value="{{ q }}" placeholder="Désignation produit…" class="search-input" autocomplete="off">
+        <input type="text" name="q" value="{{ q }}" placeholder="تسمية المنتج…" class="search-input" autocomplete="off">
       </div>
       <select name="type_produit" class="filter-select" id="filter-type">
-        <option value="">Tous types</option>
+        <option value="">كل الأنواع</option>
         {% for val, label in type_choices %}
         <option value="{{ val }}" {% if type_produit == val %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
       <label class="alerte-toggle {% if en_alerte %}alerte-toggle--on{% endif %}" id="alerte-toggle-label">
         <input type="checkbox" name="alerte" value="1" {% if en_alerte %}checked{% endif %} id="filter-alerte">
-        <i class="bx bxs-bell"></i> Alertes seulement
+        <i class="bx bxs-bell"></i> التنبيهات فقط
       </label>
-      <button type="submit" class="btn-ghost btn-sm"><i class="bx bxs-filter-alt"></i> Filtrer</button>
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bxs-filter-alt"></i> تصفية</button>
     </form>
   </div>
 
   <div class="card">
     <div class="card-header-row">
-      <div class="section-eyebrow"><i class="bx bxs-badge-check"></i> Stock Produits Finis</div>
+      <div class="section-eyebrow"><i class="bx bxs-badge-check"></i> مخزون المنتجات النهائية</div>
       {% if en_alerte %}
-      <span class="pill-danger"><i class="bx bxs-bell"></i> Filtre alertes actif</span>
+      <span class="pill-danger"><i class="bx bxs-bell"></i> فلتر التنبيهات نشط</span>
       {% endif %}
     </div>
 
@@ -62,15 +62,15 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Désignation</th>
-            <th>Type</th>
-            <th>Stock actuel</th>
-            <th>Seuil alerte</th>
-            <th>Coût moyen prod.</th>
-            <th>Valeur stock</th>
-            <th>Statut</th>
-            <th>Mise à jour</th>
-            <th style="text-align:right;">Actions</th>
+            <th>التسمية</th>
+            <th>النوع</th>
+            <th>المخزون الحالي</th>
+            <th>حد التنبيه</th>
+            <th>متوسط تكلفة الإنتاج</th>
+            <th>قيمة المخزون</th>
+            <th>الحالة</th>
+            <th>آخر تحديث</th>
+            <th style="text-align:left;">الإجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -104,19 +104,19 @@
             </td>
             <td>
               {% if s.en_alerte %}
-                <span class="pill-danger"><i class="bx bxs-bell"></i> Seuil</span>
+                <span class="pill-danger"><i class="bx bxs-bell"></i> عتبة</span>
               {% else %}
-                <span class="pill-success"><i class="bx bxs-check-circle"></i> Normal</span>
+                <span class="pill-success"><i class="bx bxs-check-circle"></i> طبيعي</span>
               {% endif %}
             </td>
             <td style="font-size:11.5px;color:var(--text-muted);white-space:nowrap;">{{ s.derniere_mise_a_jour|date:"d/m/Y" }}</td>
             <td>
               <div class="actions-cell">
-                <a href="{% url 'stock:stock_produit_fini_detail' s.pk %}" class="action-btn" title="Détail stock">
+                <a href="{% url 'stock:stock_produit_fini_detail' s.pk %}" class="action-btn" title="تفاصيل المخزون">
                   <i class="bx bx-show"></i>
                 </a>
                 {% if not request.user.profile.role == 'viewer' %}
-                <a href="{% url 'stock:stock_ajustement_create' %}?segment=produit_fini&produit_fini={{ s.produit_fini.pk }}" class="action-btn" title="Ajustement">
+                <a href="{% url 'stock:stock_ajustement_create' %}?segment=produit_fini&produit_fini={{ s.produit_fini.pk }}" class="action-btn" title="تسوية">
                   <i class="bx bxs-pencil"></i>
                 </a>
                 {% endif %}
@@ -137,7 +137,7 @@
       {% else %}
       <span class="page-btn page-btn--disabled"><i class="bx bx-chevron-left"></i></span>
       {% endif %}
-      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      <span class="page-info">صفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
       {% if page.has_next %}
       <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if type_produit %}&type_produit={{ type_produit }}{% endif %}{% if en_alerte %}&alerte=1{% endif %}" class="page-btn">
         <i class="bx bx-chevron-right"></i>
@@ -152,10 +152,10 @@
     <div class="empty-state">
       <i class="bx bxs-badge-check empty-state__icon"></i>
       <div class="empty-state__title">
-        {% if en_alerte %}Aucun produit en dessous du seuil d'alerte{% else %}Aucun produit fini en stock{% endif %}
+        {% if en_alerte %}لا توجد منتجات دون عتبة التنبيه{% else %}لا توجد منتجات نهائية في المخزون{% endif %}
       </div>
       <div class="empty-state__body">
-        {% if q or type_produit %}Affinez vos filtres pour voir des résultats.{% else %}Les produits finis apparaîtront ici dès la validation d'un enregistrement de production.{% endif %}
+        {% if q or type_produit %}عدّل معايير التصفية للحصول على نتائج.{% else %}ستظهر المنتجات النهائية هنا عند التحقق من سجل إنتاج.{% endif %}
       </div>
     </div>
     {% endif %}
@@ -166,6 +166,17 @@
 
 {% block extra_css %}
 <style>
+  /* ─── RTL / Arabic ─── */
+  .page-body { direction:rtl;font-family:'Tajawal','Inter',sans-serif; }
+  .filters-form { direction:rtl; }
+  .data-table th, .data-table td { text-align:right; }
+  .data-table th:last-child, .data-table td:last-child { text-align:left; }
+  .section-eyebrow { letter-spacing:0; }
+  .search-icon { left:auto;right:12px; }
+  .search-input { padding:10px 38px 10px 13px; }
+  .pagination-bar { direction:rtl; }
+  .bx-chevron-left, .bx-chevron-right { transform:scaleX(-1); }
+
   .page-body { padding:28px 32px; }
   @media(max-width:768px) { .page-body { padding:20px 16px; } }
 

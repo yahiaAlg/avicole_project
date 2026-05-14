@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Mon Profil — Élevage Avicole{% endblock %}
+{% block title %}ملفي الشخصي — تربية الدواجن{% endblock %}
 
 {% block nav_settings %}active{% endblock %}
 
-{% block page_title %}Mon Profil{% endblock %}
-{% block page_sub_text %}{{ target_user.get_full_name|default:target_user.username }} — {{ target_user.profile.get_role_display|default:"Utilisateur" }}{% endblock %}
+{% block page_title %}ملفي الشخصي{% endblock %}
+{% block page_sub_text %}{{ target_user.get_full_name|default:target_user.username }} — {{ target_user.profile.get_role_display|default:"مستخدم" }}{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'core:own_password_change' %}" class="btn-ghost">
-    <i class="bx bxs-lock-open"></i> Changer le mot de passe
+    <i class="bx bxs-lock-open"></i> تغيير كلمة المرور
   </a>
 {% endblock %}
 
@@ -28,13 +28,13 @@
       <div style="margin-top:10px;">
         {% if target_user.profile %}
           {% if target_user.profile.role == "admin" %}
-            <span class="pill-danger">Administrateur</span>
+            <span class="pill-danger">مسؤول</span>
           {% elif target_user.profile.role == "manager" %}
-            <span class="pill-warning">Gérant</span>
+            <span class="pill-warning">مدير</span>
           {% elif target_user.profile.role == "comptable" %}
-            <span class="pill-info">Comptable</span>
+            <span class="pill-info">محاسب</span>
           {% else %}
-            <span class="pill-neutral">Opérateur</span>
+            <span class="pill-neutral">مشغّل</span>
           {% endif %}
         {% endif %}
       </div>
@@ -53,7 +53,7 @@
         {% endif %}
         <div class="profile-meta-row">
           <i class="bx bxs-calendar"></i>
-          <span>Membre depuis {{ target_user.date_joined|date:"d/m/Y" }}</span>
+          <span>عضو منذ {{ target_user.date_joined|date:"d/m/Y" }}</span>
         </div>
       </div>
     </div>
@@ -67,14 +67,14 @@
           <div class="form-card__header">
             <div class="form-card__icon ic-green"><i class="bx bxs-user"></i></div>
             <div>
-              <div class="form-card__title">Informations personnelles</div>
-              <div class="form-card__sub">Prénom, nom et adresse email visibles dans l'application</div>
+              <div class="form-card__title">المعلومات الشخصية</div>
+              <div class="form-card__sub">الاسم الأول والأخير والبريد الإلكتروني المعروضة في التطبيق</div>
             </div>
           </div>
 
           <div class="form-grid">
             <div class="field-group">
-              <label class="field-label" for="{{ form.first_name.id_for_label }}">Prénom</label>
+              <label class="field-label" for="{{ form.first_name.id_for_label }}">الاسم الأول</label>
               <div class="input-wrapper">
                 <i class="bx bxs-id-card input-icon"></i>
                 {{ form.first_name }}
@@ -85,7 +85,7 @@
             </div>
 
             <div class="field-group">
-              <label class="field-label" for="{{ form.last_name.id_for_label }}">Nom de famille</label>
+              <label class="field-label" for="{{ form.last_name.id_for_label }}">اسم العائلة</label>
               <div class="input-wrapper">
                 <i class="bx bxs-id-card input-icon"></i>
                 {{ form.last_name }}
@@ -112,14 +112,14 @@
           <div class="form-card__header">
             <div class="form-card__icon ic-blue"><i class="bx bxs-phone"></i></div>
             <div>
-              <div class="form-card__title">Contact &amp; Notes</div>
-              <div class="form-card__sub">Coordonnées internes et remarques</div>
+              <div class="form-card__title">التواصل والملاحظات</div>
+              <div class="form-card__sub">معلومات الاتصال الداخلية والملاحظات</div>
             </div>
           </div>
 
           <div class="form-fields">
             <div class="field-group">
-              <label class="field-label" for="{{ form.telephone.id_for_label }}">Téléphone</label>
+              <label class="field-label" for="{{ form.telephone.id_for_label }}">الهاتف</label>
               <div class="input-wrapper">
                 <i class="bx bxs-phone input-icon"></i>
                 {{ form.telephone }}
@@ -130,7 +130,7 @@
             </div>
 
             <div class="field-group">
-              <label class="field-label" for="{{ form.notes.id_for_label }}">Notes</label>
+              <label class="field-label" for="{{ form.notes.id_for_label }}">ملاحظات</label>
               {{ form.notes }}
               {% for err in form.notes.errors %}
                 <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
@@ -144,18 +144,18 @@
           <div class="form-card__header">
             <div class="form-card__icon ic-amber"><i class="bx bxs-slider"></i></div>
             <div>
-              <div class="form-card__title">Rôle</div>
+              <div class="form-card__title">الدور</div>
               <div class="form-card__sub">
                 {% if request.user.profile.role == "admin" %}
-                  Modifiable par les administrateurs
+                  قابل للتعديل من قِبَل المسؤولين
                 {% else %}
-                  Non modifiable — contactez un administrateur
+                  غير قابل للتعديل — تواصل مع المسؤول
                 {% endif %}
               </div>
             </div>
           </div>
           <div class="field-group">
-            <label class="field-label" for="{{ form.role.id_for_label }}">Rôle attribué</label>
+            <label class="field-label" for="{{ form.role.id_for_label }}">الدور المُسند</label>
             <div class="input-wrapper">
               <i class="bx bxs-group input-icon"></i>
               {{ form.role }}
@@ -172,7 +172,7 @@
 
         <div class="form-actions">
           <button type="submit" class="btn-primary">
-            <i class="bx bxs-save"></i> Enregistrer les modifications
+            <i class="bx bxs-save"></i> حفظ التعديلات
           </button>
         </div>
 
@@ -272,7 +272,7 @@
   .field-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .03em; }
   .input-wrapper { position: relative; }
   .input-icon {
-    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+    position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
     font-size: 15px; color: var(--text-muted); pointer-events: none;
     transition: color .15s; z-index: 1;
   }
@@ -280,8 +280,8 @@
   .input-wrapper select {
     width: 100%; background: var(--bg-surface);
     border: 1px solid var(--border); border-radius: var(--radius-md);
-    color: var(--text-primary); font-family: 'Inter', sans-serif;
-    font-size: 13.5px; padding: 11px 13px 11px 40px;
+    color: var(--text-primary); font-family: 'Tajawal', 'Inter', sans-serif;
+    font-size: 14px; padding: 11px 40px 11px 13px;
     transition: border-color .15s, box-shadow .15s; -webkit-appearance: none;
   }
   .input-wrapper input:focus,

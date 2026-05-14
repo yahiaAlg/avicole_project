@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Clients — Élevage Avicole{% endblock %}
+{% block title %}العملاء — تربية الدواجن{% endblock %}
 
 {% block nav_clients %}active{% endblock %}
 
-{% block page_title %}Clients{% endblock %}
-{% block page_sub_text %}{{ page.paginator.count }} client{{ page.paginator.count|pluralize }}{% endblock %}
+{% block page_title %}العملاء{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} عميل{% endblock %}
 
 {% block topbar_actions %}
   {% if not request.user.userprofile.role == 'viewer' %}
   <a href="{% url 'clients:client_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouveau client
+    <i class="bx bx-plus"></i> عميل جديد
   </a>
   {% endif %}
 {% endblock %}
@@ -24,25 +24,25 @@
     <form method="get" class="filters-form" id="filter-form">
       <div class="search-wrapper">
         <i class="bx bx-search search-icon"></i>
-        <input type="text" name="q" value="{{ q }}" placeholder="Nom, téléphone, wilaya…" class="search-input" autocomplete="off">
+        <input type="text" name="q" value="{{ q }}" placeholder="الاسم، الهاتف، الولاية…" class="search-input" autocomplete="off">
       </div>
       <select name="type_client" class="filter-select" id="filter-type">
-        <option value="">Tous les types</option>
+        <option value="">كل الأنواع</option>
         {% for val, label in type_choices %}
         <option value="{{ val }}" {% if type_client_filter == val %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
       <select name="actif" class="filter-select" id="filter-actif">
-        <option value="1" {% if actif_param == '1' %}selected{% endif %}>Actifs</option>
-        <option value="0" {% if actif_param == '0' %}selected{% endif %}>Tous</option>
+        <option value="1" {% if actif_param == '1' %}selected{% endif %}>النشطون</option>
+        <option value="0" {% if actif_param == '0' %}selected{% endif %}>الكل</option>
       </select>
-      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> Filtrer</button>
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> تصفية</button>
     </form>
   </div>
 
   <div class="card">
     <div class="card-header-row">
-      <div class="section-eyebrow"><i class="bx bxs-group"></i> Clients</div>
+      <div class="section-eyebrow"><i class="bx bxs-group"></i> العملاء</div>
     </div>
 
     {% if page.object_list %}
@@ -50,13 +50,13 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Nom</th>
-            <th>Type</th>
-            <th>Wilaya</th>
-            <th>Téléphone</th>
-            <th>Créance</th>
-            <th>Statut</th>
-            <th style="text-align:right;">Actions</th>
+            <th>الاسم</th>
+            <th>النوع</th>
+            <th>الولاية</th>
+            <th>الهاتف</th>
+            <th>الديون</th>
+            <th>الحالة</th>
+            <th style="text-align:left;">إجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -76,10 +76,10 @@
             <td>
               {% if client.creance_globale > 0 %}
               <span style="font-family:'Nunito',sans-serif;font-weight:700;color:{% if client.depasse_plafond %}#dc2626{% else %}#b45309{% endif %};">
-                {{ client.creance_globale|floatformat:0 }} DZD
+                {{ client.creance_globale|floatformat:0 }} دج
               </span>
               {% if client.depasse_plafond %}
-              <span class="pill-danger" style="margin-left:4px;"><i class="bx bxs-error"></i> Plafond</span>
+              <span class="pill-danger" style="margin-right:4px;"><i class="bx bxs-error"></i> السقف</span>
               {% endif %}
               {% else %}
               <span style="color:var(--text-muted);font-size:12px;">—</span>
@@ -87,22 +87,22 @@
             </td>
             <td>
               {% if client.actif %}
-              <span class="pill-success"><i class="bx bxs-check-circle"></i> Actif</span>
+              <span class="pill-success"><i class="bx bxs-check-circle"></i> نشط</span>
               {% else %}
-              <span class="pill-neutral"><i class="bx bx-block"></i> Inactif</span>
+              <span class="pill-neutral"><i class="bx bx-block"></i> غير نشط</span>
               {% endif %}
             </td>
             <td>
               <div class="actions-cell">
-                <a href="{% url 'clients:client_detail' client.pk %}" class="action-btn" title="Fiche client"><i class="bx bx-show"></i></a>
+                <a href="{% url 'clients:client_detail' client.pk %}" class="action-btn" title="ملف العميل"><i class="bx bx-show"></i></a>
                 {% if not request.user.userprofile.role == 'viewer' %}
-                <a href="{% url 'clients:client_edit' client.pk %}" class="action-btn" title="Modifier"><i class="bx bxs-pencil"></i></a>
+                <a href="{% url 'clients:client_edit' client.pk %}" class="action-btn" title="تعديل"><i class="bx bxs-pencil"></i></a>
                 {% if not request.user.userprofile.role == 'viewer' %}
                 <button type="button" class="action-btn {% if client.actif %}action-btn--danger{% endif %}"
                   data-toggle-target="{{ client.pk }}"
                   data-libelle="{{ client.nom }}"
                   data-active="{{ client.actif|yesno:'true,false' }}"
-                  title="{% if client.actif %}Désactiver{% else %}Activer{% endif %}">
+                  title="{% if client.actif %}تعطيل{% else %}تفعيل{% endif %}">
                   <i class="bx {% if client.actif %}bx-block{% else %}bxs-check-circle{% endif %}"></i>
                 </button>
                 {% endif %}
@@ -118,15 +118,15 @@
     {% if page.has_other_pages %}
     <div class="pagination-bar">
       {% if page.has_previous %}
-      <a href="?q={{ q }}&type_client={{ type_client_filter }}&actif={{ actif_param }}&page={{ page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
-      {% else %}
-      <span class="page-btn page-btn--disabled"><i class="bx bx-chevron-left"></i></span>
-      {% endif %}
-      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
-      {% if page.has_next %}
-      <a href="?q={{ q }}&type_client={{ type_client_filter }}&actif={{ actif_param }}&page={{ page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
+      <a href="?q={{ q }}&type_client={{ type_client_filter }}&actif={{ actif_param }}&page={{ page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
       {% else %}
       <span class="page-btn page-btn--disabled"><i class="bx bx-chevron-right"></i></span>
+      {% endif %}
+      <span class="page-info">صفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}
+      <a href="?q={{ q }}&type_client={{ type_client_filter }}&actif={{ actif_param }}&page={{ page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
+      {% else %}
+      <span class="page-btn page-btn--disabled"><i class="bx bx-chevron-left"></i></span>
       {% endif %}
     </div>
     {% endif %}
@@ -134,11 +134,11 @@
     {% else %}
     <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
       <i class="bx bxs-group" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
-      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">Aucun client trouvé</div>
-      <div style="font-size:13px;">Modifiez vos filtres ou créez un nouveau client.</div>
+      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">لا يوجد عميل</div>
+      <div style="font-size:13px;">عدّل الفلاتر أو أنشئ عميلاً جديداً.</div>
       {% if not request.user.userprofile.role == 'viewer' %}
       <a href="{% url 'clients:client_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
-        <i class="bx bx-plus"></i> Nouveau client
+        <i class="bx bx-plus"></i> عميل جديد
       </a>
       {% endif %}
     </div>
@@ -150,13 +150,13 @@
 <div id="toggle-confirm-panel" class="confirm-overlay" style="display:none;">
   <div class="confirm-box">
     <div class="confirm-box__icon"><i class="bx bxs-error" style="color:#b45309;font-size:22px;"></i></div>
-    <div class="confirm-box__title" id="toggle-confirm-title">Désactiver ce client ?</div>
-    <div class="confirm-box__text" id="toggle-confirm-text">Cette action est réversible.</div>
+    <div class="confirm-box__title" id="toggle-confirm-title">تعطيل هذا العميل؟</div>
+    <div class="confirm-box__text" id="toggle-confirm-text">هذا الإجراء قابل للتراجع.</div>
     <div class="confirm-box__actions">
-      <button type="button" id="toggle-cancel-btn" class="btn-ghost">Annuler</button>
+      <button type="button" id="toggle-cancel-btn" class="btn-ghost">إلغاء</button>
       <form id="toggle-form" method="post" action="">
         {% csrf_token %}
-        <button type="submit" class="btn-danger">Confirmer</button>
+        <button type="submit" class="btn-danger">تأكيد</button>
       </form>
     </div>
   </div>
@@ -165,32 +165,37 @@
 
 {% block extra_css %}
 <style>
-  .filters-bar { margin-bottom: 16px; }
+  /* ── RTL ── */
+  .page-body { direction: rtl; }
   .filters-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .confirm-box { direction: rtl; }
+
+  .filters-bar { margin-bottom: 16px; }
   .search-wrapper { position: relative; flex: 1; min-width: 200px; }
-  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; }
+  .search-icon { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; }
   .search-input {
-    width: 100%; padding: 9px 12px 9px 36px; background: var(--bg-surface);
+    width: 100%; padding: 9px 36px 9px 12px; background: var(--bg-surface);
     border: 1px solid var(--border); border-radius: var(--radius-md);
     font-size: 13.5px; color: var(--text-primary); font-family: 'Inter', sans-serif;
+    text-align: right;
   }
   .search-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px rgba(34,197,94,.15); }
   .filter-select {
     padding: 9px 12px; background: var(--bg-surface); border: 1px solid var(--border);
     border-radius: var(--radius-md); font-size: 13px; color: var(--text-secondary);
-    font-family: 'Inter', sans-serif; cursor: pointer;
+    font-family: 'Inter', sans-serif; cursor: pointer; direction: rtl;
   }
   .filter-select:focus { border-color: var(--accent); outline: none; }
   .btn-sm { padding: 8px 14px; font-size: 13px; }
 
   .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
   .card-header-row { padding: 14px 18px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
 
   .table-wrapper { overflow-x: auto; }
   .data-table { width: 100%; border-collapse: collapse; }
-  .data-table thead th { padding: 10px 14px; font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: left; background: var(--bg-base); }
-  .data-table tbody td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+  .data-table thead th { padding: 10px 14px; font-size: 11px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: right; background: var(--bg-base); }
+  .data-table tbody td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); text-align: right; }
   .data-table tbody tr:last-child td { border-bottom: none; }
   .table-row { animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i) * 35ms); }
   .table-row:hover td { background: var(--bg-hover); }
@@ -198,7 +203,7 @@
   .row-link { text-decoration: none; }
   .row-link:hover span { text-decoration: underline; }
 
-  .actions-cell { display: flex; gap: 4px; justify-content: flex-end; }
+  .actions-cell { display: flex; gap: 4px; justify-content: flex-start; }
   .action-btn {
     width: 30px; height: 30px; border-radius: var(--radius-sm);
     border: 1px solid var(--border); background: transparent;
@@ -245,12 +250,10 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  // Auto-submit select filters
   document.querySelectorAll('#filter-type, #filter-actif').forEach(function (el) {
     el.addEventListener('change', function () { document.getElementById('filter-form').submit(); });
   });
 
-  // Toggle confirm panel
   const panel = document.getElementById('toggle-confirm-panel');
   const titleEl = document.getElementById('toggle-confirm-title');
   const textEl = document.getElementById('toggle-confirm-text');
@@ -261,8 +264,8 @@ document.addEventListener('DOMContentLoaded', function () {
       const pk = btn.dataset.toggleTarget;
       const libelle = btn.dataset.libelle;
       const active = btn.dataset.active === 'true';
-      titleEl.textContent = active ? 'Désactiver « ' + libelle + ' » ?' : 'Activer « ' + libelle + ' » ?';
-      textEl.textContent = active ? 'Le client n\'apparaîtra plus dans les saisies.' : 'Le client sera de nouveau disponible.';
+      titleEl.textContent = active ? 'تعطيل « ' + libelle + ' » ؟' : 'تفعيل « ' + libelle + ' » ؟';
+      textEl.textContent = active ? 'لن يظهر العميل في الإدخالات.' : 'سيتوفر العميل مجدداً.';
       form.action = '/api/clients/clients/' + pk + '/toggle-actif/';
       panel.style.display = 'flex';
     });

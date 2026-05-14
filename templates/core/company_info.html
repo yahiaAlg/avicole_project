@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Informations de l'entreprise — Élevage Avicole{% endblock %}
+{% block title %}معلومات الشركة — تربية الدواجن{% endblock %}
 
 {% block nav_settings %}active{% endblock %}
 
-{% block page_title %}Informations de l'entreprise{% endblock %}
-{% block page_sub_text %}{{ instance.nom }} — Paramètres généraux et fiscaux{% endblock %}
+{% block page_title %}معلومات الشركة{% endblock %}
+{% block page_sub_text %}{{ instance.nom }} — الإعدادات العامة والجبائية{% endblock %}
 
 {% block topbar_actions %}
   <button type="submit" form="company-info-form" class="btn-primary">
-    <i class="bx bxs-save"></i> Enregistrer
+    <i class="bx bxs-save"></i> حفظ
   </button>
 {% endblock %}
 
@@ -30,15 +30,15 @@
           <div class="form-card__header">
             <div class="form-card__icon ic-green"><i class="bx bxs-building"></i></div>
             <div>
-              <div class="form-card__title">Identité de la ferme</div>
-              <div class="form-card__sub">Nom, adresse et coordonnées affichés sur les documents imprimés</div>
+              <div class="form-card__title">هوية المزرعة</div>
+              <div class="form-card__sub">الاسم والعنوان ومعلومات الاتصال المعروضة في المستندات المطبوعة</div>
             </div>
           </div>
 
           <div class="form-grid">
             <!-- Nom -->
             <div class="field-group field-group--full">
-              <label class="field-label" for="{{ form.nom.id_for_label }}">Nom de l'entreprise <span class="required">*</span></label>
+              <label class="field-label" for="{{ form.nom.id_for_label }}">اسم الشركة <span class="required">*</span></label>
               <div class="input-wrapper">
                 <i class="bx bxs-building input-icon"></i>
                 {{ form.nom }}
@@ -48,14 +48,14 @@
 
             <!-- Adresse -->
             <div class="field-group field-group--full">
-              <label class="field-label" for="{{ form.adresse.id_for_label }}">Adresse <span class="required">*</span></label>
+              <label class="field-label" for="{{ form.adresse.id_for_label }}">العنوان <span class="required">*</span></label>
               {{ form.adresse }}
               {% for err in form.adresse.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
             </div>
 
             <!-- Wilaya -->
             <div class="field-group">
-              <label class="field-label" for="{{ form.wilaya.id_for_label }}">Wilaya</label>
+              <label class="field-label" for="{{ form.wilaya.id_for_label }}">الولاية</label>
               <div class="input-wrapper">
                 <i class="bx bxs-map input-icon"></i>
                 {{ form.wilaya }}
@@ -65,7 +65,7 @@
 
             <!-- Téléphone -->
             <div class="field-group">
-              <label class="field-label" for="{{ form.telephone.id_for_label }}">Téléphone</label>
+              <label class="field-label" for="{{ form.telephone.id_for_label }}">الهاتف</label>
               <div class="input-wrapper">
                 <i class="bx bxs-phone input-icon"></i>
                 {{ form.telephone }}
@@ -75,7 +75,7 @@
 
             <!-- Téléphone 2 -->
             <div class="field-group">
-              <label class="field-label" for="{{ form.telephone_2.id_for_label }}">Téléphone 2</label>
+              <label class="field-label" for="{{ form.telephone_2.id_for_label }}">الهاتف 2</label>
               <div class="input-wrapper">
                 <i class="bx bxs-phone input-icon"></i>
                 {{ form.telephone_2 }}
@@ -94,22 +94,22 @@
 
             <!-- Logo -->
             <div class="field-group field-group--full">
-              <label class="field-label" for="{{ form.logo.id_for_label }}">Logo</label>
+              <label class="field-label" for="{{ form.logo.id_for_label }}">الشعار</label>
               {% if instance.logo %}
               <div class="logo-preview">
-                <img src="{{ instance.logo.url }}" alt="Logo actuel" />
-                <span class="logo-label">Logo actuel — remplacez pour mettre à jour</span>
+                <img src="{{ instance.logo.url }}" alt="الشعار الحالي" />
+                <span class="logo-label">الشعار الحالي — استبدله للتحديث</span>
               </div>
               {% endif %}
               {{ form.logo }}
-              <div class="field-hint">PNG ou JPG recommandé. Affiché sur les BL et factures imprimés.</div>
+              <div class="field-hint">PNG أو JPG موصى به. يظهر في وثائق التسليم والفواتير المطبوعة.</div>
             </div>
 
             <!-- Pied de page -->
             <div class="field-group field-group--full">
-              <label class="field-label" for="{{ form.pied_de_page.id_for_label }}">Pied de page des documents</label>
+              <label class="field-label" for="{{ form.pied_de_page.id_for_label }}">تذييل المستندات</label>
               {{ form.pied_de_page }}
-              <div class="field-hint">Texte affiché en bas des factures et BL imprimés.</div>
+              <div class="field-hint">النص المعروض أسفل الفواتير ووثائق التسليم المطبوعة.</div>
             </div>
           </div>
         </div>
@@ -119,8 +119,8 @@
           <div class="form-card__header">
             <div class="form-card__icon ic-amber"><i class="bx bxs-receipt"></i></div>
             <div>
-              <div class="form-card__title">Informations fiscales</div>
-              <div class="form-card__sub">NIF, RC, régime fiscal et coordonnées bancaires</div>
+              <div class="form-card__title">المعلومات الجبائية</div>
+              <div class="form-card__sub">NIF وRC والنظام الجبائي والمعلومات البنكية</div>
             </div>
           </div>
 
@@ -133,21 +133,21 @@
               </div>
             </div>
             <div class="field-group">
-              <label class="field-label" for="{{ form.rc.id_for_label }}">RC (Registre de Commerce)</label>
+              <label class="field-label" for="{{ form.rc.id_for_label }}">RC (السجل التجاري)</label>
               <div class="input-wrapper">
                 <i class="bx bxs-file-txt input-icon"></i>
                 {{ form.rc }}
               </div>
             </div>
             <div class="field-group">
-              <label class="field-label" for="{{ form.ai.id_for_label }}">AI (Article d'imposition)</label>
+              <label class="field-label" for="{{ form.ai.id_for_label }}">AI (مادة الضريبة)</label>
               <div class="input-wrapper">
                 <i class="bx bxs-file-txt input-icon"></i>
                 {{ form.ai }}
               </div>
             </div>
             <div class="field-group">
-              <label class="field-label" for="{{ form.nis.id_for_label }}">NIS (Numéro d'identification statistique)</label>
+              <label class="field-label" for="{{ form.nis.id_for_label }}">NIS (رقم التعريف الإحصائي)</label>
               <div class="input-wrapper">
                 <i class="bx bxs-file-txt input-icon"></i>
                 {{ form.nis }}
@@ -161,7 +161,7 @@
               </div>
             </div>
             <div class="field-group">
-              <label class="field-label" for="{{ form.regime_fiscal.id_for_label }}">Régime fiscal</label>
+              <label class="field-label" for="{{ form.regime_fiscal.id_for_label }}">النظام الجبائي</label>
               <div class="input-wrapper">
                 <i class="bx bxs-cog input-icon"></i>
                 {{ form.regime_fiscal }}
@@ -170,7 +170,7 @@
 
             <!-- TVA row -->
             <div class="field-group">
-              <label class="field-label" for="{{ form.taux_tva.id_for_label }}">Taux TVA (%)</label>
+              <label class="field-label" for="{{ form.taux_tva.id_for_label }}">نسبة TVA (%)</label>
               <div class="input-wrapper">
                 <i class="bx bx-percentage input-icon"></i>
                 {{ form.taux_tva }}
@@ -181,21 +181,21 @@
               <div class="checkbox-row">
                 {{ form.assujetti_tva }}
                 <label for="{{ form.assujetti_tva.id_for_label }}" style="font-size:13px;color:var(--text-secondary);cursor:pointer;">
-                  Assujetti à la TVA
+                  خاضع للـ TVA
                 </label>
               </div>
             </div>
 
             <!-- Bank -->
             <div class="field-group">
-              <label class="field-label" for="{{ form.banque.id_for_label }}">Banque</label>
+              <label class="field-label" for="{{ form.banque.id_for_label }}">البنك</label>
               <div class="input-wrapper">
                 <i class="bx bxs-bank input-icon"></i>
                 {{ form.banque }}
               </div>
             </div>
             <div class="field-group">
-              <label class="field-label" for="{{ form.rib.id_for_label }}">RIB / Compte bancaire</label>
+              <label class="field-label" for="{{ form.rib.id_for_label }}">RIB / الحساب البنكي</label>
               <div class="input-wrapper">
                 <i class="bx bxs-credit-card input-icon"></i>
                 {{ form.rib }}
@@ -213,41 +213,41 @@
           <div class="form-card__header">
             <div class="form-card__icon ic-blue"><i class="bx bxs-file-blank"></i></div>
             <div>
-              <div class="form-card__title">Préfixes de référence</div>
-              <div class="form-card__sub">Codes utilisés pour numéroter les documents</div>
+              <div class="form-card__title">بادئات المراجع</div>
+              <div class="form-card__sub">الرموز المستخدمة لترقيم المستندات</div>
             </div>
           </div>
 
           <div class="form-fields">
             <div class="prefix-row">
-              <span class="prefix-label">BL Client</span>
+              <span class="prefix-label">وصل تسليم العميل</span>
               <div class="input-wrapper" style="flex:1;">
                 <i class="bx bx-link-external input-icon"></i>
                 {{ form.prefixe_bl_client }}
               </div>
             </div>
             <div class="prefix-row">
-              <span class="prefix-label">BL Fournisseur</span>
+              <span class="prefix-label">وصل تسليم المورد</span>
               <div class="input-wrapper" style="flex:1;">
                 <i class="bx bxs-truck input-icon"></i>
                 {{ form.prefixe_bl_fournisseur }}
               </div>
             </div>
             <div class="prefix-row">
-              <span class="prefix-label">Facture Client</span>
+              <span class="prefix-label">فاتورة العميل</span>
               <div class="input-wrapper" style="flex:1;">
                 <i class="bx bxs-receipt input-icon"></i>
                 {{ form.prefixe_facture_client }}
               </div>
             </div>
             <div class="prefix-row">
-              <span class="prefix-label">Facture Fournisseur</span>
+              <span class="prefix-label">فاتورة المورد</span>
               <div class="input-wrapper" style="flex:1;">
                 <i class="bx bxs-file-txt input-icon"></i>
                 {{ form.prefixe_facture_fournisseur }}
               </div>
             </div>
-            <div class="field-hint" style="padding:0;">Format généré&nbsp;: <code>PRÉFIXE-AAAA-NNNN</code></div>
+            <div class="field-hint" style="padding:0;">صيغة التوليد&nbsp;: <code>PRÉFIXE-AAAA-NNNN</code></div>
           </div>
         </div>
 
@@ -256,26 +256,26 @@
           <div class="form-card__header">
             <div class="form-card__icon ic-purple"><i class="bx bxs-cog"></i></div>
             <div>
-              <div class="form-card__title">Paramètres système</div>
-              <div class="form-card__sub">Devise et format de date</div>
+              <div class="form-card__title">إعدادات النظام</div>
+              <div class="form-card__sub">العملة وتنسيق التاريخ</div>
             </div>
           </div>
 
           <div class="form-fields">
             <div class="field-group">
-              <label class="field-label" for="{{ form.devise.id_for_label }}">Devise</label>
+              <label class="field-label" for="{{ form.devise.id_for_label }}">العملة</label>
               <div class="input-wrapper">
                 <i class="bx bxs-coin input-icon"></i>
                 {{ form.devise }}
               </div>
             </div>
             <div class="field-group">
-              <label class="field-label" for="{{ form.format_date.id_for_label }}">Format de date</label>
+              <label class="field-label" for="{{ form.format_date.id_for_label }}">تنسيق التاريخ</label>
               <div class="input-wrapper">
                 <i class="bx bxs-calendar input-icon"></i>
                 {{ form.format_date }}
               </div>
-              <div class="field-hint">Cosmétique uniquement — stockage ISO 8601 en base.</div>
+              <div class="field-hint">للعرض فقط — يُخزَّن بتنسيق ISO 8601 في قاعدة البيانات.</div>
             </div>
           </div>
         </div>
@@ -291,7 +291,7 @@
         <!-- Mobile submit -->
         <div class="form-actions-mobile">
           <button type="submit" class="btn-primary" style="width:100%;justify-content:center;">
-            <i class="bx bxs-save"></i> Enregistrer les modifications
+            <i class="bx bxs-save"></i> حفظ التعديلات
           </button>
         </div>
 
@@ -359,7 +359,7 @@
 
   .input-wrapper { position: relative; }
   .input-icon {
-    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+    position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
     font-size: 15px; color: var(--text-muted); pointer-events: none;
     transition: color .15s; z-index: 1;
   }
@@ -367,8 +367,8 @@
   .input-wrapper select {
     width: 100%; background: var(--bg-surface);
     border: 1px solid var(--border); border-radius: var(--radius-md);
-    color: var(--text-primary); font-family: 'Inter', sans-serif;
-    font-size: 13.5px; padding: 11px 13px 11px 40px;
+    color: var(--text-primary); font-family: 'Tajawal', 'Inter', sans-serif;
+    font-size: 14px; padding: 11px 40px 11px 13px;
     transition: border-color .15s, box-shadow .15s; -webkit-appearance: none;
   }
   .input-wrapper input:focus,

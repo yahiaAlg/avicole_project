@@ -1,21 +1,21 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Catégories de dépenses — Élevage Avicole{% endblock %}
+{% block title %}فئات المصاريف — تربية الدواجن{% endblock %}
 
 {% block nav_depenses_categories %}active{% endblock %}
 
-{% block page_title %}Catégories de dépenses{% endblock %}
-{% block page_sub_text %}{{ categories|length }} catégorie{{ categories|length|pluralize }}{% endblock %}
+{% block page_title %}فئات المصاريف{% endblock %}
+{% block page_sub_text %}{{ categories|length }} فئة{% endblock %}
 
 {% block topbar_actions %}
   {% if not request.user.userprofile.role == 'viewer' %}
   <a href="{% url 'depenses:categorie_depense_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> Nouvelle catégorie
+    <i class="bx bx-plus"></i> فئة جديدة
   </a>
   {% endif %}
   <a href="{% url 'depenses:dashboard' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Tableau de bord
+    <i class="bx bx-arrow-back"></i> لوحة التحكم
   </a>
 {% endblock %}
 
@@ -26,17 +26,17 @@
   <div class="filters-bar">
     <form method="get" action="" class="filters-form" id="filter-form">
       <select name="actif" class="filter-select" id="filter-actif">
-        <option value="" {% if actif_param == '' %}selected{% endif %}>Toutes les catégories</option>
-        <option value="1" {% if actif_param == '1' %}selected{% endif %}>Actives uniquement</option>
-        <option value="0" {% if actif_param == '0' %}selected{% endif %}>Inactives uniquement</option>
+        <option value="" {% if actif_param == '' %}selected{% endif %}>جميع الفئات</option>
+        <option value="1" {% if actif_param == '1' %}selected{% endif %}>النشطة فقط</option>
+        <option value="0" {% if actif_param == '0' %}selected{% endif %}>غير النشطة فقط</option>
       </select>
-      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> Filtrer</button>
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> تصفية</button>
     </form>
   </div>
 
   <div class="card">
     <div class="card-header-row">
-      <div class="section-eyebrow"><i class="bx bxs-category"></i> Catégories</div>
+      <div class="section-eyebrow"><i class="bx bxs-category"></i> الفئات</div>
     </div>
 
     {% if categories %}
@@ -44,13 +44,13 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Code</th>
-            <th>Libellé</th>
-            <th>Description</th>
-            <th style="text-align:right;">Volume total (DZD)</th>
-            <th>Ordre</th>
-            <th>Statut</th>
-            <th style="text-align:right;">Actions</th>
+            <th>الرمز</th>
+            <th>التسمية</th>
+            <th>الوصف</th>
+            <th style="text-align:right;">الحجم الإجمالي (دج)</th>
+            <th>الترتيب</th>
+            <th>الحالة</th>
+            <th style="text-align:right;">الإجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -75,15 +75,15 @@
             <td style="color:var(--text-muted);font-size:12.5px;">{{ cat.ordre }}</td>
             <td>
               {% if cat.actif %}
-                <span class="pill-success"><i class="bx bxs-check-circle"></i> Active</span>
+                <span class="pill-success"><i class="bx bxs-check-circle"></i> نشطة</span>
               {% else %}
-                <span class="pill-neutral"><i class="bx bx-block"></i> Inactive</span>
+                <span class="pill-neutral"><i class="bx bx-block"></i> غير نشطة</span>
               {% endif %}
             </td>
             <td>
               <div class="actions-cell">
                 {% if not request.user.userprofile.role == 'viewer' %}
-                <a href="{% url 'depenses:categorie_depense_edit' cat.pk %}" class="action-btn" title="Modifier">
+                <a href="{% url 'depenses:categorie_depense_edit' cat.pk %}" class="action-btn" title="تعديل">
                   <i class="bx bxs-pencil"></i>
                 </a>
                 {% if request.user.userprofile.role == 'admin' %}
@@ -92,7 +92,7 @@
                   data-toggle-cat="{{ cat.pk }}"
                   data-libelle="{{ cat.libelle }}"
                   data-active="{{ cat.actif|yesno:'true,false' }}"
-                  title="{% if cat.actif %}Désactiver{% else %}Activer{% endif %}">
+                  title="{% if cat.actif %}تعطيل{% else %}تفعيل{% endif %}">
                   <i class="bx {% if cat.actif %}bx-block{% else %}bxs-check-circle{% endif %}"></i>
                 </button>
                 {% endif %}
@@ -107,11 +107,11 @@
     {% else %}
     <div class="empty-state">
       <i class="bx bxs-category empty-state__icon"></i>
-      <div class="empty-state__title">Aucune catégorie trouvée</div>
-      <div class="empty-state__body">Créez des catégories pour organiser vos dépenses.</div>
+      <div class="empty-state__title">لا توجد فئات</div>
+      <div class="empty-state__body">أنشئ فئات لتنظيم مصاريفك.</div>
       {% if not request.user.userprofile.role == 'viewer' %}
       <a href="{% url 'depenses:categorie_depense_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
-        <i class="bx bx-plus"></i> Nouvelle catégorie
+        <i class="bx bx-plus"></i> فئة جديدة
       </a>
       {% endif %}
     </div>
@@ -127,10 +127,10 @@
         <div id="confirm-body" class="confirm-panel__body"></div>
       </div>
       <div class="confirm-panel__actions">
-        <button type="button" id="confirm-cancel-btn" class="btn-ghost">Annuler</button>
+        <button type="button" id="confirm-cancel-btn" class="btn-ghost">إلغاء</button>
         <form id="confirm-toggle-form" method="post" action="">
           {% csrf_token %}
-          <button type="submit" id="confirm-submit-btn" class="btn-danger">Confirmer</button>
+          <button type="submit" id="confirm-submit-btn" class="btn-danger">تأكيد</button>
         </form>
       </div>
     </div>
@@ -199,6 +199,16 @@
   .btn-success:hover { background: rgba(34,197,94,.2); }
 
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* RTL overrides */
+  [dir="rtl"] .data-table th[style*="text-align:right"],
+  [dir="rtl"] .data-table td[style*="text-align:right"] { text-align: left; }
+  [dir="rtl"] .actions-cell { justify-content: flex-start; }
+  [dir="rtl"] .confirm-panel__actions { justify-content: flex-start; }
+  [dir="rtl"] .filters-form { direction: rtl; }
+  [dir="rtl"] .section-eyebrow { direction: rtl; }
+  [dir="rtl"] .pill-success,
+  [dir="rtl"] .pill-neutral { direction: rtl; }
 </style>
 {% endblock %}
 
@@ -226,16 +236,16 @@ document.addEventListener('DOMContentLoaded', function () {
       if (isActive) {
         icon.className = 'confirm-panel__icon';
         icon.innerHTML = '<i class="bx bx-block"></i>';
-        titleEl.textContent = 'Désactiver la catégorie ?';
-        bodyEl.innerHTML = 'La catégorie <strong>' + libelle + '</strong> sera désactivée. Les dépenses existantes sont conservées.';
-        submitBtn.textContent = 'Désactiver';
+        titleEl.textContent = 'تعطيل الفئة؟';
+        bodyEl.innerHTML = 'سيتم تعطيل الفئة <strong>' + libelle + '</strong>. ستبقى المصاريف الموجودة محفوظة.';
+        submitBtn.textContent = 'تعطيل';
         submitBtn.className = 'btn-danger';
       } else {
         icon.className = 'confirm-panel__icon activate';
         icon.innerHTML = '<i class="bx bxs-check-circle"></i>';
-        titleEl.textContent = 'Activer la catégorie ?';
-        bodyEl.innerHTML = 'La catégorie <strong>' + libelle + '</strong> sera réactivée et disponible dans les saisies.';
-        submitBtn.textContent = 'Activer';
+        titleEl.textContent = 'تفعيل الفئة؟';
+        bodyEl.innerHTML = 'سيتم إعادة تفعيل الفئة <strong>' + libelle + '</strong> وستكون متاحة في نماذج الإدخال.';
+        submitBtn.textContent = 'تفعيل';
         submitBtn.className = 'btn-success';
       }
       panel.style.display = '';

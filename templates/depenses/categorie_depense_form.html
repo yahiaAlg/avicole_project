@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
 
 {% block nav_depenses %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{% if categorie %}Modification de la catégorie — code {{ categorie.code }}{% else %}Nouvelle catégorie de dépense{% endif %}{% endblock %}
+{% block page_sub_text %}{% if categorie %}تعديل الفئة — الرمز {{ categorie.code }}{% else %}فئة مصاريف جديدة{% endif %}{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'depenses:categorie_depense_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour aux catégories
+    <i class="bx bx-arrow-back"></i> العودة إلى الفئات
   </a>
 {% endblock %}
 
@@ -21,7 +21,7 @@
       {% csrf_token %}
       <div class="form-card">
         <div class="form-card__header">
-          <div class="section-eyebrow"><i class="bx bxs-category"></i> Identification</div>
+          <div class="section-eyebrow"><i class="bx bxs-category"></i> التعريف</div>
         </div>
         <div class="form-card__body">
 
@@ -29,13 +29,13 @@
             <!-- Code -->
             <div class="form-group">
               <label class="form-label" for="{{ form.code.id_for_label }}">
-                Code <span class="form-required">*</span>
+                الرمز <span class="form-required">*</span>
               </label>
               <div class="input-wrapper">
                 <i class="bx bx-hash input-icon"></i>
                 {{ form.code }}
               </div>
-              <div class="form-hint">Identifiant court unique, ex : ENERGIE, MAINTENANCE.</div>
+              <div class="form-hint">معرّف قصير وفريد، مثال: ENERGIE، MAINTENANCE.</div>
               {% for err in form.code.errors %}
               <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
               {% endfor %}
@@ -44,13 +44,13 @@
             <!-- Ordre -->
             <div class="form-group">
               <label class="form-label" for="{{ form.ordre.id_for_label }}">
-                Ordre d'affichage
+                ترتيب العرض
               </label>
               <div class="input-wrapper">
                 <i class="bx bx-sort-a-z input-icon"></i>
                 {{ form.ordre }}
               </div>
-              <div class="form-hint">Les catégories sont triées par ordre croissant dans les listes.</div>
+              <div class="form-hint">تُرتَّب الفئات تصاعدياً في القوائم.</div>
               {% for err in form.ordre.errors %}
               <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
               {% endfor %}
@@ -60,7 +60,7 @@
           <!-- Libellé -->
           <div class="form-group">
             <label class="form-label" for="{{ form.libelle.id_for_label }}">
-              Libellé <span class="form-required">*</span>
+              التسمية <span class="form-required">*</span>
             </label>
             <div class="input-wrapper">
               <i class="bx bxs-tag input-icon"></i>
@@ -73,7 +73,7 @@
 
           <!-- Description -->
           <div class="form-group">
-            <label class="form-label" for="{{ form.description.id_for_label }}">Description</label>
+            <label class="form-label" for="{{ form.description.id_for_label }}">الوصف</label>
             <div class="input-wrapper input-wrapper--textarea">
               {{ form.description }}
             </div>
@@ -86,9 +86,9 @@
           <div class="form-group form-group--checkbox" style="margin-bottom:0;">
             <label class="checkbox-label">
               {{ form.actif }}
-              <span>Catégorie active</span>
+              <span>فئة نشطة</span>
             </label>
-            <div class="form-hint" style="margin-top:4px;">Une catégorie inactive n'apparaît plus dans les formulaires de saisie.</div>
+            <div class="form-hint" style="margin-top:4px;">الفئة غير النشطة لن تظهر في نماذج الإدخال.</div>
             {% for err in form.actif.errors %}
             <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
             {% endfor %}
@@ -106,7 +106,7 @@
       {% endif %}
 
       <div class="form-actions-footer">
-        <a href="{% url 'depenses:categorie_depense_list' %}" class="btn-ghost">Annuler</a>
+        <a href="{% url 'depenses:categorie_depense_list' %}" class="btn-ghost">إلغاء</a>
         <button type="submit" class="btn-primary">
           <i class="bx bx-check"></i> {{ action_label }}
         </button>
@@ -167,6 +167,15 @@
   .btn-primary:hover { opacity: .88; color: #fff; }
   .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px; border-radius: var(--radius-md); padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .12s; text-decoration: none; }
   .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+
+  /* RTL overrides */
+  [dir="rtl"] .input-icon { left: auto; right: 13px; }
+  [dir="rtl"] .input-wrapper input[type="text"],
+  [dir="rtl"] .input-wrapper input[type="number"] { padding: 10px 40px 10px 12px; }
+  [dir="rtl"] .form-actions-footer { flex-direction: row-reverse; }
+  [dir="rtl"] .form-row-2 { direction: rtl; }
+  [dir="rtl"] .checkbox-label { direction: rtl; }
+  [dir="rtl"] .section-eyebrow { direction: rtl; }
 </style>
 {% endblock %}
 

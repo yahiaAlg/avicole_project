@@ -1,21 +1,21 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} — Élevage Avicole{% endblock %}
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
 
 {% block nav_fournisseurs %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}{% if object %}Modification de la fiche fournisseur{% else %}Nouvelle entrée dans le référentiel fournisseurs{% endif %}{% endblock %}
+{% block page_sub_text %}{% if object %}تعديل بطاقة المورد{% else %}إضافة مورد جديد{% endif %}{% endblock %}
 
 {% block topbar_actions %}
   {% if object %}
   <a href="{% url 'intrants:fournisseur_detail' object.pk %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour à la fiche
+    <i class="bx bx-arrow-back"></i> العودة إلى البطاقة
   </a>
   {% else %}
   <a href="{% url 'intrants:fournisseur_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> Retour à la liste
+    <i class="bx bx-arrow-back"></i> العودة إلى القائمة
   </a>
   {% endif %}
 {% endblock %}
@@ -26,19 +26,19 @@
     {% csrf_token %}
     <div class="form-grid">
 
-      <!-- Left column -->
+      <!-- العمود الأيمن -->
       <div class="form-col">
 
-        <!-- Identité -->
+        <!-- الهوية -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bxs-business"></i> Identité</div>
+            <div class="section-eyebrow"><i class="bx bxs-business"></i> الهوية</div>
           </div>
           <div class="form-card__body">
 
             <div class="form-group">
               <label class="form-label" for="{{ form.nom.id_for_label }}">
-                Nom du fournisseur <span class="form-required">*</span>
+                اسم المورد <span class="form-required">*</span>
               </label>
               <div class="input-wrapper">
                 <i class="bx bxs-business input-icon"></i>
@@ -51,7 +51,7 @@
 
             <div class="form-group">
               <label class="form-label" for="{{ form.type_principal.id_for_label }}">
-                Type principal
+                النوع الرئيسي
               </label>
               <div class="input-wrapper">
                 <i class="bx bx-category input-icon"></i>
@@ -65,7 +65,7 @@
             <div class="form-group form-group--checkbox">
               <label class="checkbox-label">
                 {{ form.actif }}
-                <span>Fournisseur actif</span>
+                <span>مورد نشط</span>
               </label>
               {% for err in form.actif.errors %}
               <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
@@ -75,15 +75,15 @@
           </div>
         </div>
 
-        <!-- Coordonnées -->
+        <!-- معلومات الاتصال -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bx-map-pin"></i> Coordonnées</div>
+            <div class="section-eyebrow"><i class="bx bx-map-pin"></i> معلومات الاتصال</div>
           </div>
           <div class="form-card__body">
 
             <div class="form-group">
-              <label class="form-label" for="{{ form.adresse.id_for_label }}">Adresse</label>
+              <label class="form-label" for="{{ form.adresse.id_for_label }}">العنوان</label>
               <div class="input-wrapper input-wrapper--textarea">
                 {{ form.adresse }}
               </div>
@@ -94,7 +94,7 @@
 
             <div class="form-row-2">
               <div class="form-group">
-                <label class="form-label" for="{{ form.wilaya.id_for_label }}">Wilaya</label>
+                <label class="form-label" for="{{ form.wilaya.id_for_label }}">الولاية</label>
                 <div class="input-wrapper">
                   <i class="bx bx-map input-icon"></i>
                   {{ form.wilaya }}
@@ -104,7 +104,7 @@
                 {% endfor %}
               </div>
               <div class="form-group">
-                <label class="form-label" for="{{ form.email.id_for_label }}">Email</label>
+                <label class="form-label" for="{{ form.email.id_for_label }}">البريد الإلكتروني</label>
                 <div class="input-wrapper">
                   <i class="bx bx-envelope input-icon"></i>
                   {{ form.email }}
@@ -117,7 +117,7 @@
 
             <div class="form-row-2">
               <div class="form-group">
-                <label class="form-label" for="{{ form.telephone.id_for_label }}">Téléphone</label>
+                <label class="form-label" for="{{ form.telephone.id_for_label }}">الهاتف</label>
                 <div class="input-wrapper">
                   <i class="bx bx-phone input-icon"></i>
                   {{ form.telephone }}
@@ -127,7 +127,7 @@
                 {% endfor %}
               </div>
               <div class="form-group">
-                <label class="form-label" for="{{ form.telephone_2.id_for_label }}">Téléphone 2</label>
+                <label class="form-label" for="{{ form.telephone_2.id_for_label }}">هاتف 2</label>
                 <div class="input-wrapper">
                   <i class="bx bx-phone-call input-icon"></i>
                   {{ form.telephone_2 }}
@@ -143,13 +143,13 @@
 
       </div>
 
-      <!-- Right column -->
+      <!-- العمود الأيسر -->
       <div class="form-col">
 
-        <!-- Informations légales -->
+        <!-- المعلومات القانونية -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bx-file"></i> Informations légales</div>
+            <div class="section-eyebrow"><i class="bx bx-file"></i> المعلومات القانونية</div>
           </div>
           <div class="form-card__body">
 
@@ -179,15 +179,15 @@
           </div>
         </div>
 
-        <!-- Contact -->
+        <!-- جهة الاتصال -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bxs-user-detail"></i> Contact</div>
+            <div class="section-eyebrow"><i class="bx bxs-user-detail"></i> جهة الاتصال</div>
           </div>
           <div class="form-card__body">
 
             <div class="form-group">
-              <label class="form-label" for="{{ form.contact_nom.id_for_label }}">Nom du contact</label>
+              <label class="form-label" for="{{ form.contact_nom.id_for_label }}">اسم جهة الاتصال</label>
               <div class="input-wrapper">
                 <i class="bx bxs-user input-icon"></i>
                 {{ form.contact_nom }}
@@ -200,10 +200,10 @@
           </div>
         </div>
 
-        <!-- Notes -->
+        <!-- ملاحظات -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bx-note"></i> Notes</div>
+            <div class="section-eyebrow"><i class="bx bx-note"></i> ملاحظات</div>
           </div>
           <div class="form-card__body">
 
@@ -227,12 +227,12 @@
         </div>
         {% endif %}
 
-        <!-- Actions -->
+        <!-- الإجراءات -->
         <div class="form-actions-footer">
           {% if object %}
-          <a href="{% url 'intrants:fournisseur_detail' object.pk %}" class="btn-ghost">Annuler</a>
+          <a href="{% url 'intrants:fournisseur_detail' object.pk %}" class="btn-ghost">إلغاء</a>
           {% else %}
-          <a href="{% url 'intrants:fournisseur_list' %}" class="btn-ghost">Annuler</a>
+          <a href="{% url 'intrants:fournisseur_list' %}" class="btn-ghost">إلغاء</a>
           {% endif %}
           <button type="submit" class="btn-primary">
             <i class="bx bx-check"></i> {{ action_label }}
@@ -269,8 +269,8 @@
   }
   .form-card__body { padding: 20px; }
   .section-eyebrow {
-    font-size: 10.5px; font-weight: 600; letter-spacing: .1em;
-    text-transform: uppercase; color: var(--text-muted);
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0;
+    text-transform: none; color: var(--text-muted);
     display: flex; align-items: center; gap: 6px;
   }
   .section-eyebrow i { font-size: 13px; }
@@ -286,7 +286,7 @@
   .input-wrapper { position: relative; }
   .input-wrapper--textarea { }
   .input-icon {
-    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+    position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
     color: var(--text-muted); font-size: 15px; pointer-events: none;
     transition: color .15s;
   }
@@ -297,7 +297,7 @@
     width: 100%; background: var(--bg-surface); border: 1px solid var(--border);
     border-radius: var(--radius-md); color: var(--text-primary);
     font-family: 'Inter', sans-serif; font-size: 13.5px;
-    padding: 10px 12px 10px 40px;
+    padding: 10px 40px 10px 12px;
     transition: border-color .15s, box-shadow .15s;
   }
   .input-wrapper--textarea textarea {
