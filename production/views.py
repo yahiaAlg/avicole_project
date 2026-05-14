@@ -433,6 +433,19 @@ def production_record_create(request, lot_pk=None):
                     formset.instance = record
                     formset.save()
 
+                    # Allocate lot costs to lines so the draft already shows
+                    # estimated unit costs (will be recalculated at validation).
+                    try:
+                        allouer_cout_production(record)
+                    except Exception as exc:
+                        logger.warning(
+                            "allouer_cout_production failed on create for "
+                            "ProductionRecord pk=%s: %s. "
+                            "cout_unitaire_estime left at 0.",
+                            record.pk,
+                            exc,
+                        )
+
                 messages.success(
                     request,
                     f"تم إنشاء سجل الإنتاج (مسودة) للدفعة « {record.lot.designation} » — {record.date_production}. راجع السطور ثم احقق السجل لتحديث المخزون.",
@@ -560,6 +573,17 @@ def production_record_edit(request, pk):
                 with transaction.atomic():
                     form.save()
                     formset.save()
+
+                    # Re-allocate costs so the draft reflects updated lines.
+                    try:
+                        allouer_cout_production(record)
+                    except Exception as exc:
+                        logger.warning(
+                            "allouer_cout_production failed on edit for "
+                            "ProductionRecord pk=%s: %s.",
+                            record.pk,
+                            exc,
+                        )
 
                 messages.success(
                     request,
