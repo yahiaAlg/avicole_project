@@ -48,14 +48,23 @@ def rnd(lo: float, hi: float, decimals: int = 2) -> Decimal:
 
 
 class Command(BaseCommand):
-    help = "تعبئة قاعدة البيانات بالبيانات الأساسية وسجلات تجريبية اختيارية."
+    help = (
+        "تعبئة قاعدة البيانات بالبيانات الأساسية وسجلات تجريبية اختيارية.\n"
+        "minimal: شركة + مستخدمون + تصنيفات + منتجات نهائية فقط "
+        "(بدون موردين / عملاء / مباني / مدخلات).\n"
+        "demo   : كل بيانات minimal + بيانات تجريبية تشغيلية كاملة."
+    )
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--mode",
             choices=["minimal", "demo"],
             default="demo",
-            help="'minimal' = البيانات الأساسية فقط؛ 'demo' = بيانات تجريبية كاملة.",
+            help=(
+                "'minimal' = شركة + مستخدمون + تصنيفات + منتجات نهائية فقط "
+                "(بدون موردين/عملاء/مباني/مدخلات)؛ "
+                "'demo' = كل شيء + بيانات تشغيلية كاملة."
+            ),
         )
         parser.add_argument(
             "--clear",
@@ -86,23 +95,30 @@ class Command(BaseCommand):
             )
         )
 
-        # ── Master data (always seeded) ──────────────────────────────────
+        # ── Categories & company (always seeded — safe to run on a blank DB) ──
         self._seed_company()
         self._seed_users()
         categories_intrant = self._seed_categories_intrant()
         types_fournisseur = self._seed_types_fournisseur()
         categories_depense = self._seed_categories_depense()
-        fournisseurs = self._seed_fournisseurs(types_fournisseur)
-        clients = self._seed_clients()
-        batiments = self._seed_batiments()
-        intrants = self._seed_intrants(categories_intrant, fournisseurs)
         produits_finis = self._seed_produits_finis()
 
         if mode == "minimal":
             self.stdout.write(
-                self.style.SUCCESS("\n✓ Minimal seed complete (master data only).\n")
+                self.style.SUCCESS(
+                    "\n✓ Minimal seed complete "
+                    "(company · users · categories · produits_finis only).\n"
+                    "  Next: create fournisseurs, clients, bâtiments and intrants\n"
+                    "  via the admin interface, then run the full ERP scenario.\n"
+                )
             )
             return
+
+        # ── Physical master data (demo mode only) ────────────────────────
+        fournisseurs = self._seed_fournisseurs(types_fournisseur)
+        clients = self._seed_clients()
+        batiments = self._seed_batiments()
+        intrants = self._seed_intrants(categories_intrant, fournisseurs)
 
         # ── Operational / demo data ──────────────────────────────────────
         self._seed_stock_initial(intrants)
