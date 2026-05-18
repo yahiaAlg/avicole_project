@@ -469,8 +469,8 @@ document.addEventListener('DOMContentLoaded', function () {
   // ── 3. Pre-populate montant ───────────────────────────────────────────────
   // Priority: facture.reste_a_payer (when coming from a specific invoice)
   // Fallback: dette_globale (total open debt for the supplier)
-  var factureReste = {% if facture_reste %}{{ facture_reste }}{% else %}null{% endif %};
-  var dette = {% if solde %}{{ solde.dette_globale|default:0 }}{% else %}0{% endif %};
+  var factureReste = {% if facture_reste %}{{ facture_reste|stringformat:".2f" }}{% else %}null{% endif %};
+  var dette = {% if solde %}{{ solde.dette_globale|stringformat:".2f" }}{% else %}0{% endif %};
   var initialMontant = (factureReste !== null && factureReste > 0) ? factureReste : dette;
 
   if (montantInput && !montantInput.value && initialMontant > 0) {
@@ -571,11 +571,14 @@ document.addEventListener('DOMContentLoaded', function () {
         dette = parseFloat(data.dette_globale) || 0;
         renderAside(data);
 
-        // Pre-populate montant with dette_globale
-        if (montantInput && dette > 0) {
-          montantInput.value = dette.toFixed(2);
-        } else if (montantInput) {
-          montantInput.value = '';
+        // Pre-populate montant with dette_globale ONLY when not coming from a
+        // specific invoice context (factureReste already pre-filled in that case).
+        if (montantInput && factureReste === null) {
+          if (dette > 0) {
+            montantInput.value = dette.toFixed(2);
+          } else {
+            montantInput.value = '';
+          }
         }
 
         var val = parseFloat(montantInput ? montantInput.value : 0) || 0;
