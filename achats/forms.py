@@ -37,15 +37,20 @@ MAX_ATTACHMENT_SIZE_MB = 5
 
 class BLFournisseurForm(forms.ModelForm):
     """
-    Header form for a supplier delivery note.
+    Header form for a supplier delivery note (classic BL or autorisation d'accès).
 
-    Statut is limited to choices the user may select manually.
-    Transitions to FACTURE are performed by the invoice-creation signal, not
-    by users directly (BR-BLF-02).
+    Statut choices:
+      - Classic BL   : brouillon / recu / litige  (facture is system-set)
+      - Autorisation : autorise / recu / litige   (brouillon has no meaning)
+
+    BR-BLF-02 : Facturé BLs are fully locked.
+    BR-BLF-05 : An expired autorisation d'accès cannot be confirmed as Reçu.
     """
 
-    # Statut choices available to the user (FACTURE is system-controlled).
+    # All statut values a user may choose.  The form's clean() enforces
+    # which subset is valid per document type.
     STATUT_USER_CHOICES = [
+        (BLFournisseur.STATUT_AUTORISE, "مفوَّض (في انتظار الاستلام)"),
         (BLFournisseur.STATUT_BROUILLON, "مسودة"),
         (BLFournisseur.STATUT_RECU, "مستلم"),
         (BLFournisseur.STATUT_LITIGE, "في نزاع"),
@@ -57,13 +62,24 @@ class BLFournisseurForm(forms.ModelForm):
             "reference",
             "fournisseur",
             "date_bl",
+            "type_document",
             "reference_fournisseur",
             "statut",
+            # --- autorisation d'accès fields ---
+            "numero_autorisation",
+            "date_expiration_autorisation",
+            "nom_chauffeur",
+            "matricule_camion",
+            "numero_permis",
+            "portail_entree",
+            "portail_sortie",
+            # -----------------------------------
             "notes_reception",
             "piece_jointe",
         ]
         widgets = {
             "date_bl": forms.DateInput(attrs={"type": "date"}),
+            "date_expiration_autorisation": forms.DateInput(attrs={"type": "date"}),
             "notes_reception": forms.Textarea(attrs={"rows": 2}),
         }
 
@@ -77,6 +93,19 @@ class BLFournisseurForm(forms.ModelForm):
         self.fields["notes_reception"].required = False
         self.fields["piece_jointe"].required = False
 
+        # Autorisation-specific fields are always optional at the DB level;
+        # the template hides/shows them via JS based on type_document.
+        for f in (
+            "numero_autorisation",
+            "date_expiration_autorisation",
+            "nom_chauffeur",
+            "matricule_camion",
+            "numero_permis",
+            "portail_entree",
+            "portail_sortie",
+        ):
+            self.fields[f].required = False
+
         # BR-BLF-02: lock all fields on a Facturé BL.
         if self.instance and self.instance.est_verrouille:
             for field in self.fields.values():
@@ -87,6 +116,15 @@ class BLFournisseurForm(forms.ModelForm):
         if date > datetime.date.today():
             raise ValidationError("La date du BL ne peut pas être dans le futur.")
         return date
+
+    def clean_date_expiration_autorisation(self):
+        date_exp = self.cleaned_data.get("date_expiration_autorisation")
+        date_bl = self.cleaned_data.get("date_bl")
+        if date_exp and date_bl and date_exp < date_bl:
+            raise ValidationError(
+                "La date d'expiration doit être postérieure ou égale à la date du BL / de l'autorisation."
+            )
+        return date_exp
 
     def clean_piece_jointe(self):
         file = self.cleaned_data.get("piece_jointe")
@@ -103,11 +141,41 @@ class BLFournisseurForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+
         # BR-BLF-02: block saves on locked instances.
         if self.instance and self.instance.est_verrouille:
             raise ValidationError(
                 "BR-BLF-02 : ce BL est verrouillé (statut Facturé) et ne peut plus être modifié."
             )
+
+        type_doc = cleaned.get("type_document")
+        statut = cleaned.get("statut")
+        date_exp = cleaned.get("date_expiration_autorisation")
+
+        # BR-BLF-05: an expired autorisation d'accès cannot be confirmed RECU.
+        if (
+            type_doc == BLFournisseur.TYPE_AUTORISATION_ACCES
+            and statut == BLFournisseur.STATUT_RECU
+            and date_exp
+            and date_exp < datetime.date.today()
+        ):
+            raise ValidationError(
+                f"BR-BLF-05 : l'autorisation d'accès est expirée depuis le {date_exp}. "
+                "Impossible de confirmer la réception — contactez le fournisseur pour renouveler l'autorisation."
+            )
+
+        # STATUT_AUTORISE is only meaningful for autorisation d'accès documents.
+        if (
+            statut == BLFournisseur.STATUT_AUTORISE
+            and type_doc == BLFournisseur.TYPE_BL_CLASSIQUE
+        ):
+            raise ValidationError(
+                {
+                    "statut": "Le statut 'Mfawwad' est réservé aux autorisations d'accès. "
+                    "Utilisez 'Brouillon' pour un BL classique."
+                }
+            )
+
         return cleaned
 
 

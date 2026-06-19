@@ -13,12 +13,31 @@ from django.conf import settings
 
 
 class BLFournisseur(models.Model):
+    # ------------------------------------------------------------------
+    # Document type — classic BL vs supplier access authorization
+    # (e.g. ONAB "Autorisation d'accès" issued before port pickup)
+    # ------------------------------------------------------------------
+    TYPE_BL_CLASSIQUE = "bl_classique"
+    TYPE_AUTORISATION_ACCES = "autorisation_acces"
+
+    TYPE_DOCUMENT_CHOICES = [
+        (TYPE_BL_CLASSIQUE, "وصل تسليم كلاسيكي"),
+        (TYPE_AUTORISATION_ACCES, "تفويض وصول (ONAB وما شابه)"),
+    ]
+
+    # ------------------------------------------------------------------
+    # Statut — AUTORISE is exclusive to TYPE_AUTORISATION_ACCES and
+    # represents an issued authorization that has not yet been picked up.
+    # Transition: AUTORISE → RECU triggers the same stock entry as usual.
+    # ------------------------------------------------------------------
+    STATUT_AUTORISE = "autorise"
     STATUT_BROUILLON = "brouillon"
     STATUT_RECU = "recu"
     STATUT_FACTURE = "facture"
     STATUT_LITIGE = "litige"
 
     STATUT_CHOICES = [
+        (STATUT_AUTORISE, "مفوَّض (في انتظار الاستلام)"),
         (STATUT_BROUILLON, "مسودة"),
         (STATUT_RECU, "مستلم"),
         (STATUT_FACTURE, "مفوتر"),
@@ -34,9 +53,18 @@ class BLFournisseur(models.Model):
         related_name="bls_fournisseur",
         verbose_name="المورد",
     )
-    date_bl = models.DateField(verbose_name="تاريخ وصل التسليم")
+    date_bl = models.DateField(verbose_name="تاريخ وصل التسليم / تاريخ التفويض")
     reference_fournisseur = models.CharField(
-        max_length=100, blank=True, verbose_name="مرجع المورد"
+        max_length=100,
+        blank=True,
+        verbose_name="مرجع المورد",
+        help_text="للتفويض: رقم أمر الشراء عند المورد (مثال: C632/15).",
+    )
+    type_document = models.CharField(
+        max_length=25,
+        choices=TYPE_DOCUMENT_CHOICES,
+        default=TYPE_BL_CLASSIQUE,
+        verbose_name="نوع الوثيقة",
     )
     statut = models.CharField(
         max_length=20,
@@ -51,6 +79,42 @@ class BLFournisseur(models.Model):
         null=True,
         verbose_name="مرفق (PDF/JPG/PNG)",
     )
+
+    # ------------------------------------------------------------------
+    # Autorisation d'accès fields — only populated when
+    # type_document == TYPE_AUTORISATION_ACCES
+    # ------------------------------------------------------------------
+    numero_autorisation = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="رقم التفويض",
+        help_text="الرقم الصادر من المورد (مثال: 27196 لـ ONAB).",
+    )
+    date_expiration_autorisation = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="تاريخ انتهاء التفويض",
+        help_text="يجب استلام البضاعة قبل هذا التاريخ (BR-BLF-05).",
+    )
+    nom_chauffeur = models.CharField(
+        max_length=150, blank=True, verbose_name="اسم السائق"
+    )
+    matricule_camion = models.CharField(
+        max_length=50, blank=True, verbose_name="رقم تسجيل الشاحنة"
+    )
+    numero_permis = models.CharField(
+        max_length=50, blank=True, verbose_name="رقم رخصة القيادة"
+    )
+    portail_entree = models.CharField(
+        max_length=50, blank=True, verbose_name="بوابة الدخول"
+    )
+    portail_sortie = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="بوابة الخروج",
+        help_text="يُملأ عند خروج الشاحنة محملة — يؤكد اكتمال الاستلام الفعلي.",
+    )
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -81,6 +145,24 @@ class BLFournisseur(models.Model):
     def est_verrouille(self):
         """Locked BLs cannot be edited or re-invoiced (BR-BLF-02)."""
         return self.statut == self.STATUT_FACTURE
+
+    @property
+    def est_expire(self):
+        """
+        BR-BLF-05: True when an autorisation_acces is past its expiry date
+        and the goods have not yet been picked up (statut still AUTORISE).
+        Expired authorizations cannot be confirmed as RECU.
+        """
+        return (
+            self.type_document == self.TYPE_AUTORISATION_ACCES
+            and self.statut == self.STATUT_AUTORISE
+            and self.date_expiration_autorisation is not None
+            and datetime.date.today() > self.date_expiration_autorisation
+        )
+
+    @property
+    def est_autorisation_acces(self):
+        return self.type_document == self.TYPE_AUTORISATION_ACCES
 
 
 class BLFournisseurLigne(models.Model):

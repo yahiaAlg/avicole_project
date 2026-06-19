@@ -26,6 +26,12 @@
   <span style="font-size:13px;color:var(--text-secondary);">هذا الوصل <strong style="color:var(--accent-text);">مقفل (مفوتر)</strong> — وهو مرتبط بفاتورة مورد واحدة أو أكثر.</span>
 </div>
 {% endif %}
+{% if est_expire %}
+<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.22);border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+  <i class="bx bxs-error-circle" style="color:#dc2626;font-size:15px;"></i>
+  <span style="font-size:13px;color:var(--text-secondary);">تفويض الوصول هذا <strong style="color:#dc2626;">منتهي الصلاحية</strong> منذ {{ bl.date_expiration_autorisation|date:"d/m/Y" }} — لا يمكن تأكيد الاستلام (BR-BLF-05). تواصل مع المورد للتجديد.</span>
+</div>
+{% endif %}
 
 <div class="detail-layout">
 
@@ -36,14 +42,26 @@
     <div class="detail-card">
       <div class="detail-card__header">
         <div style="display:flex;align-items:center;gap:10px;">
+          {% if bl.type_document == "autorisation_acces" %}
+          <div class="ic-box ic-purple"><i class="bx bxs-id-card"></i></div>
+          {% else %}
           <div class="ic-box ic-blue"><i class="bx bxs-truck"></i></div>
+          {% endif %}
           <div>
             <div class="detail-card__title">{{ bl.reference }}</div>
-            <div style="font-size:12px;color:var(--text-muted);">وصل تسليم المورد</div>
+            <div style="font-size:12px;color:var(--text-muted);">
+              {% if bl.type_document == "autorisation_acces" %}تفويض وصول (ONAB وما شابه){% else %}وصل تسليم المورد{% endif %}
+            </div>
           </div>
         </div>
         <div>
-          {% if bl.statut == "brouillon" %}
+          {% if bl.statut == "autorise" %}
+            {% if est_expire %}
+              <span class="pill-danger"><i class="bx bxs-error"></i> منتهي الصلاحية</span>
+            {% else %}
+              <span class="pill-purple"><i class="bx bxs-id-card"></i> مفوَّض</span>
+            {% endif %}
+          {% elif bl.statut == "brouillon" %}
             <span class="pill-warning"><i class="bx bxs-edit-alt"></i> مسودة</span>
           {% elif bl.statut == "recu" %}
             <span class="pill-info"><i class="bx bxs-check-circle"></i> مستلم</span>
@@ -101,6 +119,50 @@
       </div>
       {% endif %}
     </div>
+
+    {% if bl.type_document == "autorisation_acces" %}
+    <!-- Autorisation d'accès card -->
+    <div class="detail-card" style="margin-top:16px;">
+      <div class="detail-card__header">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="ic-box ic-purple"><i class="bx bxs-id-card"></i></div>
+          <span class="detail-card__title">بيانات تفويض الوصول</span>
+        </div>
+      </div>
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-label">رقم التفويض</div>
+          <div class="info-val">{{ bl.numero_autorisation|default:"—" }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">تاريخ انتهاء التفويض</div>
+          <div class="info-val" style="{% if est_expire %}color:#dc2626;font-weight:700;{% endif %}">
+            {{ bl.date_expiration_autorisation|date:"d/m/Y"|default:"—" }}
+          </div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">اسم السائق</div>
+          <div class="info-val">{{ bl.nom_chauffeur|default:"—" }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">رقم تسجيل الشاحنة</div>
+          <div class="info-val">{{ bl.matricule_camion|default:"—" }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">رقم رخصة القيادة</div>
+          <div class="info-val">{{ bl.numero_permis|default:"—" }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">بوابة الدخول</div>
+          <div class="info-val">{{ bl.portail_entree|default:"—" }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">بوابة الخروج</div>
+          <div class="info-val">{{ bl.portail_sortie|default:"—" }}</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
 
     <!-- Lines card -->
     <div class="detail-card" style="margin-top:16px;">
@@ -244,7 +306,7 @@
           <i class="bx bxs-file-txt"></i> إنشاء فاتورة
         </a>
         {% else %}
-        <span class="btn-ghost btn-disabled" style="width:100%;justify-content:center;cursor:not-allowed;opacity:.45;" title="{% if bl.statut == 'brouillon' %}يجب أن يكون الوصل بحالة «مستلم» لإنشاء فاتورة.{% elif bl.statut == 'litige' %}حل النزاع قبل الفوترة.{% else %}هذا الوصل مفوتر بالفعل.{% endif %}">
+        <span class="btn-ghost btn-disabled" style="width:100%;justify-content:center;cursor:not-allowed;opacity:.45;" title="{% if bl.statut == 'brouillon' %}يجب أن يكون الوصل بحالة «مستلم» لإنشاء فاتورة.{% elif bl.statut == 'autorise' %}يجب تأكيد الاستلام أولًا (مغادرة البوابة) قبل الفوترة.{% elif bl.statut == 'litige' %}حل النزاع قبل الفوترة.{% else %}هذا الوصل مفوتر بالفعل.{% endif %}">
           <i class="bx bxs-file-txt"></i> إنشاء فاتورة
         </span>
         {% endif %}
@@ -297,13 +359,13 @@
       </div>
       {% endif %}
 
-      {% if bl.statut == "brouillon" %}
+      {% if bl.statut == "brouillon" or bl.statut == "autorise" %}
       <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
         <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:14px 16px;">
           <div style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;margin-bottom:6px;font-size:13px;">
             <i class="bx bxs-error me-1"></i> منطقة حرجة
           </div>
-          <p style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;">حذف هذا الوصل المسودة نهائيًا.</p>
+          <p style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;">حذف هذا الوصل نهائيًا.</p>
           <button type="button" class="btn-danger" style="width:100%;justify-content:center;font-size:12px;" id="detail-delete-btn">
             <i class="bx bxs-trash"></i> حذف
           </button>
@@ -316,7 +378,7 @@
 </div>
 
 <!-- Delete confirm panel -->
-{% if bl.statut == "brouillon" %}
+{% if bl.statut == "brouillon" or bl.statut == "autorise" %}
 <div id="confirm-delete-panel" class="confirm-panel" style="display:none;">
   <div class="confirm-panel__inner">
     <div class="confirm-panel__icon"><i class="bx bxs-trash"></i></div>
@@ -372,6 +434,7 @@
   .ic-blue  { background: rgba(56,189,248,.14);  color: #0284c7; }
   .ic-green { background: rgba(34,197,94,.14);   color: #15803d; }
   .ic-amber { background: rgba(245,158,11,.14);  color: #b45309; }
+  .ic-purple{ background: rgba(123,31,162,.12);  color: #7b1fa2; }
 
   .info-grid {
     display: grid;
@@ -424,6 +487,7 @@
   .pill-info    { background: rgba(56,189,248,.14);  color: #0284c7; }
   .pill-success { background: rgba(34,197,94,.14);   color: #15803d; }
   .pill-danger  { background: rgba(239,68,68,.10);   color: #dc2626; }
+  .pill-purple  { background: rgba(123,31,162,.12);  color: #7b1fa2; }
   .pill-neutral { background: rgba(0,0,0,.06);       color: var(--text-secondary); }
 
   .action-btn {

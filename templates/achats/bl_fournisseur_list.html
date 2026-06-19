@@ -15,12 +15,19 @@
 {% endblock %}
 
 {% block content %}
+{% if nb_expires %}
+<div class="expired-alert">
+  <i class="bx bxs-error-circle"></i>
+  <span>يوجد <strong>{{ nb_expires }}</strong> تفويض وصول منتهي الصلاحية لم يتم تأكيد استلامه.</span>
+  <a href="?type_doc=autorisation_acces&statut=autorise" class="expired-alert__link">عرض</a>
+</div>
+{% endif %}
 <div class="filter-bar">
   <form method="get" class="filter-form" id="filter-form">
     <div class="filter-group">
       <div class="input-icon-wrap">
         <i class="bx bx-search"></i>
-        <input type="text" name="q" value="{{ q }}" placeholder="المرجع، المورد..." class="filter-input" />
+        <input type="text" name="q" value="{{ q }}" placeholder="المرجع، المورد، رقم التفويض..." class="filter-input" />
       </div>
     </div>
     <div class="filter-group">
@@ -30,6 +37,17 @@
           <option value="">جميع الحالات</option>
           {% for val, label in statut_choices %}
           <option value="{{ val }}" {% if statut == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="filter-group">
+      <div class="input-icon-wrap">
+        <i class="bx bxs-file-blank"></i>
+        <select name="type_doc" class="filter-select filter-select--icon" id="filter-type-doc">
+          <option value="">جميع الأنواع</option>
+          {% for val, label in type_document_choices %}
+          <option value="{{ val }}" {% if type_doc == val %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
       </div>
@@ -46,7 +64,7 @@
       </div>
     </div>
     <button type="submit" class="btn-ghost"><i class="bx bx-search"></i> تصفية</button>
-    {% if q or statut or fournisseur_pk %}
+    {% if q or statut or type_doc or fournisseur_pk %}
     <a href="{% url 'achats:bl_fournisseur_list' %}" class="btn-ghost btn-ghost--reset">
       <i class="bx bx-x"></i> إعادة تعيين
     </a>
@@ -65,6 +83,7 @@
       <thead>
         <tr>
           <th>المرجع</th>
+          <th>النوع</th>
           <th>المورد</th>
           <th>التاريخ</th>
           <th>مرجع المورد</th>
@@ -83,12 +102,25 @@
             </a>
           </td>
           <td>
+            {% if bl.type_document == "autorisation_acces" %}
+              <span class="pill-neutral" title="{{ bl.numero_autorisation|default:'' }}"><i class="bx bxs-id-card"></i> تفويض</span>
+            {% else %}
+              <span class="pill-neutral"><i class="bx bxs-truck"></i> BL</span>
+            {% endif %}
+          </td>
+          <td>
             <span style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ bl.fournisseur.nom }}</span>
           </td>
           <td style="color:var(--text-muted);">{{ bl.date_bl|date:"d/m/Y" }}</td>
           <td style="color:var(--text-muted);">{{ bl.reference_fournisseur|default:"—" }}</td>
           <td>
-            {% if bl.statut == "brouillon" %}
+            {% if bl.statut == "autorise" %}
+              {% if bl.est_expire %}
+                <span class="pill-danger"><i class="bx bxs-error"></i> منتهي الصلاحية</span>
+              {% else %}
+                <span class="pill-purple"><i class="bx bxs-id-card"></i> مفوَّض</span>
+              {% endif %}
+            {% elif bl.statut == "brouillon" %}
               <span class="pill-warning"><i class="bx bxs-edit-alt"></i> مسودة</span>
             {% elif bl.statut == "recu" %}
               <span class="pill-info"><i class="bx bxs-check-circle"></i> مستلم</span>
@@ -125,7 +157,7 @@
               <a href="{% url 'achats:bl_fournisseur_print' bl.pk %}" class="action-btn" title="طباعة" target="_blank">
                 <i class="bx bxs-printer"></i>
               </a>
-              {% if bl.statut == "brouillon" %}
+              {% if bl.statut == "brouillon" or bl.statut == "autorise" %}
               <button type="button" class="action-btn action-btn--danger"
                 data-delete-bl="{{ bl.pk }}"
                 data-bl-ref="{{ bl.reference }}"
@@ -144,13 +176,13 @@
   {% if page.has_other_pages %}
   <div class="pagination-bar">
     {% if page.has_previous %}
-    <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}" class="page-btn">
+    <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if type_doc %}&type_doc={{ type_doc }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}" class="page-btn">
       <i class="bx bx-chevron-left"></i>
     </a>
     {% endif %}
     <span class="page-info">صفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
     {% if page.has_next %}
-    <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}" class="page-btn">
+    <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if type_doc %}&type_doc={{ type_doc }}{% endif %}{% if fournisseur_pk %}&fournisseur={{ fournisseur_pk }}{% endif %}" class="page-btn">
       <i class="bx bx-chevron-right"></i>
     </a>
     {% endif %}
@@ -164,13 +196,13 @@
       لم يتم العثور على أي وصل
     </div>
     <div style="font-size:13px;">
-      {% if q or statut or fournisseur_pk %}
+      {% if q or statut or type_doc or fournisseur_pk %}
         لا توجد نتائج لهذه الفلاتر. <a href="{% url 'achats:bl_fournisseur_list' %}" style="color:var(--accent-text);">إعادة تعيين</a>
       {% else %}
         أنشئ أول وصل تسليم للمورد.
       {% endif %}
     </div>
-    {% if not q and not statut and not fournisseur_pk %}
+    {% if not q and not statut and not type_doc and not fournisseur_pk %}
     <a href="{% url 'achats:bl_fournisseur_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
       <i class="bx bx-plus"></i> وصل جديد
     </a>
@@ -206,6 +238,24 @@
 <style>
   .filter-bar {
     margin-bottom: 16px;
+  }
+  .expired-alert {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(239,68,68,.08);
+    border: 1px solid rgba(239,68,68,.22);
+    border-radius: var(--radius-md);
+    padding: 11px 16px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    color: #b91c1c;
+  }
+  .expired-alert i { font-size: 17px; flex-shrink: 0; }
+  .expired-alert__link {
+    margin-right: auto;
+    color: #b91c1c;
+    font-weight: 700;
+    text-decoration: underline;
+    white-space: nowrap;
   }
   .filter-form {
     display: flex;
@@ -348,6 +398,7 @@
   .pill-info    { background: rgba(56,189,248,.14);  color: #0284c7; }
   .pill-success { background: rgba(34,197,94,.14);   color: #15803d; }
   .pill-danger  { background: rgba(239,68,68,.10);   color: #dc2626; }
+  .pill-purple  { background: rgba(123,31,162,.12);  color: #7b1fa2; }
   .pill-neutral { background: rgba(0,0,0,.06);       color: var(--text-secondary); }
 
   /* Pagination */
@@ -463,7 +514,7 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   /* Auto-submit filter selects */
-  ['filter-statut', 'filter-fournisseur'].forEach(function (id) {
+  ['filter-statut', 'filter-type-doc', 'filter-fournisseur'].forEach(function (id) {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', function () {
       document.getElementById('filter-form').submit();

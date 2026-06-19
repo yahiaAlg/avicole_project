@@ -23,6 +23,7 @@ Business rules enforced here:
 """
 
 import logging
+import datetime
 from decimal import Decimal
 
 from django.db.models.signals import post_save, pre_save, m2m_changed
@@ -131,7 +132,39 @@ def traiter_entrees_stock_bl(instance):
     It is idempotent-safe when called from the view immediately after formset
     save, because the signal guard (``_stock_already_processed``) prevents the
     signal handler from running a second time for the same save cycle.
+
+    BR-BLF-05 (secondary guard): if an autorisation_acces BL somehow reaches
+    this point with an expired date, stock entry is blocked and an error is
+    logged.  The form's clean() is the primary enforcement layer.
     """
+    # BR-BLF-05: defensive guard — form validation should catch this first.
+    if (
+        instance.type_document == BLFournisseur.TYPE_AUTORISATION_ACCES
+        and instance.date_expiration_autorisation
+        and instance.date_expiration_autorisation < datetime.date.today()
+    ):
+        logger.error(
+            "BR-BLF-05 BLOCKED: BLFournisseur pk=%s (%s) is an expired "
+            "autorisation_acces (expired %s). Stock entry skipped.",
+            instance.pk,
+            instance.reference,
+            instance.date_expiration_autorisation,
+        )
+        return
+
+    # Log the AUTORISE → RECU pickup confirmation for audit trail.
+    old_statut = getattr(instance, "_old_statut", None)
+    if (
+        instance.type_document == BLFournisseur.TYPE_AUTORISATION_ACCES
+        and old_statut == BLFournisseur.STATUT_AUTORISE
+    ):
+        logger.info(
+            "AutorisationAcces pk=%s (%s): goods confirmed picked up "
+            "(AUTORISE → RECU). Processing stock entry.",
+            instance.pk,
+            instance.reference,
+        )
+
     lignes = instance.lignes.select_related("intrant").all()
 
     if not lignes.exists():
@@ -186,7 +219,7 @@ def bl_fournisseur_post_save(sender, instance, created, **kwargs):
     old_statut = getattr(instance, "_old_statut", None)
     is_transitioning_to_recu = (
         instance.statut == BLFournisseur.STATUT_RECU
-        and old_statut != BLFournisseur.STATUT_RECU
+        and old_statut not in (BLFournisseur.STATUT_RECU, BLFournisseur.STATUT_FACTURE)
     )
 
     if not is_transitioning_to_recu:

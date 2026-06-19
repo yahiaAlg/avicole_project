@@ -97,21 +97,29 @@ class BLFournisseurAdmin(ImportExportModelAdmin):
 
     list_display = (
         "reference",
+        "type_document",
         "fournisseur",
         "date_bl",
         "statut_badge",
+        "est_expire_display",
         "montant_total_dzd",
         "a_piece_jointe",
         "created_at",
     )
-    list_filter = ("statut", "fournisseur", "date_bl")
-    search_fields = ("reference", "fournisseur__nom", "reference_fournisseur")
+    list_filter = ("statut", "type_document", "fournisseur", "date_bl")
+    search_fields = (
+        "reference",
+        "fournisseur__nom",
+        "reference_fournisseur",
+        "numero_autorisation",
+    )
     date_hierarchy = "date_bl"
     readonly_fields = (
         "created_at",
         "updated_at",
         "montant_total_dzd",
         "est_verrouille",
+        "est_expire",
     )
     inlines = (BLFournisseurLigneInline,)
     autocomplete_fields = ("fournisseur",)
@@ -122,12 +130,30 @@ class BLFournisseurAdmin(ImportExportModelAdmin):
             {
                 "fields": (
                     "reference",
+                    "type_document",
                     "fournisseur",
                     "date_bl",
                     "reference_fournisseur",
                     "statut",
                     "est_verrouille",
+                    "est_expire",
                 ),
+            },
+        ),
+        (
+            "Autorisation d'accès (ONAB…)",
+            {
+                "fields": (
+                    "numero_autorisation",
+                    "date_expiration_autorisation",
+                    "nom_chauffeur",
+                    "matricule_camion",
+                    "numero_permis",
+                    "portail_entree",
+                    "portail_sortie",
+                ),
+                "classes": ("collapse",),
+                "description": "Renseignez ces champs uniquement pour les documents de type « Autorisation d'accès ».",
             },
         ),
         (
@@ -150,19 +176,26 @@ class BLFournisseurAdmin(ImportExportModelAdmin):
     def montant_total_dzd(self, obj):
         return f"{obj.montant_total:,.2f} DZD"
 
+    @admin.display(description="Expiré", boolean=True)
+    def est_expire_display(self, obj):
+        return obj.est_expire
+
     @admin.display(description="Statut")
     def statut_badge(self, obj):
         colours = {
+            BLFournisseur.STATUT_AUTORISE: "#7b1fa2",
             BLFournisseur.STATUT_BROUILLON: "#888",
             BLFournisseur.STATUT_RECU: "#2e7d32",
             BLFournisseur.STATUT_FACTURE: "#1565c0",
             BLFournisseur.STATUT_LITIGE: "#b71c1c",
         }
         colour = colours.get(obj.statut, "#333")
+        expired = " ⚠ منتهي" if obj.est_expire else ""
         return format_html(
-            '<span style="color:{};font-weight:bold">{}</span>',
+            '<span style="color:{};font-weight:bold">{}{}</span>',
             colour,
             obj.get_statut_display(),
+            expired,
         )
 
     @admin.display(description="PJ", boolean=True)

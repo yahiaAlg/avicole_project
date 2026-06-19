@@ -30,6 +30,12 @@
   <span>هذا الوصل <strong>مقفل (مفوتر)</strong> — لا يمكن إجراء أي تعديلات.</span>
 </div>
 {% endif %}
+{% if object and object.est_expire %}
+<div class="locked-banner locked-banner--danger">
+  <i class="bx bxs-error-circle"></i>
+  <span>تفويض الوصول هذا <strong>منتهي الصلاحية</strong> منذ {{ object.date_expiration_autorisation|date:"d/m/Y" }} — لا يمكن تأكيد الاستلام (BR-BLF-05). تواصل مع المورد للتجديد.</span>
+</div>
+{% endif %}
 
 <form method="post" enctype="multipart/form-data" id="bl-form" novalidate>
   {% csrf_token %}
@@ -47,6 +53,18 @@
         </div>
 
         <div class="form-grid-2">
+          <!-- Type de document -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.type_document.id_for_label }}">نوع الوثيقة *</label>
+            <div class="input-icon-wrap">
+              <i class="bx bxs-file-blank"></i>
+              {{ form.type_document }}
+            </div>
+            {% if form.type_document.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.type_document.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
           <!-- Référence -->
           <div class="form-field">
             <label class="form-label" for="{{ form.reference.id_for_label }}">مرجع الوصل *</label>
@@ -129,6 +147,98 @@
           {% for error in form.non_field_errors %}{{ error }}{% endfor %}
         </div>
         {% endif %}
+      </div>
+
+      <!-- Autorisation d'accès fields (shown only for type_document = autorisation_acces) -->
+      <div class="form-card" id="autorisation-card" style="margin-top: 16px;">
+        <div class="form-card__header">
+          <i class="bx bxs-id-card ic-icon"></i>
+          <span class="form-card__title">بيانات تفويض الوصول</span>
+        </div>
+
+        <div class="form-grid-2">
+          <!-- Numéro autorisation -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.numero_autorisation.id_for_label }}">رقم التفويض</label>
+            <div class="input-icon-wrap">
+              <i class="bx bxs-hash"></i>
+              {{ form.numero_autorisation }}
+            </div>
+            {% if form.numero_autorisation.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.numero_autorisation.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Date expiration -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.date_expiration_autorisation.id_for_label }}">تاريخ انتهاء التفويض</label>
+            {{ form.date_expiration_autorisation }}
+            {% if form.date_expiration_autorisation.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.date_expiration_autorisation.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Nom chauffeur -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.nom_chauffeur.id_for_label }}">اسم السائق</label>
+            <div class="input-icon-wrap">
+              <i class="bx bxs-user"></i>
+              {{ form.nom_chauffeur }}
+            </div>
+            {% if form.nom_chauffeur.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.nom_chauffeur.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Matricule camion -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.matricule_camion.id_for_label }}">رقم تسجيل الشاحنة</label>
+            <div class="input-icon-wrap">
+              <i class="bx bxs-truck"></i>
+              {{ form.matricule_camion }}
+            </div>
+            {% if form.matricule_camion.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.matricule_camion.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Numéro permis -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.numero_permis.id_for_label }}">رقم رخصة القيادة</label>
+            <div class="input-icon-wrap">
+              <i class="bx bxs-id-card"></i>
+              {{ form.numero_permis }}
+            </div>
+            {% if form.numero_permis.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.numero_permis.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Portail entrée -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.portail_entree.id_for_label }}">بوابة الدخول</label>
+            <div class="input-icon-wrap">
+              <i class="bx bx-log-in"></i>
+              {{ form.portail_entree }}
+            </div>
+            {% if form.portail_entree.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.portail_entree.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Portail sortie -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.portail_sortie.id_for_label }}">بوابة الخروج</label>
+            <div class="input-icon-wrap">
+              <i class="bx bx-log-out"></i>
+              {{ form.portail_sortie }}
+            </div>
+            {% if form.portail_sortie.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.portail_sortie.errors|join:", " }}</div>
+            {% endif %}
+            <span style="font-size:11px;color:var(--text-muted);">يُملأ عند خروج الشاحنة محملة — يؤكد اكتمال الاستلام الفعلي.</span>
+          </div>
+        </div>
       </div>
 
       <!-- Lines formset card -->
@@ -245,13 +355,13 @@
             Annuler
           </a>
         </div>
-        {% if object and object.statut == "brouillon" %}
+        {% if object and object.statut == "brouillon" or object and object.statut == "autorise" %}
         <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
           <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:14px 16px;">
             <div style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;margin-bottom:4px;font-size:13px;">
               <i class="bx bxs-trash me-1"></i> منطقة حرجة
             </div>
-            <p style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;">حذف هذا الوصل المسودة نهائيًا.</p>
+            <p style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;">حذف هذا الوصل نهائيًا.</p>
             <button type="button" class="btn-danger" style="width:100%;justify-content:center;font-size:12px;" id="sidebar-delete-btn"
               data-delete-bl="{{ object.pk }}" data-bl-ref="{{ object.reference }}">
               <i class="bx bxs-trash"></i> حذف
@@ -266,7 +376,7 @@
 </form>
 
 <!-- Hidden delete panel (reuse from list page pattern) -->
-{% if object and object.statut == "brouillon" %}
+{% if object and object.statut == "brouillon" or object and object.statut == "autorise" %}
 <div id="confirm-delete-panel" class="confirm-panel" style="display:none;">
   <div class="confirm-panel__inner">
     <div class="confirm-panel__icon"><i class="bx bxs-trash"></i></div>
@@ -374,6 +484,11 @@
     font-size: 13px; color: var(--text-secondary);
   }
   .locked-banner i { color: #b45309; font-size: 15px; }
+  .locked-banner--danger {
+    background: rgba(239,68,68,.08);
+    border-color: rgba(239,68,68,.22);
+  }
+  .locked-banner--danger i { color: #dc2626; }
 
   .form-layout {
     display: grid;
@@ -679,6 +794,36 @@ document.addEventListener('DOMContentLoaded', function () {
   const grandTotalEl   = document.getElementById('lines-grand-total');
   const summaryLinesEl = document.getElementById('summary-lines');
   const summaryTotalEl = document.getElementById('summary-total');
+
+  /* ── Toggle autorisation d'accès fields based on type_document ── */
+  (function () {
+    const typeSelect = document.getElementById('{{ form.type_document.id_for_label }}');
+    const statutSelect = document.getElementById('{{ form.statut.id_for_label }}');
+    const autorisationCard = document.getElementById('autorisation-card');
+    if (!typeSelect || !autorisationCard) return;
+
+    function applyTypeVisibility() {
+      const isAutorisation = typeSelect.value === 'autorisation_acces';
+      autorisationCard.style.display = isAutorisation ? '' : 'none';
+
+      if (!statutSelect) return;
+      Array.from(statutSelect.options).forEach(function (opt) {
+        if (opt.value === 'autorise') {
+          opt.hidden = !isAutorisation;
+        } else if (opt.value === 'brouillon') {
+          opt.hidden = isAutorisation;
+        }
+      });
+      /* If the currently selected statut is now hidden, switch to a sane default */
+      const selectedOpt = statutSelect.options[statutSelect.selectedIndex];
+      if (selectedOpt && selectedOpt.hidden) {
+        statutSelect.value = isAutorisation ? 'autorise' : 'brouillon';
+      }
+    }
+
+    typeSelect.addEventListener('change', applyTypeVisibility);
+    applyTypeVisibility();
+  })();
 
   /* ── Running total calculation ── */
   function recalcTotals() {

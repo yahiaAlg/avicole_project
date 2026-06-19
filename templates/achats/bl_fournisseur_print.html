@@ -132,6 +132,7 @@
     .status-recu      { background: rgba(56,189,248,.14);  color: #0284c7; }
     .status-facture   { background: rgba(34,197,94,.14);   color: #15803d; }
     .status-litige    { background: rgba(239,68,68,.10);   color: #dc2626; }
+    .status-autorise  { background: rgba(123,31,162,.12);  color: #7b1fa2; }
 
     /* Footer */
     .doc-footer {
@@ -178,10 +179,11 @@
       </div>
     </div>
     <div class="doc-title-block">
-      <div class="doc-title">وصل تسليم</div>
+      <div class="doc-title">{% if bl.type_document == "autorisation_acces" %}تفويض وصول{% else %}وصل تسليم{% endif %}</div>
       <div class="doc-ref">{{ bl.reference }}</div>
       <div style="margin-top:8px;">
         {% if bl.statut == "brouillon" %}<span class="status-badge status-brouillon">مسودة</span>
+        {% elif bl.statut == "autorise" %}<span class="status-badge status-autorise">مفوَّض</span>
         {% elif bl.statut == "recu" %}<span class="status-badge status-recu">مستلم</span>
         {% elif bl.statut == "facture" %}<span class="status-badge status-facture">مفوتر</span>
         {% elif bl.statut == "litige" %}<span class="status-badge status-litige">في نزاع</span>
@@ -189,6 +191,21 @@
       </div>
     </div>
   </div>
+
+  {% if bl.type_document == "autorisation_acces" %}
+  <!-- Autorisation d'accès meta -->
+  <div class="meta-box" style="margin-bottom:24px;">
+    <div class="meta-label">بيانات تفويض الوصول</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 18px;font-size:12.5px;color:#333;margin-top:6px;">
+      <div><strong>رقم التفويض:</strong> {{ bl.numero_autorisation|default:"—" }}</div>
+      <div><strong>تاريخ الانتهاء:</strong> {{ bl.date_expiration_autorisation|date:"d/m/Y"|default:"—" }}</div>
+      <div><strong>السائق:</strong> {{ bl.nom_chauffeur|default:"—" }}</div>
+      <div><strong>الشاحنة:</strong> {{ bl.matricule_camion|default:"—" }}</div>
+      <div><strong>رخصة القيادة:</strong> {{ bl.numero_permis|default:"—" }}</div>
+      <div><strong>البوابة (دخول/خروج):</strong> {{ bl.portail_entree|default:"—" }} / {{ bl.portail_sortie|default:"—" }}</div>
+    </div>
+  </div>
+  {% endif %}
 
   <!-- Meta info -->
   <div class="meta-grid">

@@ -14,6 +14,7 @@ Business-logic helpers for the supplier procurement cycle.
 from decimal import Decimal
 import datetime
 import logging
+from django.db import models as django_models
 
 logger = logging.getLogger(__name__)
 
@@ -248,6 +249,67 @@ def get_fournisseur_solde(fournisseur) -> dict:
         "total_reglements": total_reglements,
         "nb_factures_retard": nb_factures_retard,
     }
+
+
+# ---------------------------------------------------------------------------
+# Autorisation d'accès helpers
+# ---------------------------------------------------------------------------
+
+
+def get_autorisations_expirees() -> list:
+    """
+    Return all autorisation_acces BLs that are past their expiry date and
+    still in STATUT_AUTORISE (goods not yet picked up).
+
+    Useful for dashboard alerts and nightly monitoring tasks.
+
+    Returns:
+        list[BLFournisseur]: Ordered by expiry date ascending (oldest first).
+    """
+    from achats.models import BLFournisseur
+
+    today = datetime.date.today()
+    return list(
+        BLFournisseur.objects.filter(
+            type_document=BLFournisseur.TYPE_AUTORISATION_ACCES,
+            statut=BLFournisseur.STATUT_AUTORISE,
+            date_expiration_autorisation__lt=today,
+        )
+        .select_related("fournisseur")
+        .order_by("date_expiration_autorisation")
+    )
+
+
+def get_autorisations_en_attente(fournisseur=None) -> list:
+    """
+    Return all autorisation_acces BLs in STATUT_AUTORISE that have not
+    yet expired — i.e. active authorizations awaiting truck dispatch.
+
+    Args:
+        fournisseur (Fournisseur | None): Filter to one supplier; None = all.
+
+    Returns:
+        list[BLFournisseur]: Ordered by expiry date ascending (soonest first).
+    """
+    from achats.models import BLFournisseur
+
+    today = datetime.date.today()
+    qs = (
+        BLFournisseur.objects.filter(
+            type_document=BLFournisseur.TYPE_AUTORISATION_ACCES,
+            statut=BLFournisseur.STATUT_AUTORISE,
+        )
+        .filter(
+            django_models.Q(date_expiration_autorisation__gte=today)
+            | django_models.Q(date_expiration_autorisation__isnull=True)
+        )
+        .select_related("fournisseur")
+    )
+
+    if fournisseur:
+        qs = qs.filter(fournisseur=fournisseur)
+
+    return list(qs.order_by("date_expiration_autorisation"))
 
 
 # ---------------------------------------------------------------------------

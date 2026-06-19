@@ -101,6 +101,11 @@ def bl_fournisseur_list(request):
     if statut:
         qs = qs.filter(statut=statut)
 
+    # Document type filter
+    type_doc = request.GET.get("type_doc", "")
+    if type_doc:
+        qs = qs.filter(type_document=type_doc)
+
     # Supplier filter (from fournisseur detail page deep-link)
     fournisseur_pk = request.GET.get("fournisseur", "")
     if fournisseur_pk:
@@ -113,10 +118,20 @@ def bl_fournisseur_list(request):
             Q(reference__icontains=q)
             | Q(fournisseur__nom__icontains=q)
             | Q(reference_fournisseur__icontains=q)
+            | Q(numero_autorisation__icontains=q)
         )
 
     page = _paginate(qs, request.GET.get("page"))
     fournisseurs = Fournisseur.objects.filter(actif=True).order_by("nom")
+
+    # Count expired authorizations for dashboard alert
+    import datetime as _dt
+
+    nb_expires = BLFournisseur.objects.filter(
+        type_document=BLFournisseur.TYPE_AUTORISATION_ACCES,
+        statut=BLFournisseur.STATUT_AUTORISE,
+        date_expiration_autorisation__lt=_dt.date.today(),
+    ).count()
 
     return render(
         request,
@@ -125,9 +140,12 @@ def bl_fournisseur_list(request):
             "page": page,
             "q": q,
             "statut": statut,
+            "type_doc": type_doc,
             "fournisseur_pk": fournisseur_pk,
             "fournisseurs": fournisseurs,
             "statut_choices": BLFournisseur.STATUT_CHOICES,
+            "type_document_choices": BLFournisseur.TYPE_DOCUMENT_CHOICES,
+            "nb_expires": nb_expires,
             "title": "وصولات استلام الموردين",
         },
     )
@@ -318,6 +336,10 @@ def bl_fournisseur_detail(request, pk):
 
     # Statuts the user may switch to (FACTURE is system-only)
     STATUT_TRANSITIONS = {
+        BLFournisseur.STATUT_AUTORISE: [
+            (BLFournisseur.STATUT_RECU, "تأكيد الاستلام (مغادرة البوابة)"),
+            (BLFournisseur.STATUT_LITIGE, "تعليق / نزاع"),
+        ],
         BLFournisseur.STATUT_BROUILLON: [
             (BLFournisseur.STATUT_RECU, "Marquer comme Reçu"),
             (BLFournisseur.STATUT_LITIGE, "Signaler en litige"),
@@ -329,13 +351,18 @@ def bl_fournisseur_detail(request, pk):
         BLFournisseur.STATUT_LITIGE: [
             (BLFournisseur.STATUT_RECU, "Marquer comme Reçu"),
             (BLFournisseur.STATUT_BROUILLON, "Repasser en Brouillon"),
+            (BLFournisseur.STATUT_AUTORISE, "Réactiver l'autorisation"),
         ],
         BLFournisseur.STATUT_FACTURE: [],
     }
 
     next_statut_label = None
     next_statut_value = None
-    if bl.statut == BLFournisseur.STATUT_BROUILLON:
+    if bl.statut == BLFournisseur.STATUT_AUTORISE:
+        if not bl.est_expire:
+            next_statut_value = BLFournisseur.STATUT_RECU
+            next_statut_label = "تأكيد الاستلام (مغادرة البوابة)"
+    elif bl.statut == BLFournisseur.STATUT_BROUILLON:
         next_statut_value = BLFournisseur.STATUT_RECU
         next_statut_label = "Marquer comme Reçu"
     elif bl.statut == BLFournisseur.STATUT_RECU:
@@ -358,6 +385,7 @@ def bl_fournisseur_detail(request, pk):
             "statut_transitions": STATUT_TRANSITIONS.get(bl.statut, []),
             "next_statut_value": next_statut_value,
             "next_statut_label": next_statut_label,
+            "est_expire": bl.est_expire,
         },
     )
 
@@ -393,6 +421,10 @@ def bl_fournisseur_change_statut(request, pk):
         return redirect("achats:bl_fournisseur_detail", pk=pk)
 
     ALLOWED_TARGETS = {
+        BLFournisseur.STATUT_AUTORISE: {
+            BLFournisseur.STATUT_RECU,
+            BLFournisseur.STATUT_LITIGE,
+        },
         BLFournisseur.STATUT_BROUILLON: {
             BLFournisseur.STATUT_RECU,
             BLFournisseur.STATUT_LITIGE,
@@ -404,6 +436,7 @@ def bl_fournisseur_change_statut(request, pk):
         BLFournisseur.STATUT_LITIGE: {
             BLFournisseur.STATUT_RECU,
             BLFournisseur.STATUT_BROUILLON,
+            BLFournisseur.STATUT_AUTORISE,
         },
         BLFournisseur.STATUT_FACTURE: set(),
     }
@@ -422,6 +455,16 @@ def bl_fournisseur_change_statut(request, pk):
         messages.error(
             request,
             f"تحويل الحالة غير مسموح به: « {bl.get_statut_display()} » ← « {new_statut} ».",
+        )
+        return redirect("achats:bl_fournisseur_detail", pk=pk)
+
+    # BR-BLF-05: block confirmation of an expired autorisation d'accès.
+    if new_statut == BLFournisseur.STATUT_RECU and bl.est_expire:
+        messages.error(
+            request,
+            f"BR-BLF-05: تفويض الوصول {bl.reference} منتهي الصلاحية "
+            f"({bl.date_expiration_autorisation}). "
+            "لا يمكن تأكيد الاستلام — تواصل مع المورد للتجديد.",
         )
         return redirect("achats:bl_fournisseur_detail", pk=pk)
 
@@ -489,10 +532,11 @@ def bl_fournisseur_delete(request, pk):
     """
     bl = get_object_or_404(BLFournisseur, pk=pk)
 
-    if bl.statut != BLFournisseur.STATUT_BROUILLON:
+    DELETABLE_STATUTS = {BLFournisseur.STATUT_BROUILLON, BLFournisseur.STATUT_AUTORISE}
+    if bl.statut not in DELETABLE_STATUTS:
         messages.error(
             request,
-            f"يمكن حذف وصولات الاستلام في حالة المسودة فقط. وصل الاستلام {bl.reference} في حالة « {bl.get_statut_display()} ».",
+            f"يمكن حذف الوصولات في حالة المسودة أو التفويض فقط. الوصل {bl.reference} في حالة « {bl.get_statut_display()} ».",
         )
         return redirect("achats:bl_fournisseur_detail", pk=pk)
 
@@ -1023,7 +1067,12 @@ def fournisseur_tableau_de_bord(request, pk):
       - aged-debt breakdown (buckets)
       - recent payments
     """
-    from achats.utils import get_fournisseur_solde, get_supplier_aging_buckets
+    from achats.utils import (
+        get_fournisseur_solde,
+        get_supplier_aging_buckets,
+        get_autorisations_en_attente,
+        get_autorisations_expirees,
+    )
 
     fournisseur = get_object_or_404(Fournisseur, pk=pk)
     solde = get_fournisseur_solde(fournisseur)
@@ -1037,6 +1086,11 @@ def fournisseur_tableau_de_bord(request, pk):
         statut=BLFournisseur.STATUT_RECU,
     ).order_by("-date_bl")
 
+    autorisations_en_attente = get_autorisations_en_attente(fournisseur)
+    autorisations_expirees = [
+        a for a in get_autorisations_expirees() if a.fournisseur_id == fournisseur.pk
+    ]
+
     return render(
         request,
         "achats/fournisseur_tableau_de_bord.html",
@@ -1046,6 +1100,8 @@ def fournisseur_tableau_de_bord(request, pk):
             "aging": aging[0] if aging else None,
             "reglements_recents": reglements_recents,
             "bls_ouverts": bls_ouverts,
+            "autorisations_en_attente": autorisations_en_attente,
+            "autorisations_expirees": autorisations_expirees,
             "title": f"لوحة تحكم — {fournisseur.nom}",
         },
     )
