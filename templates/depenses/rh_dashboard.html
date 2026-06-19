@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}لوحة الموارد البشرية — تربية الدواجن{% endblock %}
+{% block nav_depenses %}active{% endblock %}
+{% block page_title %}الموارد البشرية{% endblock %}
+{% block page_sub_text %}{{ date_debut|date:"d/m/Y" }} → {{ date_fin|date:"d/m/Y" }}{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'depenses:employe_list' %}" class="btn-ghost"><i class="bx bxs-group"></i> العمال</a>
+  <a href="{% url 'depenses:bulletin_paie_list' %}" class="btn-ghost"><i class="bx bx-receipt"></i> كشوف الرواتب</a>
+  <a href="{% url 'depenses:dashboard' %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> لوحة المصروفات</a>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+
+  <!-- Date filter -->
+  <form method="get" class="date-filter-bar">
+    {{ filter_form.date_debut }}
+    {{ filter_form.date_fin }}
+    <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> تصفية</button>
+  </form>
+
+  <!-- KPI strip -->
+  <div class="kpi-strip">
+    <div class="kpi-card kpi-card--accent">
+      <div class="kpi-label">عدد العمال النشطين</div>
+      <div class="kpi-value">{{ summary.nb_employes_actifs }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">إجمالي الرواتب المدفوعة</div>
+      <div class="kpi-value">{{ summary.total_salaires_payes|floatformat:0 }} <span class="kpi-unit">دج</span></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">إجمالي التسبيقات</div>
+      <div class="kpi-value">{{ summary.total_acomptes|floatformat:0 }} <span class="kpi-unit">دج</span></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">كشوف في انتظار الدفع</div>
+      <div class="kpi-value">{{ summary.nb_bulletins_valides }}</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <!-- Recent payslips -->
+    <div class="card">
+      <div class="card-header-row">
+        <div class="section-eyebrow"><i class="bx bx-receipt"></i> آخر كشوف الرواتب</div>
+        <a href="{% url 'depenses:bulletin_paie_list' %}" class="link-sm">عرض الكل</a>
+      </div>
+      {% if bulletins_recents %}
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead><tr><th>العامل</th><th>الفترة</th><th style="text-align:left;">الصافي (دج)</th><th>الحالة</th></tr></thead>
+          <tbody>
+            {% for b in bulletins_recents %}
+            <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+              <td><a href="{% url 'depenses:bulletin_paie_detail' b.pk %}" class="row-link">{{ b.employe.nom_complet }}</a></td>
+              <td style="color:var(--text-muted);font-size:12.5px;">{{ b.periode_label }}</td>
+              <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ b.montant_net|floatformat:2 }}</td>
+              <td>
+                {% if b.statut == 'paye' %}<span class="pill-success">مدفوع</span>
+                {% elif b.statut == 'valide' %}<span class="pill-warning">مصادق</span>
+                {% else %}<span class="pill-neutral">مسودة</span>{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-mini">لا توجد كشوف رواتب حتى الآن.</div>
+      {% endif %}
+    </div>
+
+    <!-- Recent advances -->
+    <div class="card">
+      <div class="card-header-row">
+        <div class="section-eyebrow"><i class="bx bx-wallet"></i> آخر التسبيقات</div>
+        <a href="{% url 'depenses:acompte_employe_list' %}" class="link-sm">عرض الكل</a>
+      </div>
+      {% if acomptes_recents %}
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead><tr><th>العامل</th><th>التاريخ</th><th style="text-align:left;">المبلغ (دج)</th><th>مخصوم</th></tr></thead>
+          <tbody>
+            {% for a in acomptes_recents %}
+            <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+              <td><a href="{% url 'depenses:employe_detail' a.employe.pk %}" class="row-link">{{ a.employe.nom_complet }}</a></td>
+              <td style="color:var(--text-muted);font-size:12.5px;">{{ a.date|date:"d/m/Y" }}</td>
+              <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ a.montant|floatformat:2 }}</td>
+              <td>
+                {% if a.deduit %}<span class="pill-neutral" style="font-size:10.5px;">نعم</span>
+                {% else %}<span class="pill-warning" style="font-size:10.5px;">لا</span>{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-mini">لا توجد تسبيقات.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Quick links -->
+  <div class="quick-links">
+    <a href="{% url 'depenses:pointage_list' %}" class="ql-card">
+      <i class="bx bx-calendar-check ql-icon"></i>
+      <div class="ql-label">سجلات الحضور</div>
+    </a>
+    <a href="{% url 'depenses:conge_list' %}" class="ql-card">
+      <i class="bx bx-beach ql-icon"></i>
+      <div class="ql-label">العطل</div>
+    </a>
+    <a href="{% url 'depenses:acompte_employe_create' %}" class="ql-card">
+      <i class="bx bx-wallet-alt ql-icon"></i>
+      <div class="ql-label">تسجيل تسبيق</div>
+    </a>
+    <a href="{% url 'depenses:bulletin_paie_generer' %}" class="ql-card">
+      <i class="bx bx-file ql-icon"></i>
+      <div class="ql-label">حساب كشف راتب</div>
+    </a>
+    <a href="{% url 'depenses:employe_create' %}" class="ql-card">
+      <i class="bx bx-user-plus ql-icon"></i>
+      <div class="ql-label">عامل جديد</div>
+    </a>
+    <a href="{% url 'depenses:pointage_create' %}" class="ql-card">
+      <i class="bx bx-plus-circle ql-icon"></i>
+      <div class="ql-label">تسجيل حضور</div>
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .page-body { padding:28px 32px; display:flex; flex-direction:column; gap:16px; }
+  @media (max-width:768px) { .page-body { padding:20px 16px; } }
+  .date-filter-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .date-filter-bar input[type="date"] { background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-md); color:var(--text-secondary); font-size:13px; padding:9px 12px; }
+  .date-filter-bar input:focus { border-color:var(--accent); outline:none; }
+  .btn-sm { padding:8px 14px; font-size:12.5px; }
+  .kpi-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  @media (max-width:900px) { .kpi-strip { grid-template-columns:1fr 1fr; } }
+  .kpi-card { background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px 20px; }
+  .kpi-card--accent { border-color:var(--accent); background:var(--accent-dim); }
+  .kpi-label { font-size:10.5px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px; }
+  .kpi-value { font-family:'Nunito',sans-serif; font-size:24px; font-weight:800; color:var(--text-primary); }
+  .kpi-unit { font-size:12px; font-weight:500; color:var(--text-muted); }
+  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:800px) { .two-col { grid-template-columns:1fr; } }
+  .card { background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+  .card-header-row { padding:14px 20px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .section-eyebrow { font-size:10.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:6px; }
+  .link-sm { font-size:12px; color:var(--accent-text); font-weight:600; }
+  .link-sm:hover { text-decoration:underline; }
+  .table-wrapper { overflow-x:auto; }
+  .data-table { width:100%; border-collapse:collapse; }
+  .data-table thead th { font-size:10.5px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--text-muted); padding:10px 14px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .data-table tbody tr { border-bottom:1px solid var(--border); animation:fadeIn .3s ease both; animation-delay:calc(var(--row-i,0)*30ms); transition:background .12s; }
+  .data-table tbody tr:last-child { border-bottom:none; }
+  .data-table tbody tr:hover { background:var(--bg-hover); }
+  .data-table td { padding:11px 14px; font-size:13px; color:var(--text-secondary); vertical-align:middle; }
+  .row-link { color:var(--text-primary); font-weight:600; }
+  .row-link:hover { color:var(--accent-text); }
+  .pill-success { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:20px; font-size:10.5px; font-weight:500; background:rgba(34,197,94,.14); color:#15803d; }
+  .pill-warning { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:20px; font-size:10.5px; font-weight:500; background:rgba(245,158,11,.13); color:#92400e; }
+  .pill-neutral  { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:20px; font-size:10.5px; font-weight:500; background:rgba(0,0,0,.06); color:var(--text-secondary); }
+  .empty-mini { padding:24px; text-align:center; color:var(--text-muted); font-size:13px; }
+  .quick-links { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; }
+  @media (max-width:900px) { .quick-links { grid-template-columns:repeat(3,1fr); } }
+  @media (max-width:500px) { .quick-links { grid-template-columns:repeat(2,1fr); } }
+  .ql-card { background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px 14px; display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center; text-decoration:none; transition:border-color .15s, background .15s, transform .15s; }
+  .ql-card:hover { border-color:var(--accent); background:var(--accent-dim); transform:translateY(-2px); }
+  .ql-icon { font-size:22px; color:var(--accent-text); }
+  .ql-label { font-size:11.5px; font-weight:600; color:var(--text-secondary); }
+  .ql-card:hover .ql-label { color:var(--accent-text); }
+  .btn-ghost { background:transparent; border:1px solid var(--border); color:var(--text-secondary); font-family:'Nunito',sans-serif; font-weight:600; font-size:13px; border-radius:var(--radius-md); padding:9px 16px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:background .12s; text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover); border-color:var(--border-strong); color:var(--text-primary); }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+</style>
+{% endblock %}

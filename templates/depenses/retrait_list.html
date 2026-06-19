@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}سحوبات الشركاء — تربية الدواجن{% endblock %}
+{% block nav_depenses %}active{% endblock %}
+{% block page_title %}سحوبات الشركاء{% endblock %}
+{% block page_sub_text %}إجمالي الفترة: {{ total|floatformat:2 }} دج{% endblock %}
+
+{% block topbar_actions %}
+  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'depenses:retrait_create' %}" class="btn-primary">
+    <i class="bx bx-plus"></i> سحب جديد
+  </a>
+  {% endif %}
+  <a href="{% url 'depenses:associe_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> الشركاء
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+  <!-- Filters -->
+  <div class="filters-bar">
+    <form method="get" action="" class="filters-form" id="filter-form">
+      {{ filter_form.associe }}
+      {{ filter_form.date_debut }}
+      {{ filter_form.date_fin }}
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> تصفية</button>
+      <a href="{% url 'depenses:retrait_list' %}" class="btn-ghost btn-sm"><i class="bx bx-x"></i> إعادة تعيين</a>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-header-row">
+      <div class="section-eyebrow"><i class="bx bx-money-withdraw"></i> السحوبات</div>
+    </div>
+    {% if page.object_list %}
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>التاريخ</th>
+            <th>الشريك</th>
+            <th style="text-align:left;">المبلغ (دج)</th>
+            <th>طريقة الدفع</th>
+            <th>السبب</th>
+            <th>المرجع</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in page.object_list %}
+          <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+            <td>{{ r.date|date:"d/m/Y" }}</td>
+            <td>
+              <a href="{% url 'depenses:associe_detail' r.associe.pk %}" class="row-link">{{ r.associe.nom }}</a>
+            </td>
+            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ r.montant|floatformat:2 }}</td>
+            <td><span class="mode-badge">{{ r.get_mode_paiement_display }}</span></td>
+            <td style="color:var(--text-muted);">{{ r.motif|default:"—"|truncatechars:50 }}</td>
+            <td style="font-size:12px;color:var(--text-muted);">{{ r.reference_document|default:"—" }}</td>
+            <td>
+              <div class="actions-cell">
+                {% if not request.user.userprofile.role == 'viewer' %}
+                <a href="{% url 'depenses:retrait_edit' r.pk %}" class="action-btn"><i class="bx bxs-pencil"></i></a>
+                <button type="button" class="action-btn action-btn--danger" data-del="{{ r.pk }}" data-assoc="{{ r.associe.pk }}"><i class="bx bx-trash"></i></button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if page.has_other_pages %}
+    <div class="pagination-bar">
+      {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>{% endif %}
+      <span class="page-info">{{ page.number }} / {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}<a href="?page={{ page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>{% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bx-money-withdraw empty-state__icon"></i>
+      <div class="empty-state__title">لا توجد سحوبات</div>
+      <div class="empty-state__body">لا توجد سجلات تطابق معايير التصفية الحالية.</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div id="del-panel" style="display:none;" class="confirm-panel">
+  <div class="confirm-panel__inner">
+    <div class="confirm-panel__icon"><i class="bx bx-trash"></i></div>
+    <div><div class="confirm-panel__title">حذف السحب؟</div><div class="confirm-panel__body">هذا الإجراء نهائي.</div></div>
+    <div class="confirm-panel__actions">
+      <button type="button" id="del-cancel" class="btn-ghost">إلغاء</button>
+      <form id="del-form" method="post" action="">{% csrf_token %}
+        <button type="submit" class="btn-danger">حذف</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .page-body { padding:28px 32px; display:flex; flex-direction:column; gap:14px; }
+  @media (max-width:768px) { .page-body { padding:20px 16px; } }
+  .filters-form { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .filters-form select,.filters-form input[type="date"] { background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-md); color:var(--text-secondary); font-family:'Inter',sans-serif; font-size:13px; padding:9px 12px; }
+  .filters-form select:focus,.filters-form input:focus { border-color:var(--accent); outline:none; }
+  .btn-sm { padding:8px 14px; font-size:12.5px; }
+  .card { background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+  .card-header-row { padding:14px 20px 12px; border-bottom:1px solid var(--border); }
+  .section-eyebrow { font-size:10.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:6px; }
+  .table-wrapper { overflow-x:auto; }
+  .data-table { width:100%; border-collapse:collapse; }
+  .data-table thead th { font-size:10.5px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--text-muted); padding:11px 14px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .data-table tbody tr { border-bottom:1px solid var(--border); animation:fadeIn .3s ease both; animation-delay:calc(var(--row-i,0)*30ms); transition:background .12s; }
+  .data-table tbody tr:last-child { border-bottom:none; }
+  .data-table tbody tr:hover { background:var(--bg-hover); }
+  .data-table td { padding:12px 14px; font-size:13px; color:var(--text-secondary); vertical-align:middle; }
+  .row-link { color:var(--text-primary); font-weight:700; }
+  .row-link:hover { color:var(--accent-text); }
+  .mode-badge { background:var(--bg-raised); border:1px solid var(--border); border-radius:var(--radius-sm); padding:2px 8px; font-size:11.5px; color:var(--text-secondary); }
+  .actions-cell { display:flex; align-items:center; gap:4px; }
+  .action-btn { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:var(--radius-sm); border:1px solid var(--border); background:transparent; color:var(--text-muted); font-size:14px; cursor:pointer; transition:background .12s,color .12s; text-decoration:none; }
+  .action-btn:hover { background:var(--bg-hover); border-color:var(--border-strong); color:var(--text-primary); }
+  .action-btn--danger { color:#dc2626; border-color:rgba(239,68,68,.2); }
+  .action-btn--danger:hover { background:rgba(239,68,68,.08); }
+  .pagination-bar { display:flex; align-items:center; justify-content:center; gap:12px; padding:14px; border-top:1px solid var(--border); }
+  .page-btn { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:var(--radius-sm); border:1px solid var(--border); color:var(--text-secondary); font-size:18px; text-decoration:none; transition:background .12s; }
+  .page-btn:hover { background:var(--bg-hover); }
+  .page-info { font-size:12.5px; color:var(--text-muted); }
+  .empty-state { text-align:center; padding:40px 20px; color:var(--text-muted); }
+  .empty-state__icon { font-size:30px; display:block; margin-bottom:10px; color:var(--border-strong); }
+  .empty-state__title { font-family:'Nunito',sans-serif; font-size:14px; font-weight:700; color:var(--text-secondary); margin-bottom:4px; }
+  .confirm-panel { position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:500; display:flex!important; align-items:center; justify-content:center; padding:20px; }
+  .confirm-panel[style*="display:none"] { display:none!important; }
+  .confirm-panel__inner { background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:24px 28px; max-width:380px; width:100%; display:flex; flex-direction:column; gap:16px; box-shadow:0 8px 32px rgba(0,0,0,.14); }
+  .confirm-panel__icon { width:44px; height:44px; border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; font-size:20px; background:rgba(239,68,68,.1); color:#dc2626; }
+  .confirm-panel__title { font-family:'Nunito',sans-serif; font-weight:700; font-size:15px; color:var(--text-primary); margin-bottom:4px; }
+  .confirm-panel__body { font-size:13px; color:var(--text-secondary); }
+  .confirm-panel__actions { display:flex; gap:10px; justify-content:flex-end; }
+  .confirm-panel__actions form { margin:0; }
+  .btn-primary { background:var(--accent); color:#fff; font-family:'Nunito',sans-serif; font-weight:700; font-size:13.5px; border:none; border-radius:var(--radius-md); padding:10px 18px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:opacity .18s; text-decoration:none; }
+  .btn-primary:hover { opacity:.88; color:#fff; }
+  .btn-ghost { background:transparent; border:1px solid var(--border); color:var(--text-secondary); font-family:'Nunito',sans-serif; font-weight:600; font-size:13px; border-radius:var(--radius-md); padding:9px 16px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:background .12s; text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover); border-color:var(--border-strong); color:var(--text-primary); }
+  .btn-danger { background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.22); color:#dc2626; font-family:'Nunito',sans-serif; font-weight:600; font-size:13px; border-radius:var(--radius-md); padding:9px 16px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+  .btn-danger:hover { background:rgba(239,68,68,.18); }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const delBase = '{% url "depenses:retrait_delete" 0 %}';
+document.querySelectorAll('[data-del]').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    document.getElementById('del-form').action = delBase.replace('/0/', '/' + btn.dataset.del + '/');
+    document.getElementById('del-panel').style.display = '';
+  });
+});
+document.getElementById('del-cancel').addEventListener('click', function(){ document.getElementById('del-panel').style.display='none'; });
+document.getElementById('del-panel').addEventListener('click', function(e){ if(e.target===this) this.style.display='none'; });
+</script>
+{% endblock %}

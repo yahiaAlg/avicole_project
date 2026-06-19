@@ -1164,6 +1164,18 @@
         <i class="bx bxs-category"></i>
         <span class="nav-link-label">الفئات</span>
       </a>
+      <a href="{% url 'depenses:associe_list' %}" class="nav-link {% block nav_associes %}{% endblock %}">
+        <i class="bx bxs-group"></i>
+        <span class="nav-link-label">الشركاء</span>
+      </a>
+      <a href="{% url 'depenses:retrait_list' %}" class="nav-link {% block nav_retraits %}{% endblock %}">
+        <i class="bx bxs-credit-card-alt"></i>
+        <span class="nav-link-label">السحوبات</span>
+      </a>
+      <a href="{% url 'depenses:rh_dashboard' %}" class="nav-link {% block nav_rh %}{% endblock %}">
+        <i class="bx bxs-id-card"></i>
+        <span class="nav-link-label">الموارد البشرية</span>
+      </a>
 
       <a href="{% url 'reporting:dashboard' %}" class="nav-link {% block nav_rapports %}{% endblock %}">
         <i class="bx bxs-bar-chart-alt-2"></i>

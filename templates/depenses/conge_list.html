@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}عطل العمال — تربية الدواجن{% endblock %}
+{% block nav_depenses %}active{% endblock %}
+{% block page_title %}عطل العمال{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} عطلة{% endblock %}
+
+{% block topbar_actions %}
+  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'depenses:conge_create' %}" class="btn-primary"><i class="bx bx-plus"></i> عطلة جديدة</a>
+  {% endif %}
+  <a href="{% url 'depenses:rh_dashboard' %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> لوحة RH</a>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+  <div class="card">
+    <div class="card-header-row">
+      <div class="section-eyebrow"><i class="bx bx-beach"></i> قائمة العطل</div>
+    </div>
+    {% if page.object_list %}
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>العامل</th>
+            <th>من</th>
+            <th>إلى</th>
+            <th style="text-align:center;">أيام</th>
+            <th>السبب</th>
+            <th>ملاحظات</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in page.object_list %}
+          <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+            <td><a href="{% url 'depenses:employe_detail' c.employe.pk %}" class="row-link">{{ c.employe.nom_complet }}</a></td>
+            <td>{{ c.date_debut|date:"d/m/Y" }}</td>
+            <td>{{ c.date_fin|date:"d/m/Y" }}</td>
+            <td style="text-align:center;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ c.nb_jours }}</td>
+            <td style="color:var(--text-muted);">{{ c.motif|default:"—"|truncatechars:50 }}</td>
+            <td style="color:var(--text-muted);font-size:12.5px;">{{ c.notes|default:"—"|truncatechars:40 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if page.has_other_pages %}
+    <div class="pagination-bar">
+      {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>{% endif %}
+      <span class="page-info">{{ page.number }} / {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}<a href="?page={{ page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>{% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bx-beach empty-state__icon"></i>
+      <div class="empty-state__title">لا توجد عطل مسجلة</div>
+      <div class="empty-state__body">سجّل عطل العمال هنا — ستُطبَّق تلقائياً على سجلات الحضور.</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .page-body { padding:28px 32px; }
+  @media (max-width:768px) { .page-body { padding:20px 16px; } }
+  .card { background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+  .card-header-row { padding:14px 20px 12px; border-bottom:1px solid var(--border); }
+  .section-eyebrow { font-size:10.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:6px; }
+  .table-wrapper { overflow-x:auto; }
+  .data-table { width:100%; border-collapse:collapse; }
+  .data-table thead th { font-size:10.5px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--text-muted); padding:11px 14px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .data-table tbody tr { border-bottom:1px solid var(--border); animation:fadeIn .3s ease both; animation-delay:calc(var(--row-i,0)*30ms); transition:background .12s; }
+  .data-table tbody tr:last-child { border-bottom:none; }
+  .data-table tbody tr:hover { background:var(--bg-hover); }
+  .data-table td { padding:12px 14px; font-size:13px; color:var(--text-secondary); vertical-align:middle; }
+  .row-link { color:var(--text-primary); font-weight:700; }
+  .row-link:hover { color:var(--accent-text); }
+  .pagination-bar { display:flex; align-items:center; justify-content:center; gap:12px; padding:14px; border-top:1px solid var(--border); }
+  .page-btn { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:var(--radius-sm); border:1px solid var(--border); color:var(--text-secondary); font-size:18px; text-decoration:none; transition:background .12s; }
+  .page-btn:hover { background:var(--bg-hover); }
+  .page-info { font-size:12.5px; color:var(--text-muted); }
+  .empty-state { text-align:center; padding:48px 20px; color:var(--text-muted); }
+  .empty-state__icon { font-size:32px; display:block; margin-bottom:12px; color:var(--border-strong); }
+  .empty-state__title { font-family:'Nunito',sans-serif; font-size:15px; font-weight:700; color:var(--text-secondary); margin-bottom:6px; }
+  .btn-primary { background:var(--accent); color:#fff; font-family:'Nunito',sans-serif; font-weight:700; font-size:13.5px; border:none; border-radius:var(--radius-md); padding:10px 18px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:opacity .18s; text-decoration:none; }
+  .btn-primary:hover { opacity:.88; color:#fff; }
+  .btn-ghost { background:transparent; border:1px solid var(--border); color:var(--text-secondary); font-family:'Nunito',sans-serif; font-weight:600; font-size:13px; border-radius:var(--radius-md); padding:9px 16px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:background .12s; text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover); border-color:var(--border-strong); color:var(--text-primary); }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+</style>
+{% endblock %}

@@ -1,0 +1,172 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>كشف راتب — {{ bulletin.employe.nom_complet }} — {{ bulletin.periode_label }}</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #1a2219;
+    --muted: #6b7a69;
+    --border: #d7ddd5;
+    --accent: #22c55e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Tajawal', sans-serif;
+    color: var(--ink);
+    margin: 0;
+    padding: 28px;
+    background: #f4f6f4;
+  }
+  .sheet {
+    max-width: 760px;
+    margin: 0 auto;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 32px 36px;
+  }
+  .no-print { display: flex; justify-content: center; gap: 10px; margin-bottom: 16px; }
+  .no-print button, .no-print a {
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px;
+    border-radius: 8px; padding: 9px 18px; cursor: pointer; text-decoration: none;
+    border: 1px solid var(--border); background: #fff; color: var(--ink);
+  }
+  .no-print .btn-print { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* Header */
+  .doc-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--ink); padding-bottom: 16px; margin-bottom: 20px; }
+  .company-block { display: flex; gap: 12px; align-items: center; }
+  .company-logo { width: 56px; height: 56px; object-fit: contain; border-radius: 8px; }
+  .company-name { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 17px; }
+  .company-meta { font-size: 11px; color: var(--muted); line-height: 1.7; margin-top: 3px; }
+  .doc-title-block { text-align: left; }
+  .doc-title { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px; background: #eef9f1; color: #15803d; padding: 6px 14px; border-radius: 6px; display: inline-block; }
+  .doc-period { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  /* Employee info */
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 28px; margin-bottom: 22px; font-size: 12.5px; }
+  .info-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--border); }
+  .info-row .lbl { color: var(--muted); }
+  .info-row .val { font-weight: 700; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 12.5px; }
+  th { background: #f4f6f4; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 9px 10px; border: 1px solid var(--border); text-align: right; }
+  td { padding: 9px 10px; border: 1px solid var(--border); }
+  .num { text-align: left; font-family: 'Nunito', sans-serif; font-weight: 700; }
+
+  .totals { margin-top: 10px; width: 100%; max-width: 320px; margin-right: 0; margin-left: auto; }
+  .totals .row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .totals .row.net { border-top: 2px solid var(--ink); border-bottom: none; margin-top: 4px; padding-top: 12px; font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 16px; }
+  .totals .row.deduct .val { color: #b91c1c; }
+
+  .signatures { display: flex; justify-content: space-between; margin-top: 56px; }
+  .sig-block { width: 45%; text-align: center; }
+  .sig-line { border-top: 1px solid var(--ink); margin-top: 48px; padding-top: 6px; font-size: 11.5px; color: var(--muted); }
+
+  .footer { margin-top: 30px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 10px; color: var(--muted); text-align: center; line-height: 1.7; }
+
+  @media print {
+    body { background: #fff; padding: 0; }
+    .sheet { border: none; padding: 0; max-width: 100%; }
+    .no-print { display: none; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="no-print">
+    <button class="btn-print" onclick="window.print()">🖨 طباعة</button>
+    <a href="{% url 'depenses:bulletin_paie_detail' bulletin.pk %}">رجوع</a>
+  </div>
+
+  <div class="sheet">
+
+    <div class="doc-header">
+      <div class="company-block">
+        {% if company.logo %}<img src="{{ company.logo.url }}" class="company-logo" alt="">{% endif %}
+        <div>
+          <div class="company-name">{{ company.nom|default:"تربية الدواجن" }}</div>
+          <div class="company-meta">
+            {{ company.adresse|default:"" }}{% if company.wilaya %} — {{ company.wilaya }}{% endif %}<br>
+            {% if company.telephone %}هاتف: {{ company.telephone }}{% if company.telephone_2 %} / {{ company.telephone_2 }}{% endif %}<br>{% endif %}
+            {% if company.nif %}NIF: {{ company.nif }} {% endif %}{% if company.rc %}— RC: {{ company.rc }} {% endif %}{% if company.nis %}— NIS: {{ company.nis }}{% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="doc-title-block">
+        <div class="doc-title">كشف راتب</div>
+        <div class="doc-period">الفترة: {{ bulletin.periode_label }}</div>
+        <div class="doc-period">رقم: BP-{{ bulletin.pk|stringformat:"05d" }}</div>
+      </div>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-row"><span class="lbl">العامل</span><span class="val">{{ bulletin.employe.nom_complet }}</span></div>
+      <div class="info-row"><span class="lbl">الرقم التعريفي</span><span class="val">{{ bulletin.employe.matricule }}</span></div>
+      <div class="info-row"><span class="lbl">الوظيفة</span><span class="val">{{ bulletin.employe.fonction|default:"—" }}</span></div>
+      <div class="info-row"><span class="lbl">المبنى</span><span class="val">{{ bulletin.employe.batiment.nom|default:"—" }}</span></div>
+      <div class="info-row"><span class="lbl">الحالة</span><span class="val">{{ bulletin.get_statut_display }}</span></div>
+      <div class="info-row"><span class="lbl">تاريخ الدفع</span><span class="val">{{ bulletin.date_paiement|date:"d/m/Y"|default:"—" }}</span></div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>أيام الحضور</th>
+          <th>أيام الغياب</th>
+          <th>أيام الراحة</th>
+          <th>أيام العطلة المدفوعة</th>
+          <th>الساعات الإضافية</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="num">{{ bulletin.jours_presence }}</td>
+          <td class="num">{{ bulletin.jours_absence }}</td>
+          <td class="num">{{ bulletin.jours_repos }}</td>
+          <td class="num">{{ bulletin.jours_conge }}</td>
+          <td class="num">{{ bulletin.total_heures_supplementaires }}h</td>
+        </tr>
+      </tbody>
+    </table>
+
+    {% if acomptes %}
+    <table>
+      <thead><tr><th>التسبيقات المخصومة</th><th>التاريخ</th><th>المبلغ (دج)</th></tr></thead>
+      <tbody>
+        {% for a in acomptes %}
+        <tr>
+          <td>{{ a.motif|default:"—" }}</td>
+          <td>{{ a.date|date:"d/m/Y" }}</td>
+          <td class="num">{{ a.montant|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    <div class="totals">
+      <div class="row"><span>السعر اليومي</span><span class="val">{{ bulletin.taux_journalier|floatformat:2 }} دج</span></div>
+      <div class="row"><span>مبلغ الساعات الإضافية</span><span class="val">{{ bulletin.montant_heures_sup|floatformat:2 }} دج</span></div>
+      <div class="row"><span>الإجمالي الخام</span><span class="val">{{ bulletin.montant_brut|floatformat:2 }} دج</span></div>
+      <div class="row deduct"><span>إجمالي التسبيقات</span><span class="val">− {{ bulletin.total_acomptes|floatformat:2 }} دج</span></div>
+      <div class="row net"><span>الصافي المستحق</span><span class="val">{{ bulletin.montant_net|floatformat:2 }} دج</span></div>
+    </div>
+
+    <div class="signatures">
+      <div class="sig-block"><div class="sig-line">توقيع الموظف</div></div>
+      <div class="sig-block"><div class="sig-line">توقيع المسؤول</div></div>
+    </div>
+
+    {% if company.pied_de_page %}
+    <div class="footer">{{ company.pied_de_page }}</div>
+    {% endif %}
+
+  </div>
+
+</body>
+</html>

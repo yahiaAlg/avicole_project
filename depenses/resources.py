@@ -1,13 +1,21 @@
 """
 depenses/resources.py
 
-Import-export resources for operational expense tracking.
+Import-export resources for operational expense tracking and the two
+special expense families (associés, RH).
 
 Import policy:
   CategorieDepense — import supported (admin maintenance of category list).
   Depense          — import supported for bulk historical entry.
                       The facture_liee FK is constrained on import to
                       service-type invoices only (BR-DEP-03 / BR-DEP-01).
+  Associe / RetraitAssocie — import supported for historical withdrawals.
+  Employe / Pointage / AcompteEmploye — import supported for bulk HR data
+                      entry (e.g. migrating an existing attendance sheet).
+  BulletinPaie     — EXPORT ONLY. Payslips must be generated via
+                      depenses.utils.calculer_donnees_paie() so the snapshot
+                      figures stay consistent with Pointage (BR-RH-05);
+                      importing arbitrary payslip rows is disabled.
 """
 
 from import_export import resources, fields
@@ -15,9 +23,19 @@ from import_export.widgets import ForeignKeyWidget, BooleanWidget
 
 from django.contrib.auth.models import User
 
-from depenses.models import CategorieDepense, Depense
+from depenses.models import (
+    CategorieDepense,
+    Depense,
+    Associe,
+    RetraitAssocie,
+    Employe,
+    Pointage,
+    AcompteEmploye,
+    BulletinPaie,
+)
 from elevage.models import LotElevage
 from achats.models import FactureFournisseur
+from intrants.models import Batiment
 
 # ---------------------------------------------------------------------------
 # CategorieDepense
@@ -145,3 +163,234 @@ class DepenseResource(resources.ModelResource):
             raise ValueError(
                 f"Ligne {row_number}: catégorie de dépense code='{code}' introuvable ou inactive."
             )
+
+
+# ---------------------------------------------------------------------------
+# Associés
+# ---------------------------------------------------------------------------
+
+
+class AssocieResource(resources.ModelResource):
+    class Meta:
+        model = Associe
+        skip_unchanged = True
+        report_skipped = False
+        import_id_fields = ["nom"]
+        fields = [
+            "id",
+            "nom",
+            "telephone",
+            "pourcentage_parts",
+            "actif",
+            "notes",
+            "created_at",
+        ]
+        export_order = fields
+
+
+class RetraitAssocieResource(resources.ModelResource):
+    """
+    BR-ASSOC-01: each row is a withdrawal against the stakeholder's
+    history; `associe` is resolved by name, never created on the fly.
+    """
+
+    associe = fields.Field(
+        column_name="associe_nom",
+        attribute="associe",
+        widget=ForeignKeyWidget(Associe, field="nom"),
+    )
+    enregistre_par = fields.Field(
+        column_name="enregistre_par_username",
+        attribute="enregistre_par",
+        widget=ForeignKeyWidget(User, field="username"),
+        readonly=True,
+    )
+
+    class Meta:
+        model = RetraitAssocie
+        skip_unchanged = True
+        report_skipped = False
+        import_id_fields = ["id"]
+        exclude = ["piece_jointe"]
+        fields = [
+            "id",
+            "date",
+            "associe",
+            "montant",
+            "mode_paiement",
+            "motif",
+            "reference_document",
+            "notes",
+            "enregistre_par",
+            "created_at",
+        ]
+        export_order = fields
+
+    def before_import_row(self, row, row_number=None, **kwargs):
+        nom = row.get("associe_nom", "").strip()
+        if nom and not Associe.objects.filter(nom=nom, actif=True).exists():
+            raise ValueError(
+                f"Ligne {row_number}: شريك '{nom}' introuvable ou inactif."
+            )
+
+
+# ---------------------------------------------------------------------------
+# RH — Employees
+# ---------------------------------------------------------------------------
+
+
+class EmployeResource(resources.ModelResource):
+    batiment = fields.Field(
+        column_name="batiment_nom",
+        attribute="batiment",
+        widget=ForeignKeyWidget(Batiment, field="nom"),
+    )
+    binome = fields.Field(
+        column_name="binome_matricule",
+        attribute="binome",
+        widget=ForeignKeyWidget(Employe, field="matricule"),
+    )
+
+    class Meta:
+        model = Employe
+        skip_unchanged = True
+        report_skipped = False
+        import_id_fields = ["matricule"]
+        fields = [
+            "id",
+            "matricule",
+            "nom_complet",
+            "fonction",
+            "telephone",
+            "date_embauche",
+            "batiment",
+            "jour_repos_habituel",
+            "binome",
+            "salaire_base_mensuel",
+            "heures_normales_jour",
+            "taux_majoration_heure_sup",
+            "actif",
+            "notes",
+            "created_at",
+        ]
+        export_order = fields
+
+
+class PointageResource(resources.ModelResource):
+    """
+    Bulk import of attendance — typically used once, to migrate an existing
+    paper/Excel attendance sheet. `employe` resolved by matricule.
+    """
+
+    employe = fields.Field(
+        column_name="employe_matricule",
+        attribute="employe",
+        widget=ForeignKeyWidget(Employe, field="matricule"),
+    )
+
+    class Meta:
+        model = Pointage
+        skip_unchanged = True
+        report_skipped = False
+        import_id_fields = ["id"]
+        fields = [
+            "id",
+            "employe",
+            "date",
+            "statut",
+            "heures_supplementaires",
+            "notes",
+            "created_at",
+        ]
+        export_order = fields
+
+    def before_import_row(self, row, row_number=None, **kwargs):
+        statut = row.get("statut", "").strip()
+        heures_sup = row.get("heures_supplementaires") or 0
+        if (
+            statut in (Pointage.STATUT_REPOS, Pointage.STATUT_ABSENT)
+            and float(heures_sup) > 0
+        ):
+            raise ValueError(
+                f"Ligne {row_number}: ساعات إضافية غير ممكنة في يوم راحة/غياب."
+            )
+
+
+class AcompteEmployeResource(resources.ModelResource):
+    employe = fields.Field(
+        column_name="employe_matricule",
+        attribute="employe",
+        widget=ForeignKeyWidget(Employe, field="matricule"),
+    )
+    enregistre_par = fields.Field(
+        column_name="enregistre_par_username",
+        attribute="enregistre_par",
+        widget=ForeignKeyWidget(User, field="username"),
+        readonly=True,
+    )
+
+    class Meta:
+        model = AcompteEmploye
+        skip_unchanged = True
+        report_skipped = False
+        import_id_fields = ["id"]
+        fields = [
+            "id",
+            "date",
+            "employe",
+            "montant",
+            "mode_paiement",
+            "motif",
+            "notes",
+            "enregistre_par",
+            "created_at",
+        ]
+        export_order = fields
+
+
+class BulletinPaieResource(resources.ModelResource):
+    """
+    Export only (see module docstring) — payslips must be generated through
+    depenses.utils.calculer_donnees_paie() to stay consistent with Pointage.
+    """
+
+    employe = fields.Field(
+        column_name="employe_matricule",
+        attribute="employe",
+        widget=ForeignKeyWidget(Employe, field="matricule"),
+        readonly=True,
+    )
+
+    class Meta:
+        model = BulletinPaie
+        skip_unchanged = True
+        report_skipped = False
+        import_id_fields = ["id"]
+        fields = [
+            "id",
+            "employe",
+            "annee",
+            "mois",
+            "jours_presence",
+            "jours_absence",
+            "jours_repos",
+            "jours_conge",
+            "total_heures_supplementaires",
+            "salaire_base_reference",
+            "taux_journalier",
+            "montant_heures_sup",
+            "montant_brut",
+            "total_acomptes",
+            "montant_net",
+            "statut",
+            "date_paiement",
+            "mode_paiement",
+            "created_at",
+        ]
+        export_order = fields
+
+    def before_import_row(self, row, row_number=None, **kwargs):
+        raise ValueError(
+            f"Ligne {row_number}: l'import de BulletinPaie est désactivé — "
+            "les bulletins sont générés via le module RH (BR-RH-05)."
+        )

@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
+{% block nav_depenses %}active{% endblock %}
+{% block page_title %}{{ employe.nom_complet }}{% endblock %}
+{% block page_sub_text %}{{ employe.matricule }} {% if employe.fonction %}— {{ employe.fonction }}{% endif %}{% endblock %}
+
+{% block topbar_actions %}
+  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'depenses:acompte_employe_create' %}?employe={{ employe.pk }}" class="btn-ghost"><i class="bx bx-wallet-alt"></i> تسبيق</a>
+  <a href="{% url 'depenses:conge_create' %}?employe={{ employe.pk }}" class="btn-ghost"><i class="bx bx-beach"></i> عطلة</a>
+  <a href="{% url 'depenses:employe_edit' employe.pk %}" class="btn-ghost"><i class="bx bxs-pencil"></i> تعديل</a>
+  {% endif %}
+  <a href="{% url 'depenses:employe_list' %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> العمال</a>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+
+  <!-- KPI strip -->
+  <div class="kpi-strip">
+    <div class="kpi-card">
+      <div class="kpi-label">الراتب الأساسي</div>
+      <div class="kpi-value">{{ employe.salaire_base_mensuel|floatformat:0 }} <span class="kpi-unit">دج/شهر</span></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">المبنى</div>
+      <div class="kpi-value kpi-value--sm">{{ employe.batiment.nom|default:"—" }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">رصيد الإجازة (أيام)</div>
+      <div class="kpi-value {% if solde_conge < 0 %}kpi-value--danger{% endif %}">{{ solde_conge }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">تسبيقات غير مخصومة</div>
+      <div class="kpi-value {% if acomptes_en_attente %}kpi-value--warn{% endif %}">{{ acomptes_en_attente.count }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">يوم الراحة</div>
+      <div class="kpi-value kpi-value--sm">{{ employe.get_jour_repos_habituel_display }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">الثنائي</div>
+      <div class="kpi-value kpi-value--sm">
+        {% if employe.binome %}
+          <a href="{% url 'depenses:employe_detail' employe.binome.pk %}" style="color:var(--accent-text);">{{ employe.binome.nom_complet }}</a>
+        {% else %}—{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <!-- Recent attendance (31 days) -->
+    <div class="card">
+      <div class="card-header-row">
+        <div class="section-eyebrow"><i class="bx bx-calendar-check"></i> الحضور (31 يوم)</div>
+        <a href="{% url 'depenses:pointage_list' %}?employe={{ employe.pk }}" class="link-sm">الكل</a>
+      </div>
+      {% if pointages_recents %}
+      <div class="attendance-grid">
+        {% for p in pointages_recents %}
+        <a href="{% url 'depenses:pointage_edit' p.pk %}" class="att-cell att-{{ p.statut }}" title="{{ p.date|date:'d/m/Y' }} — {{ p.get_statut_display }}{% if p.heures_supplementaires %} (+{{ p.heures_supplementaires }}h){% endif %}">
+          {{ p.date|date:"d" }}
+        </a>
+        {% endfor %}
+      </div>
+      <div class="att-legend">
+        <span class="att-present-lg">حاضر</span>
+        <span class="att-absent-lg">غائب</span>
+        <span class="att-repos-lg">راحة</span>
+        <span class="att-conge-lg">عطلة</span>
+      </div>
+      {% else %}
+      <div class="empty-mini">لا توجد سجلات حضور.</div>
+      {% endif %}
+    </div>
+
+    <!-- Payslips history -->
+    <div class="card">
+      <div class="card-header-row">
+        <div class="section-eyebrow"><i class="bx bx-receipt"></i> كشوف الرواتب</div>
+        <a href="{% url 'depenses:bulletin_paie_generer' %}" class="link-sm"><i class="bx bx-plus"></i> حساب جديد</a>
+      </div>
+      {% if bulletins_recents %}
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead><tr><th>الفترة</th><th style="text-align:left;">الصافي (دج)</th><th>الحالة</th><th></th></tr></thead>
+          <tbody>
+            {% for b in bulletins_recents %}
+            <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+              <td>{{ b.periode_label }}</td>
+              <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ b.montant_net|floatformat:2 }}</td>
+              <td>
+                {% if b.statut == 'paye' %}<span class="pill-success">مدفوع</span>
+                {% elif b.statut == 'valide' %}<span class="pill-warning">مصادق</span>
+                {% else %}<span class="pill-neutral">مسودة</span>{% endif %}
+              </td>
+              <td><div class="actions-cell"><a href="{% url 'depenses:bulletin_paie_detail' b.pk %}" class="action-btn"><i class="bx bx-show"></i></a></div></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-mini">لم يتم إنشاء كشوف راتب بعد.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Pending advances -->
+  {% if acomptes_en_attente %}
+  <div class="card">
+    <div class="card-header-row">
+      <div class="section-eyebrow"><i class="bx bx-wallet-alt"></i> تسبيقات غير مخصومة</div>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead><tr><th>التاريخ</th><th>السبب</th><th style="text-align:left;">المبلغ (دج)</th><th>طريقة الدفع</th></tr></thead>
+        <tbody>
+          {% for a in acomptes_en_attente %}
+          <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+            <td>{{ a.date|date:"d/m/Y" }}</td>
+            <td style="color:var(--text-muted);">{{ a.motif|default:"—"|truncatechars:60 }}</td>
+            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ a.montant|floatformat:2 }}</td>
+            <td><span class="mode-badge">{{ a.get_mode_paiement_display }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .page-body { padding:28px 32px; display:flex; flex-direction:column; gap:14px; }
+  @media (max-width:768px) { .page-body { padding:20px 16px; } }
+  .kpi-strip { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; }
+  @media (max-width:1100px) { .kpi-strip { grid-template-columns:repeat(3,1fr); } }
+  @media (max-width:600px) { .kpi-strip { grid-template-columns:repeat(2,1fr); } }
+  .kpi-card { background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px 18px; }
+  .kpi-label { font-size:10.5px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px; }
+  .kpi-value { font-family:'Nunito',sans-serif; font-size:20px; font-weight:800; color:var(--text-primary); }
+  .kpi-value--sm { font-size:14px; font-weight:600; }
+  .kpi-value--danger { color:#dc2626; }
+  .kpi-value--warn { color:#d97706; }
+  .kpi-unit { font-size:11px; font-weight:500; color:var(--text-muted); }
+  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:800px) { .two-col { grid-template-columns:1fr; } }
+  .card { background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+  .card-header-row { padding:14px 20px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .section-eyebrow { font-size:10.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:6px; }
+  .link-sm { font-size:12px; color:var(--accent-text); font-weight:600; text-decoration:none; display:flex; align-items:center; gap:3px; }
+  .link-sm:hover { text-decoration:underline; }
+  /* Attendance grid */
+  .attendance-grid { display:flex; flex-wrap:wrap; gap:4px; padding:16px 20px; }
+  .att-cell { width:32px; height:32px; border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:600; text-decoration:none; transition:transform .1s; cursor:pointer; }
+  .att-cell:hover { transform:scale(1.15); }
+  .att-present { background:rgba(34,197,94,.18); color:#15803d; border:1px solid rgba(34,197,94,.3); }
+  .att-absent  { background:rgba(239,68,68,.15); color:#dc2626; border:1px solid rgba(239,68,68,.25); }
+  .att-repos   { background:rgba(0,0,0,.06); color:var(--text-muted); border:1px solid var(--border); }
+  .att-conge   { background:rgba(56,189,248,.15); color:#0369a1; border:1px solid rgba(56,189,248,.25); }
+  .att-legend  { display:flex; gap:12px; padding:0 20px 14px; }
+  .att-present-lg,.att-absent-lg,.att-repos-lg,.att-conge-lg { font-size:11px; font-weight:600; }
+  .att-present-lg { color:#15803d; } .att-absent-lg { color:#dc2626; } .att-repos-lg { color:var(--text-muted); } .att-conge-lg { color:#0369a1; }
+  .table-wrapper { overflow-x:auto; }
+  .data-table { width:100%; border-collapse:collapse; }
+  .data-table thead th { font-size:10.5px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--text-muted); padding:10px 14px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .data-table tbody tr { border-bottom:1px solid var(--border); animation:fadeIn .3s ease both; animation-delay:calc(var(--row-i,0)*25ms); transition:background .12s; }
+  .data-table tbody tr:last-child { border-bottom:none; }
+  .data-table tbody tr:hover { background:var(--bg-hover); }
+  .data-table td { padding:11px 14px; font-size:13px; color:var(--text-secondary); vertical-align:middle; }
+  .mode-badge { background:var(--bg-raised); border:1px solid var(--border); border-radius:var(--radius-sm); padding:2px 8px; font-size:11.5px; color:var(--text-secondary); }
+  .pill-success { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:20px; font-size:10.5px; font-weight:500; background:rgba(34,197,94,.14); color:#15803d; }
+  .pill-warning { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:20px; font-size:10.5px; font-weight:500; background:rgba(245,158,11,.13); color:#92400e; }
+  .pill-neutral  { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:20px; font-size:10.5px; font-weight:500; background:rgba(0,0,0,.06); color:var(--text-secondary); }
+  .actions-cell { display:flex; align-items:center; gap:4px; }
+  .action-btn { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:var(--radius-sm); border:1px solid var(--border); background:transparent; color:var(--text-muted); font-size:14px; cursor:pointer; transition:background .12s,color .12s; text-decoration:none; }
+  .action-btn:hover { background:var(--bg-hover); border-color:var(--border-strong); color:var(--text-primary); }
+  .empty-mini { padding:24px; text-align:center; color:var(--text-muted); font-size:13px; }
+  .btn-ghost { background:transparent; border:1px solid var(--border); color:var(--text-secondary); font-family:'Nunito',sans-serif; font-weight:600; font-size:13px; border-radius:var(--radius-md); padding:9px 16px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:background .12s; text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover); border-color:var(--border-strong); color:var(--text-primary); }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+</style>
+{% endblock %}

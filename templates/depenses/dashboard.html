@@ -240,6 +240,59 @@
     </div>
 
   </div>
+
+  <!-- ══ Module shortcuts ══════════════════════════════════════════════════ -->
+  <div class="shortcut-grid">
+    <a href="{% url 'depenses:associe_list' %}" class="shortcut-card shortcut-purple">
+      <div class="shortcut-icon"><i class="bx bxs-group"></i></div>
+      <div class="shortcut-body">
+        <div class="shortcut-title">الشركاء</div>
+        <div class="shortcut-sub">رأس المال والسحوبات</div>
+      </div>
+      <i class="bx bx-chevron-left shortcut-arrow"></i>
+    </a>
+    <a href="{% url 'depenses:retrait_list' %}" class="shortcut-card shortcut-orange">
+      <div class="shortcut-icon"><i class="bx bxs-credit-card-alt"></i></div>
+      <div class="shortcut-body">
+        <div class="shortcut-title">السحوبات</div>
+        <div class="shortcut-sub">سجل سحوبات الشركاء</div>
+      </div>
+      <i class="bx bx-chevron-left shortcut-arrow"></i>
+    </a>
+    <a href="{% url 'depenses:rh_dashboard' %}" class="shortcut-card shortcut-blue">
+      <div class="shortcut-icon"><i class="bx bxs-id-card"></i></div>
+      <div class="shortcut-body">
+        <div class="shortcut-title">الموارد البشرية</div>
+        <div class="shortcut-sub">الموظفون، الرواتب، الغيابات</div>
+      </div>
+      <i class="bx bx-chevron-left shortcut-arrow"></i>
+    </a>
+    <a href="{% url 'depenses:employe_list' %}" class="shortcut-card shortcut-teal">
+      <div class="shortcut-icon"><i class="bx bxs-user-detail"></i></div>
+      <div class="shortcut-body">
+        <div class="shortcut-title">الموظفون</div>
+        <div class="shortcut-sub">ملفات وبيانات الموظفين</div>
+      </div>
+      <i class="bx bx-chevron-left shortcut-arrow"></i>
+    </a>
+    <a href="{% url 'depenses:bulletin_paie_list' %}" class="shortcut-card shortcut-green">
+      <div class="shortcut-icon"><i class="bx bxs-receipt"></i></div>
+      <div class="shortcut-body">
+        <div class="shortcut-title">بطاقات الراتب</div>
+        <div class="shortcut-sub">الرواتب الشهرية للموظفين</div>
+      </div>
+      <i class="bx bx-chevron-left shortcut-arrow"></i>
+    </a>
+    <a href="{% url 'depenses:pointage_list' %}" class="shortcut-card shortcut-slate">
+      <div class="shortcut-icon"><i class="bx bxs-time-five"></i></div>
+      <div class="shortcut-body">
+        <div class="shortcut-title">الحضور والغياب</div>
+        <div class="shortcut-sub">سجل الدوام الشهري</div>
+      </div>
+      <i class="bx bx-chevron-left shortcut-arrow"></i>
+    </a>
+  </div>
+
 </div>
 {% endblock %}
 
@@ -367,6 +420,36 @@
 .empty-state i { font-size:28px;display:block;margin-bottom:10px;color:var(--border-strong); }
 .empty-state p { font-size:13px; }
 .empty-state.small { padding:24px 20px; }
+
+/* ── Module shortcuts ────────────────────────────────────── */
+.shortcut-grid {
+  display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px;
+}
+@media(max-width:900px){ .shortcut-grid{ grid-template-columns:repeat(2,1fr); } }
+@media(max-width:540px){ .shortcut-grid{ grid-template-columns:1fr; } }
+
+.shortcut-card {
+  display:flex;align-items:center;gap:13px;padding:14px 16px;
+  background:var(--bg-surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);text-decoration:none;
+  transition:background .13s,border-color .13s,transform .13s;
+  animation:kpiFade .4s ease both;
+}
+.shortcut-card:hover { background:var(--bg-hover);border-color:var(--border-strong);transform:translateY(-1px); }
+.shortcut-icon {
+  width:40px;height:40px;border-radius:10px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:19px;
+}
+.shortcut-purple .shortcut-icon { background:rgba(139,92,246,.12); color:#7c3aed; }
+.shortcut-orange .shortcut-icon { background:rgba(251,146,60,.12);  color:#c2410c; }
+.shortcut-blue   .shortcut-icon { background:rgba(56,189,248,.12);  color:#0369a1; }
+.shortcut-teal   .shortcut-icon { background:rgba(45,212,191,.12);  color:#0d9488; }
+.shortcut-green  .shortcut-icon { background:rgba(34,197,94,.12);   color:#15803d; }
+.shortcut-slate  .shortcut-icon { background:rgba(148,163,184,.12); color:#475569; }
+.shortcut-body { flex:1;min-width:0; }
+.shortcut-title { font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:var(--text-primary); }
+.shortcut-sub   { font-size:11px;color:var(--text-muted);margin-top:1px; }
+.shortcut-arrow { font-size:18px;color:var(--text-muted);flex-shrink:0; }
 
 .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;border:none;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .15s;text-decoration:none; }
 .btn-primary:hover { opacity:.85;color:#fff; }
