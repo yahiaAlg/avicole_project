@@ -143,15 +143,18 @@
   .input-icon { position:absolute;right:13px;left:auto;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none;transition:color .15s; }
   .input-wrapper:focus-within .input-icon { color:var(--accent-text); }
   .input-wrapper input[type="text"],
-  .input-wrapper input[type="number"] {
+  .input-wrapper input[type="number"],
+  .input-wrapper select {
     width:100%;background:var(--bg-surface);border:1px solid var(--border);
     border-radius:var(--radius-md);color:var(--text-primary);
     font-family:'Inter',sans-serif;font-size:13.5px;
     padding:11px 40px 11px 13px;direction:rtl;text-align:right;
     transition:border-color .15s,box-shadow .15s;
+    appearance:none;-webkit-appearance:none;
   }
   .input-wrapper input[type="text"]:focus,
-  .input-wrapper input[type="number"]:focus {
+  .input-wrapper input[type="number"]:focus,
+  .input-wrapper select:focus {
     border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.15);outline:none;
   }
   .input-wrapper input::placeholder { color:var(--text-muted); }
