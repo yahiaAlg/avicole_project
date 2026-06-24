@@ -14,6 +14,7 @@ Key business rules enforced at model level:
 """
 
 import datetime
+from decimal import Decimal
 from django.db import models
 from django.core.validators import MinValueValidator
 from django.conf import settings
@@ -493,3 +494,242 @@ class PaiementClientAllocation(models.Model):
             f"{self.paiement} → {self.facture.reference} : "
             f"{self.montant_alloue} DZD"
         )
+
+
+# ---------------------------------------------------------------------------
+# Abonnement Client — recurring/metered deliveries (mainly fertilizer, but
+# usable for any ProduitFini sold on a recurring/quota basis)
+# ---------------------------------------------------------------------------
+
+
+class AbonnementClient(models.Model):
+    """
+    A recurring delivery agreement for one client/product pair — e.g. a
+    monthly fertilizer quota. Distinct from BLClient (a one-shot delivery
+    note): an AbonnementClient is fulfilled over time via many
+    LivraisonPartielle records rather than a single document.
+    """
+
+    FREQUENCE_MENSUEL = "mensuel"
+    FREQUENCE_PERSONNALISE = "personnalise"
+    FREQUENCE_CHOICES = [
+        (FREQUENCE_MENSUEL, "شهري"),
+        (FREQUENCE_PERSONNALISE, "مخصص"),
+    ]
+
+    STATUT_ACTIF = "actif"
+    STATUT_TERMINE = "termine"
+    STATUT_SUSPENDU = "suspendu"
+    STATUT_CHOICES = [
+        (STATUT_ACTIF, "نشط"),
+        (STATUT_TERMINE, "منتهٍ"),
+        (STATUT_SUSPENDU, "معلّق"),
+    ]
+
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.PROTECT,
+        related_name="abonnements",
+        verbose_name="العميل",
+    )
+    produit_fini = models.ForeignKey(
+        "production.ProduitFini",
+        on_delete=models.PROTECT,
+        related_name="abonnements",
+        verbose_name="المنتج النهائي",
+    )
+    date_debut = models.DateField(verbose_name="تاريخ البدء")
+    date_fin = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="تاريخ الانتهاء",
+        help_text="اتركه فارغاً لاشتراك مستمر بدون تاريخ نهاية محدد.",
+    )
+    frequence = models.CharField(
+        max_length=20,
+        choices=FREQUENCE_CHOICES,
+        default=FREQUENCE_MENSUEL,
+        verbose_name="التواتر",
+    )
+    quantite_totale_prevue = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        default=0,
+        verbose_name="الكمية الإجمالية المتعاقد عليها",
+        help_text="0 = بدون سقف كمية (تُتابع التسليمات بدون حد أقصى).",
+    )
+    prix_unitaire = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        default=0,
+        verbose_name="سعر الوحدة (د.ج)",
+        validators=[MinValueValidator(0)],
+    )
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default=STATUT_ACTIF,
+        verbose_name="الحالة",
+    )
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="abonnements_client_crees",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "اشتراك عميل"
+        verbose_name_plural = "اشتراكات العملاء"
+        ordering = ["-date_debut"]
+
+    def __str__(self):
+        return f"{self.client.nom} — {self.produit_fini.designation} ({self.get_frequence_display()})"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.date_fin and self.date_debut and self.date_fin < self.date_debut:
+            raise ValidationError(
+                {"date_fin": "تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء."}
+            )
+
+    @property
+    def quantite_livree_cumulee(self):
+        result = self.livraisons.aggregate(total=models.Sum("quantite_livree"))["total"]
+        return result or Decimal("0")
+
+    @property
+    def solde_restant(self):
+        """None when no quota is set — an unlimited/ongoing subscription."""
+        if not self.quantite_totale_prevue:
+            return None
+        return self.quantite_totale_prevue - self.quantite_livree_cumulee
+
+    @property
+    def est_actif(self):
+        return self.statut == self.STATUT_ACTIF
+
+
+class VoyageLivraison(models.Model):
+    """
+    One truck trip that may serve several clients/subscriptions in a single
+    run (e.g. a fertilizer delivery round). Purely organisational — the
+    stock effect lives on LivraisonPartielle, not here.
+    """
+
+    date_voyage = models.DateField(verbose_name="تاريخ الرحلة")
+    chauffeur = models.CharField(max_length=150, blank=True, verbose_name="السائق")
+    vehicule = models.CharField(max_length=100, blank=True, verbose_name="المركبة")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="voyages_livraison_crees",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "رحلة توصيل"
+        verbose_name_plural = "رحلات التوصيل"
+        ordering = ["-date_voyage"]
+
+    def __str__(self):
+        return f"رحلة {self.date_voyage} — {self.chauffeur or 'بدون سائق محدد'}"
+
+    @property
+    def quantite_totale_livree(self):
+        result = self.livraisons.aggregate(total=models.Sum("quantite_livree"))["total"]
+        return result or Decimal("0")
+
+
+class LivraisonPartielle(models.Model):
+    """
+    One metered delivery against an AbonnementClient.
+
+    On creation, decreases StockProduitFini for the subscription's product
+    and logs a StockMouvement (sortie) — same spirit as BLClientLigne, but
+    for a recurring agreement instead of a one-shot BL. Records are
+    immutable after creation (mirrors PaiementClientAllocation); deleting
+    one reverses its stock effect (see clients/signals.py).
+    """
+
+    abonnement = models.ForeignKey(
+        AbonnementClient,
+        on_delete=models.PROTECT,
+        related_name="livraisons",
+        verbose_name="الاشتراك",
+    )
+    voyage = models.ForeignKey(
+        VoyageLivraison,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="livraisons",
+        verbose_name="رحلة التوصيل",
+    )
+    date = models.DateField(verbose_name="تاريخ التسليم")
+    quantite_livree = models.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        verbose_name="الكمية المسلَّمة",
+        validators=[MinValueValidator(0.001)],
+    )
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="livraisons_partielles_enregistrees",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "تسليم جزئي"
+        verbose_name_plural = "التسليمات الجزئية"
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"{self.abonnement} — {self.quantite_livree} ({self.date})"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if (
+            self.abonnement_id
+            and self.abonnement.statut != AbonnementClient.STATUT_ACTIF
+        ):
+            raise ValidationError(
+                "Impossible d'enregistrer une livraison sur un abonnement non actif."
+            )
+
+        # Quota guard — only enforced when a quota is actually configured.
+        if (
+            self.abonnement_id
+            and self.quantite_livree
+            and self.abonnement.quantite_totale_prevue
+        ):
+            deja_livre = self.abonnement.quantite_livree_cumulee
+            if self.pk:
+                ancienne = (
+                    LivraisonPartielle.objects.filter(pk=self.pk)
+                    .values_list("quantite_livree", flat=True)
+                    .first()
+                )
+                if ancienne is not None:
+                    deja_livre -= ancienne
+            if (
+                deja_livre + self.quantite_livree
+                > self.abonnement.quantite_totale_prevue
+            ):
+                raise ValidationError(
+                    f"الكمية المسلَّمة الإجمالية ({deja_livre + self.quantite_livree}) "
+                    f"تتجاوز الكمية المتعاقد عليها ({self.abonnement.quantite_totale_prevue})."
+                )

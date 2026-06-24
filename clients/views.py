@@ -42,6 +42,9 @@ from clients.forms import (
     FactureClientForm,
     PaiementClientForm,
     get_allocation_forms,
+    AbonnementClientForm,
+    VoyageLivraisonForm,
+    LivraisonPartielleForm,
 )
 from clients.models import (
     BLClient,
@@ -50,6 +53,9 @@ from clients.models import (
     FactureClient,
     PaiementClient,
     PaiementClientAllocation,
+    AbonnementClient,
+    VoyageLivraison,
+    LivraisonPartielle,
 )
 from clients.utils import (
     appliquer_paiement_client,
@@ -1382,3 +1388,369 @@ def client_solde_json(request, pk):
         "plafond_credit": float(client.plafond_credit),
     }
     return JsonResponse(data)
+
+
+# ===========================================================================
+# AbonnementClient — List / Create / Detail / Edit / Toggle
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def abonnement_list(request):
+    """
+    Subscription list.
+
+    Filters: ?client=<pk>, ?statut=actif|termine|suspendu
+    """
+    qs = AbonnementClient.objects.select_related("client", "produit_fini").order_by(
+        "-date_debut"
+    )
+
+    client_pk = request.GET.get("client", "")
+    if client_pk:
+        qs = qs.filter(client_id=client_pk)
+
+    statut = request.GET.get("statut", "")
+    if statut:
+        qs = qs.filter(statut=statut)
+
+    page = _paginate(qs, request.GET.get("page"))
+    clients = Client.objects.filter(actif=True).order_by("nom")
+
+    return render(
+        request,
+        "clients/abonnement_list.html",
+        {
+            "page": page,
+            "clients": clients,
+            "client_pk": client_pk,
+            "statut": statut,
+            "statut_choices": AbonnementClient.STATUT_CHOICES,
+            "title": "اشتراكات العملاء",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def abonnement_create(request, client_pk=None):
+    """Create a new client subscription."""
+    client = None
+    if client_pk:
+        client = get_object_or_404(Client, pk=client_pk)
+
+    if request.method == "POST":
+        form = AbonnementClientForm(request.POST)
+        if form.is_valid():
+            try:
+                abo = form.save(commit=False)
+                if client:
+                    abo.client = client
+                abo.save()
+                messages.success(
+                    request,
+                    f"تم إنشاء الاشتراك لـ {abo.client.nom} ({abo.produit_fini.designation}).",
+                )
+                logger.info(
+                    "AbonnementClient pk=%s created by '%s'.", abo.pk, request.user
+                )
+                return redirect("clients:abonnement_detail", pk=abo.pk)
+            except Exception as exc:
+                logger.exception("Error creating AbonnementClient: %s", exc)
+                messages.error(request, f"خطأ أثناء الإنشاء: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        initial = {}
+        if client:
+            initial["client"] = client
+        form = AbonnementClientForm(initial=initial)
+
+    return render(
+        request,
+        "clients/abonnement_form.html",
+        {
+            "form": form,
+            "client": client,
+            "title": "اشتراك جديد",
+            "action_label": "إنشاء",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def abonnement_detail(request, pk):
+    """Detail view for one subscription, with its partial deliveries."""
+    abo = get_object_or_404(
+        AbonnementClient.objects.select_related("client", "produit_fini"),
+        pk=pk,
+    )
+    livraisons = abo.livraisons.select_related("voyage").order_by("-date")
+
+    return render(
+        request,
+        "clients/abonnement_detail.html",
+        {
+            "abo": abo,
+            "livraisons": livraisons,
+            "title": f"الاشتراك — {abo.client.nom}",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def abonnement_edit(request, pk):
+    """Edit a subscription (status, dates, quantity)."""
+    abo = get_object_or_404(AbonnementClient, pk=pk)
+
+    if request.method == "POST":
+        form = AbonnementClientForm(request.POST, instance=abo)
+        if form.is_valid():
+            try:
+                form.save()
+                messages.success(request, "تم تحديث الاشتراك.")
+                return redirect("clients:abonnement_detail", pk=abo.pk)
+            except Exception as exc:
+                logger.exception("Error updating AbonnementClient pk=%s: %s", pk, exc)
+                messages.error(request, f"خطأ أثناء التحديث: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        form = AbonnementClientForm(instance=abo)
+
+    return render(
+        request,
+        "clients/abonnement_form.html",
+        {
+            "form": form,
+            "abo": abo,
+            "title": f"تعديل الاشتراك — {abo.client.nom}",
+            "action_label": "حفظ التعديلات",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def abonnement_toggle_statut(request, pk):
+    """Cycle subscription statut: ACTIF → SUSPENDU → TERMINE (POST-only)."""
+    abo = get_object_or_404(AbonnementClient, pk=pk)
+    transitions = {
+        AbonnementClient.STATUT_ACTIF: AbonnementClient.STATUT_SUSPENDU,
+        AbonnementClient.STATUT_SUSPENDU: AbonnementClient.STATUT_ACTIF,
+        AbonnementClient.STATUT_TERMINE: AbonnementClient.STATUT_TERMINE,
+    }
+    nouveau = transitions.get(abo.statut, abo.statut)
+    abo.statut = nouveau
+    abo.save(update_fields=["statut"])
+    messages.success(request, f"الاشتراك: {abo.get_statut_display()}.")
+    return redirect("clients:abonnement_detail", pk=pk)
+
+
+# ===========================================================================
+# VoyageLivraison — List / Create / Detail / Edit
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def voyage_list(request):
+    """Truck-trip list, most recent first."""
+    qs = VoyageLivraison.objects.order_by("-date_voyage")
+
+    date_debut = request.GET.get("date_debut", "")
+    date_fin = request.GET.get("date_fin", "")
+    if date_debut:
+        qs = qs.filter(date_voyage__gte=date_debut)
+    if date_fin:
+        qs = qs.filter(date_voyage__lte=date_fin)
+
+    page = _paginate(qs, request.GET.get("page"))
+    return render(
+        request,
+        "clients/voyage_list.html",
+        {
+            "page": page,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+            "title": "رحلات التوصيل",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def voyage_create(request):
+    """Create a new truck-trip record."""
+    if request.method == "POST":
+        form = VoyageLivraisonForm(request.POST)
+        if form.is_valid():
+            try:
+                voyage = form.save()
+                messages.success(
+                    request,
+                    f"تم إنشاء رحلة التوصيل بتاريخ {voyage.date_voyage}.",
+                )
+                logger.info(
+                    "VoyageLivraison pk=%s created by '%s'.", voyage.pk, request.user
+                )
+                return redirect("clients:voyage_detail", pk=voyage.pk)
+            except Exception as exc:
+                logger.exception("Error creating VoyageLivraison: %s", exc)
+                messages.error(request, f"خطأ أثناء الإنشاء: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        import datetime
+
+        form = VoyageLivraisonForm(initial={"date_voyage": datetime.date.today()})
+
+    return render(
+        request,
+        "clients/voyage_form.html",
+        {"form": form, "title": "رحلة توصيل جديدة", "action_label": "إنشاء"},
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def voyage_detail(request, pk):
+    """Detail: truck trip + all its partial deliveries."""
+    voyage = get_object_or_404(VoyageLivraison, pk=pk)
+    livraisons = voyage.livraisons.select_related(
+        "abonnement__client", "abonnement__produit_fini"
+    ).order_by("abonnement__client__nom")
+
+    return render(
+        request,
+        "clients/voyage_detail.html",
+        {
+            "voyage": voyage,
+            "livraisons": livraisons,
+            "title": f"رحلة — {voyage.date_voyage}",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def voyage_edit(request, pk):
+    voyage = get_object_or_404(VoyageLivraison, pk=pk)
+
+    if request.method == "POST":
+        form = VoyageLivraisonForm(request.POST, instance=voyage)
+        if form.is_valid():
+            try:
+                form.save()
+                messages.success(request, "تم تحديث رحلة التوصيل.")
+                return redirect("clients:voyage_detail", pk=pk)
+            except Exception as exc:
+                logger.exception("Error updating VoyageLivraison pk=%s: %s", pk, exc)
+                messages.error(request, f"خطأ أثناء التحديث: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        form = VoyageLivraisonForm(instance=voyage)
+
+    return render(
+        request,
+        "clients/voyage_form.html",
+        {
+            "form": form,
+            "voyage": voyage,
+            "title": f"تعديل — رحلة {voyage.date_voyage}",
+            "action_label": "حفظ التعديلات",
+        },
+    )
+
+
+# ===========================================================================
+# LivraisonPartielle — Create / Delete  (sub-resource of AbonnementClient)
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def livraison_partielle_create(request, abonnement_pk):
+    """
+    Record one partial delivery against a subscription.
+
+    On save the post_save signal decrements StockProduitFini and creates a
+    StockMouvement (SORTIE / LIVRAISON_ABONNEMENT).
+    """
+    abo = get_object_or_404(AbonnementClient, pk=abonnement_pk)
+
+    if abo.statut != AbonnementClient.STATUT_ACTIF:
+        messages.error(
+            request,
+            "لا يمكن تسجيل تسليم على اشتراك غير نشط.",
+        )
+        return redirect("clients:abonnement_detail", pk=abo.pk)
+
+    if request.method == "POST":
+        form = LivraisonPartielleForm(request.POST, abonnement=abo)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    livraison = form.save(commit=False)
+                    livraison.abonnement = abo
+                    livraison.save()  # signal → stock sortie
+
+                messages.success(
+                    request,
+                    f"تم تسجيل تسليم {livraison.quantite_livree} {abo.produit_fini.unite_mesure} بتاريخ {livraison.date}.",
+                )
+                logger.info(
+                    "LivraisonPartielle pk=%s created (abo pk=%s) by '%s'.",
+                    livraison.pk,
+                    abo.pk,
+                    request.user,
+                )
+                return redirect("clients:abonnement_detail", pk=abo.pk)
+            except Exception as exc:
+                logger.exception(
+                    "Error creating LivraisonPartielle for abo pk=%s: %s", abo.pk, exc
+                )
+                messages.error(request, f"خطأ أثناء التسجيل: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        import datetime
+
+        form = LivraisonPartielleForm(
+            abonnement=abo, initial={"date": datetime.date.today()}
+        )
+
+    return render(
+        request,
+        "clients/livraison_partielle_form.html",
+        {
+            "form": form,
+            "abo": abo,
+            "title": f"تسليم جزئي — {abo.client.nom}",
+            "action_label": "حفظ",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def livraison_partielle_delete(request, pk):
+    """
+    Delete a partial delivery (POST-only).
+
+    The pre_delete signal restores the StockProduitFini balance.
+    """
+    livraison = get_object_or_404(
+        LivraisonPartielle.objects.select_related("abonnement"), pk=pk
+    )
+    abo = livraison.abonnement
+
+    try:
+        date_ref = livraison.date
+        qte_ref = livraison.quantite_livree
+        livraison.delete()  # signal → stock restored
+        messages.success(
+            request,
+            f"تم حذف التسليم بتاريخ {date_ref} ({qte_ref}). تم تصحيح المخزون.",
+        )
+        logger.info("LivraisonPartielle pk=%s deleted by '%s'.", pk, request.user)
+    except Exception as exc:
+        logger.exception("Error deleting LivraisonPartielle pk=%s: %s", pk, exc)
+        messages.error(request, f"خطأ أثناء الحذف: {exc}")
+
+    return redirect("clients:abonnement_detail", pk=abo.pk)

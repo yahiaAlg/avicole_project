@@ -40,6 +40,35 @@
             {% endfor %}
           </div>
 
+          <!-- Type de bâtiment -->
+          <div class="form-group">
+            <label class="form-label" for="{{ form.type_batiment.id_for_label }}">
+              نوع المبنى <span class="form-required">*</span>
+            </label>
+            <div class="input-wrapper">
+              <i class="bx bx-buildings input-icon"></i>
+              {{ form.type_batiment }}
+            </div>
+            {% for err in form.type_batiment.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+            {% endfor %}
+          </div>
+
+          <!-- Catégorie stockage (entrepôt only) -->
+          <div class="form-group" id="categorie-stockage-group" style="display:none;">
+            <label class="form-label" for="{{ form.categorie_stockage.id_for_label }}">
+              نوع التخزين <span class="form-required">*</span>
+            </label>
+            <div class="input-wrapper">
+              <i class="bx bx-archive input-icon"></i>
+              {{ form.categorie_stockage }}
+            </div>
+            <div class="form-hint">يُملأ فقط للمستودعات.</div>
+            {% for err in form.categorie_stockage.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+            {% endfor %}
+          </div>
+
           <!-- Capacité -->
           <div class="form-group">
             <label class="form-label" for="{{ form.capacite.id_for_label }}">
@@ -147,4 +176,18 @@
 </style>
 {% endblock %}
 
-{% block extra_js %}{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  const typeSelect = document.getElementById('{{ form.type_batiment.id_for_label }}');
+  const storageGroup = document.getElementById('categorie-stockage-group');
+  function toggle() {
+    storageGroup.style.display = (typeSelect.value === 'entrepot') ? '' : 'none';
+  }
+  if (typeSelect) {
+    toggle();
+    typeSelect.addEventListener('change', toggle);
+  }
+})();
+</script>
+{% endblock %}

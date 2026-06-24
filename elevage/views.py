@@ -35,9 +35,23 @@ from elevage.forms import (
     LotElevageForm,
     LotFermetureForm,
     MortaliteForm,
+    PeseeEchantillonForm,
+    RecolteOeufsForm,
+    TransfertLotForm,
 )
-from elevage.models import Consommation, LotElevage, Mortalite
-from elevage.utils import get_lot_summary, verifier_mortalite_anormale
+from elevage.models import (
+    Consommation,
+    LotElevage,
+    Mortalite,
+    PeseeEchantillon,
+    RecolteOeufs,
+    TransfertLot,
+)
+from elevage.utils import (
+    get_lot_summary,
+    lots_a_transferer,
+    verifier_mortalite_anormale,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -228,6 +242,18 @@ def lot_detail(request, pk):
     session_key = f"suggest_fermeture_lot_{lot.pk}"
     suggest_fermeture = request.session.pop(session_key, False)
 
+    transferts = lot.transferts.select_related(
+        "batiment_origine", "batiment_destination"
+    ).order_by("-date_transfert")
+    pesees_page = _paginate(
+        lot.pesees.order_by("-date"), request.GET.get("page_pesee"), per_page=10
+    )
+    recoltes_oeufs_page = _paginate(
+        lot.recoltes_oeufs.select_related("pesee").order_by("-date"),
+        request.GET.get("page_oeufs"),
+        per_page=10,
+    )
+
     return render(
         request,
         "elevage/lot_detail.html",
@@ -240,6 +266,11 @@ def lot_detail(request, pk):
             "productions": summary["productions"],
             "depenses": summary["depenses"],
             "suggest_fermeture": suggest_fermeture,
+            "transferts": transferts,
+            "pesees_page": pesees_page,
+            "recoltes_oeufs_page": recoltes_oeufs_page,
+            "doit_etre_transfere": lot.doit_etre_transfere,
+            "est_mature_pour_vente": lot.est_mature_pour_vente,
             "title": f"الدفعة — {lot.designation}",
         },
     )
@@ -982,6 +1013,347 @@ def mortalite_list(request):
 
 
 # ===========================================================================
+# TransfertLot — Create  (Poussinière → Poulailler, immutable audit record)
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def transfert_create(request, lot_pk):
+    """
+    Move a lot from its current building to another (typically Poussinière
+    → Poulailler once it reaches age_transfert_poussiniere_jours).
+
+    The lot itself is never closed by this — only batiment_destination is
+    applied to it (transfert_lot_post_save signal). TransfertLot records are
+    immutable once created (no edit/delete view is provided).
+    """
+    lot = get_object_or_404(LotElevage, pk=lot_pk)
+
+    if not _assert_lot_ouvert(lot, request):
+        return redirect("elevage:lot_detail", pk=lot.pk)
+
+    if request.method == "POST":
+        form = TransfertLotForm(request.POST, lot=lot)
+        if form.is_valid():
+            try:
+                transfert = form.save(commit=False)
+                transfert.lot = lot
+                transfert.created_by = request.user
+                transfert.save()  # signal moves lot.batiment → destination
+
+                messages.success(
+                    request,
+                    f"تم نقل الدفعة « {lot.designation} » إلى "
+                    f"« {transfert.batiment_destination.nom} » "
+                    f"({transfert.effectif_transfere} طير، العمر {transfert.age_jours_transfert} يوم).",
+                )
+                logger.info(
+                    "TransfertLot pk=%s created for lot pk=%s by '%s' (%s → %s).",
+                    transfert.pk,
+                    lot.pk,
+                    request.user,
+                    transfert.batiment_origine_id,
+                    transfert.batiment_destination_id,
+                )
+                return redirect("elevage:lot_detail", pk=lot.pk)
+
+            except Exception as exc:
+                logger.exception(
+                    "Error creating TransfertLot for lot pk=%s: %s", lot.pk, exc
+                )
+                messages.error(request, f"خطأ أثناء النقل: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        import datetime
+
+        form = TransfertLotForm(
+            lot=lot, initial={"date_transfert": datetime.date.today()}
+        )
+
+    return render(
+        request,
+        "elevage/transfert_form.html",
+        {
+            "form": form,
+            "lot": lot,
+            "title": f"نقل الدفعة — {lot.designation}",
+            "action_label": "تأكيد النقل",
+        },
+    )
+
+
+# ===========================================================================
+# PeseeEchantillon — Create / Delete
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def pesee_create(request, lot_pk):
+    """Record a sample weighing (birds or eggs) for a lot."""
+    lot = get_object_or_404(LotElevage, pk=lot_pk)
+
+    if not _assert_lot_ouvert(lot, request):
+        return redirect("elevage:lot_detail", pk=lot.pk)
+
+    if request.method == "POST":
+        form = PeseeEchantillonForm(request.POST, lot=lot)
+        if form.is_valid():
+            try:
+                pesee = form.save(commit=False)
+                pesee.lot = lot
+                pesee.created_by = request.user
+                pesee.save()
+
+                qualite = pesee.qualite
+                qualite_label = f" — الجودة: {qualite.libelle}" if qualite else ""
+                messages.success(
+                    request,
+                    f"تم تسجيل وزن العينة: {pesee.poids_moyen_g} غ/وحدة "
+                    f"({pesee.nombre_sujets} عينة){qualite_label}.",
+                )
+                logger.info(
+                    "PeseeEchantillon pk=%s created (lot pk=%s) by '%s'.",
+                    pesee.pk,
+                    lot.pk,
+                    request.user,
+                )
+                return redirect("elevage:lot_detail", pk=lot.pk)
+
+            except Exception as exc:
+                logger.exception(
+                    "Error creating PeseeEchantillon for lot pk=%s: %s", lot.pk, exc
+                )
+                messages.error(request, f"خطأ أثناء التسجيل: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        import datetime
+
+        form = PeseeEchantillonForm(lot=lot, initial={"date": datetime.date.today()})
+
+    return render(
+        request,
+        "elevage/pesee_form.html",
+        {
+            "form": form,
+            "lot": lot,
+            "title": f"وزن عينة — {lot.designation}",
+            "action_label": "حفظ",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def pesee_delete(request, pk):
+    """
+    Delete a sample weighing (POST-only).
+
+    Any RecolteOeufs referencing this pesee falls back to qualite=None
+    (on_delete=SET_NULL) rather than blocking the delete.
+    """
+    pesee = get_object_or_404(PeseeEchantillon.objects.select_related("lot"), pk=pk)
+    lot = pesee.lot
+
+    if not _assert_lot_ouvert(lot, request):
+        return redirect("elevage:lot_detail", pk=lot.pk)
+
+    try:
+        date_ref = pesee.date
+        pesee.delete()
+        messages.success(request, f"تم حذف وزن العينة بتاريخ {date_ref}.")
+        logger.info("PeseeEchantillon pk=%s deleted by '%s'.", pk, request.user)
+    except Exception as exc:
+        logger.exception("Error deleting PeseeEchantillon pk=%s: %s", pk, exc)
+        messages.error(request, f"خطأ أثناء الحذف: {exc}")
+
+    return redirect("elevage:lot_detail", pk=lot.pk)
+
+
+# ===========================================================================
+# RecolteOeufs — Create / Edit / Delete / List
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def recolte_oeufs_create(request, lot_pk):
+    """
+    Record a daily egg-collection event for a lot in laying phase.
+
+    On success the post_save signal (elevage/signals.py) automatically
+    credits StockProduitFini for the farm's egg product and logs a
+    StockMouvement (entree / ponte).
+    """
+    lot = get_object_or_404(LotElevage, pk=lot_pk)
+
+    if not _assert_lot_ouvert(lot, request):
+        return redirect("elevage:lot_detail", pk=lot.pk)
+
+    if request.method == "POST":
+        form = RecolteOeufsForm(request.POST, lot=lot)
+        if form.is_valid():
+            try:
+                recolte = form.save(commit=False)
+                recolte.lot = lot
+                recolte.created_by = request.user
+                recolte.save()  # triggers signal → stock entrée + mouvement
+
+                messages.success(
+                    request,
+                    f"تم تسجيل {recolte.nombre_oeufs} بيضة "
+                    f"({recolte.nombre_plateaux} صينية + {recolte.oeufs_hors_plateau} "
+                    f"خارج الصينية) بتاريخ {recolte.date}.",
+                )
+                logger.info(
+                    "RecolteOeufs pk=%s created (lot pk=%s, nombre=%s) by '%s'.",
+                    recolte.pk,
+                    lot.pk,
+                    recolte.nombre_oeufs,
+                    request.user,
+                )
+                return redirect("elevage:lot_detail", pk=lot.pk)
+
+            except Exception as exc:
+                logger.exception(
+                    "Error creating RecolteOeufs for lot pk=%s: %s", lot.pk, exc
+                )
+                messages.error(request, f"خطأ أثناء التسجيل: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        import datetime
+
+        form = RecolteOeufsForm(lot=lot, initial={"date": datetime.date.today()})
+
+    return render(
+        request,
+        "elevage/recolte_oeufs_form.html",
+        {
+            "form": form,
+            "lot": lot,
+            "title": f"جمع بيض — {lot.designation}",
+            "action_label": "حفظ",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def recolte_oeufs_edit(request, pk):
+    """Edit an existing egg-collection record (blocked on closed lots)."""
+    recolte = get_object_or_404(RecolteOeufs.objects.select_related("lot"), pk=pk)
+    lot = recolte.lot
+
+    if not _assert_lot_ouvert(lot, request):
+        return redirect("elevage:lot_detail", pk=lot.pk)
+
+    if request.method == "POST":
+        form = RecolteOeufsForm(request.POST, instance=recolte, lot=lot)
+        if form.is_valid():
+            try:
+                form.save()  # signal applies the delta to stock
+                messages.success(request, f"تم تحديث جمع البيض بتاريخ {recolte.date}.")
+                logger.info(
+                    "RecolteOeufs pk=%s updated by '%s'.", recolte.pk, request.user
+                )
+                return redirect("elevage:lot_detail", pk=lot.pk)
+            except Exception as exc:
+                logger.exception("Error updating RecolteOeufs pk=%s: %s", pk, exc)
+                messages.error(request, f"خطأ أثناء التحديث: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        form = RecolteOeufsForm(instance=recolte, lot=lot)
+
+    return render(
+        request,
+        "elevage/recolte_oeufs_form.html",
+        {
+            "form": form,
+            "lot": lot,
+            "recolte": recolte,
+            "title": f"تعديل جمع البيض بتاريخ {recolte.date}",
+            "action_label": "حفظ التعديلات",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def recolte_oeufs_delete(request, pk):
+    """
+    Delete an egg-collection record (POST-only).
+
+    The pre_delete signal reverses the StockProduitFini credit before the
+    record is removed.
+    """
+    recolte = get_object_or_404(RecolteOeufs.objects.select_related("lot"), pk=pk)
+    lot = recolte.lot
+
+    if not _assert_lot_ouvert(lot, request):
+        return redirect("elevage:lot_detail", pk=lot.pk)
+
+    try:
+        date_ref = recolte.date
+        nombre_ref = recolte.nombre_oeufs
+        recolte.delete()  # triggers pre_delete signal → stock reversed
+        messages.success(
+            request,
+            f"تم حذف جمع البيض بتاريخ {date_ref} ({nombre_ref} بيضة). تم تصحيح المخزون.",
+        )
+        logger.info("RecolteOeufs pk=%s deleted by '%s'.", pk, request.user)
+    except Exception as exc:
+        logger.exception("Error deleting RecolteOeufs pk=%s: %s", pk, exc)
+        messages.error(request, f"خطأ أثناء الحذف: {exc}")
+
+    return redirect("elevage:lot_detail", pk=lot.pk)
+
+
+@login_required(login_url=LOGIN_URL)
+def recolte_oeufs_list(request):
+    """
+    Cross-lot egg-collection list — supports global ponte reporting.
+
+    Filters:
+      ?lot=<pk>           — filter by lot
+      ?date_debut, ?date_fin
+    """
+    qs = RecolteOeufs.objects.select_related("lot", "pesee").order_by(
+        "-date", "-created_at"
+    )
+
+    lot_pk = request.GET.get("lot", "")
+    if lot_pk:
+        qs = qs.filter(lot_id=lot_pk)
+
+    date_debut = request.GET.get("date_debut", "")
+    date_fin = request.GET.get("date_fin", "")
+    if date_debut:
+        qs = qs.filter(date__gte=date_debut)
+    if date_fin:
+        qs = qs.filter(date__lte=date_fin)
+
+    total_oeufs = qs.aggregate(total=Sum("nombre_oeufs"))["total"] or 0
+
+    page = _paginate(qs, request.GET.get("page"))
+    lots = LotElevage.objects.order_by("-date_ouverture")
+
+    return render(
+        request,
+        "elevage/recolte_oeufs_list.html",
+        {
+            "page": page,
+            "lot_pk": lot_pk,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+            "lots": lots,
+            "total_oeufs": total_oeufs,
+            "title": "جمع البيض",
+        },
+    )
+
+
+# ===========================================================================
 # Dashboard — Elevage overview
 # ===========================================================================
 
@@ -1023,6 +1395,9 @@ def elevage_dashboard(request):
         lot for lot in lots_ouverts if verifier_mortalite_anormale(lot)
     ]
 
+    # Lots in Poussinière past the configured transfer-age threshold
+    lots_alerte_transfert = lots_a_transferer()
+
     # Summary stats
     total_effectif_vivant = sum(lot.effectif_vivant for lot in lots_ouverts)
     nb_lots_ouverts = lots_ouverts.count()
@@ -1036,6 +1411,7 @@ def elevage_dashboard(request):
             "mortalites_recentes": mortalites_recentes,
             "consommations_recentes": consommations_recentes,
             "lots_alerte_mortalite": lots_alerte_mortalite,
+            "lots_alerte_transfert": lots_alerte_transfert,
             "total_effectif_vivant": total_effectif_vivant,
             "nb_lots_ouverts": nb_lots_ouverts,
             "nb_lots_fermes": nb_lots_fermes,

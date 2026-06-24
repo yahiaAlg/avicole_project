@@ -32,6 +32,27 @@ urlpatterns = [
         views.categorie_intrant_toggle_active,
         name="categorie_intrant_toggle_active",
     ),
+    # ── CategorieQualite ────────────────────────────────────────────────
+    path(
+        "categories-qualite/",
+        views.categorie_qualite_list,
+        name="categorie_qualite_list",
+    ),
+    path(
+        "categories-qualite/creer/",
+        views.categorie_qualite_create,
+        name="categorie_qualite_create",
+    ),
+    path(
+        "categories-qualite/<int:pk>/modifier/",
+        views.categorie_qualite_edit,
+        name="categorie_qualite_edit",
+    ),
+    path(
+        "categories-qualite/<int:pk>/activer/",
+        views.categorie_qualite_toggle_active,
+        name="categorie_qualite_toggle_active",
+    ),
     # ── TypeFournisseur ─────────────────────────────────────────────────
     path(
         "types-fournisseurs/",

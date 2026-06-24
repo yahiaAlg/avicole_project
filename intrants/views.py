@@ -24,6 +24,7 @@ from django.views.decorators.http import require_POST
 from intrants.forms import (
     BatimentForm,
     CategorieIntrantForm,
+    CategorieQualiteForm,
     FournisseurForm,
     IntrantForm,
     TypeFournisseurForm,
@@ -31,6 +32,7 @@ from intrants.forms import (
 from intrants.models import (
     Batiment,
     CategorieIntrant,
+    CategorieQualite,
     Fournisseur,
     Intrant,
     TypeFournisseur,
@@ -133,6 +135,96 @@ def categorie_intrant_toggle_active(request, pk):
     state = "مفعَّلة" if cat.actif else "معطَّلة"
     messages.success(request, f"الفئة « {cat.libelle} » {state}.")
     return redirect("intrants:categorie_intrant_list")
+
+
+# ===========================================================================
+# CategorieQualite — quality-grading brackets (oiseaux / oeufs)
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def categorie_qualite_list(request):
+    """
+    List all quality-grading brackets, grouped by type_pesee (oiseaux/oeufs).
+
+    Filters:
+      ?type_pesee=oiseaux|oeufs
+    """
+    qs = CategorieQualite.objects.all().order_by("type_pesee", "ordre")
+
+    type_pesee = request.GET.get("type_pesee", "")
+    if type_pesee in (CategorieQualite.TYPE_OISEAUX, CategorieQualite.TYPE_OEUFS):
+        qs = qs.filter(type_pesee=type_pesee)
+
+    return render(
+        request,
+        "intrants/categorie_qualite_list.html",
+        {
+            "categories": qs,
+            "type_pesee": type_pesee,
+            "type_choices": CategorieQualite.TYPE_CHOICES,
+            "title": "فئات الجودة",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def categorie_qualite_create(request):
+    if request.method == "POST":
+        form = CategorieQualiteForm(request.POST)
+        if form.is_valid():
+            cat = form.save()
+            messages.success(request, f"تم إنشاء فئة الجودة « {cat.libelle} » بنجاح.")
+            logger.info("CategorieQualite pk=%s created by '%s'.", cat.pk, request.user)
+            return redirect("intrants:categorie_qualite_list")
+        messages.error(request, "يرجى تصحيح الأخطاء.")
+    else:
+        form = CategorieQualiteForm()
+    return render(
+        request,
+        "intrants/categorie_qualite_form.html",
+        {
+            "form": form,
+            "title": "فئة جودة جديدة",
+            "action_label": "إنشاء",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def categorie_qualite_edit(request, pk):
+    cat = get_object_or_404(CategorieQualite, pk=pk)
+    if request.method == "POST":
+        form = CategorieQualiteForm(request.POST, instance=cat)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"تم تحديث فئة الجودة « {cat.libelle} ».")
+            return redirect("intrants:categorie_qualite_list")
+        messages.error(request, "يرجى تصحيح الأخطاء.")
+    else:
+        form = CategorieQualiteForm(instance=cat)
+    return render(
+        request,
+        "intrants/categorie_qualite_form.html",
+        {
+            "form": form,
+            "object": cat,
+            "title": f"تعديل — {cat.libelle}",
+            "action_label": "حفظ",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def categorie_qualite_toggle_active(request, pk):
+    """Toggle actif/inactif. POST-only."""
+    cat = get_object_or_404(CategorieQualite, pk=pk)
+    cat.actif = not cat.actif
+    cat.save(update_fields=["actif"])
+    state = "مفعَّلة" if cat.actif else "معطَّلة"
+    messages.success(request, f"فئة الجودة « {cat.libelle} » {state}.")
+    return redirect("intrants:categorie_qualite_list")
 
 
 # ===========================================================================

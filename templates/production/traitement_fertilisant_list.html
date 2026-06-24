@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}معالجة السماد — تربية الدواجن{% endblock %}
+
+{% block nav_traitement_fertilisant %}active{% endblock %}
+
+{% block page_title %}معالجة السماد{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} دفعة معالجة{% endblock %}
+
+{% block topbar_actions %}
+  {% if request.user.profile.role in 'admin,manager' %}
+  <a href="{% url 'production:traitement_fertilisant_create' %}" class="btn-primary">
+    <i class="bx bx-plus"></i> دفعة معالجة جديدة
+  </a>
+  {% endif %}
+  <a href="{% url 'production:collecte_fertilisant_list' %}" class="btn-ghost">
+    <i class="bx bxs-leaf"></i> جمع السماد الخام
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+
+  <!-- Filters -->
+  <div class="filters-bar">
+    <form method="get" action="" class="filters-form" id="filter-form">
+      <select name="statut" class="filter-select" id="filter-statut">
+        <option value="">جميع الحالات</option>
+        {% for val, label in statut_choices %}
+          <option value="{{ val }}" {% if statut == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> تصفية</button>
+      {% if statut %}
+        <a href="{% url 'production:traitement_fertilisant_list' %}" class="btn-ghost btn-sm" style="color:var(--text-muted);">
+          <i class="bx bx-x"></i> مسح
+        </a>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-header-row">
+      <div class="section-eyebrow">دفعات المعالجة</div>
+    </div>
+
+    {% if page.object_list %}
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>التاريخ</th>
+            <th>الطريقة</th>
+            <th>المنتج النهائي</th>
+            <th style="text-align:right;">الكمية الخام (كغ)</th>
+            <th style="text-align:right;">الكمية المتحصل عليها (كغ)</th>
+            <th style="text-align:right;">المردود</th>
+            <th>الحالة</th>
+            <th style="text-align:right;">الإجراءات</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for traitement in page.object_list %}
+          <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+            <td style="color:var(--text-muted);">{{ traitement.date_traitement|date:"d/m/Y" }}</td>
+            <td style="color:var(--text-secondary);font-size:12.5px;">{{ traitement.methode|default:"—" }}</td>
+            <td>
+              <a href="{% url 'production:traitement_fertilisant_detail' traitement.pk %}"
+                 style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;">
+                {{ traitement.produit_fini.designation }}
+              </a>
+            </td>
+            <td style="text-align:right;">{{ traitement.quantite_brute_totale_kg|floatformat:3 }}</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">
+              {{ traitement.quantite_obtenue_kg|floatformat:3 }}
+            </td>
+            <td style="text-align:right;">
+              {% if traitement.rendement_pourcentage %}
+                {{ traitement.rendement_pourcentage|floatformat:1 }}%
+              {% else %}
+                <span style="color:var(--text-muted);">غ.م</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if traitement.statut == "brouillon" %}
+                <span class="pill-warning"><i class="bx bxs-error"></i> مسودة</span>
+              {% else %}
+                <span class="pill-success"><i class="bx bxs-check-circle"></i> مُعتمد</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="actions-cell">
+                <a href="{% url 'production:traitement_fertilisant_detail' traitement.pk %}" class="action-btn" title="عرض التفاصيل">
+                  <i class="bx bx-show"></i>
+                </a>
+                {% if traitement.statut == "brouillon" and request.user.profile.role in 'admin,manager' %}
+                <a href="{% url 'production:traitement_fertilisant_edit' traitement.pk %}" class="action-btn" title="تعديل">
+                  <i class="bx bxs-pencil"></i>
+                </a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if page.has_other_pages %}
+    <div class="pagination-bar">
+      {% if page.has_previous %}
+        <a href="?page={{ page.previous_page_number }}&statut={{ statut }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
+      {% endif %}
+      <span class="page-info">الصفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}
+        <a href="?page={{ page.next_page_number }}&statut={{ statut }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
+      <i class="bx bxs-flask" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
+      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
+        لا توجد دفعة معالجة
+      </div>
+      <div style="font-size:13px;">لا توجد دفعة معالجة سماد تطابق الفلاتر.</div>
+      <a href="{% url 'production:traitement_fertilisant_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
+        <i class="bx bx-plus"></i> إنشاء
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .page-body { padding:28px 32px; }
+  @media (max-width:768px) { .page-body { padding:20px 16px; } }
+
+  .filters-bar { margin-bottom:16px; }
+  .filters-form { display:flex;align-items:center;gap:10px;flex-wrap:wrap; }
+  .filter-select { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-secondary);font-family:'Inter',sans-serif;font-size:13px;padding:9px 12px;cursor:pointer;transition:border-color .15s; }
+  .filter-select:focus { border-color:var(--accent);outline:none; }
+  .btn-sm { padding:8px 14px;font-size:12.5px; }
+
+  .card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden; }
+  .card-header-row { padding:16px 20px 12px;border-bottom:1px solid var(--border); }
+  .section-eyebrow { font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted); }
+
+  .table-wrapper { overflow-x:auto; }
+  .data-table { width:100%;border-collapse:collapse; }
+  .data-table thead th { font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);padding:11px 14px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--bg-surface); }
+  .data-table tbody tr { border-bottom:1px solid var(--border);animation:fadeIn .3s ease both;animation-delay:calc(var(--row-i,0)*35ms);transition:background .12s; }
+  .data-table tbody tr:last-child { border-bottom:none; }
+  .data-table tbody tr:hover { background:var(--bg-hover); }
+  .data-table td { padding:11px 14px;font-size:13px;color:var(--text-secondary);vertical-align:middle; }
+
+  .actions-cell { display:flex;align-items:center;justify-content:flex-end;gap:4px; }
+  .action-btn { display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:14px;cursor:pointer;transition:background .12s,color .12s,border-color .12s;text-decoration:none; }
+  .action-btn:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+
+  .pagination-bar { display:flex;align-items:center;gap:10px;justify-content:center;padding:14px; }
+  .page-btn { display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-surface);color:var(--text-secondary);font-size:16px;text-decoration:none;transition:background .12s; }
+  .page-btn:hover { background:var(--bg-hover); }
+  .page-info { font-size:13px;color:var(--text-muted); }
+
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s,border-color .12s,color .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+
+  .pill-success { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(34,197,94,.14);color:#15803d; }
+  .pill-warning { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(245,158,11,.14);color:#b45309; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const el = document.getElementById('filter-statut');
+  if (el) el.addEventListener('change', function () { document.getElementById('filter-form').submit(); });
+});
+</script>
+{% endblock %}

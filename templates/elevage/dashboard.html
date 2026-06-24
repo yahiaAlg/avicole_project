@@ -39,7 +39,6 @@
     </div>
     <div class="col-xl-3 col-md-6">
       <div class="metric-card">
-        <div class="metric-icon ic-amber"><i class="bxs-error" style="font-family:'boxicons';"></i></div>
         <div class="metric-icon ic-amber"><i class="bx bxs-error"></i></div>
         <div class="metric-label">تنبيهات النفوق</div>
         <div class="metric-value {% if lots_alerte_mortalite %}danger{% endif %}">{{ lots_alerte_mortalite|length }}</div>
@@ -73,7 +72,19 @@
   </div>
   {% endfor %}
 
-  <div class="row g-3">
+  <!-- Alert banners for transfer-due lots -->
+  {% for lot in lots_alerte_transfert %}
+  <div class="alert-banner alert-banner--warning mb-3" style="animation-delay:{{ forloop.counter0 | add:0 }}ms;">
+    <i class="bx bxs-buildings"></i>
+    <div>
+      <strong>دفعة جاهزة للنقل — {{ lot.designation }}</strong>
+      <span> · بلغ عمر الدفعة حد النقل من الحضانة. انقلها إلى حظيرة التربية.</span>
+    </div>
+    <a href="{% url 'elevage:transfert_create' lot.pk %}" class="btn-ghost" style="margin-right:auto;flex-shrink:0;">
+      نقل الدفعة
+    </a>
+  </div>
+  {% endfor %}
     <!-- Open lots list -->
     <div class="col-xl-8">
       <div class="card">
@@ -331,6 +342,12 @@
     color: var(--text-secondary);
   }
   .alert-banner--danger > i { color: #dc2626; font-size: 16px; flex-shrink: 0; }
+  .alert-banner--warning {
+    background: rgba(245,158,11,.07);
+    border: 1px solid rgba(245,158,11,.22);
+    color: var(--text-secondary);
+  }
+  .alert-banner--warning > i { color: #b45309; font-size: 16px; flex-shrink: 0; }
 
   .pill-success { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;font-family:'Inter',sans-serif;background:rgba(34,197,94,.14);color:#15803d; }
   .btn-primary {

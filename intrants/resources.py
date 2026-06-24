@@ -7,9 +7,12 @@ suppliers, buildings, and the intrant catalogue.
 Import notes:
   - CategorieIntrant / TypeFournisseur: `code` is the natural import key —
     prevents duplicate seed records on re-import.
+  - CategorieQualite: `code` + `type_pesee` together are the natural import
+    key (code alone is not unique — see model unique_together).
   - Fournisseur / Intrant: `nom` / `designation` are NOT unique in the DB, so
     import uses `id` as the primary key; operators must supply it for updates.
-  - Batiment: uses `nom` as the import key (unique enough for a small farm).
+  - Batiment: uses `id` as the import key; `categorie_stockage` is only
+    meaningful when `type_batiment` = entrepot (enforced by model.clean()).
   - IntrantResource resolves `categorie` via CategorieIntrant.code for
     human-friendly CSV headers.
 """
@@ -20,6 +23,7 @@ from import_export.widgets import ForeignKeyWidget, ManyToManyWidget, BooleanWid
 from intrants.models import (
     CategorieIntrant,
     TypeFournisseur,
+    CategorieQualite,
     Fournisseur,
     Batiment,
     Intrant,
@@ -80,8 +84,33 @@ class TypeFournisseurResource(resources.ModelResource):
 
 
 # ---------------------------------------------------------------------------
-# Batiment
+# CategorieQualite
 # ---------------------------------------------------------------------------
+
+
+class CategorieQualiteResource(resources.ModelResource):
+    """
+    Import / export of quality-grading brackets (oiseaux / oeufs scales).
+    `code` is unique only per `type_pesee` (see Meta.unique_together on the
+    model), so both columns together form the natural import key.
+    """
+
+    class Meta:
+        model = CategorieQualite
+        skip_unchanged = True
+        report_skipped = False
+        import_id_fields = ["code", "type_pesee"]
+        fields = [
+            "id",
+            "code",
+            "libelle",
+            "type_pesee",
+            "poids_min",
+            "poids_max",
+            "ordre",
+            "actif",
+        ]
+        export_order = fields
 
 
 class BatimentResource(resources.ModelResource):
@@ -97,6 +126,8 @@ class BatimentResource(resources.ModelResource):
         fields = [
             "id",
             "nom",
+            "type_batiment",
+            "categorie_stockage",
             "capacite",
             "description",
             "actif",
@@ -208,6 +239,7 @@ class IntrantResource(resources.ModelResource):
             "id",
             "designation",
             "categorie",
+            "stade",
             "unite_mesure",
             "seuil_alerte",
             "actif",

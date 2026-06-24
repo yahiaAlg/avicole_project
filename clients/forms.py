@@ -25,6 +25,9 @@ from clients.models import (
     FactureClient,
     PaiementClient,
     PaiementClientAllocation,
+    AbonnementClient,
+    VoyageLivraison,
+    LivraisonPartielle,
 )
 from production.models import ProduitFini
 
@@ -412,18 +415,6 @@ class PaiementClientAllocationForm(forms.ModelForm):
             )
         return cleaned
 
-    def clean(self):
-        cleaned = super().clean()
-        facture = cleaned.get("facture")
-        montant = cleaned.get("montant_alloue", Decimal("0"))
-
-        if facture and montant > facture.reste_a_payer:
-            raise ValidationError(
-                f"Le montant alloué ({montant} DZD) dépasse le reste à payer "
-                f"de la facture {facture.reference} ({facture.reste_a_payer} DZD)."
-            )
-        return cleaned
-
 
 # ---------------------------------------------------------------------------
 # Helper: build a list of allocation forms for a client's open invoices
@@ -468,3 +459,151 @@ def get_allocation_forms(client, paiement=None, data=None):
         form.facture_instance = facture
         forms_list.append(form)
     return forms_list
+
+
+# ---------------------------------------------------------------------------
+# Abonnement Client — recurring/metered deliveries
+# ---------------------------------------------------------------------------
+
+
+class AbonnementClientForm(forms.ModelForm):
+    """Open or edit a client's recurring delivery agreement."""
+
+    class Meta:
+        model = AbonnementClient
+        fields = [
+            "client",
+            "produit_fini",
+            "date_debut",
+            "date_fin",
+            "frequence",
+            "quantite_totale_prevue",
+            "prix_unitaire",
+            "statut",
+            "notes",
+        ]
+        widgets = {
+            "date_debut": forms.DateInput(attrs={"type": "date"}),
+            "date_fin": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+            "quantite_totale_prevue": forms.NumberInput(
+                attrs={"step": "0.001", "min": "0"}
+            ),
+            "prix_unitaire": forms.NumberInput(attrs={"step": "0.0001", "min": "0"}),
+        }
+
+    def __init__(self, *args, client=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["client"].queryset = Client.objects.filter(actif=True).order_by(
+            "nom"
+        )
+        self.fields["produit_fini"].queryset = ProduitFini.objects.filter(actif=True)
+        self.fields["date_fin"].required = False
+        self.fields["notes"].required = False
+        if client:
+            self.fields["client"].initial = client
+            self.fields["client"].widget = forms.HiddenInput()
+
+    def clean(self):
+        cleaned = super().clean()
+        date_debut = cleaned.get("date_debut")
+        date_fin = cleaned.get("date_fin")
+        if date_debut and date_fin and date_fin < date_debut:
+            raise ValidationError(
+                {"date_fin": "تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء."}
+            )
+        return cleaned
+
+
+class VoyageLivraisonForm(forms.ModelForm):
+    """Log one truck trip (a single run can serve several subscriptions)."""
+
+    class Meta:
+        model = VoyageLivraison
+        fields = ["date_voyage", "chauffeur", "vehicule", "notes"]
+        widgets = {
+            "date_voyage": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["chauffeur"].required = False
+        self.fields["vehicule"].required = False
+        self.fields["notes"].required = False
+
+
+class LivraisonPartielleForm(forms.ModelForm):
+    """
+    Record one metered delivery against an AbonnementClient.
+
+    Business rules enforced here (duplicated from AbonnementClient/
+    LivraisonPartielle model.clean() for a friendlier form-level message —
+    same pattern as MortaliteForm in elevage/forms.py):
+      - The subscription must be ACTIF.
+      - Cumulative delivered quantity cannot exceed quantite_totale_prevue
+        when a quota is configured.
+    """
+
+    class Meta:
+        model = LivraisonPartielle
+        fields = ["abonnement", "voyage", "date", "quantite_livree", "notes"]
+        widgets = {
+            "date": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+            "quantite_livree": forms.NumberInput(
+                attrs={"step": "0.001", "min": "0.001"}
+            ),
+        }
+
+    def __init__(self, *args, abonnement=None, **kwargs):
+        """
+        Pass ``abonnement=<AbonnementClient instance>`` from the view to
+        pre-select and lock the abonnement field, mirroring the
+        lot=<LotElevage> kwarg pattern used throughout elevage/forms.py.
+        """
+        super().__init__(*args, **kwargs)
+        self.fields["abonnement"].queryset = AbonnementClient.objects.filter(
+            statut=AbonnementClient.STATUT_ACTIF
+        ).select_related("client", "produit_fini")
+        self.fields["voyage"].queryset = VoyageLivraison.objects.order_by(
+            "-date_voyage"
+        )
+        self.fields["voyage"].required = False
+        self.fields["notes"].required = False
+
+        if abonnement:
+            self.fields["abonnement"].initial = abonnement
+            self.fields["abonnement"].widget = forms.HiddenInput()
+            self._abonnement = abonnement
+        else:
+            self._abonnement = None
+
+    def clean_date(self):
+        date = self.cleaned_data["date"]
+        if date > datetime.date.today():
+            raise ValidationError(
+                "La date de livraison ne peut pas être dans le futur."
+            )
+        return date
+
+    def clean(self):
+        cleaned = super().clean()
+        abonnement = cleaned.get("abonnement") or self._abonnement
+        quantite = cleaned.get("quantite_livree")
+
+        if abonnement and abonnement.statut != AbonnementClient.STATUT_ACTIF:
+            raise ValidationError(
+                "Impossible d'enregistrer une livraison sur un abonnement non actif."
+            )
+
+        if abonnement and quantite and abonnement.quantite_totale_prevue:
+            deja_livre = abonnement.quantite_livree_cumulee
+            if self.instance and self.instance.pk:
+                deja_livre -= self.instance.quantite_livree
+            if deja_livre + quantite > abonnement.quantite_totale_prevue:
+                raise ValidationError(
+                    f"الكمية المسلَّمة الإجمالية ({deja_livre + quantite}) "
+                    f"تتجاوز الكمية المتعاقد عليها ({abonnement.quantite_totale_prevue})."
+                )
+        return cleaned

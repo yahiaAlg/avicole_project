@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
+{% block nav_clients %}active{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}{{ abo.produit_fini.designation }} — {{ abo.client.nom }}{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'clients:abonnement_detail' abo.pk %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> العودة للاشتراك
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+  <div class="form-grid">
+
+    <!-- Form -->
+    <div class="form-col">
+      <div class="form-card">
+        <div class="form-card__header">
+          <div class="section-eyebrow"><i class="bx bxs-truck"></i> بيانات التسليم</div>
+        </div>
+        <div class="form-card__body">
+          <form method="post" id="livraison-form">
+            {% csrf_token %}
+            {{ form.abonnement }}
+
+            <div class="form-group">
+              <label class="form-label" for="{{ form.date.id_for_label }}">تاريخ التسليم <span class="form-required">*</span></label>
+              {{ form.date }}
+              {% for err in form.date.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="{{ form.quantite_livree.id_for_label }}">الكمية المسلَّمة <span class="form-required">*</span> ({{ abo.produit_fini.unite_mesure }})</label>
+              <div class="input-wrapper"><i class="bx bx-package input-icon"></i>{{ form.quantite_livree }}</div>
+              {% if abo.solde_restant is not None %}
+              <div class="form-hint">المتبقي من الاشتراك: <strong>{{ abo.solde_restant|floatformat:3 }} {{ abo.produit_fini.unite_mesure }}</strong></div>
+              {% endif %}
+              {% for err in form.quantite_livree.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="{{ form.voyage.id_for_label }}">رحلة التوصيل</label>
+              <div class="input-wrapper"><i class="bx bxs-truck input-icon"></i>{{ form.voyage }}</div>
+              <div class="form-hint">اختياري — اربط بالرحلة إذا كانت ضمن جولة توصيل.</div>
+              {% for err in form.voyage.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" for="{{ form.notes.id_for_label }}">ملاحظات</label>
+              <div class="input-wrapper input-wrapper--textarea">{{ form.notes }}</div>
+              {% for err in form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
+            {% if form.non_field_errors %}
+            <div class="field-error" style="margin-top:14px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:12px 14px;">
+              {% for err in form.non_field_errors %}<div><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="form-actions" style="margin-top:20px;display:flex;gap:10px;">
+              <a href="{% url 'clients:abonnement_detail' abo.pk %}" class="btn-ghost">إلغاء</a>
+              <button type="submit" class="btn-primary"><i class="bx bx-check"></i> {{ action_label }}</button>
+            </div>
+
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar: subscription snapshot -->
+    <div class="form-sidebar">
+      <div class="form-card">
+        <div class="form-card__header">
+          <div class="section-eyebrow"><i class="bx bx-repeat"></i> ملخص الاشتراك</div>
+        </div>
+        <div class="form-card__body">
+          <div class="summary-row">
+            <span class="summary-label">العميل</span>
+            <span class="summary-val">{{ abo.client.nom }}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">المنتج</span>
+            <span class="summary-val">{{ abo.produit_fini.designation }}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">المُسلَّم حتى الآن</span>
+            <span class="summary-val" style="color:var(--accent-text);">{{ abo.quantite_livree_cumulee|floatformat:3 }}</span>
+          </div>
+          {% if abo.quantite_totale_prevue %}
+          <div class="summary-row">
+            <span class="summary-label">الكمية المتعاقد عليها</span>
+            <span class="summary-val">{{ abo.quantite_totale_prevue|floatformat:3 }}</span>
+          </div>
+          <div class="summary-row summary-row--total">
+            <span class="summary-label">المتبقي</span>
+            <span class="summary-val {% if abo.solde_restant <= 0 %}text-danger{% endif %}">
+              {{ abo.solde_restant|floatformat:3 }} {{ abo.produit_fini.unite_mesure }}
+            </span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .page-body { direction: rtl; }
+  .form-grid { display: grid; grid-template-columns: 1fr 260px; gap: 16px; align-items: start; }
+  @media (max-width: 860px) { .form-grid { grid-template-columns: 1fr; } }
+  .form-col, .form-sidebar { display: flex; flex-direction: column; gap: 18px; }
+
+  .form-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .form-card__header { padding: 14px 20px 12px; border-bottom: 1px solid var(--border); }
+  .form-card__body { padding: 20px; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+
+  .form-group { margin-bottom: 16px; }
+  .form-group:last-child { margin-bottom: 0; }
+  .form-label { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
+  .form-required { color: #dc2626; }
+  .form-hint { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
+
+  .input-wrapper { position: relative; }
+  .input-icon { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; pointer-events: none; }
+  .input-wrapper input, .input-wrapper select { width: 100%; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text-primary); font-family: 'Inter',sans-serif; font-size: 13.5px; padding: 10px 40px 10px 12px; direction: rtl; text-align: right; transition: border-color .15s, box-shadow .15s; }
+  .input-wrapper input:focus, .input-wrapper select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none; }
+  .input-wrapper--textarea textarea { width: 100%; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text-primary); font-family: 'Inter',sans-serif; font-size: 13.5px; padding: 10px 12px; resize: vertical; min-height: 72px; direction: rtl; text-align: right; transition: border-color .15s, box-shadow .15s; }
+  .input-wrapper--textarea textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none; }
+  input[type="date"] { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text-primary); font-family: 'Inter',sans-serif; font-size: 13.5px; padding: 10px 12px; width: 100%; }
+  input[type="date"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,.15); outline: none; }
+
+  .field-error { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #dc2626; margin-top: 5px; }
+
+  .summary-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 12.5px; gap: 8px; }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-label { color: var(--text-muted); }
+  .summary-val { font-family: 'Nunito',sans-serif; font-weight: 700; color: var(--text-primary); text-align: left; }
+  .summary-row--total .summary-val { font-size: 15px; }
+  .text-danger { color: #dc2626; }
+
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+</style>
+{% endblock %}

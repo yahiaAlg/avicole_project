@@ -2,9 +2,7 @@
 {% load static %}
 
 {% block title %}{{ lot.designation }} — تربية الدواجن{% endblock %}
-
 {% block nav_lots %}active{% endblock %}
-
 {% block page_title %}{{ lot.designation }}{% endblock %}
 {% block page_sub_text %}
   {{ lot.batiment.nom }} · مفتوح بتاريخ {{ lot.date_ouverture|date:"d/m/Y" }}
@@ -13,7 +11,7 @@
 
 {% block topbar_actions %}
   <a href="{% url 'elevage:lot_list' %}" class="btn-ghost">
-    <i class="bx bx-arrow-back"></i> القطعان
+    <i class="bx bx-arrow-back"></i> الدفعات
   </a>
   {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
   <a href="{% url 'elevage:lot_edit' lot.pk %}" class="btn-ghost">
@@ -32,7 +30,7 @@
   {% if lot.statut == 'ferme' %}
   <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:20px;">
     <i class="bx bxs-lock" style="color:#b45309;font-size:15px;"></i>
-    <span style="font-size:13px;color:var(--text-secondary);">هذا القطيع <strong style="color:#b45309;">مغلق</strong> — لا يمكن إدخال أي بيانات.</span>
+    <span style="font-size:13px;color:var(--text-secondary);">هذه الدفعة <strong style="color:#b45309;">مغلقة</strong> — لا يمكن إدخال أي بيانات.</span>
   </div>
   {% endif %}
 
@@ -41,8 +39,23 @@
   <div style="background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:20px;">
     <i class="bx bxs-error" style="color:#dc2626;font-size:16px;flex-shrink:0;"></i>
     <span style="font-size:13px;color:var(--text-secondary);">
-      <strong style="color:#dc2626;">تنبيه نفوق غير طبيعي</strong> — تجاوز النفوق اليومي 5% من العدد الأولي. تحقق من الوضع الصحي للقطيع.
+      <strong style="color:#dc2626;">تنبيه — نفوق غير طبيعي</strong> — تجاوز النفوق اليومي 5% من العدد الأولي. تحقق من الحالة الصحية للدفعة.
     </span>
+  </div>
+  {% endif %}
+
+  <!-- Transfer due alert -->
+  {% if doit_etre_transfere %}
+  <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+    <i class="bx bxs-buildings" style="color:#b45309;font-size:16px;flex-shrink:0;"></i>
+    <div style="flex:1;font-size:13px;color:var(--text-secondary);">
+      <strong style="color:#b45309;">الدفعة جاهزة للنقل</strong> — بلغ عمر الدفعة حد النقل من الحضانة. يُنصح بنقلها إلى حظيرة التربية.
+    </div>
+    {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+    <a href="{% url 'elevage:transfert_create' lot.pk %}" class="btn-warning" style="font-size:12px;padding:7px 13px;white-space:nowrap;">
+      <i class="bx bxs-buildings"></i> نقل الدفعة
+    </a>
+    {% endif %}
   </div>
   {% endif %}
 
@@ -53,16 +66,15 @@
     <i class="bx bxs-check-circle" style="color:#16a34a;font-size:22px;flex-shrink:0;margin-top:1px;"></i>
     <div style="flex:1;">
       <div style="font-family:'Nunito',sans-serif;font-weight:800;color:#15803d;font-size:14px;margin-bottom:4px;">
-        العدد الحي = 0 — هذا القطيع جاهز للإغلاق.
+        العدد الحي = 0 — هذه الدفعة جاهزة للإغلاق.
       </div>
       <div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;">
-        تم ذبح جميع الطيور أو تسجيلها كنفوق.
-        يمكنك إضافة مصاريف أو ملاحظات قبل إغلاق هذا القطيع نهائياً.
+        تم ذبح جميع الطيور أو تسجيلها كنفوق. يمكنك إضافة مصاريف أو ملاحظات قبل إغلاق الدفعة نهائياً.
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
         <a href="{% url 'elevage:lot_fermer' lot.pk %}"
            style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);color:#15803d;font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;border-radius:var(--radius-md);padding:8px 16px;display:inline-flex;align-items:center;gap:6px;text-decoration:none;">
-          <i class="bx bxs-lock"></i> إغلاق هذا القطيع
+          <i class="bx bxs-lock"></i> إغلاق هذه الدفعة
         </a>
         <button type="button"
                 onclick="document.getElementById('banner-fermeture').style.display='none'"
@@ -108,7 +120,7 @@
         <div class="metric-icon ic-blue"><i class="bx bxs-calendar"></i></div>
         <div class="metric-label">مدة التربية</div>
         <div class="metric-value">{{ summary.duree_elevage }}</div>
-        <span class="metric-delta neutral"><i class="bx bx-minus"></i> أيام</span>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> يوم (العمر: {{ lot.age_jours }} ي)</span>
       </div>
     </div>
   </div>
@@ -120,15 +132,15 @@
         <div class="metric-icon ic-amber"><i class="bx bxs-wallet"></i></div>
         <div class="metric-label">تكلفة المدخلات</div>
         <div class="metric-value" style="font-size:20px;">{{ summary.cout_total_intrants|floatformat:0 }}</div>
-        <span class="metric-delta neutral"><i class="bx bx-minus"></i> DZD</span>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> دج</span>
       </div>
     </div>
     <div class="col-xl-3 col-md-6">
       <div class="metric-card">
         <div class="metric-icon ic-orange"><i class="bx bxs-wallet"></i></div>
-        <div class="metric-label">تكلفة المصاريف</div>
+        <div class="metric-label">المصاريف التشغيلية</div>
         <div class="metric-value" style="font-size:20px;">{{ summary.cout_total_depenses|floatformat:0 }}</div>
-        <span class="metric-delta neutral"><i class="bx bx-minus"></i> DZD</span>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> دج</span>
       </div>
     </div>
     <div class="col-xl-3 col-md-6">
@@ -136,7 +148,7 @@
         <div class="metric-icon ic-green"><i class="bx bxs-bar-chart-alt-2"></i></div>
         <div class="metric-label">إيرادات المبيعات</div>
         <div class="metric-value" style="font-size:20px;">{{ summary.revenus_ventes|floatformat:0 }}</div>
-        <span class="metric-delta neutral"><i class="bx bx-minus"></i> DZD</span>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> دج</span>
       </div>
     </div>
     <div class="col-xl-3 col-md-6">
@@ -150,38 +162,85 @@
         </div>
         <span class="metric-delta {% if summary.marge_brute >= 0 %}up{% else %}down{% endif %}">
           <i class="bx {% if summary.marge_brute >= 0 %}bx-trending-up{% else %}bx-trending-down{% endif %}"></i>
-          DZD
-          {% if summary.ic %} · IC {{ summary.ic }}{% endif %}
+          دج{% if summary.ic %} · م.ت {{ summary.ic }}{% endif %}
         </span>
       </div>
     </div>
   </div>
 
   <div class="row g-3">
-    <!-- Left column: Mortalites + Consommations -->
+    <!-- ── Left column ── -->
     <div class="col-xl-8">
+
+      <!-- Transferts section -->
+      <div class="card mb-3">
+        <div class="section-header">
+          <span class="section-eyebrow"><i class="bx bxs-buildings" style="font-size:12px;color:#0284c7;"></i> عمليات النقل</span>
+          {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+          <a href="{% url 'elevage:transfert_create' lot.pk %}" class="btn-ghost btn-sm">
+            <i class="bx bx-transfer"></i> نقل الدفعة
+          </a>
+          {% endif %}
+        </div>
+        {% if transferts %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>من</th>
+                <th>إلى</th>
+                <th>العمر (ي)</th>
+                <th style="text-align:right;">الطيور المنقولة</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in transferts %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td style="color:var(--text-muted);">{{ t.date_transfert|date:"d/m/Y" }}</td>
+                <td style="color:var(--text-secondary);">{{ t.batiment_origine.nom }}</td>
+                <td style="font-weight:500;color:var(--text-primary);">
+                  <i class="bx bx-right-arrow-alt" style="color:var(--text-muted);vertical-align:middle;"></i>
+                  {{ t.batiment_destination.nom }}
+                </td>
+                <td style="color:var(--text-muted);">{{ t.age_jours_transfert }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#0284c7;">{{ t.effectif_transfere|floatformat:0 }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state-sm">
+          <i class="bx bxs-buildings" style="color:var(--border-strong);"></i>
+          <span>لا يوجد نقل مسجل</span>
+          {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+          <a href="{% url 'elevage:transfert_create' lot.pk %}" class="btn-ghost btn-sm"><i class="bx bx-transfer"></i> نقل</a>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
 
       <!-- Mortalités section -->
       <div class="card mb-3">
         <div class="section-header">
-          <span class="section-eyebrow"><i class="bx bxs-heart" style="font-size:12px;color:#dc2626;"></i> النفوقات</span>
+          <span class="section-eyebrow"><i class="bx bxs-heart" style="font-size:12px;color:#dc2626;"></i> النفوق</span>
           {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
           <a href="{% url 'elevage:mortalite_create' lot.pk %}" class="btn-ghost btn-sm">
             <i class="bx bx-plus"></i> إدخال
           </a>
           {% endif %}
         </div>
-
         {% if mortalites_page.object_list %}
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Nombre</th>
-                <th>Cause</th>
-                <th>Notes</th>
-                {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}<th style="text-align:right;">Actions</th>{% endif %}
+                <th>التاريخ</th>
+                <th>العدد</th>
+                <th>السبب</th>
+                <th>ملاحظات</th>
+                {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}<th style="text-align:right;">الإجراءات</th>{% endif %}
               </tr>
             </thead>
             <tbody>
@@ -194,12 +253,12 @@
                 {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
                 <td>
                   <div class="actions-cell">
-                    <a href="{% url 'elevage:mortalite_edit' mort.pk %}" class="action-btn" title="Modifier"><i class="bx bxs-pencil"></i></a>
+                    <a href="{% url 'elevage:mortalite_edit' mort.pk %}" class="action-btn" title="تعديل"><i class="bx bxs-pencil"></i></a>
                     <button type="button" class="action-btn action-btn--danger"
                       data-delete-mort="{{ mort.pk }}"
                       data-date="{{ mort.date|date:'d/m/Y' }}"
                       data-nombre="{{ mort.nombre }}"
-                      title="Supprimer">
+                      title="حذف">
                       <i class="bx bxs-trash"></i>
                     </button>
                   </div>
@@ -220,9 +279,9 @@
         {% else %}
         <div class="empty-state-sm">
           <i class="bx bxs-heart" style="color:var(--border-strong);"></i>
-          <span>Aucune mortalité enregistrée</span>
+          <span>لا يوجد نفوق مسجل</span>
           {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
-          <a href="{% url 'elevage:mortalite_create' lot.pk %}" class="btn-ghost btn-sm"><i class="bx bx-plus"></i> Saisir</a>
+          <a href="{% url 'elevage:mortalite_create' lot.pk %}" class="btn-ghost btn-sm"><i class="bx bx-plus"></i> تسجيل</a>
           {% endif %}
         </div>
         {% endif %}
@@ -231,25 +290,24 @@
       <!-- Consommations section -->
       <div class="card mb-3">
         <div class="section-header">
-          <span class="section-eyebrow"><i class="bx bxs-droplet" style="font-size:12px;color:var(--accent-text);"></i> Consommations</span>
+          <span class="section-eyebrow"><i class="bx bxs-droplet" style="font-size:12px;color:var(--accent-text);"></i> الاستهلاكات</span>
           {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
           <a href="{% url 'elevage:consommation_create' lot.pk %}" class="btn-ghost btn-sm">
-            <i class="bx bx-plus"></i> Saisir
+            <i class="bx bx-plus"></i> إدخال
           </a>
           {% endif %}
         </div>
-
         {% if consommations_page.object_list %}
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Intrant</th>
-                <th>Catégorie</th>
-                <th>Quantité</th>
-                <th>Notes</th>
-                {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}<th style="text-align:right;">Actions</th>{% endif %}
+                <th>التاريخ</th>
+                <th>المدخل</th>
+                <th>الفئة</th>
+                <th>الكمية</th>
+                <th>ملاحظات</th>
+                {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}<th style="text-align:right;">الإجراءات</th>{% endif %}
               </tr>
             </thead>
             <tbody>
@@ -265,12 +323,12 @@
                 {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
                 <td>
                   <div class="actions-cell">
-                    <a href="{% url 'elevage:consommation_edit' conso.pk %}" class="action-btn" title="Modifier"><i class="bx bxs-pencil"></i></a>
+                    <a href="{% url 'elevage:consommation_edit' conso.pk %}" class="action-btn" title="تعديل"><i class="bx bxs-pencil"></i></a>
                     <button type="button" class="action-btn action-btn--danger"
                       data-delete-conso="{{ conso.pk }}"
                       data-date="{{ conso.date|date:'d/m/Y' }}"
                       data-intrant="{{ conso.intrant.designation }}"
-                      title="Supprimer">
+                      title="حذف">
                       <i class="bx bxs-trash"></i>
                     </button>
                   </div>
@@ -291,9 +349,153 @@
         {% else %}
         <div class="empty-state-sm">
           <i class="bx bxs-droplet" style="color:var(--border-strong);"></i>
-          <span>Aucune consommation enregistrée</span>
+          <span>لا يوجد استهلاك مسجل</span>
           {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
-          <a href="{% url 'elevage:consommation_create' lot.pk %}" class="btn-ghost btn-sm"><i class="bx bx-plus"></i> Saisir</a>
+          <a href="{% url 'elevage:consommation_create' lot.pk %}" class="btn-ghost btn-sm"><i class="bx bx-plus"></i> تسجيل</a>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Pesées section -->
+      <div class="card mb-3">
+        <div class="section-header">
+          <span class="section-eyebrow"><i class="bx bxs-cylinder" style="font-size:12px;color:#7c3aed;"></i> أوزان العينات</span>
+          {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+          <a href="{% url 'elevage:pesee_create' lot.pk %}" class="btn-ghost btn-sm">
+            <i class="bx bx-plus"></i> قياس جديد
+          </a>
+          {% endif %}
+        </div>
+        {% if pesees_page.object_list %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>النوع</th>
+                <th style="text-align:right;">العينات</th>
+                <th style="text-align:right;">الوزن الكلي (غ)</th>
+                <th style="text-align:right;">المتوسط (غ)</th>
+                <th>الجودة</th>
+                {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}<th></th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for pesee in pesees_page.object_list %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td style="color:var(--text-muted);">{{ pesee.date|date:"d/m/Y" }}</td>
+                <td>
+                  <span class="pill-info">{{ pesee.get_type_pesee_display }}</span>
+                </td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ pesee.nombre_sujets }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ pesee.poids_total_g|floatformat:1 }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;color:#7c3aed;">{{ pesee.poids_moyen_g|floatformat:1 }}</td>
+                <td>
+                  {% if pesee.qualite %}<span class="pill-success">{{ pesee.qualite.libelle }}</span>{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+                </td>
+                {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+                <td>
+                  <div class="actions-cell">
+                    <button type="button" class="action-btn action-btn--danger"
+                      data-delete-pesee="{{ pesee.pk }}"
+                      data-date="{{ pesee.date|date:'d/m/Y' }}"
+                      title="حذف">
+                      <i class="bx bxs-trash"></i>
+                    </button>
+                  </div>
+                </td>
+                {% endif %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if pesees_page.has_other_pages %}
+        <div class="pagination-bar">
+          {% if pesees_page.has_previous %}<a href="?page_pesee={{ pesees_page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>{% endif %}
+          <span class="page-info">{{ pesees_page.number }} / {{ pesees_page.paginator.num_pages }}</span>
+          {% if pesees_page.has_next %}<a href="?page_pesee={{ pesees_page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>{% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state-sm">
+          <i class="bx bxs-cylinder" style="color:var(--border-strong);"></i>
+          <span>لا يوجد قياس وزن مسجل</span>
+          {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+          <a href="{% url 'elevage:pesee_create' lot.pk %}" class="btn-ghost btn-sm"><i class="bx bx-plus"></i> قياس</a>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Récoltes d'œufs section -->
+      <div class="card mb-3">
+        <div class="section-header">
+          <span class="section-eyebrow"><i class="bx bxs-circle" style="font-size:12px;color:#ea580c;"></i> جمع البيض</span>
+          {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+          <a href="{% url 'elevage:recolte_oeufs_create' lot.pk %}" class="btn-ghost btn-sm">
+            <i class="bx bx-plus"></i> تسجيل جمع
+          </a>
+          {% endif %}
+        </div>
+        {% if recoltes_oeufs_page.object_list %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th style="text-align:right;">عدد البيض</th>
+                <th style="text-align:right;">الصواني</th>
+                <th style="text-align:right;">خارج الصينية</th>
+                <th>الجودة</th>
+                <th>ملاحظات</th>
+                {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}<th style="text-align:right;">الإجراءات</th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for recolte in recoltes_oeufs_page.object_list %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td style="color:var(--text-muted);">{{ recolte.date|date:"d/m/Y" }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;color:#ea580c;">{{ recolte.nombre_oeufs|floatformat:0 }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ recolte.nombre_plateaux }}</td>
+                <td style="text-align:right;color:var(--text-muted);">{{ recolte.oeufs_hors_plateau }}</td>
+                <td>
+                  {% if recolte.qualite %}<span class="pill-success">{{ recolte.qualite.libelle }}</span>{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+                </td>
+                <td style="color:var(--text-muted);font-size:12px;">{{ recolte.notes|default:"—" }}</td>
+                {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+                <td>
+                  <div class="actions-cell">
+                    <a href="{% url 'elevage:recolte_oeufs_edit' recolte.pk %}" class="action-btn" title="تعديل"><i class="bx bxs-pencil"></i></a>
+                    <button type="button" class="action-btn action-btn--danger"
+                      data-delete-recolte="{{ recolte.pk }}"
+                      data-date="{{ recolte.date|date:'d/m/Y' }}"
+                      data-nombre="{{ recolte.nombre_oeufs }}"
+                      title="حذف">
+                      <i class="bx bxs-trash"></i>
+                    </button>
+                  </div>
+                </td>
+                {% endif %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if recoltes_oeufs_page.has_other_pages %}
+        <div class="pagination-bar">
+          {% if recoltes_oeufs_page.has_previous %}<a href="?page_oeufs={{ recoltes_oeufs_page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>{% endif %}
+          <span class="page-info">{{ recoltes_oeufs_page.number }} / {{ recoltes_oeufs_page.paginator.num_pages }}</span>
+          {% if recoltes_oeufs_page.has_next %}<a href="?page_oeufs={{ recoltes_oeufs_page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>{% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state-sm">
+          <i class="bx bxs-circle" style="color:var(--border-strong);"></i>
+          <span>لا يوجد جمع بيض مسجل</span>
+          {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+          <a href="{% url 'elevage:recolte_oeufs_create' lot.pk %}" class="btn-ghost btn-sm"><i class="bx bx-plus"></i> تسجيل</a>
           {% endif %}
         </div>
         {% endif %}
@@ -302,17 +504,17 @@
       <!-- Productions section -->
       <div class="card">
         <div class="section-header">
-          <span class="section-eyebrow"><i class="bx bx-refresh" style="font-size:12px;color:#0284c7;"></i> Productions validées</span>
+          <span class="section-eyebrow"><i class="bx bx-refresh" style="font-size:12px;color:#0284c7;"></i> الإنتاج المحقق</span>
         </div>
         {% if productions %}
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Référence</th>
-                <th>Date</th>
-                <th>Poids total (kg)</th>
-                <th>Statut</th>
+                <th>المرجع</th>
+                <th>التاريخ</th>
+                <th style="text-align:right;">الوزن الكلي (كغ)</th>
+                <th>الحالة</th>
               </tr>
             </thead>
             <tbody>
@@ -320,8 +522,8 @@
               <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
                 <td style="font-weight:600;color:var(--text-primary);">{{ prod.reference }}</td>
                 <td style="color:var(--text-muted);">{{ prod.date|date:"d/m/Y" }}</td>
-                <td style="font-family:'Nunito',sans-serif;font-weight:700;">{{ prod.poids_total_kg|floatformat:2 }} kg</td>
-                <td><span class="pill-success">Validé</span></td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ prod.poids_total_kg|floatformat:2 }} كغ</td>
+                <td><span class="pill-success">محقق</span></td>
               </tr>
               {% endfor %}
             </tbody>
@@ -330,71 +532,86 @@
         {% else %}
         <div class="empty-state-sm">
           <i class="bx bx-refresh" style="color:var(--border-strong);"></i>
-          <span>Aucune production validée — requis avant clôture (BR-LOT-04)</span>
+          <span>لا يوجد إنتاج محقق — مطلوب قبل الإغلاق (BR-LOT-04)</span>
         </div>
         {% endif %}
       </div>
 
     </div>
 
-    <!-- Right column: info + danger zone -->
+    <!-- ── Right column ── -->
     <div class="col-xl-4">
+
       <!-- Lot info card -->
       <div class="card mb-3">
         <div class="section-header">
-          <span class="section-eyebrow">Informations du lot</span>
+          <span class="section-eyebrow">معلومات الدفعة</span>
         </div>
         <div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
           <div class="info-row">
-            <span class="info-label">Fournisseur poussins</span>
+            <span class="info-label">مورد الكتاكيت</span>
             <span class="info-val">{{ lot.fournisseur_poussins.nom }}</span>
           </div>
           {% if lot.bl_fournisseur_poussins %}
           <div class="info-row">
-            <span class="info-label">BL Fournisseur</span>
+            <span class="info-label">وصل التسليم</span>
             <span class="info-val">{{ lot.bl_fournisseur_poussins.reference }}</span>
           </div>
           {% endif %}
           {% if lot.souche %}
           <div class="info-row">
-            <span class="info-label">Souche</span>
+            <span class="info-label">السلالة</span>
             <span class="info-val">{{ lot.souche }}</span>
           </div>
           {% endif %}
           <div class="info-row">
-            <span class="info-label">Bâtiment</span>
+            <span class="info-label">المبنى الحالي</span>
             <span class="info-val">{{ lot.batiment.nom }}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Statut</span>
+            <span class="info-label">عمر الدفعة</span>
+            <span class="info-val" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ lot.age_jours }} يوم</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">جاهزة للبيع</span>
+            <span class="info-val">
+              {% if est_mature_pour_vente %}
+                <span class="pill-success"><i class="bx bxs-check-circle"></i> نعم</span>
+              {% else %}
+                <span class="pill-neutral"><i class="bx bxs-time"></i> لا</span>
+              {% endif %}
+            </span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">الحالة</span>
             <span class="info-val">
               {% if lot.statut == 'ouvert' %}
-                <span class="pill-success"><i class="bx bxs-check-circle"></i> Ouvert</span>
+                <span class="pill-success"><i class="bx bxs-check-circle"></i> مفتوحة</span>
               {% else %}
-                <span class="pill-neutral"><i class="bx bxs-lock"></i> Clôturé</span>
+                <span class="pill-neutral"><i class="bx bxs-lock"></i> مغلقة</span>
               {% endif %}
             </span>
           </div>
           {% if lot.created_by %}
           <div class="info-row">
-            <span class="info-label">Créé par</span>
+            <span class="info-label">أنشأها</span>
             <span class="info-val">{{ lot.created_by.get_full_name|default:lot.created_by.username }}</span>
           </div>
           {% endif %}
           {% if lot.notes %}
           <div style="padding-top:10px;border-top:1px solid var(--border);">
-            <div class="info-label" style="margin-bottom:4px;">Notes</div>
+            <div class="info-label" style="margin-bottom:4px;">ملاحظات</div>
             <div style="font-size:13px;color:var(--text-secondary);">{{ lot.notes }}</div>
           </div>
           {% endif %}
         </div>
       </div>
 
-      <!-- Depenses section -->
+      <!-- Dépenses section -->
       {% if depenses %}
       <div class="card mb-3">
         <div class="section-header">
-          <span class="section-eyebrow"><i class="bx bxs-wallet" style="font-size:12px;color:#b45309;"></i> Dépenses liées</span>
+          <span class="section-eyebrow"><i class="bx bxs-wallet" style="font-size:12px;color:#b45309;"></i> المصاريف المرتبطة</span>
         </div>
         <div style="padding:0;">
           {% for dep in depenses %}
@@ -403,7 +620,7 @@
               <div style="font-size:13px;color:var(--text-primary);font-weight:500;">{{ dep.description|default:dep.categorie.libelle }}</div>
               <div style="font-size:11px;color:var(--text-muted);">{{ dep.date|date:"d/m/Y" }}</div>
             </div>
-            <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:var(--text-primary);flex-shrink:0;">{{ dep.montant|floatformat:0 }} DZD</div>
+            <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:var(--text-primary);flex-shrink:0;">{{ dep.montant|floatformat:0 }} دج</div>
           </div>
           {% endfor %}
         </div>
@@ -414,13 +631,13 @@
       {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
       <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:16px 18px;">
         <div style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;margin-bottom:4px;font-size:14px;">
-          <i class="bx bxs-error me-1"></i> Zone sensible
+          <i class="bx bxs-error me-1"></i> منطقة حساسة
         </div>
         <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px;">
-          La clôture du lot est irréversible. Au moins une production validée est requise (BR-LOT-04).
+          إغلاق الدفعة لا رجعة فيه. يُشترط وجود سجل إنتاج محقق واحد على الأقل (BR-LOT-04).
         </p>
         <a href="{% url 'elevage:lot_fermer' lot.pk %}" class="btn-danger">
-          <i class="bx bxs-lock"></i> Clôturer le lot
+          <i class="bx bxs-lock"></i> إغلاق الدفعة
         </a>
       </div>
       {% endif %}
@@ -434,14 +651,14 @@
   <div class="confirm-panel__inner">
     <div class="confirm-panel__icon"><i class="bx bxs-trash"></i></div>
     <div>
-      <div class="confirm-panel__title">Supprimer cette mortalité ?</div>
+      <div class="confirm-panel__title">حذف هذا السجل؟</div>
       <div class="confirm-panel__body" id="confirm-mort-body"></div>
     </div>
     <div class="confirm-panel__actions">
-      <button type="button" id="confirm-mort-cancel" class="btn-ghost">Annuler</button>
+      <button type="button" id="confirm-mort-cancel" class="btn-ghost">إلغاء</button>
       <form id="confirm-mort-form" method="post" action="">
         {% csrf_token %}
-        <button type="submit" class="btn-danger">Supprimer</button>
+        <button type="submit" class="btn-danger">حذف</button>
       </form>
     </div>
   </div>
@@ -452,14 +669,50 @@
   <div class="confirm-panel__inner">
     <div class="confirm-panel__icon"><i class="bx bxs-trash"></i></div>
     <div>
-      <div class="confirm-panel__title">Supprimer cette consommation ?</div>
+      <div class="confirm-panel__title">حذف هذا الاستهلاك؟</div>
       <div class="confirm-panel__body" id="confirm-conso-body"></div>
     </div>
     <div class="confirm-panel__actions">
-      <button type="button" id="confirm-conso-cancel" class="btn-ghost">Annuler</button>
+      <button type="button" id="confirm-conso-cancel" class="btn-ghost">إلغاء</button>
       <form id="confirm-conso-form" method="post" action="">
         {% csrf_token %}
-        <button type="submit" class="btn-danger">Supprimer</button>
+        <button type="submit" class="btn-danger">حذف</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Pesée delete confirm panel -->
+<div id="confirm-pesee-panel" class="confirm-panel" style="display:none;">
+  <div class="confirm-panel__inner">
+    <div class="confirm-panel__icon"><i class="bx bxs-trash"></i></div>
+    <div>
+      <div class="confirm-panel__title">حذف هذا القياس؟</div>
+      <div class="confirm-panel__body" id="confirm-pesee-body"></div>
+    </div>
+    <div class="confirm-panel__actions">
+      <button type="button" id="confirm-pesee-cancel" class="btn-ghost">إلغاء</button>
+      <form id="confirm-pesee-form" method="post" action="">
+        {% csrf_token %}
+        <button type="submit" class="btn-danger">حذف</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Récolte delete confirm panel -->
+<div id="confirm-recolte-panel" class="confirm-panel" style="display:none;">
+  <div class="confirm-panel__inner">
+    <div class="confirm-panel__icon"><i class="bx bxs-trash"></i></div>
+    <div>
+      <div class="confirm-panel__title">حذف سجل جمع البيض؟</div>
+      <div class="confirm-panel__body" id="confirm-recolte-body"></div>
+    </div>
+    <div class="confirm-panel__actions">
+      <button type="button" id="confirm-recolte-cancel" class="btn-ghost">إلغاء</button>
+      <form id="confirm-recolte-form" method="post" action="">
+        {% csrf_token %}
+        <button type="submit" class="btn-danger">حذف</button>
       </form>
     </div>
   </div>
@@ -470,16 +723,9 @@
 {% block extra_css %}
 <style>
   .card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden; }
-  .section-header {
-    display:flex;align-items:center;justify-content:space-between;
-    padding:14px 18px 12px;border-bottom:1px solid var(--border);
-  }
+  .section-header { display:flex;align-items:center;justify-content:space-between;padding:14px 18px 12px;border-bottom:1px solid var(--border); }
   .section-eyebrow { font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted); }
-  .metric-card {
-    background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);
-    padding:18px 20px;display:flex;flex-direction:column;gap:6px;
-    transition:border-color .18s,transform .18s;animation:fadeIn .3s ease;
-  }
+  .metric-card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;display:flex;flex-direction:column;gap:6px;transition:border-color .18s,transform .18s;animation:fadeIn .3s ease; }
   .metric-card:hover { border-color:var(--border-strong);transform:translateY(-1px); }
   .metric-icon { width:40px;height:40px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:4px; }
   .ic-green { background:rgba(34,197,94,.14);color:var(--accent-text); }
@@ -494,50 +740,26 @@
   .metric-delta.up      { background:rgba(34,197,94,.12);color:var(--accent-text); }
   .metric-delta.down    { background:rgba(239,68,68,.10);color:#dc2626; }
   .metric-delta.neutral { background:rgba(0,0,0,.06);color:var(--text-secondary); }
-
   .table-wrapper { overflow-x:auto; }
   .data-table { width:100%;border-collapse:collapse; }
-  .data-table thead th {
-    font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
-    color:var(--text-muted);padding:10px 14px;border-bottom:1px solid var(--border);
-    white-space:nowrap;background:var(--bg-surface);
-  }
-  .data-table tbody tr {
-    border-bottom:1px solid var(--border);
-    animation:fadeIn .3s ease both;
-    animation-delay:calc(var(--row-i,0) * 35ms);
-    transition:background .12s;
-  }
+  .data-table thead th { font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);padding:10px 14px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--bg-surface); }
+  .data-table tbody tr { border-bottom:1px solid var(--border);animation:fadeIn .3s ease both;animation-delay:calc(var(--row-i,0) * 35ms);transition:background .12s; }
   .data-table tbody tr:last-child { border-bottom:none; }
   .data-table tbody tr:hover { background:var(--bg-hover); }
   .data-table td { padding:11px 14px;font-size:13px;color:var(--text-secondary);vertical-align:middle; }
-
-  .empty-state-sm {
-    display:flex;align-items:center;gap:10px;padding:18px 18px;
-    font-size:13px;color:var(--text-muted);
-  }
+  .empty-state-sm { display:flex;align-items:center;gap:10px;padding:18px 18px;font-size:13px;color:var(--text-muted); }
   .empty-state-sm i { font-size:18px; }
-
   .actions-cell { display:flex;align-items:center;justify-content:flex-end;gap:4px; }
-  .action-btn {
-    display:inline-flex;align-items:center;justify-content:center;
-    width:28px;height:28px;border-radius:var(--radius-sm);
-    border:1px solid var(--border);background:transparent;
-    color:var(--text-muted);font-size:13px;cursor:pointer;
-    transition:background .12s,color .12s,border-color .12s;text-decoration:none;
-  }
+  .action-btn { display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:13px;cursor:pointer;transition:background .12s,color .12s,border-color .12s;text-decoration:none; }
   .action-btn:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
   .action-btn--danger { color:#dc2626;border-color:rgba(239,68,68,.2); }
   .action-btn--danger:hover { background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3); }
-
   .info-row { display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-size:13px; }
   .info-label { color:var(--text-muted);font-size:12px;flex-shrink:0; }
   .info-val { color:var(--text-primary);font-weight:500;text-align:right; }
-
   .pill-success { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(34,197,94,.14);color:#15803d; }
   .pill-neutral { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(0,0,0,.06);color:var(--text-secondary); }
   .pill-info    { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(56,189,248,.14);color:#0284c7; }
-
   .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s,transform .12s;text-decoration:none; }
   .btn-primary:hover { opacity:.88;color:#fff; }
   .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s,border-color .12s,color .12s;text-decoration:none; }
@@ -547,7 +769,6 @@
   .btn-warning:hover { background:rgba(245,158,11,.20); }
   .btn-danger { background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.22);color:#dc2626;font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
   .btn-danger:hover { background:rgba(239,68,68,.18); }
-
   .confirm-panel { position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s ease; }
   .confirm-panel[style*="display:none"] { display:none !important; }
   .confirm-panel__inner { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;max-width:420px;width:100%;display:flex;flex-direction:column;gap:14px;box-shadow:0 8px 32px rgba(0,0,0,.14);animation:fadeIn .2s ease; }
@@ -556,7 +777,6 @@
   .confirm-panel__body { font-size:13px;color:var(--text-secondary); }
   .confirm-panel__actions { display:flex;gap:10px;justify-content:flex-end; }
   .confirm-panel__actions form { margin:0; }
-
   .pagination-bar { display:flex;align-items:center;gap:8px;justify-content:center;padding:12px 18px;border-top:1px solid var(--border); }
   .page-btn { display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-surface);color:var(--text-secondary);font-size:15px;text-decoration:none;transition:background .12s; }
   .page-btn:hover { background:var(--bg-hover); }
@@ -568,43 +788,49 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-  /* Mortalité delete confirm */
-  const mortPanel   = document.getElementById('confirm-mort-panel');
-  const mortBody    = document.getElementById('confirm-mort-body');
-  const mortForm    = document.getElementById('confirm-mort-form');
-  const mortCancel  = document.getElementById('confirm-mort-cancel');
-
-  document.querySelectorAll('[data-delete-mort]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      const pk    = btn.dataset.deleteMort;
-      const date  = btn.dataset.date;
-      const n     = btn.dataset.nombre;
-      mortBody.textContent = date + ' — ' + n + ' mort(s). Cette action est irréversible.';
-      mortForm.action = '/elevage/mortalites/' + pk + '/supprimer/';
-      mortPanel.style.display = '';
+  function makeDeletePanel(triggerAttr, panelId, bodyId, formId, cancelId, urlFn, bodyFn) {
+    const panel  = document.getElementById(panelId);
+    const body   = document.getElementById(bodyId);
+    const form   = document.getElementById(formId);
+    const cancel = document.getElementById(cancelId);
+    document.querySelectorAll('[' + triggerAttr + ']').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        body.textContent = bodyFn(btn);
+        form.action = urlFn(btn);
+        panel.style.display = '';
+      });
     });
-  });
-  mortCancel.addEventListener('click', function () { mortPanel.style.display = 'none'; });
-  mortPanel.addEventListener('click', function (e) { if (e.target === mortPanel) mortPanel.style.display = 'none'; });
+    cancel.addEventListener('click', function () { panel.style.display = 'none'; });
+    panel.addEventListener('click', function (e) { if (e.target === panel) panel.style.display = 'none'; });
+  }
 
-  /* Consommation delete confirm */
-  const consoPanel  = document.getElementById('confirm-conso-panel');
-  const consoBody   = document.getElementById('confirm-conso-body');
-  const consoForm   = document.getElementById('confirm-conso-form');
-  const consoCancel = document.getElementById('confirm-conso-cancel');
+  makeDeletePanel(
+    'data-delete-mort', 'confirm-mort-panel', 'confirm-mort-body',
+    'confirm-mort-form', 'confirm-mort-cancel',
+    function (btn) { return '/elevage/mortalites/' + btn.dataset.deleteMort + '/supprimer/'; },
+    function (btn) { return btn.dataset.date + ' — ' + btn.dataset.nombre + ' نافق. هذا الإجراء لا رجعة فيه.'; }
+  );
 
-  document.querySelectorAll('[data-delete-conso]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      const pk      = btn.dataset.deleteConso;
-      const date    = btn.dataset.date;
-      const intrant = btn.dataset.intrant;
-      consoBody.textContent = date + ' — ' + intrant + '. Le stock sera restauré.';
-      consoForm.action = '/elevage/consommations/' + pk + '/supprimer/';
-      consoPanel.style.display = '';
-    });
-  });
-  consoCancel.addEventListener('click', function () { consoPanel.style.display = 'none'; });
-  consoPanel.addEventListener('click', function (e) { if (e.target === consoPanel) consoPanel.style.display = 'none'; });
+  makeDeletePanel(
+    'data-delete-conso', 'confirm-conso-panel', 'confirm-conso-body',
+    'confirm-conso-form', 'confirm-conso-cancel',
+    function (btn) { return '/elevage/consommations/' + btn.dataset.deleteConso + '/supprimer/'; },
+    function (btn) { return btn.dataset.date + ' — ' + btn.dataset.intrant + '. سيتم استعادة المخزون.'; }
+  );
+
+  makeDeletePanel(
+    'data-delete-pesee', 'confirm-pesee-panel', 'confirm-pesee-body',
+    'confirm-pesee-form', 'confirm-pesee-cancel',
+    function (btn) { return '/elevage/pesees/' + btn.dataset.deletePesee + '/supprimer/'; },
+    function (btn) { return 'قياس الوزن بتاريخ ' + btn.dataset.date + '. هذا الإجراء لا رجعة فيه.'; }
+  );
+
+  makeDeletePanel(
+    'data-delete-recolte', 'confirm-recolte-panel', 'confirm-recolte-body',
+    'confirm-recolte-form', 'confirm-recolte-cancel',
+    function (btn) { return '/elevage/recoltes-oeufs/' + btn.dataset.deleteRecolte + '/supprimer/'; },
+    function (btn) { return btn.dataset.date + ' — ' + btn.dataset.nombre + ' بيضة. سيتم تصحيح المخزون.'; }
+  );
 
 });
 </script>

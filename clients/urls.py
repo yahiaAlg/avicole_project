@@ -156,4 +156,67 @@ urlpatterns = [
         views.client_solde_json,
         name="client_solde_json",
     ),
+    # ── AbonnementClient ─────────────────────────────────────────────────
+    path(
+        "abonnements/",
+        views.abonnement_list,
+        name="abonnement_list",
+    ),
+    path(
+        "abonnements/creer/",
+        views.abonnement_create,
+        name="abonnement_create",
+    ),
+    path(
+        "clients/<int:client_pk>/abonnements/creer/",
+        views.abonnement_create,
+        name="abonnement_create_for_client",
+    ),
+    path(
+        "abonnements/<int:pk>/",
+        views.abonnement_detail,
+        name="abonnement_detail",
+    ),
+    path(
+        "abonnements/<int:pk>/modifier/",
+        views.abonnement_edit,
+        name="abonnement_edit",
+    ),
+    path(
+        "abonnements/<int:pk>/toggle-statut/",
+        views.abonnement_toggle_statut,
+        name="abonnement_toggle_statut",
+    ),
+    # ── LivraisonPartielle ───────────────────────────────────────────────
+    path(
+        "abonnements/<int:abonnement_pk>/livraisons/creer/",
+        views.livraison_partielle_create,
+        name="livraison_partielle_create",
+    ),
+    path(
+        "livraisons/<int:pk>/supprimer/",
+        views.livraison_partielle_delete,
+        name="livraison_partielle_delete",
+    ),
+    # ── VoyageLivraison ──────────────────────────────────────────────────
+    path(
+        "voyages/",
+        views.voyage_list,
+        name="voyage_list",
+    ),
+    path(
+        "voyages/creer/",
+        views.voyage_create,
+        name="voyage_create",
+    ),
+    path(
+        "voyages/<int:pk>/",
+        views.voyage_detail,
+        name="voyage_detail",
+    ),
+    path(
+        "voyages/<int:pk>/modifier/",
+        views.voyage_edit,
+        name="voyage_edit",
+    ),
 ]

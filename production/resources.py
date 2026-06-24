@@ -4,11 +4,15 @@ production/resources.py
 Import-export resources for the production module.
 
 Import policy:
-  ProduitFini       — import supported (catalogue maintenance).
-  ProductionRecord  — import limited to BROUILLON records only.
-                       Importing a VALIDE record would bypass the post_save
-                       signal that writes StockProduitFini entries.
-  ProductionLigne   — import supported for BROUILLON parent records only.
+  ProduitFini          — import supported (catalogue maintenance).
+  ProductionRecord     — import limited to BROUILLON records only.
+                          Importing a VALIDE record would bypass the post_save
+                          signal that writes StockProduitFini entries.
+  ProductionLigne      — import supported for BROUILLON parent records only.
+  CollecteFertilisant  — import supported (raw manure collection log).
+  TraitementFertilisant — import limited to BROUILLON batches only, same
+                          rationale as ProductionRecord: a VALIDE batch has
+                          already credited StockProduitFini via signal.
 """
 
 from import_export import resources, fields
@@ -16,8 +20,15 @@ from import_export.widgets import ForeignKeyWidget, BooleanWidget
 
 from django.contrib.auth.models import User
 
-from production.models import ProduitFini, ProductionRecord, ProductionLigne
+from production.models import (
+    ProduitFini,
+    ProductionRecord,
+    ProductionLigne,
+    CollecteFertilisant,
+    TraitementFertilisant,
+)
 from elevage.models import LotElevage
+from intrants.models import Batiment
 
 # ---------------------------------------------------------------------------
 # ProduitFini
@@ -212,3 +223,171 @@ class ProductionLigneResource(resources.ModelResource):
                     f"Ligne {row_number}: plusieurs produits finis partagent la désignation "
                     f"'{designation}'. Fournissez 'id' pour lever l'ambiguïté."
                 )
+
+
+# ---------------------------------------------------------------------------
+# CollecteFertilisant
+# ---------------------------------------------------------------------------
+
+
+class CollecteFertilisantResource(resources.ModelResource):
+    """
+    Import / export of raw manure/fertilizer collection events.
+
+    `batiment` is resolved by name. `traitement` is resolved by id — leave
+    blank for raw collections not yet assigned to a treatment batch.
+    """
+
+    batiment = fields.Field(
+        column_name="batiment_nom",
+        attribute="batiment",
+        widget=ForeignKeyWidget(Batiment, field="nom"),
+    )
+    traitement = fields.Field(
+        column_name="traitement_id",
+        attribute="traitement",
+        widget=ForeignKeyWidget(TraitementFertilisant, field="id"),
+    )
+    created_by = fields.Field(
+        column_name="created_by_username",
+        attribute="created_by",
+        widget=ForeignKeyWidget(User, field="username"),
+        readonly=True,
+    )
+    est_traitee = fields.Field(
+        column_name="est_traitee",
+        attribute="est_traitee",
+        widget=BooleanWidget(),
+        readonly=True,
+    )
+
+    class Meta:
+        model = CollecteFertilisant
+        skip_unchanged = True
+        report_skipped = False
+        import_id_fields = ["id"]
+        fields = [
+            "id",
+            "batiment",
+            "date_collecte",
+            "quantite_brute_kg",
+            "traitement",
+            "est_traitee",
+            "notes",
+            "created_by",
+            "created_at",
+        ]
+        export_order = fields
+
+    def before_import_row(self, row, row_number=None, **kwargs):
+        """
+        Reject reassigning a collecte already included in a VALIDE
+        traitement (mirrors CollecteFertilisant.clean()).
+        """
+        collecte_id = row.get("id", "").strip() if row.get("id") else ""
+        traitement_id = (
+            row.get("traitement_id", "").strip() if row.get("traitement_id") else ""
+        )
+        if collecte_id and traitement_id:
+            try:
+                collecte = CollecteFertilisant.objects.get(pk=int(collecte_id))
+                if (
+                    collecte.traitement_id
+                    and str(collecte.traitement_id) != traitement_id
+                    and collecte.traitement.statut
+                    == TraitementFertilisant.STATUT_VALIDE
+                ):
+                    raise ValueError(
+                        f"Ligne {row_number}: impossible de réaffecter la collecte "
+                        f"id={collecte_id} — déjà incluse dans un traitement validé."
+                    )
+            except CollecteFertilisant.DoesNotExist:
+                pass
+
+
+# ---------------------------------------------------------------------------
+# TraitementFertilisant
+# ---------------------------------------------------------------------------
+
+
+class TraitementFertilisantResource(resources.ModelResource):
+    """
+    Import / export of fertilizer treatment batches.
+
+    Import is blocked for VALIDE batches (stock signal has already fired;
+    re-importing would double-count finished-goods stock) — same rationale
+    as ProductionRecordResource.
+
+    `produit_fini` is resolved by designation; only products of type
+    fertilisant are valid (enforced at model level via limit_choices_to).
+    """
+
+    produit_fini = fields.Field(
+        column_name="produit_fini_designation",
+        attribute="produit_fini",
+        widget=ForeignKeyWidget(ProduitFini, field="designation"),
+    )
+    created_by = fields.Field(
+        column_name="created_by_username",
+        attribute="created_by",
+        widget=ForeignKeyWidget(User, field="username"),
+        readonly=True,
+    )
+
+    # Computed properties — export only
+    quantite_brute_totale_kg = fields.Field(
+        column_name="quantite_brute_totale_kg",
+        attribute="quantite_brute_totale_kg",
+        readonly=True,
+    )
+    rendement_pourcentage = fields.Field(
+        column_name="rendement_pourcentage",
+        attribute="rendement_pourcentage",
+        readonly=True,
+    )
+
+    class Meta:
+        model = TraitementFertilisant
+        skip_unchanged = True
+        report_skipped = False
+        import_id_fields = ["id"]
+        fields = [
+            "id",
+            "date_traitement",
+            "methode",
+            "produit_fini",
+            "quantite_obtenue_kg",
+            "cout_unitaire_estime",
+            "quantite_brute_totale_kg",
+            "rendement_pourcentage",
+            "statut",
+            "notes",
+            "created_by",
+            "created_at",
+            "updated_at",
+        ]
+        export_order = fields
+
+    def before_import_row(self, row, row_number=None, **kwargs):
+        """
+        Block import/modification of VALIDE batches to protect stock
+        integrity (mirrors ProductionRecordResource).
+        """
+        record_id = row.get("id", "").strip() if row.get("id") else ""
+        if record_id:
+            try:
+                tf = TraitementFertilisant.objects.get(pk=int(record_id))
+                if tf.statut == TraitementFertilisant.STATUT_VALIDE:
+                    raise ValueError(
+                        f"Ligne {row_number}: le TraitementFertilisant id={record_id} est "
+                        "déjà validé. Les enregistrements validés ne peuvent pas être "
+                        "modifiés via import (intégrité du stock produits finis)."
+                    )
+            except TraitementFertilisant.DoesNotExist:
+                pass
+
+        if row.get("statut", "").strip() == TraitementFertilisant.STATUT_VALIDE:
+            raise ValueError(
+                f"Ligne {row_number}: impossible de définir statut='valide' via import. "
+                "Utilisez l'action 'Valider' dans l'interface web."
+            )

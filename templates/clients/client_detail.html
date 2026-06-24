@@ -260,7 +260,7 @@
       </div>
 
       <!-- Danger zone -->
-      {% if request.user.userprofile.is_admin %}
+      {% if request.user.is_superuser or request.user.userprofile.role == 'admin' %}
       <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:16px 18px;">
         <div style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;margin-bottom:4px;font-size:13px;">
           <i class="bx bxs-error me-1"></i> منطقة حساسة

@@ -559,7 +559,9 @@ def rapport_repartition_reglements(request):
                 "values": [float(m["total"]) for m in mode_totals_display],
             },
             "suppliers": {
-                "labels": [s["reglement__fournisseur__nom"] for s in supplier_totals_list],
+                "labels": [
+                    s["reglement__fournisseur__nom"] for s in supplier_totals_list
+                ],
                 "values": [float(s["total_alloue"]) for s in supplier_totals_list],
             },
         },
@@ -887,11 +889,12 @@ def rapport_cash_flow(request):
     """
     Period-based cash-flow statement (spec §20.6):
       Inflows  = PaiementClient received
-      Outflows = ReglementFournisseur + Depenses
+      Outflows = ReglementFournisseur + Depenses + RetraitAssocie (BR-ASSOC-01)
+               + payroll cash paid: AcompteEmploye + BulletinPaie statut=paye (BR-RH-04)
       Net      = Inflows − Outflows
 
     Filters:  ?date_debut=  ?date_fin=
-    Export:   ?export=csv (three separate sections)
+    Export:   ?export=csv (six separate sections)
 
     Access: FINANCIAL_ROLES
     """
@@ -950,6 +953,42 @@ def rapport_cash_flow(request):
                 ]
             )
 
+        # Outflows — stakeholder withdrawals (BR-ASSOC-01)
+        for ret in summary["detail_retraits"]:
+            rows.append(
+                [
+                    "Retrait associé",
+                    f"{ret.associe.nom}" + (f" — {ret.motif}" if ret.motif else ""),
+                    ret.date,
+                    ret.montant,
+                    ret.get_mode_paiement_display(),
+                ]
+            )
+
+        # Outflows — salary advances (BR-RH-04)
+        for ac in summary["detail_acomptes"]:
+            rows.append(
+                [
+                    "Acompte sur salaire",
+                    ac.employe.nom_complet,
+                    ac.date,
+                    ac.montant,
+                    ac.get_mode_paiement_display(),
+                ]
+            )
+
+        # Outflows — payslips actually paid (BR-RH-04)
+        for b in summary["detail_bulletins_payes"]:
+            rows.append(
+                [
+                    "Salaire payé",
+                    f"{b.employe.nom_complet} ({b.periode_label})",
+                    b.date_paiement,
+                    b.montant_net,
+                    b.get_mode_paiement_display(),
+                ]
+            )
+
         return _csv_response("resume_tresorerie", headers, rows)
 
     chart_json = json.dumps(
@@ -957,6 +996,11 @@ def rapport_cash_flow(request):
             "encaissements": float(summary["total_encaissements"]),
             "reglements": float(summary["total_reglements_fournisseurs"]),
             "depenses": float(summary["total_depenses"]),
+            "retraits_associes": float(summary["total_retraits_associes"]),
+            "acomptes_employes": float(summary["total_acomptes_employes"]),
+            "salaires_payes": float(summary["total_salaires_payes"]),
+            "paie": float(summary["total_paie"]),
+            "sorties": float(summary["total_sorties"]),
             "solde": float(summary["solde_net"]),
         }
     )
@@ -1767,13 +1811,14 @@ def kpi_summary_json(request):
       production_recent                 — [{lot, nb_oiseaux, poids_kg}]
       stock_status                      — {normal, alerte, valeur_totale}
       bl_clients                        — {brouillon, livre, facture, litige, total}
-      cash_flow                         — {encaissements, reglements, depenses, sorties, solde_net}
+      cash_flow                         — {encaissements, reglements, depenses,
+                                            retraits_associes, paie, sorties, solde_net}
       date_debut                        — str ISO
       date_fin                          — str ISO
     """
-    from achats.models import FactureFournisseur, ReglementFournisseur
-    from clients.models import BLClient, FactureClient, PaiementClient
-    from depenses.models import Depense
+    from achats.models import FactureFournisseur
+    from clients.models import BLClient, FactureClient
+    from depenses.utils import get_cash_flow_summary
     from elevage.models import LotElevage
     from production.models import ProductionRecord
     from stock.models import StockIntrant
@@ -1960,31 +2005,15 @@ def kpi_summary_json(request):
     }
 
     # ── Cash flow summary (for period) ────────────────────────────────────
-    encaissements = float(
-        PaiementClient.objects.filter(
-            date_paiement__gte=date_debut, date_paiement__lte=date_fin
-        ).aggregate(t=Sum("montant"))["t"]
-        or 0
-    )
-    reglements_total = float(
-        ReglementFournisseur.objects.filter(
-            date_reglement__gte=date_debut, date_reglement__lte=date_fin
-        ).aggregate(t=Sum("montant"))["t"]
-        or 0
-    )
-    depenses_total = float(
-        Depense.objects.filter(date__gte=date_debut, date__lte=date_fin).aggregate(
-            t=Sum("montant")
-        )["t"]
-        or 0
-    )
-    sorties = reglements_total + depenses_total
+    cf = get_cash_flow_summary(date_debut=date_debut, date_fin=date_fin)
     cash_flow = {
-        "encaissements": round(encaissements, 2),
-        "reglements": round(reglements_total, 2),
-        "depenses": round(depenses_total, 2),
-        "sorties": round(sorties, 2),
-        "solde_net": round(encaissements - sorties, 2),
+        "encaissements": round(float(cf["total_encaissements"]), 2),
+        "reglements": round(float(cf["total_reglements_fournisseurs"]), 2),
+        "depenses": round(float(cf["total_depenses"]), 2),
+        "retraits_associes": round(float(cf["total_retraits_associes"]), 2),
+        "paie": round(float(cf["total_paie"]), 2),
+        "sorties": round(float(cf["total_sorties"]), 2),
+        "solde_net": round(float(cf["solde_net"]), 2),
     }
 
     return JsonResponse(

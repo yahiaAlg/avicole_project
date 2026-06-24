@@ -16,6 +16,9 @@ from clients.models import (
     FactureClient,
     PaiementClient,
     PaiementClientAllocation,
+    AbonnementClient,
+    VoyageLivraison,
+    LivraisonPartielle,
 )
 
 # ---------------------------------------------------------------------------
@@ -483,3 +486,170 @@ class PaiementClientAllocationAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+
+# ---------------------------------------------------------------------------
+# Abonnement / livraisons partielles (recurring deliveries)
+# ---------------------------------------------------------------------------
+
+
+class LivraisonPartielleInline(admin.TabularInline):
+    """Show deliveries on an AbonnementClient (read-only — created via own admin)."""
+
+    model = LivraisonPartielle
+    extra = 0
+    fields = ("date", "voyage", "quantite_livree", "notes")
+    readonly_fields = ("date", "voyage", "quantite_livree", "notes")
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AbonnementClient)
+class AbonnementClientAdmin(admin.ModelAdmin):
+    list_display = (
+        "client",
+        "produit_fini",
+        "frequence",
+        "date_debut",
+        "date_fin",
+        "quantite_totale_prevue",
+        "quantite_livree_cumulee_dzd",
+        "solde_restant_dzd",
+        "statut_badge",
+    )
+    list_filter = ("statut", "frequence", "produit_fini")
+    search_fields = ("client__nom", "produit_fini__designation")
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "quantite_livree_cumulee_dzd",
+        "solde_restant_dzd",
+    )
+    inlines = (LivraisonPartielleInline,)
+    autocomplete_fields = ("client", "produit_fini")
+
+    fieldsets = (
+        (
+            "Abonnement",
+            {
+                "fields": (
+                    "client",
+                    "produit_fini",
+                    "date_debut",
+                    "date_fin",
+                    "frequence",
+                    "quantite_totale_prevue",
+                    "prix_unitaire",
+                    "statut",
+                ),
+            },
+        ),
+        (
+            "Suivi (calculé)",
+            {
+                "fields": ("quantite_livree_cumulee_dzd", "solde_restant_dzd"),
+            },
+        ),
+        ("Notes", {"fields": ("notes",), "classes": ("collapse",)}),
+        (
+            "Horodatage",
+            {
+                "fields": ("created_by", "created_at", "updated_at"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    @admin.display(description="Statut")
+    def statut_badge(self, obj):
+        colours = {
+            AbonnementClient.STATUT_ACTIF: "#2e7d32",
+            AbonnementClient.STATUT_TERMINE: "#888",
+            AbonnementClient.STATUT_SUSPENDU: "#e65100",
+        }
+        colour = colours.get(obj.statut, "#333")
+        return format_html(
+            '<span style="color:{};font-weight:bold">{}</span>',
+            colour,
+            obj.get_statut_display(),
+        )
+
+    @admin.display(description="Livré cumulé")
+    def quantite_livree_cumulee_dzd(self, obj):
+        return obj.quantite_livree_cumulee
+
+    @admin.display(description="Solde restant")
+    def solde_restant_dzd(self, obj):
+        val = obj.solde_restant
+        return "بدون سقف" if val is None else val
+
+
+@admin.register(VoyageLivraison)
+class VoyageLivraisonAdmin(admin.ModelAdmin):
+    list_display = (
+        "date_voyage",
+        "chauffeur",
+        "vehicule",
+        "quantite_totale_livree_dzd",
+    )
+    list_filter = ("date_voyage",)
+    search_fields = ("chauffeur", "vehicule")
+    date_hierarchy = "date_voyage"
+    readonly_fields = ("created_at", "quantite_totale_livree_dzd")
+
+    fieldsets = (
+        (None, {"fields": ("date_voyage", "chauffeur", "vehicule")}),
+        ("Indicateur (calculé)", {"fields": ("quantite_totale_livree_dzd",)}),
+        ("Notes", {"fields": ("notes",), "classes": ("collapse",)}),
+        (
+            "Horodatage",
+            {
+                "fields": ("created_by", "created_at"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    @admin.display(description="Quantité totale livrée")
+    def quantite_totale_livree_dzd(self, obj):
+        return obj.quantite_totale_livree
+
+
+@admin.register(LivraisonPartielle)
+class LivraisonPartielleAdmin(admin.ModelAdmin):
+    list_display = ("abonnement", "voyage", "date", "quantite_livree")
+    list_filter = ("voyage", "date")
+    search_fields = ("abonnement__client__nom", "abonnement__produit_fini__designation")
+    date_hierarchy = "date"
+    autocomplete_fields = ("abonnement", "voyage")
+    readonly_fields = ("created_at",)
+
+    fieldsets = (
+        (None, {"fields": ("abonnement", "voyage", "date", "quantite_livree")}),
+        ("Notes", {"fields": ("notes",), "classes": ("collapse",)}),
+        (
+            "Horodatage",
+            {
+                "fields": ("created_by", "created_at"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    def get_readonly_fields(self, request, obj=None):
+        # Immutable after creation — the documented way to reverse a
+        # delivery is to delete the record (signal reverses the stock
+        # effect), not to edit it (see clients/models.py LivraisonPartielle).
+        if obj:
+            return (
+                "abonnement",
+                "voyage",
+                "date",
+                "quantite_livree",
+                "notes",
+                "created_by",
+                "created_at",
+            )
+        return self.readonly_fields

@@ -11,7 +11,15 @@ from django.utils import timezone
 
 from import_export.admin import ImportExportModelAdmin
 
-from elevage.models import LotElevage, Mortalite, Consommation
+from elevage.models import (
+    ParametrageElevage,
+    LotElevage,
+    Mortalite,
+    Consommation,
+    TransfertLot,
+    PeseeEchantillon,
+    RecolteOeufs,
+)
 from elevage.resources import (
     LotElevageResource,
     MortaliteResource,
@@ -232,3 +240,194 @@ class ConsommationAdmin(ImportExportModelAdmin):
             },
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# ParametrageElevage — singleton config row
+# ---------------------------------------------------------------------------
+
+
+@admin.register(ParametrageElevage)
+class ParametrageElevageAdmin(admin.ModelAdmin):
+    list_display = (
+        "age_transfert_poussiniere_jours",
+        "age_maturite_vente_jours",
+    )
+
+    def has_add_permission(self, request):
+        # Singleton row (pk=1) — created on first access via get_solo().
+        return not ParametrageElevage.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+# ---------------------------------------------------------------------------
+# TransfertLot
+# ---------------------------------------------------------------------------
+
+
+@admin.register(TransfertLot)
+class TransfertLotAdmin(admin.ModelAdmin):
+    list_display = (
+        "lot",
+        "batiment_origine",
+        "batiment_destination",
+        "date_transfert",
+        "age_jours_transfert",
+        "effectif_transfere",
+        "motif",
+    )
+    list_filter = ("batiment_origine", "batiment_destination", "date_transfert")
+    search_fields = ("lot__designation", "motif")
+    date_hierarchy = "date_transfert"
+    autocomplete_fields = ("lot", "batiment_origine", "batiment_destination")
+    readonly_fields = ("created_at",)
+
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "lot",
+                    "batiment_origine",
+                    "batiment_destination",
+                    "date_transfert",
+                    "age_jours_transfert",
+                    "effectif_transfere",
+                    "motif",
+                ),
+            },
+        ),
+        ("Notes", {"fields": ("notes",), "classes": ("collapse",)}),
+        (
+            "Horodatage",
+            {
+                "fields": ("created_by", "created_at"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# PeseeEchantillon
+# ---------------------------------------------------------------------------
+
+
+@admin.register(PeseeEchantillon)
+class PeseeEchantillonAdmin(admin.ModelAdmin):
+    list_display = (
+        "lot",
+        "date",
+        "type_pesee",
+        "nombre_sujets",
+        "poids_total_g",
+        "poids_moyen_g_display",
+        "qualite_display",
+    )
+    list_filter = ("type_pesee", "lot", "date")
+    search_fields = ("lot__designation",)
+    date_hierarchy = "date"
+    autocomplete_fields = ("lot",)
+    readonly_fields = ("created_at", "poids_moyen_g_display", "qualite_display")
+
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "lot",
+                    "date",
+                    "type_pesee",
+                    "nombre_sujets",
+                    "poids_total_g",
+                    "poids_moyen_g_display",
+                    "qualite_display",
+                ),
+            },
+        ),
+        ("Notes", {"fields": ("notes",), "classes": ("collapse",)}),
+        (
+            "Horodatage",
+            {
+                "fields": ("created_by", "created_at"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    @admin.display(description="الوزن المتوسط (غ)")
+    def poids_moyen_g_display(self, obj):
+        return obj.poids_moyen_g
+
+    @admin.display(description="الجودة")
+    def qualite_display(self, obj):
+        qualite = obj.qualite
+        return qualite.libelle if qualite else "—"
+
+
+# ---------------------------------------------------------------------------
+# RecolteOeufs
+# ---------------------------------------------------------------------------
+
+
+@admin.register(RecolteOeufs)
+class RecolteOeufsAdmin(admin.ModelAdmin):
+    list_display = (
+        "lot",
+        "date",
+        "nombre_oeufs",
+        "nombre_plateaux_display",
+        "oeufs_hors_plateau_display",
+        "pesee",
+        "qualite_display",
+    )
+    list_filter = ("lot", "date")
+    search_fields = ("lot__designation",)
+    date_hierarchy = "date"
+    autocomplete_fields = ("lot", "pesee")
+    readonly_fields = (
+        "created_at",
+        "nombre_plateaux_display",
+        "oeufs_hors_plateau_display",
+        "qualite_display",
+    )
+
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "lot",
+                    "date",
+                    "nombre_oeufs",
+                    "nombre_plateaux_display",
+                    "oeufs_hors_plateau_display",
+                    "pesee",
+                    "qualite_display",
+                ),
+            },
+        ),
+        ("Notes", {"fields": ("notes",), "classes": ("collapse",)}),
+        (
+            "Horodatage",
+            {
+                "fields": ("created_by", "created_at"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    @admin.display(description="عدد الصواني")
+    def nombre_plateaux_display(self, obj):
+        return obj.nombre_plateaux
+
+    @admin.display(description="بيض خارج الصواني")
+    def oeufs_hors_plateau_display(self, obj):
+        return obj.oeufs_hors_plateau
+
+    @admin.display(description="الجودة")
+    def qualite_display(self, obj):
+        qualite = obj.qualite
+        return qualite.libelle if qualite else "—"

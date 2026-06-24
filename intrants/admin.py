@@ -13,6 +13,7 @@ from import_export.admin import ImportExportModelAdmin
 from intrants.models import (
     CategorieIntrant,
     TypeFournisseur,
+    CategorieQualite,
     Fournisseur,
     Batiment,
     Intrant,
@@ -58,17 +59,58 @@ class TypeFournisseurAdmin(ImportExportModelAdmin):
     ordering = ("ordre", "libelle")
 
 
+@admin.register(CategorieQualite)
+class CategorieQualiteAdmin(admin.ModelAdmin):
+    list_display = (
+        "libelle",
+        "code",
+        "type_pesee",
+        "poids_min",
+        "poids_max",
+        "ordre",
+        "actif",
+    )
+    list_filter = ("type_pesee", "actif")
+    search_fields = ("code", "libelle")
+    list_editable = ("ordre", "actif")
+    ordering = ("type_pesee", "ordre")
+
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "type_pesee",
+                    "code",
+                    "libelle",
+                    "poids_min",
+                    "poids_max",
+                    "ordre",
+                    "actif",
+                ),
+            },
+        ),
+    )
+
+
 @admin.register(Batiment)
 class BatimentAdmin(ImportExportModelAdmin):
     resource_class = BatimentResource
 
-    list_display = ("nom", "capacite", "actif", "description_courte")
-    list_filter = ("actif",)
+    list_display = (
+        "nom",
+        "type_batiment",
+        "categorie_stockage",
+        "capacite",
+        "actif",
+        "description_courte",
+    )
+    list_filter = ("type_batiment", "categorie_stockage", "actif")
     search_fields = ("nom",)
     list_editable = ("actif",)
 
     fieldsets = (
-        (None, {"fields": ("nom", "capacite", "actif")}),
+        (None, {"fields": ("nom", "type_batiment", "categorie_stockage", "capacite", "actif")}),
         ("Description", {"fields": ("description",), "classes": ("collapse",)}),
     )
 
@@ -166,13 +208,14 @@ class IntrantAdmin(ImportExportModelAdmin):
     list_display = (
         "designation",
         "categorie",
+        "stade",
         "unite_mesure",
         "quantite_en_stock",
         "seuil_alerte",
         "statut_alerte",
         "actif",
     )
-    list_filter = ("categorie", "unite_mesure", "actif")
+    list_filter = ("categorie", "stade", "unite_mesure", "actif")
     search_fields = ("designation", "notes")
     filter_horizontal = ("fournisseurs",)
     readonly_fields = ("quantite_en_stock", "statut_alerte", "created_at", "updated_at")
@@ -181,7 +224,7 @@ class IntrantAdmin(ImportExportModelAdmin):
         (
             "Catalogue",
             {
-                "fields": ("designation", "categorie", "unite_mesure", "actif"),
+                "fields": ("designation", "categorie", "stade", "unite_mesure", "actif"),
             },
         ),
         (

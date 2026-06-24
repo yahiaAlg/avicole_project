@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}رحلة {{ voyage.date_voyage|date:"d/m/Y" }} — تربية الدواجن{% endblock %}
+{% block nav_clients %}active{% endblock %}
+
+{% block page_title %}رحلة التوصيل — {{ voyage.date_voyage|date:"d/m/Y" }}{% endblock %}
+{% block page_sub_text %}{% if voyage.chauffeur %}{{ voyage.chauffeur }}{% endif %}{% if voyage.vehicule %} · {{ voyage.vehicule }}{% endif %}{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'clients:voyage_list' %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> الرحلات</a>
+  {% if not request.user.userprofile.role == 'viewer' %}
+  <a href="{% url 'clients:voyage_edit' voyage.pk %}" class="btn-ghost"><i class="bx bxs-pencil"></i> تعديل</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+  <div class="detail-grid">
+
+    <!-- Main: info + deliveries -->
+    <div class="detail-main">
+
+      <!-- Trip info -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bxs-truck"></i> معلومات الرحلة</div>
+        </div>
+        <div class="card-body-grid">
+          <div class="info-row">
+            <span class="info-label">التاريخ</span>
+            <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ voyage.date_voyage|date:"d/m/Y" }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">السائق</span>
+            <span class="info-value">{{ voyage.chauffeur|default:"—" }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">المركبة</span>
+            <span class="info-value">{{ voyage.vehicule|default:"—" }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">إجمالي المُسلَّم</span>
+            <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">{{ voyage.quantite_totale_livree|floatformat:3 }}</span>
+          </div>
+          {% if voyage.notes %}
+          <div class="info-row info-row--full">
+            <span class="info-label">ملاحظات</span>
+            <span class="info-value" style="color:var(--text-muted);font-size:12.5px;">{{ voyage.notes }}</span>
+          </div>
+          {% endif %}
+          <div class="info-row info-row--full">
+            <span class="info-label">أنشئت بواسطة</span>
+            <span class="info-value" style="color:var(--text-muted);font-size:12px;">{{ voyage.created_by|default:"—" }} · {{ voyage.created_at|date:"d/m/Y H:i" }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Deliveries table -->
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bx-list-ul"></i> التسليمات في هذه الرحلة ({{ livraisons.count }})</div>
+        </div>
+        {% if livraisons %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>العميل</th>
+                <th>المنتج</th>
+                <th>الاشتراك</th>
+                <th style="text-align:left;">الكمية المسلَّمة</th>
+                <th>ملاحظات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for liv in livraisons %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td>
+                  <a href="{% url 'clients:client_detail' liv.abonnement.client.pk %}" style="font-weight:600;color:var(--text-primary);text-decoration:none;">{{ liv.abonnement.client.nom }}</a>
+                </td>
+                <td style="font-size:12.5px;color:var(--text-secondary);">{{ liv.abonnement.produit_fini.designation }}</td>
+                <td>
+                  <a href="{% url 'clients:abonnement_detail' liv.abonnement.pk %}" style="font-size:12px;color:var(--accent-text);text-decoration:none;">اشتراك #{{ liv.abonnement.pk }}</a>
+                </td>
+                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">
+                  {{ liv.quantite_livree|floatformat:3 }} {{ liv.abonnement.produit_fini.unite_mesure }}
+                </td>
+                <td style="font-size:12px;color:var(--text-muted);">{{ liv.notes|default:"—" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:36px 20px;color:var(--text-muted);">
+          <i class="bx bx-list-ul" style="font-size:28px;display:block;margin-bottom:10px;color:var(--border-strong);"></i>
+          <div style="font-size:13px;">لا توجد تسليمات مرتبطة بهذه الرحلة.</div>
+        </div>
+        {% endif %}
+      </div>
+
+    </div><!-- /detail-main -->
+
+    <!-- Sidebar -->
+    <div class="detail-side">
+      {% if not request.user.userprofile.role == 'viewer' %}
+      <div class="card">
+        <div class="card-header-row"><div class="section-eyebrow"><i class="bx bx-cog"></i> إجراءات</div></div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:8px;">
+          <a href="{% url 'clients:voyage_edit' voyage.pk %}" class="btn-ghost btn-full">
+            <i class="bx bxs-pencil"></i> تعديل الرحلة
+          </a>
+          <a href="{% url 'clients:abonnement_list' %}" class="btn-ghost btn-full">
+            <i class="bx bx-repeat"></i> الاشتراكات
+          </a>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .page-body { direction: rtl; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 260px; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
+  .detail-main { display: flex; flex-direction: column; }
+  .detail-side { display: flex; flex-direction: column; gap: 16px; }
+
+  .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .card-header-row { padding: 14px 18px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+  .card-body-grid { display: grid; grid-template-columns: 1fr 1fr; }
+  .info-row { display: flex; flex-direction: column; gap: 3px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+  .info-row--full { grid-column: 1 / -1; }
+  .info-row:nth-last-child(-n+2):not(.info-row--full) { border-bottom: none; }
+  .info-row--full:last-child { border-bottom: none; }
+  .info-label { font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; }
+  .info-value { font-size: 13.5px; color: var(--text-secondary); }
+
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th { padding: 10px 14px; font-size: 11px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: right; background: var(--bg-base); }
+  .data-table tbody td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); text-align: right; }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .table-row { animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i) * 35ms); }
+  .table-row:hover td { background: var(--bg-hover); }
+
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+  .btn-full { width:100%;justify-content:center; }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);} }
+</style>
+{% endblock %}

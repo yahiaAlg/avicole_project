@@ -210,11 +210,9 @@
                 <td style="font-size:12.5px;">{{ aj.quantite_avant|floatformat:2 }}</td>
                 <td style="font-size:12.5px;font-weight:600;color:var(--text-primary);">{{ aj.quantite_apres|floatformat:2 }}</td>
                 <td>
-                  {% with delta=aj.quantite_apres|add:"-999999" %}
                   <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;{% if aj.quantite_apres > aj.quantite_avant %}color:var(--accent-text);{% elif aj.quantite_apres < aj.quantite_avant %}color:#dc2626;{% else %}color:var(--text-muted);{% endif %}">
                     {% if aj.quantite_apres > aj.quantite_avant %}↑{% elif aj.quantite_apres < aj.quantite_avant %}↓{% else %}={% endif %}
                   </span>
-                  {% endwith %}
                 </td>
                 <td style="font-size:11.5px;color:var(--text-muted);">
                   {% if aj.effectue_par %}{{ aj.effectue_par.get_full_name|default:aj.effectue_par.username }}{% else %}—{% endif %}

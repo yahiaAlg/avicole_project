@@ -15,6 +15,10 @@ Registered signals:
          a. (BR-FAC-01) compute montant_ht from BL line totals, derive
             montant_tva and montant_ttc, initialise reste_a_payer.
          b. (BR-FAC-02 / BR-BLC-03) lock all included BLs to STATUT_FACTURE.
+  6. post_save  on LivraisonPartielle → on creation, decrease StockProduitFini
+                                      for the parent abonnement's product and
+                                      create a StockMouvement (sortie).
+  7. pre_delete on LivraisonPartielle → reverse the stock decrease.
 
 Root-cause fix (créances clients = 0 on dashboard):
   The view calls facture.save() then form.save_m2m().  The post_save signal
@@ -37,10 +41,10 @@ Business rules enforced here:
 import logging
 from decimal import Decimal, ROUND_HALF_UP
 
-from django.db.models.signals import post_save, pre_save, m2m_changed
+from django.db.models.signals import post_save, pre_save, m2m_changed, pre_delete
 from django.dispatch import receiver
 
-from clients.models import BLClient, FactureClient
+from clients.models import BLClient, FactureClient, LivraisonPartielle
 
 logger = logging.getLogger(__name__)
 
@@ -317,3 +321,110 @@ def facture_client_bls_changed(sender, instance, action, **kwargs):
             db_instance.pk,
             locked_count,
         )
+
+
+# ---------------------------------------------------------------------------
+# Signal 6/7 — LivraisonPartielle: stock sortie on creation, reversal on delete
+# ---------------------------------------------------------------------------
+
+
+@receiver(post_save, sender=LivraisonPartielle)
+def livraison_partielle_post_save(sender, instance, created, **kwargs):
+    """
+    Decrease StockProduitFini and log a StockMouvement (SORTIE, source=
+    LIVRAISON_ABONNEMENT) when a LivraisonPartielle is created. Records are
+    immutable after creation (mirrors PaiementClientAllocation) — only the
+    create path touches stock.
+    """
+    if not created:
+        return
+
+    from stock.models import StockProduitFini, StockMouvement
+
+    produit_fini = instance.abonnement.produit_fini
+
+    stock, _ = StockProduitFini.objects.get_or_create(
+        produit_fini=produit_fini,
+        defaults={
+            "quantite": Decimal("0"),
+            "cout_moyen_production": Decimal("0"),
+            "seuil_alerte": Decimal("0"),
+        },
+    )
+
+    quantite_avant = stock.quantite
+    stock.quantite = stock.quantite - instance.quantite_livree
+    stock.save(update_fields=["quantite", "derniere_mise_a_jour"])
+
+    if stock.quantite < 0:
+        logger.warning(
+            "Stock négatif après LivraisonPartielle: produit_fini pk=%s quantite=%s. "
+            "Vérifiez les entrées ou créez un ajustement.",
+            produit_fini.pk,
+            stock.quantite,
+        )
+
+    StockMouvement.objects.create(
+        produit_fini=produit_fini,
+        type_mouvement=StockMouvement.TYPE_SORTIE,
+        source=StockMouvement.SOURCE_LIVRAISON_ABONNEMENT,
+        quantite=instance.quantite_livree,
+        quantite_avant=quantite_avant,
+        quantite_apres=stock.quantite,
+        date_mouvement=instance.date,
+        reference_id=instance.pk,
+        reference_label=(
+            f"Livraison abonnement — {instance.abonnement.client.nom} ({instance.date})"
+        ),
+        created_by=instance.created_by,
+    )
+
+    logger.info(
+        "LivraisonPartielle pk=%s: -%s %s → %s (abonnement pk=%s).",
+        instance.pk,
+        instance.quantite_livree,
+        produit_fini.unite_mesure,
+        stock.quantite,
+        instance.abonnement_id,
+    )
+
+
+@receiver(pre_delete, sender=LivraisonPartielle)
+def livraison_partielle_pre_delete(sender, instance, **kwargs):
+    """Reverse the stock decrease when a LivraisonPartielle is deleted."""
+    from stock.models import StockProduitFini, StockMouvement
+
+    produit_fini = instance.abonnement.produit_fini
+
+    stock, _ = StockProduitFini.objects.get_or_create(
+        produit_fini=produit_fini,
+        defaults={
+            "quantite": Decimal("0"),
+            "cout_moyen_production": Decimal("0"),
+            "seuil_alerte": Decimal("0"),
+        },
+    )
+
+    quantite_avant = stock.quantite
+    stock.quantite = stock.quantite + instance.quantite_livree
+    stock.save(update_fields=["quantite", "derniere_mise_a_jour"])
+
+    StockMouvement.objects.create(
+        produit_fini=produit_fini,
+        type_mouvement=StockMouvement.TYPE_ENTREE,
+        source=StockMouvement.SOURCE_LIVRAISON_ABONNEMENT,
+        quantite=instance.quantite_livree,
+        quantite_avant=quantite_avant,
+        quantite_apres=stock.quantite,
+        date_mouvement=instance.date,
+        reference_id=instance.pk,
+        reference_label=f"Annulation livraison abonnement pk={instance.pk} (suppression)",
+        created_by=instance.created_by,
+    )
+
+    logger.debug(
+        "Stock entrée (annulation livraison abonnement): produit_fini pk=%s +%s → %s.",
+        produit_fini.pk,
+        instance.quantite_livree,
+        stock.quantite,
+    )

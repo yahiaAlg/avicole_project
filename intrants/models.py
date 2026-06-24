@@ -71,6 +71,57 @@ class TypeFournisseur(models.Model):
         return self.libelle
 
 
+class CategorieQualite(models.Model):
+    """
+    User-manageable quality-grading brackets, keyed by average sample weight.
+
+    Used to grade both live-bird condition and egg quality from
+    PeseeEchantillon (elevage app): a weight in [poids_min, poids_max]
+    resolves to this bracket. Two independent scales are kept (oiseaux /
+    oeufs) since the meaningful weight ranges differ completely.
+    """
+
+    TYPE_OISEAUX = "oiseaux"
+    TYPE_OEUFS = "oeufs"
+    TYPE_CHOICES = [
+        (TYPE_OISEAUX, "طيور"),
+        (TYPE_OEUFS, "بيض"),
+    ]
+
+    code = models.CharField(max_length=50, verbose_name="الرمز")
+    libelle = models.CharField(max_length=150, verbose_name="التسمية")
+    type_pesee = models.CharField(
+        max_length=10,
+        choices=TYPE_CHOICES,
+        verbose_name="نوع القياس",
+        help_text="هل هذه الفئة لتصنيف الطيور أم البيض؟",
+    )
+    poids_min = models.DecimalField(
+        max_digits=8, decimal_places=2, verbose_name="الوزن الأدنى (غ)"
+    )
+    poids_max = models.DecimalField(
+        max_digits=8, decimal_places=2, verbose_name="الوزن الأقصى (غ)"
+    )
+    ordre = models.PositiveSmallIntegerField(default=0, verbose_name="ترتيب العرض")
+    actif = models.BooleanField(default=True, verbose_name="نشط")
+
+    class Meta:
+        verbose_name = "فئة جودة"
+        verbose_name_plural = "فئات الجودة"
+        ordering = ["type_pesee", "ordre"]
+        unique_together = [("code", "type_pesee")]
+
+    def __str__(self):
+        return f"{self.get_type_pesee_display()} — {self.libelle} ({self.poids_min}-{self.poids_max} غ)"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.poids_min is not None and self.poids_max is not None:
+            if self.poids_min >= self.poids_max:
+                raise ValidationError("الوزن الأدنى يجب أن يكون أصغر من الوزن الأقصى.")
+
+
 # ---------------------------------------------------------------------------
 # Fournisseur
 # ---------------------------------------------------------------------------
@@ -151,11 +202,51 @@ class Fournisseur(models.Model):
 
 class Batiment(models.Model):
     """
-    Physical poultry house / building on the farm.
-    Each *lot d'élevage* is assigned to one building.
+    Physical building on the farm.
+
+    Three operational kinds:
+      - poussiniere : brooding house for young chicks (LotElevage opens here).
+      - poulailler  : grow-out / laying house (chicks are transferred here once
+                      they pass the age threshold — see elevage.TransfertLot).
+      - entrepot    : non-rearing storage (eggs in plateaux, or sanitized
+                      fertilizer awaiting truck pickup) — categorie_stockage
+                      distinguishes which.
+
+    Each *lot d'élevage* is assigned to one building at a time; it moves
+    from poussiniere → poulailler via a TransfertLot record, not by editing
+    the lot directly, so the move is auditable.
     """
 
+    TYPE_POUSSINIERE = "poussiniere"
+    TYPE_POULAILLER = "poulailler"
+    TYPE_ENTREPOT = "entrepot"
+    TYPE_CHOICES = [
+        (TYPE_POUSSINIERE, "حضانة كتاكيت (Poussinière)"),
+        (TYPE_POULAILLER, "حظيرة دجاج (تربية / بيض)"),
+        (TYPE_ENTREPOT, "مستودع تخزين"),
+    ]
+
+    STOCKAGE_OEUFS = "oeufs"
+    STOCKAGE_FERTILISANT = "fertilisant"
+    STOCKAGE_CHOICES = [
+        (STOCKAGE_OEUFS, "بيض / أطباق"),
+        (STOCKAGE_FERTILISANT, "سماد معالج"),
+    ]
+
     nom = models.CharField(max_length=100, verbose_name="الاسم / الرقم")
+    type_batiment = models.CharField(
+        max_length=20,
+        choices=TYPE_CHOICES,
+        default=TYPE_POULAILLER,
+        verbose_name="نوع المبنى",
+    )
+    categorie_stockage = models.CharField(
+        max_length=20,
+        choices=STOCKAGE_CHOICES,
+        blank=True,
+        verbose_name="نوع التخزين (للمستودعات فقط)",
+        help_text="يُملأ فقط عندما يكون نوع المبنى = مستودع.",
+    )
     capacite = models.PositiveIntegerField(
         verbose_name="الطاقة الاستيعابية (رأس)", null=True, blank=True
     )
@@ -168,7 +259,23 @@ class Batiment(models.Model):
         ordering = ["nom"]
 
     def __str__(self):
-        return self.nom
+        return f"{self.nom} ({self.get_type_batiment_display()})"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.type_batiment == self.TYPE_ENTREPOT and not self.categorie_stockage:
+            raise ValidationError(
+                {
+                    "categorie_stockage": "مطلوب تحديد نوع التخزين عندما يكون المبنى مستودعاً."
+                }
+            )
+        if self.type_batiment != self.TYPE_ENTREPOT and self.categorie_stockage:
+            raise ValidationError(
+                {
+                    "categorie_stockage": "اترك هذا الحقل فارغاً إلا إذا كان المبنى مستودعاً."
+                }
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -197,12 +304,30 @@ class Intrant(models.Model):
         ("g", "غرام (غ)"),
     ]
 
+    STADE_DEMARRAGE = "demarrage"
+    STADE_CROISSANCE = "croissance"
+    STADE_PONTE = "ponte"
+    STADE_TOUS = "tous"
+    STADE_CHOICES = [
+        (STADE_DEMARRAGE, "بداية (كتاكيت / حضانة)"),
+        (STADE_CROISSANCE, "نمو (دجاج لاحم)"),
+        (STADE_PONTE, "بيّاض (دجاج بيّاض)"),
+        (STADE_TOUS, "كل المراحل"),
+    ]
+
     designation = models.CharField(max_length=255, verbose_name="التسمية")
     categorie = models.ForeignKey(
         CategorieIntrant,
         on_delete=models.PROTECT,
         related_name="intrants",
         verbose_name="الفئة",
+    )
+    stade = models.CharField(
+        max_length=20,
+        choices=STADE_CHOICES,
+        default=STADE_TOUS,
+        verbose_name="مرحلة الاستخدام",
+        help_text="يحدد ما إذا كان هذا المدخل مخصصاً للكتاكيت (حضانة) أو الدجاج البالغ (نمو/بيّاض).",
     )
     unite_mesure = models.CharField(
         max_length=20,

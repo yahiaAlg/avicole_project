@@ -8,8 +8,16 @@ Forms for lot lifecycle management:
 import datetime
 from django import forms
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 
-from elevage.models import LotElevage, Mortalite, Consommation
+from elevage.models import (
+    LotElevage,
+    Mortalite,
+    Consommation,
+    TransfertLot,
+    RecolteOeufs,
+    PeseeEchantillon,
+)
 from intrants.models import Intrant, CategorieIntrant, Batiment, Fournisseur
 from achats.models import BLFournisseur
 
@@ -173,10 +181,18 @@ class ConsommationForm(forms.ModelForm):
             statut=LotElevage.STATUT_OUVERT
         )
         # Only consumable intrants (feed, medicine) are allowed.
-        self.fields["intrant"].queryset = Intrant.objects.filter(
+        intrant_qs = Intrant.objects.filter(
             categorie__consommable_en_lot=True,
             actif=True,
         ).select_related("categorie")
+        if lot:
+            # Narrow further to the lot's current life-stage (chicks vs grown
+            # birds) — items flagged STADE_TOUS remain available everywhere.
+            stade_attendu = lot.stade_intrant_attendu
+            intrant_qs = intrant_qs.filter(
+                Q(stade=stade_attendu) | Q(stade=Intrant.STADE_TOUS)
+            )
+        self.fields["intrant"].queryset = intrant_qs
         if lot:
             self.fields["lot"].initial = lot
             self.fields["lot"].widget = forms.HiddenInput()
@@ -207,4 +223,156 @@ class ConsommationForm(forms.ModelForm):
                     f"Disponible\u202f: {stock_dispo} {intrant.unite_mesure} — "
                     f"Demandé\u202f: {quantite} {intrant.unite_mesure}."
                 )
+        return cleaned
+
+
+class TransfertLotForm(forms.ModelForm):
+    """
+    Move a lot from its current building (typically Poussinière) to another
+    (typically Poulailler). batiment_origine is pre-filled and locked from
+    the lot's current batiment; batiment_destination excludes it.
+    """
+
+    class Meta:
+        model = TransfertLot
+        fields = [
+            "lot",
+            "batiment_origine",
+            "batiment_destination",
+            "date_transfert",
+            "age_jours_transfert",
+            "effectif_transfere",
+            "motif",
+            "notes",
+        ]
+        widgets = {
+            "date_transfert": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+        }
+
+    def __init__(self, *args, lot=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["lot"].queryset = LotElevage.objects.filter(
+            statut=LotElevage.STATUT_OUVERT
+        )
+        self.fields["batiment_destination"].queryset = Batiment.objects.filter(
+            actif=True
+        )
+        self.fields["motif"].required = False
+        self.fields["notes"].required = False
+
+        if lot:
+            self.fields["lot"].initial = lot
+            self.fields["lot"].widget = forms.HiddenInput()
+            self.fields["batiment_origine"].initial = lot.batiment
+            self.fields["batiment_origine"].widget = forms.HiddenInput()
+            self.fields["batiment_destination"].queryset = self.fields[
+                "batiment_destination"
+            ].queryset.exclude(pk=lot.batiment_id)
+            self.fields["age_jours_transfert"].initial = lot.age_jours
+            self.fields["effectif_transfere"].initial = lot.effectif_vivant
+            self._lot = lot
+        else:
+            self._lot = None
+
+    def clean(self):
+        cleaned = super().clean()
+        lot = cleaned.get("lot") or self._lot
+        origine = cleaned.get("batiment_origine")
+        destination = cleaned.get("batiment_destination")
+        effectif = cleaned.get("effectif_transfere")
+
+        if lot and lot.statut == LotElevage.STATUT_FERME:
+            raise ValidationError("Impossible de transférer un lot fermé.")
+        if origine and destination and origine.pk == destination.pk:
+            raise ValidationError(
+                "Le bâtiment de destination doit être différent du bâtiment d'origine."
+            )
+        if lot and effectif and effectif > lot.effectif_vivant:
+            raise ValidationError(
+                f"L'effectif transféré ({effectif}) dépasse l'effectif vivant "
+                f"du lot ({lot.effectif_vivant})."
+            )
+        return cleaned
+
+
+class PeseeEchantillonForm(forms.ModelForm):
+    """Record a sample weighing (birds or eggs) for a lot."""
+
+    class Meta:
+        model = PeseeEchantillon
+        fields = [
+            "lot",
+            "date",
+            "type_pesee",
+            "nombre_sujets",
+            "poids_total_g",
+            "notes",
+        ]
+        widgets = {
+            "date": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+            "poids_total_g": forms.NumberInput(attrs={"step": "0.01", "min": "0.01"}),
+        }
+
+    def __init__(self, *args, lot=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["lot"].queryset = LotElevage.objects.filter(
+            statut=LotElevage.STATUT_OUVERT
+        )
+        self.fields["notes"].required = False
+        if lot:
+            self.fields["lot"].initial = lot
+            self.fields["lot"].widget = forms.HiddenInput()
+            self._lot = lot
+        else:
+            self._lot = None
+
+    def clean_date(self):
+        date = self.cleaned_data["date"]
+        if date > datetime.date.today():
+            raise ValidationError("La date de pesée ne peut pas être dans le futur.")
+        return date
+
+
+class RecolteOeufsForm(forms.ModelForm):
+    """
+    Record a daily egg-collection event for a lot in laying phase.
+
+    BR-LOT-03 equivalent: only permitted on open lots (model.clean() also
+    enforces this — duplicated here for a form-level error message).
+    """
+
+    class Meta:
+        model = RecolteOeufs
+        fields = ["lot", "date", "nombre_oeufs", "pesee", "notes"]
+        widgets = {
+            "date": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+        }
+
+    def __init__(self, *args, lot=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["lot"].queryset = LotElevage.objects.filter(
+            statut=LotElevage.STATUT_OUVERT
+        )
+        self.fields["pesee"].required = False
+        self.fields["notes"].required = False
+        if lot:
+            self.fields["lot"].initial = lot
+            self.fields["lot"].widget = forms.HiddenInput()
+            self.fields["pesee"].queryset = PeseeEchantillon.objects.filter(
+                lot=lot, type_pesee=PeseeEchantillon.TYPE_OEUFS
+            ).order_by("-date")
+            self._lot = lot
+        else:
+            self._lot = None
+
+    def clean(self):
+        cleaned = super().clean()
+        lot = cleaned.get("lot") or self._lot
+        if lot and lot.statut == LotElevage.STATUT_FERME:
+            raise ValidationError(
+                "Impossible d'enregistrer une récolte d'œufs sur un lot fermé."
+            )
         return cleaned

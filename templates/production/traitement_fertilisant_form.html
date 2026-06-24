@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
+
+{% block nav_traitement_fertilisant %}active{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}
+  {% if traitement %}تعديل دفعة معالجة سماد (مسودة){% else %}دفعة معالجة سماد جديدة{% endif %}
+{% endblock %}
+
+{% block topbar_actions %}
+  {% if traitement %}
+    <a href="{% url 'production:traitement_fertilisant_detail' traitement.pk %}" class="btn-ghost">
+      <i class="bx bx-arrow-back"></i> إلغاء
+    </a>
+  {% else %}
+    <a href="{% url 'production:traitement_fertilisant_list' %}" class="btn-ghost">
+      <i class="bx bx-arrow-back"></i> إلغاء
+    </a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+  <div class="row justify-content-center">
+    <div class="col-xl-8 col-lg-10">
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <!-- Entête -->
+        <div class="card mb-3">
+          <div class="card-header-row">
+            <div class="section-eyebrow">معلومات دفعة المعالجة</div>
+          </div>
+          <div style="padding:22px 24px;">
+            <div class="row g-3">
+
+              <div class="col-md-6">
+                <div class="form-field">
+                  <label class="field-label" for="{{ form.date_traitement.id_for_label }}">
+                    تاريخ المعالجة <span class="required-star">*</span>
+                  </label>
+                  <div class="field-wrap">
+                    <i class="bx bxs-calendar field-icon"></i>
+                    {{ form.date_traitement }}
+                  </div>
+                  {% if form.date_traitement.errors %}
+                    <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.date_traitement.errors.0 }}</div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <div class="form-field">
+                  <label class="field-label" for="{{ form.methode.id_for_label }}">طريقة المعالجة</label>
+                  <div class="field-wrap">
+                    <i class="bx bx-cog field-icon"></i>
+                    {{ form.methode }}
+                  </div>
+                  <div class="field-hint">مثال: تجفيف، تخمير، معالجة حرارية…</div>
+                  {% if form.methode.errors %}
+                    <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.methode.errors.0 }}</div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <div class="form-field">
+                  <label class="field-label" for="{{ form.produit_fini.id_for_label }}">
+                    المنتج النهائي (السماد) <span class="required-star">*</span>
+                  </label>
+                  <div class="field-wrap">
+                    <i class="bx bxs-badge-check field-icon"></i>
+                    {{ form.produit_fini }}
+                  </div>
+                  {% if form.produit_fini.errors %}
+                    <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.produit_fini.errors.0 }}</div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <div class="form-field">
+                  <label class="field-label" for="{{ form.quantite_obtenue_kg.id_for_label }}">
+                    الكمية النهائية المتحصل عليها (كغ)
+                  </label>
+                  <div class="field-wrap">
+                    <i class="bx bxs-cube-alt field-icon"></i>
+                    {{ form.quantite_obtenue_kg }}
+                  </div>
+                  <div class="field-hint">تُستخدم لحساب نسبة المردود واعتماد الدفعة.</div>
+                  {% if form.quantite_obtenue_kg.errors %}
+                    <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.quantite_obtenue_kg.errors.0 }}</div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <div class="form-field">
+                  <label class="field-label" for="{{ form.cout_unitaire_estime.id_for_label }}">
+                    التكلفة الوحدوية المقدرة (د.ج/كغ)
+                  </label>
+                  <div class="field-wrap">
+                    <i class="bx bxs-coin field-icon"></i>
+                    {{ form.cout_unitaire_estime }}
+                  </div>
+                  <div class="field-hint">تُستخدم لحساب متوسط تكلفة الإنتاج (معادلة موزونة).</div>
+                  {% if form.cout_unitaire_estime.errors %}
+                    <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.cout_unitaire_estime.errors.0 }}</div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="col-12">
+                <div class="form-field">
+                  <label class="field-label" for="{{ form.notes.id_for_label }}">ملاحظات</label>
+                  <div class="field-wrap">
+                    {{ form.notes }}
+                  </div>
+                  {% if form.notes.errors %}
+                    <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.notes.errors.0 }}</div>
+                  {% endif %}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- Collectes incluses -->
+        <div class="card mb-3">
+          <div class="card-header-row">
+            <div class="section-eyebrow">{{ form.collectes.label }}</div>
+          </div>
+          <div style="padding:18px 24px;">
+            {% if form.collectes.field.queryset.exists %}
+            <div class="collectes-grid">
+              {% for choice in form.collectes %}
+                <label class="collecte-choice">
+                  {{ choice.tag }}
+                  <span class="collecte-choice__body">
+                    <span class="collecte-choice__main">{{ choice.choice_label }}</span>
+                  </span>
+                </label>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="field-hint">لا توجد كميات خام غير مخصصة حالياً. سجّل جمعاً جديداً من
+              <a href="{% url 'production:collecte_fertilisant_create' %}" style="color:var(--accent-text);">صفحة جمع السماد الخام</a>.
+            </div>
+            {% endif %}
+            {% if form.collectes.errors %}
+              <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.collectes.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div class="card-footer">
+            <button type="submit" class="btn-primary">
+              <i class="bx bx-check"></i> {{ action_label }}
+            </button>
+            <a href="{% if traitement %}{% url 'production:traitement_fertilisant_detail' traitement.pk %}{% else %}{% url 'production:traitement_fertilisant_list' %}{% endif %}" class="btn-ghost">إلغاء</a>
+          </div>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .page-body { padding:28px 32px; }
+  @media (max-width:768px) { .page-body { padding:20px 16px; } }
+  .mb-3 { margin-bottom:14px!important; }
+
+  .card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden; }
+  .card-header-row { padding:14px 20px 12px;border-bottom:1px solid var(--border); }
+  .card-footer { padding:16px 24px;border-top:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--bg-raised); }
+  .section-eyebrow { font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted); }
+
+  .form-field { display:flex;flex-direction:column;gap:6px; }
+  .field-label { font-size:12px;font-weight:500;color:var(--text-secondary);letter-spacing:.03em; }
+  .required-star { color:#dc2626; }
+  .field-wrap { position:relative; }
+  .field-icon { position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--text-muted);pointer-events:none;transition:color .15s; }
+  .field-wrap:focus-within .field-icon { color:var(--accent-text); }
+  .field-hint { font-size:11.5px;color:var(--text-muted); }
+  .field-error { display:flex;align-items:center;gap:4px;font-size:12px;color:#dc2626;margin-top:2px; }
+
+  .field-wrap input,
+  .field-wrap select {
+    width:100%;background:var(--bg-surface);border:1px solid var(--border);
+    border-radius:var(--radius-md);color:var(--text-primary);
+    font-family:'Inter',sans-serif;font-size:13.5px;
+    padding:10px 38px 10px 12px;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  .field-wrap input:focus,
+  .field-wrap select:focus { border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);outline:none; }
+
+  .form-field > textarea {
+    width:100%;background:var(--bg-surface);border:1px solid var(--border);
+    border-radius:var(--radius-md);color:var(--text-primary);
+    font-family:'Inter',sans-serif;font-size:13.5px;
+    padding:10px 13px;resize:vertical;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  .form-field > textarea:focus { border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);outline:none; }
+
+  /* Collectes checkbox grid */
+  .collectes-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px; }
+  .collecte-choice {
+    display:flex;align-items:flex-start;gap:8px;
+    background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);
+    padding:10px 12px;cursor:pointer;transition:border-color .12s,background .12s;
+  }
+  .collecte-choice:hover { border-color:var(--border-strong); }
+  .collecte-choice input[type="checkbox"] { width:16px;height:16px;accent-color:var(--accent);cursor:pointer;margin-top:1px;flex-shrink:0; }
+  .collecte-choice__body { display:flex;flex-direction:column;gap:2px; }
+  .collecte-choice__main { font-size:12.5px;color:var(--text-secondary); }
+
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s,border-color .12s,color .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+</style>
+{% endblock %}

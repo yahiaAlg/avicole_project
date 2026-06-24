@@ -34,8 +34,16 @@ from production.forms import (
     ProduitFiniForm,
     ProductionRecordForm,
     ProductionLigneFormSet,
+    CollecteFertilisantForm,
+    TraitementFertilisantForm,
 )
-from production.models import ProduitFini, ProductionRecord, ProductionLigne
+from production.models import (
+    ProduitFini,
+    ProductionRecord,
+    ProductionLigne,
+    CollecteFertilisant,
+    TraitementFertilisant,
+)
 from production.utils import (
     allouer_cout_production,
     get_production_dashboard,
@@ -855,6 +863,355 @@ def production_dashboard(request):
             "title": "لوحة تحكم — الإنتاج",
         },
     )
+
+
+# ===========================================================================
+# CollecteFertilisant — List / Create / Edit / Delete
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def collecte_fertilisant_list(request):
+    """
+    Cross-building raw fertilizer collection list.
+
+    Filters: ?batiment=<pk>, ?date_debut, ?date_fin, ?non_affecte=1
+    """
+    from intrants.models import Batiment
+
+    qs = CollecteFertilisant.objects.select_related(
+        "batiment", "traitement", "created_by"
+    ).order_by("-date_collecte")
+
+    batiment_pk = request.GET.get("batiment", "")
+    if batiment_pk:
+        qs = qs.filter(batiment_id=batiment_pk)
+
+    date_debut = request.GET.get("date_debut", "")
+    date_fin = request.GET.get("date_fin", "")
+    if date_debut:
+        qs = qs.filter(date_collecte__gte=date_debut)
+    if date_fin:
+        qs = qs.filter(date_collecte__lte=date_fin)
+
+    if request.GET.get("non_affecte") == "1":
+        qs = qs.filter(traitement__isnull=True)
+
+    page = _paginate(qs, request.GET.get("page"))
+    batiments = Batiment.objects.filter(
+        actif=True,
+        type_batiment__in=[Batiment.TYPE_POUSSINIERE, Batiment.TYPE_POULAILLER],
+    ).order_by("nom")
+
+    return render(
+        request,
+        "production/collecte_fertilisant_list.html",
+        {
+            "page": page,
+            "batiments": batiments,
+            "batiment_pk": batiment_pk,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+            "title": "جمع السماد الخام",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def collecte_fertilisant_create(request):
+    """Record a raw manure collection from a building."""
+    if request.method == "POST":
+        form = CollecteFertilisantForm(request.POST)
+        if form.is_valid():
+            try:
+                collecte = form.save(commit=False)
+                collecte.created_by = request.user
+                collecte.save()
+                messages.success(
+                    request,
+                    f"تم تسجيل جمع {collecte.quantite_brute_kg} كغ من {collecte.batiment.nom} ({collecte.date_collecte}).",
+                )
+                logger.info(
+                    "CollecteFertilisant pk=%s created by '%s'.",
+                    collecte.pk,
+                    request.user,
+                )
+                return redirect("production:collecte_fertilisant_list")
+            except Exception as exc:
+                logger.exception("Error creating CollecteFertilisant: %s", exc)
+                messages.error(request, f"خطأ أثناء الإنشاء: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        import datetime
+
+        form = CollecteFertilisantForm(initial={"date_collecte": datetime.date.today()})
+
+    return render(
+        request,
+        "production/collecte_fertilisant_form.html",
+        {"form": form, "title": "جمع سماد خام جديد", "action_label": "حفظ"},
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def collecte_fertilisant_edit(request, pk):
+    """Edit an unassigned raw fertilizer collection."""
+    collecte = get_object_or_404(CollecteFertilisant, pk=pk)
+
+    if collecte.est_traitee:
+        messages.error(
+            request,
+            "لا يمكن تعديل جمع مخصص لعملية معالجة محققة.",
+        )
+        return redirect("production:collecte_fertilisant_list")
+
+    if request.method == "POST":
+        form = CollecteFertilisantForm(request.POST, instance=collecte)
+        if form.is_valid():
+            try:
+                form.save()
+                messages.success(request, "تم تحديث سجل الجمع.")
+                return redirect("production:collecte_fertilisant_list")
+            except Exception as exc:
+                logger.exception(
+                    "Error updating CollecteFertilisant pk=%s: %s", pk, exc
+                )
+                messages.error(request, f"خطأ أثناء التحديث: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        form = CollecteFertilisantForm(instance=collecte)
+
+    return render(
+        request,
+        "production/collecte_fertilisant_form.html",
+        {
+            "form": form,
+            "collecte": collecte,
+            "title": f"تعديل — جمع {collecte.date_collecte}",
+            "action_label": "حفظ التعديلات",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def collecte_fertilisant_delete(request, pk):
+    """Delete an unassigned raw fertilizer collection (POST-only)."""
+    collecte = get_object_or_404(CollecteFertilisant, pk=pk)
+
+    if collecte.est_traitee:
+        messages.error(request, "لا يمكن حذف جمع مرتبط بعملية معالجة.")
+        return redirect("production:collecte_fertilisant_list")
+
+    try:
+        ref = f"{collecte.quantite_brute_kg} كغ ({collecte.date_collecte})"
+        collecte.delete()
+        messages.success(request, f"تم حذف سجل الجمع: {ref}.")
+        logger.info("CollecteFertilisant pk=%s deleted by '%s'.", pk, request.user)
+    except Exception as exc:
+        logger.exception("Error deleting CollecteFertilisant pk=%s: %s", pk, exc)
+        messages.error(request, f"خطأ أثناء الحذف: {exc}")
+
+    return redirect("production:collecte_fertilisant_list")
+
+
+# ===========================================================================
+# TraitementFertilisant — List / Create / Edit / Validate
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def traitement_fertilisant_list(request):
+    """
+    Fertilizer treatment batch list.
+
+    Filters: ?statut=brouillon|valide
+    """
+    qs = (
+        TraitementFertilisant.objects.select_related("produit_fini", "created_by")
+        .prefetch_related("collectes")
+        .order_by("-date_traitement")
+    )
+
+    statut = request.GET.get("statut", "")
+    if statut in (
+        TraitementFertilisant.STATUT_BROUILLON,
+        TraitementFertilisant.STATUT_VALIDE,
+    ):
+        qs = qs.filter(statut=statut)
+
+    page = _paginate(qs, request.GET.get("page"))
+
+    return render(
+        request,
+        "production/traitement_fertilisant_list.html",
+        {
+            "page": page,
+            "statut": statut,
+            "statut_choices": TraitementFertilisant.STATUT_CHOICES,
+            "title": "معالجة السماد",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def traitement_fertilisant_create(request):
+    """Create a new fertilizer treatment batch (BROUILLON)."""
+    if request.method == "POST":
+        form = TraitementFertilisantForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    traitement = form.save(commit=False)
+                    traitement.created_by = request.user
+                    traitement.save()
+                    form.save_m2m()
+
+                messages.success(
+                    request,
+                    f"تم إنشاء دفعة المعالجة (مسودة) بتاريخ {traitement.date_traitement}.",
+                )
+                logger.info(
+                    "TraitementFertilisant pk=%s created by '%s'.",
+                    traitement.pk,
+                    request.user,
+                )
+                return redirect(
+                    "production:traitement_fertilisant_detail", pk=traitement.pk
+                )
+            except Exception as exc:
+                logger.exception("Error creating TraitementFertilisant: %s", exc)
+                messages.error(request, f"خطأ أثناء الإنشاء: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        import datetime
+
+        form = TraitementFertilisantForm(
+            initial={"date_traitement": datetime.date.today()}
+        )
+
+    return render(
+        request,
+        "production/traitement_fertilisant_form.html",
+        {
+            "form": form,
+            "title": "دفعة معالجة سماد جديدة",
+            "action_label": "حفظ (مسودة)",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def traitement_fertilisant_detail(request, pk):
+    """Detail view for one treatment batch."""
+    traitement = get_object_or_404(
+        TraitementFertilisant.objects.select_related(
+            "produit_fini", "created_by"
+        ).prefetch_related("collectes__batiment"),
+        pk=pk,
+    )
+
+    from stock.models import StockMouvement
+
+    mouvements = StockMouvement.objects.filter(
+        source=StockMouvement.SOURCE_FERTILISANT,
+        reference_id=traitement.pk,
+    ).select_related("produit_fini")
+
+    return render(
+        request,
+        "production/traitement_fertilisant_detail.html",
+        {
+            "traitement": traitement,
+            "mouvements": mouvements,
+            "title": f"معالجة سماد — {traitement.date_traitement}",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def traitement_fertilisant_edit(request, pk):
+    """Edit a BROUILLON treatment batch."""
+    traitement = get_object_or_404(TraitementFertilisant, pk=pk)
+
+    if traitement.statut == TraitementFertilisant.STATUT_VALIDE:
+        messages.error(request, "لا يمكن تعديل دفعة معالجة محققة.")
+        return redirect("production:traitement_fertilisant_detail", pk=pk)
+
+    if request.method == "POST":
+        form = TraitementFertilisantForm(request.POST, instance=traitement)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    form.save()
+
+                messages.success(request, "تم تحديث دفعة المعالجة.")
+                logger.info(
+                    "TraitementFertilisant pk=%s updated by '%s'.", pk, request.user
+                )
+                return redirect("production:traitement_fertilisant_detail", pk=pk)
+            except Exception as exc:
+                logger.exception(
+                    "Error updating TraitementFertilisant pk=%s: %s", pk, exc
+                )
+                messages.error(request, f"خطأ أثناء التحديث: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        form = TraitementFertilisantForm(instance=traitement)
+
+    return render(
+        request,
+        "production/traitement_fertilisant_form.html",
+        {
+            "form": form,
+            "traitement": traitement,
+            "title": f"تعديل — معالجة {traitement.date_traitement}",
+            "action_label": "حفظ التعديلات",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def traitement_fertilisant_valider(request, pk):
+    """
+    Transition a BROUILLON TraitementFertilisant to VALIDE (POST-only).
+
+    On transition the post_save signal credits StockProduitFini and creates
+    a StockMouvement (ENTREE / FERTILISANT).
+    """
+    traitement = get_object_or_404(TraitementFertilisant, pk=pk)
+
+    if traitement.statut == TraitementFertilisant.STATUT_VALIDE:
+        messages.warning(request, "هذه الدفعة محققة مسبقًا.")
+        return redirect("production:traitement_fertilisant_detail", pk=pk)
+
+    if not traitement.quantite_obtenue_kg or traitement.quantite_obtenue_kg <= 0:
+        messages.error(
+            request,
+            "يجب تحديد الكمية النهائية المتحصل عليها قبل التحقق.",
+        )
+        return redirect("production:traitement_fertilisant_detail", pk=pk)
+
+    try:
+        with transaction.atomic():
+            traitement.statut = TraitementFertilisant.STATUT_VALIDE
+            traitement.save()  # signal fires here
+
+        messages.success(
+            request,
+            f"تم التحقق من دفعة المعالجة ({traitement.quantite_obtenue_kg} كغ). تم تحديث مخزون السماد.",
+        )
+        logger.info("TraitementFertilisant pk=%s validated by '%s'.", pk, request.user)
+    except Exception as exc:
+        logger.exception("Error validating TraitementFertilisant pk=%s: %s", pk, exc)
+        messages.error(request, f"خطأ أثناء التحقق: {exc}")
+
+    return redirect("production:traitement_fertilisant_detail", pk=pk)
 
 
 # ===========================================================================

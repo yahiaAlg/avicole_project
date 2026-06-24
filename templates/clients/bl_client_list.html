@@ -105,11 +105,11 @@
     {% if page.has_other_pages %}
     <div class="pagination-bar">
       {% if page.has_previous %}
-      <a href="?q={{ q }}&client={{ client_filter }}&statut={{ statut_filter }}&page={{ page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
+      <a href="?q={{ q }}&client={{ client_filter }}&statut={{ statut_filter }}&date_debut={{ date_debut|date:'Y-m-d' }}&date_fin={{ date_fin|date:'Y-m-d' }}&page={{ page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
       {% else %}<span class="page-btn page-btn--disabled"><i class="bx bx-chevron-right"></i></span>{% endif %}
       <span class="page-info">صفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
       {% if page.has_next %}
-      <a href="?q={{ q }}&client={{ client_filter }}&statut={{ statut_filter }}&page={{ page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
+      <a href="?q={{ q }}&client={{ client_filter }}&statut={{ statut_filter }}&date_debut={{ date_debut|date:'Y-m-d' }}&date_fin={{ date_fin|date:'Y-m-d' }}&page={{ page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
       {% else %}<span class="page-btn page-btn--disabled"><i class="bx bx-chevron-left"></i></span>{% endif %}
     </div>
     {% endif %}

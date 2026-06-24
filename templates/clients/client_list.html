@@ -259,6 +259,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const textEl = document.getElementById('toggle-confirm-text');
   const form = document.getElementById('toggle-form');
 
+  const toggleUrlTpl = '{% url "clients:client_toggle_active" 99999 %}';
   document.querySelectorAll('[data-toggle-target]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       const pk = btn.dataset.toggleTarget;
@@ -266,7 +267,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const active = btn.dataset.active === 'true';
       titleEl.textContent = active ? 'تعطيل « ' + libelle + ' » ؟' : 'تفعيل « ' + libelle + ' » ؟';
       textEl.textContent = active ? 'لن يظهر العميل في الإدخالات.' : 'سيتوفر العميل مجدداً.';
-      form.action = '/api/clients/clients/' + pk + '/toggle-actif/';
+      form.action = toggleUrlTpl.replace('99999', pk);
       panel.style.display = 'flex';
     });
   });

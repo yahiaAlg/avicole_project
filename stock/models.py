@@ -151,6 +151,10 @@ class StockMouvement(models.Model):
     SOURCE_PRODUCTION = "production"
     SOURCE_BL_CLIENT = "bl_client"
     SOURCE_AJUSTEMENT = "ajustement"
+    SOURCE_MORTALITE = "mortalite"
+    SOURCE_PONTE = "ponte"
+    SOURCE_FERTILISANT = "fertilisant"
+    SOURCE_LIVRAISON_ABONNEMENT = "livraison_abonnement"
 
     SOURCE_CHOICES = [
         (SOURCE_BL_FOURNISSEUR, "وصل تسليم المورد"),
@@ -158,6 +162,10 @@ class StockMouvement(models.Model):
         (SOURCE_PRODUCTION, "الإنتاج"),
         (SOURCE_BL_CLIENT, "وصل تسليم العميل"),
         (SOURCE_AJUSTEMENT, "تسوية يدوية"),
+        (SOURCE_MORTALITE, "نفوق (خصم كتاكيت)"),
+        (SOURCE_PONTE, "إنتاج البيض (ponte)"),
+        (SOURCE_FERTILISANT, "معالجة السماد"),
+        (SOURCE_LIVRAISON_ABONNEMENT, "تسليم اشتراك عميل"),
     ]
 
     # Target stock item — exactly one must be set.

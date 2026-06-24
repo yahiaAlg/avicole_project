@@ -1096,6 +1096,14 @@
         <i class="bx bxs-badge-check"></i>
         <span class="nav-link-label">كتالوج المنتجات النهائية</span>
       </a>
+      <a href="{% url 'production:collecte_fertilisant_list' %}" class="nav-link {% block nav_collecte_fertilisant %}{% endblock %}">
+        <i class="bx bxs-leaf"></i>
+        <span class="nav-link-label">جمع السماد الخام</span>
+      </a>
+      <a href="{% url 'production:traitement_fertilisant_list' %}" class="nav-link {% block nav_traitement_fertilisant %}{% endblock %}">
+        <i class="bx bxs-flask"></i>
+        <span class="nav-link-label">معالجة السماد</span>
+      </a>
 
       <!-- المخزون -->
       <div class="nav-group-label">المخزون</div>
@@ -1199,6 +1207,10 @@
       <a href="{% url 'intrants:categorie_intrant_list' %}" class="nav-link {% block nav_categories %}{% endblock %}">
         <i class="bx bxs-category"></i>
         <span class="nav-link-label">فئات المدخلات</span>
+      </a>
+      <a href="{% url 'intrants:categorie_qualite_list' %}" class="nav-link {% block nav_categories_qualite %}{% endblock %}">
+        <i class="bx bxs-star"></i>
+        <span class="nav-link-label">فئات الجودة</span>
       </a>
       <a href="{% url 'intrants:type_fournisseur_list' %}" class="nav-link {% block nav_type_fournisseurs %}{% endblock %}">
         <i class="bx bxs-user-badge"></i>

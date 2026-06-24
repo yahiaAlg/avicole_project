@@ -196,6 +196,90 @@
 </div>
 {% endif %}
 
+<!-- ── Expired authorizations alert ── -->
+{% if autorisations_expirees %}
+<div class="autoris-alert-card">
+  <div class="autoris-alert-card__icon"><i class="bx bxs-error-circle"></i></div>
+  <div class="autoris-alert-card__body">
+    <div class="autoris-alert-card__title">
+      {{ autorisations_expirees|length }} تفويض وصول منتهي الصلاحية
+    </div>
+    <div class="autoris-alert-card__sub">
+      لم يتم تأكيد استلام هذه التفويضات قبل انتهاء صلاحيتها — تواصل مع المورد للتجديد (BR-BLF-05).
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+    {% for a in autorisations_expirees %}
+    <a href="{% url 'achats:bl_fournisseur_detail' a.pk %}" class="autoris-ref-link">
+      {{ a.reference }}
+      {% if a.date_expiration_autorisation %}
+        — انتهى {{ a.date_expiration_autorisation|date:"d/m/Y" }}
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Pending authorizations (awaiting truck dispatch) ── -->
+{% if autorisations_en_attente %}
+<div class="section-card" style="margin-bottom:18px;">
+  <div class="section-card__header">
+    <div class="section-eyebrow">
+      <i class="bx bxs-id-card"></i> تفويضات الوصول قيد الانتظار
+    </div>
+    <span style="font-size:12px;color:var(--text-muted);">
+      {{ autorisations_en_attente|length }} تفويض
+    </span>
+  </div>
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>المرجع</th>
+          <th>رقم التفويض</th>
+          <th>التاريخ</th>
+          <th>ينتهي في</th>
+          <th>السائق</th>
+          <th>الشاحنة</th>
+          <th style="text-align:left;">الإجراءات</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in autorisations_en_attente %}
+        <tr style="--row-i:{{ forloop.counter0 }};">
+          <td>
+            <a href="{% url 'achats:bl_fournisseur_detail' a.pk %}" class="ref-link">{{ a.reference }}</a>
+          </td>
+          <td style="color:var(--text-muted);">{{ a.numero_autorisation|default:"—" }}</td>
+          <td style="color:var(--text-muted);">{{ a.date_bl|date:"d/m/Y" }}</td>
+          <td>
+            {% if a.date_expiration_autorisation %}
+              <span style="font-weight:600;color:#b45309;">{{ a.date_expiration_autorisation|date:"d/m/Y" }}</span>
+            {% else %}
+              <span style="color:var(--text-muted);">—</span>
+            {% endif %}
+          </td>
+          <td style="color:var(--text-muted);">{{ a.nom_chauffeur|default:"—" }}</td>
+          <td style="color:var(--text-muted);">{{ a.matricule_camion|default:"—" }}</td>
+          <td>
+            <div class="actions-cell">
+              <a href="{% url 'achats:bl_fournisseur_detail' a.pk %}" class="action-btn" title="عرض">
+                <i class="bx bxs-show"></i>
+              </a>
+              <a href="{% url 'achats:bl_fournisseur_print' a.pk %}" class="action-btn" title="طباعة" target="_blank">
+                <i class="bx bxs-printer"></i>
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 <!-- ── Two column: open invoices + recent payments ── -->
 <div class="two-col-grid">
 
@@ -536,6 +620,26 @@
   .pill-danger  { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(239,68,68,.10);  color: #dc2626; }
   .pill-warning { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(245,158,11,.14); color: #b45309; }
   .pill-neutral { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: rgba(0,0,0,.06); color: var(--text-secondary); }
+
+  /* ── Autorisation expired alert ── */
+  .autoris-alert-card {
+    display: flex; align-items: flex-start; gap: 14px;
+    background: rgba(239,68,68,.06); border: 1px solid rgba(239,68,68,.22);
+    border-radius: var(--radius-lg); padding: 14px 18px; margin-bottom: 18px;
+    animation: fadeIn .3s ease;
+  }
+  .autoris-alert-card__icon { font-size: 22px; color: #dc2626; flex-shrink: 0; margin-top: 2px; }
+  .autoris-alert-card__body { flex: 1; }
+  .autoris-alert-card__title {
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13.5px;
+    color: #dc2626; margin-bottom: 4px;
+  }
+  .autoris-alert-card__sub { font-size: 12.5px; color: var(--text-secondary); }
+  .autoris-ref-link {
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 12px;
+    color: #dc2626; text-decoration: none; white-space: nowrap;
+  }
+  .autoris-ref-link:hover { text-decoration: underline; }
 
   /* ── Quick links strip ── */
   .quick-links-strip {

@@ -10,7 +10,13 @@ from django.utils.html import format_html
 
 from import_export.admin import ImportExportModelAdmin
 
-from production.models import ProduitFini, ProductionRecord, ProductionLigne
+from production.models import (
+    ProduitFini,
+    ProductionRecord,
+    ProductionLigne,
+    CollecteFertilisant,
+    TraitementFertilisant,
+)
 from production.resources import (
     ProduitFiniResource,
     ProductionRecordResource,
@@ -219,3 +225,166 @@ class ProductionLigneAdmin(ImportExportModelAdmin):
     @admin.display(description="Valeur (DZD)")
     def valeur_totale_display(self, obj):
         return f"{obj.valeur_totale:,.2f} DZD"
+
+
+# ---------------------------------------------------------------------------
+# Fertilisant — CollecteFertilisant / TraitementFertilisant
+# ---------------------------------------------------------------------------
+
+
+class CollecteFertilisantInline(admin.TabularInline):
+    model = CollecteFertilisant
+    extra = 0
+    fields = ("batiment", "date_collecte", "quantite_brute_kg", "notes")
+    autocomplete_fields = ("batiment",)
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj and obj.statut == TraitementFertilisant.STATUT_VALIDE:
+            return ("batiment", "date_collecte", "quantite_brute_kg", "notes")
+        return ()
+
+
+@admin.action(description="Valider les traitements sélectionnés")
+def valider_traitements(modeladmin, request, queryset):
+    count = 0
+    for traitement in queryset.filter(statut=TraitementFertilisant.STATUT_BROUILLON):
+        traitement.statut = TraitementFertilisant.STATUT_VALIDE
+        traitement.save()
+        count += 1
+    modeladmin.message_user(request, f"{count} traitement(s) validé(s).")
+
+
+@admin.register(CollecteFertilisant)
+class CollecteFertilisantAdmin(admin.ModelAdmin):
+    list_display = (
+        "batiment",
+        "date_collecte",
+        "quantite_brute_kg",
+        "traitement",
+        "est_traitee_badge",
+    )
+    list_filter = ("batiment", "date_collecte")
+    search_fields = ("batiment__nom",)
+    date_hierarchy = "date_collecte"
+    autocomplete_fields = ("batiment", "traitement")
+    readonly_fields = ("created_at",)
+
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "batiment",
+                    "date_collecte",
+                    "quantite_brute_kg",
+                    "traitement",
+                ),
+            },
+        ),
+        ("Notes", {"fields": ("notes",), "classes": ("collapse",)}),
+        (
+            "Horodatage",
+            {
+                "fields": ("created_by", "created_at"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    @admin.display(description="Traitée", boolean=True)
+    def est_traitee_badge(self, obj):
+        return obj.est_traitee
+
+
+@admin.register(TraitementFertilisant)
+class TraitementFertilisantAdmin(admin.ModelAdmin):
+    actions = (valider_traitements,)
+
+    list_display = (
+        "date_traitement",
+        "methode",
+        "produit_fini",
+        "quantite_brute_totale_display",
+        "quantite_obtenue_kg",
+        "rendement_display",
+        "statut_badge",
+    )
+    list_filter = ("statut", "produit_fini", "date_traitement")
+    search_fields = ("methode", "notes")
+    date_hierarchy = "date_traitement"
+    autocomplete_fields = ("produit_fini",)
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "quantite_brute_totale_display",
+        "rendement_display",
+    )
+    inlines = (CollecteFertilisantInline,)
+
+    fieldsets = (
+        (
+            "Traitement",
+            {
+                "fields": (
+                    "date_traitement",
+                    "methode",
+                    "produit_fini",
+                    "quantite_obtenue_kg",
+                    "cout_unitaire_estime",
+                    "statut",
+                ),
+            },
+        ),
+        (
+            "Indicateurs (calculés)",
+            {
+                "fields": ("quantite_brute_totale_display", "rendement_display"),
+            },
+        ),
+        ("Notes", {"fields": ("notes",), "classes": ("collapse",)}),
+        (
+            "Horodatage",
+            {
+                "fields": ("created_by", "created_at", "updated_at"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    @admin.display(description="Statut")
+    def statut_badge(self, obj):
+        colour = (
+            "#2e7d32" if obj.statut == TraitementFertilisant.STATUT_VALIDE else "#888"
+        )
+        return format_html(
+            '<span style="color:{};font-weight:bold">{}</span>',
+            colour,
+            obj.get_statut_display(),
+        )
+
+    @admin.display(description="Brut total (kg)")
+    def quantite_brute_totale_display(self, obj):
+        return obj.quantite_brute_totale_kg
+
+    @admin.display(description="Rendement (%)")
+    def rendement_display(self, obj):
+        val = obj.rendement_pourcentage
+        return f"{val} %" if val is not None else "—"
+
+    def get_readonly_fields(self, request, obj=None):
+        base = list(self.readonly_fields)
+        if obj and obj.statut == TraitementFertilisant.STATUT_VALIDE:
+            base += [
+                "date_traitement",
+                "methode",
+                "produit_fini",
+                "quantite_obtenue_kg",
+                "cout_unitaire_estime",
+                "statut",
+            ]
+        return base
+
+    def has_delete_permission(self, request, obj=None):
+        if obj and obj.statut == TraitementFertilisant.STATUT_VALIDE:
+            return False
+        return super().has_delete_permission(request, obj)

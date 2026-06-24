@@ -82,7 +82,7 @@
       {% if intrants_en_alerte %}
       <div class="card mb-3">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-bell" style="color:#dc2626;"></i> Intrants في حالة تنبيه</div>
+          <div class="section-eyebrow"><i class="bx bxs-bell" style="color:#dc2626;"></i> المدخلات في حالة تنبيه</div>
           <a href="{% url 'stock:stock_intrant_list' %}?alerte=1" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;text-decoration:none;">
             عرض الكل <i class="bx bx-right-arrow-alt"></i>
           </a>
@@ -126,7 +126,7 @@
       {% if pf_en_alerte %}
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-bell" style="color:#dc2626;"></i> Produits finis في حالة تنبيه</div>
+          <div class="section-eyebrow"><i class="bx bxs-bell" style="color:#dc2626;"></i> المنتجات النهائية في حالة تنبيه</div>
           <a href="{% url 'stock:stock_produit_fini_list' %}?alerte=1" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;text-decoration:none;">
             عرض الكل <i class="bx bx-right-arrow-alt"></i>
           </a>
@@ -244,9 +244,9 @@
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
           <span style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);">وصول سريع</span>
           <a href="{% url 'stock:stock_intrant_list' %}" class="btn-ghost btn-sm"><i class="bx bxs-archive"></i> مخزون المدخلات</a>
-          <a href="{% url 'stock:stock_produit_fini_list' %}" class="btn-ghost btn-sm"><i class="bx bxs-badge-check"></i> Stock المنتجات النهائية</a>
+          <a href="{% url 'stock:stock_produit_fini_list' %}" class="btn-ghost btn-sm"><i class="bx bxs-badge-check"></i> مخزون المنتجات النهائية</a>
           <a href="{% url 'stock:stock_mouvement_list' %}" class="btn-ghost btn-sm"><i class="bx bx-transfer"></i> الحركات</a>
-          <a href="{% url 'stock:stock_ajustement_list' %}" class="btn-ghost btn-sm"><i class="bx bxs-spreadsheet"></i> تسويةs</a>
+          <a href="{% url 'stock:stock_ajustement_list' %}" class="btn-ghost btn-sm"><i class="bx bxs-spreadsheet"></i> التسويات</a>
           {% if not request.user.profile.role == 'viewer' %}
           <a href="{% url 'stock:stock_ajustement_create' %}" class="btn-primary btn-sm"><i class="bx bx-plus"></i> تسوية جديدة</a>
           {% endif %}

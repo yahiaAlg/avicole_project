@@ -116,4 +116,51 @@ urlpatterns = [
         views.produit_fini_create_ajax,
         name="produit_fini_create_ajax",
     ),
+    # ── CollecteFertilisant ─────────────────────────────────────────────
+    path(
+        "collectes-fertilisant/",
+        views.collecte_fertilisant_list,
+        name="collecte_fertilisant_list",
+    ),
+    path(
+        "collectes-fertilisant/creer/",
+        views.collecte_fertilisant_create,
+        name="collecte_fertilisant_create",
+    ),
+    path(
+        "collectes-fertilisant/<int:pk>/modifier/",
+        views.collecte_fertilisant_edit,
+        name="collecte_fertilisant_edit",
+    ),
+    path(
+        "collectes-fertilisant/<int:pk>/supprimer/",
+        views.collecte_fertilisant_delete,
+        name="collecte_fertilisant_delete",
+    ),
+    # ── TraitementFertilisant ───────────────────────────────────────────
+    path(
+        "traitements-fertilisant/",
+        views.traitement_fertilisant_list,
+        name="traitement_fertilisant_list",
+    ),
+    path(
+        "traitements-fertilisant/creer/",
+        views.traitement_fertilisant_create,
+        name="traitement_fertilisant_create",
+    ),
+    path(
+        "traitements-fertilisant/<int:pk>/",
+        views.traitement_fertilisant_detail,
+        name="traitement_fertilisant_detail",
+    ),
+    path(
+        "traitements-fertilisant/<int:pk>/modifier/",
+        views.traitement_fertilisant_edit,
+        name="traitement_fertilisant_edit",
+    ),
+    path(
+        "traitements-fertilisant/<int:pk>/valider/",
+        views.traitement_fertilisant_valider,
+        name="traitement_fertilisant_valider",
+    ),
 ]

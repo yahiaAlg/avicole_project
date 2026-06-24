@@ -21,6 +21,7 @@ class ProduitFini(models.Model):
     TYPE_DECOUPE = "decoupe"
     TYPE_ABATS = "abats"
     TYPE_OEUFS = "oeufs"
+    TYPE_FERTILISANT = "fertilisant"
     TYPE_AUTRE = "autre"
 
     TYPE_CHOICES = [
@@ -29,6 +30,7 @@ class ProduitFini(models.Model):
         (TYPE_DECOUPE, "قطع"),
         (TYPE_ABATS, "مخلفات الذبح"),
         (TYPE_OEUFS, "بيض"),
+        (TYPE_FERTILISANT, "سماد معالج"),
         (TYPE_AUTRE, "أخرى"),
     ]
 
@@ -146,6 +148,23 @@ class ProductionRecord(models.Model):
     def __str__(self):
         return f"Production {self.lot.designation} — {self.date_production}"
 
+    def clean(self):
+        """
+        BR-LOT-05 (new): a lot cannot be slaughtered/harvested before it
+        reaches ParametrageElevage.age_maturite_vente_jours — see
+        LotElevage.est_mature_pour_vente.
+        """
+        from django.core.exceptions import ValidationError
+        from elevage.models import ParametrageElevage
+
+        if self.lot_id and not self.lot.est_mature_pour_vente:
+            seuil = ParametrageElevage.get_solo().age_maturite_vente_jours
+            raise ValidationError(
+                f"BR-LOT-05 : le lot n'a pas encore atteint l'âge minimum de "
+                f"maturité pour la vente/abattage ({seuil} jours). "
+                f"Âge actuel : {self.lot.age_jours} jour(s)."
+            )
+
     def save(self, *args, **kwargs):
         # Auto-compute average weight when total weight is provided.
         if self.poids_total_kg and self.nombre_oiseaux_abattus:
@@ -207,3 +226,168 @@ class ProductionLigne(models.Model):
     @property
     def valeur_totale(self):
         return self.quantite * self.cout_unitaire_estime
+
+
+# ---------------------------------------------------------------------------
+# Fertilisant (by-product) — collection then treatment
+# ---------------------------------------------------------------------------
+
+
+class CollecteFertilisant(models.Model):
+    """
+    Raw manure/fertilizer collected from a building, awaiting treatment.
+
+    Not tied to a single LotElevage — a building can house several
+    successive cohorts, and manure collection is normally scheduled per
+    building rather than per cohort. Once assigned to a treatment batch,
+    `traitement` is set and this raw quantity is considered consumed by it.
+    """
+
+    batiment = models.ForeignKey(
+        "intrants.Batiment",
+        on_delete=models.PROTECT,
+        related_name="collectes_fertilisant",
+        verbose_name="المبنى",
+    )
+    date_collecte = models.DateField(verbose_name="تاريخ الجمع")
+    quantite_brute_kg = models.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        verbose_name="الكمية الخام (كغ)",
+        validators=[MinValueValidator(0.001)],
+    )
+    traitement = models.ForeignKey(
+        "TraitementFertilisant",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="collectes",
+        verbose_name="عملية المعالجة",
+        help_text="يُملأ عند تخصيص هذه الكمية الخام لعملية معالجة (دفعة).",
+    )
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="collectes_fertilisant_enregistrees",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "جمع سماد خام"
+        verbose_name_plural = "عمليات جمع السماد الخام"
+        ordering = ["-date_collecte"]
+
+    def __str__(self):
+        return (
+            f"{self.batiment.nom} — {self.quantite_brute_kg} كغ ({self.date_collecte})"
+        )
+
+    @property
+    def est_traitee(self):
+        return self.traitement_id is not None
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.traitement_id and self.pk:
+            original = CollecteFertilisant.objects.filter(pk=self.pk).first()
+            if (
+                original
+                and original.traitement_id != self.traitement_id
+                and original.traitement_id
+                and original.traitement.statut == TraitementFertilisant.STATUT_VALIDE
+            ):
+                raise ValidationError(
+                    "Impossible de réaffecter une collecte déjà incluse dans "
+                    "un traitement validé."
+                )
+
+
+class TraitementFertilisant(models.Model):
+    """
+    Batch sanitization/treatment process turning one or more
+    CollecteFertilisant raw inputs into finished, sellable fertilizer.
+
+    Mirrors the ProductionRecord BROUILLON → VALIDE pattern: stock is
+    credited exactly once, on validation (see production/signals.py
+    traitement_fertilisant_post_save), never on a re-save of an already
+    validated batch.
+    """
+
+    STATUT_BROUILLON = "brouillon"
+    STATUT_VALIDE = "valide"
+    STATUT_CHOICES = [
+        (STATUT_BROUILLON, "مسودة"),
+        (STATUT_VALIDE, "معتمد"),
+    ]
+
+    date_traitement = models.DateField(verbose_name="تاريخ المعالجة")
+    methode = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="طريقة المعالجة",
+        help_text="مثال: تجفيف، تخمير، معالجة حرارية...",
+    )
+    produit_fini = models.ForeignKey(
+        ProduitFini,
+        on_delete=models.PROTECT,
+        related_name="traitements_fertilisant",
+        verbose_name="المنتج النهائي (السماد)",
+        limit_choices_to={"type_produit": ProduitFini.TYPE_FERTILISANT},
+    )
+    quantite_obtenue_kg = models.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        default=0,
+        verbose_name="الكمية النهائية المتحصل عليها (كغ)",
+        validators=[MinValueValidator(0)],
+    )
+    cout_unitaire_estime = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        default=0,
+        verbose_name="التكلفة الوحدوية المقدرة (د.ج)",
+        help_text="تُستخدم لحساب متوسط تكلفة الإنتاج عبر المعادلة الموزونة.",
+    )
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default=STATUT_BROUILLON,
+        verbose_name="الحالة",
+    )
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="traitements_fertilisant_enregistres",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "معالجة سماد"
+        verbose_name_plural = "عمليات معالجة السماد"
+        ordering = ["-date_traitement"]
+
+    def __str__(self):
+        return f"Traitement fertilisant {self.date_traitement} — {self.quantite_obtenue_kg} كغ"
+
+    @property
+    def quantite_brute_totale_kg(self):
+        result = self.collectes.aggregate(total=models.Sum("quantite_brute_kg"))[
+            "total"
+        ]
+        return result or 0
+
+    @property
+    def rendement_pourcentage(self):
+        """Yield: finished output / raw input, as a %. None with no raw input yet."""
+        brute = self.quantite_brute_totale_kg
+        if not brute:
+            return None
+        return round(float(self.quantite_obtenue_kg) / float(brute) * 100, 2)

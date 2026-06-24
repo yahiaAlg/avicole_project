@@ -26,9 +26,37 @@ from decimal import Decimal
 from django.db.models.signals import post_save, pre_delete, pre_save
 from django.dispatch import receiver
 
-from elevage.models import Consommation, Mortalite
+from elevage.models import Consommation, Mortalite, TransfertLot, RecolteOeufs
 
 logger = logging.getLogger(__name__)
+
+
+def _get_produit_oeufs():
+    """
+    Resolve the ProduitFini that egg harvests should credit.
+
+    Picks the first active ProduitFini of type OEUFS. If the farm ever needs
+    more than one egg SKU (e.g. by calibre), this should be replaced with an
+    explicit FK on RecolteOeufs — kept simple for now since eggs aren't
+    differentiated at the catalogue level yet.
+    """
+    from production.models import ProduitFini
+
+    qs = ProduitFini.objects.filter(type_produit=ProduitFini.TYPE_OEUFS, actif=True)
+    produit = qs.first()
+    if qs.count() > 1:
+        logger.warning(
+            "_get_produit_oeufs: %d ProduitFini actifs de type OEUFS trouvés — "
+            "utilisation du premier (pk=%s). Envisager une distinction explicite.",
+            qs.count(),
+            produit.pk,
+        )
+    if not produit:
+        logger.error(
+            "_get_produit_oeufs: aucun ProduitFini actif de type OEUFS trouvé. "
+            "Créez-en un pour que la récolte d'œufs alimente le stock."
+        )
+    return produit
 
 
 # ---------------------------------------------------------------------------
@@ -218,7 +246,7 @@ def _appliquer_sortie_mortalite(intrant, nombre, date, lot, reference_id, notes=
     StockMouvement.objects.create(
         intrant=intrant,
         type_mouvement=StockMouvement.TYPE_SORTIE,
-        source=StockMouvement.SOURCE_CONSOMMATION,  # closest available source
+        source=StockMouvement.SOURCE_MORTALITE,
         quantite=Decimal(str(nombre)),
         quantite_avant=quantite_avant,
         quantite_apres=stock.quantite,
@@ -251,7 +279,7 @@ def _appliquer_entree_mortalite_correction(intrant, nombre, date, reference_id, 
     StockMouvement.objects.create(
         intrant=intrant,
         type_mouvement=StockMouvement.TYPE_ENTREE,
-        source=StockMouvement.SOURCE_CONSOMMATION,
+        source=StockMouvement.SOURCE_MORTALITE,
         quantite=Decimal(str(nombre)),
         quantite_avant=quantite_avant,
         quantite_apres=stock.quantite,
@@ -523,4 +551,144 @@ def _appliquer_entree_stock_correction(
         intrant.pk,
         quantite,
         stock.quantite,
+    )
+
+
+# ---------------------------------------------------------------------------
+# TransfertLot: apply building move on creation
+# ---------------------------------------------------------------------------
+
+
+@receiver(post_save, sender=TransfertLot)
+def transfert_lot_post_save(sender, instance, created, **kwargs):
+    """
+    On creation of a TransfertLot, move the lot to batiment_destination.
+    Re-saves (edits to notes/motif etc.) never re-trigger the move — only
+    the initial creation does, so a lot can't be silently relocated twice
+    by editing an existing transfer record.
+    """
+    if not created:
+        return
+
+    lot = instance.lot
+    lot.batiment = instance.batiment_destination
+    lot.save(update_fields=["batiment", "updated_at"])
+
+    logger.info(
+        "TransfertLot pk=%s: lot pk=%s déplacé de %s vers %s (âge: %s jours).",
+        instance.pk,
+        lot.pk,
+        instance.batiment_origine_id,
+        instance.batiment_destination_id,
+        instance.age_jours_transfert,
+    )
+
+
+# ---------------------------------------------------------------------------
+# RecolteOeufs: credit StockProduitFini (œufs) on save / reverse on delete
+# ---------------------------------------------------------------------------
+
+
+@receiver(pre_save, sender=RecolteOeufs)
+def recolte_oeufs_pre_save(sender, instance, **kwargs):
+    """Cache old nombre_oeufs before save so post_save can compute the delta."""
+    if instance.pk:
+        try:
+            instance._old_nombre_oeufs = RecolteOeufs.objects.values_list(
+                "nombre_oeufs", flat=True
+            ).get(pk=instance.pk)
+        except RecolteOeufs.DoesNotExist:
+            instance._old_nombre_oeufs = None
+    else:
+        instance._old_nombre_oeufs = None
+
+
+@receiver(post_save, sender=RecolteOeufs)
+def recolte_oeufs_post_save(sender, instance, created, **kwargs):
+    """
+    Increase StockProduitFini (œufs) and log a StockMouvement (ENTREE,
+    source=PONTE).
+    """
+    from stock.models import StockProduitFini, StockMouvement
+
+    produit = _get_produit_oeufs()
+    if not produit:
+        return
+
+    old_nombre = getattr(instance, "_old_nombre_oeufs", None)
+    delta = (
+        instance.nombre_oeufs
+        if created
+        else (instance.nombre_oeufs - old_nombre if old_nombre is not None else 0)
+    )
+    if delta == 0:
+        return
+
+    stock, _ = StockProduitFini.objects.get_or_create(
+        produit_fini=produit,
+        defaults={
+            "quantite": Decimal("0"),
+            "cout_moyen_production": Decimal("0"),
+            "seuil_alerte": Decimal("0"),
+        },
+    )
+
+    quantite_avant = stock.quantite
+    stock.quantite = stock.quantite + Decimal(str(delta))
+    stock.save(update_fields=["quantite", "derniere_mise_a_jour"])
+
+    StockMouvement.objects.create(
+        produit_fini=produit,
+        type_mouvement=StockMouvement.TYPE_ENTREE,
+        source=StockMouvement.SOURCE_PONTE,
+        quantite=abs(Decimal(str(delta))),
+        quantite_avant=quantite_avant,
+        quantite_apres=stock.quantite,
+        date_mouvement=instance.date,
+        reference_id=instance.pk,
+        reference_label=f"Récolte œufs — {instance.lot.designation} ({instance.date})",
+        created_by=instance.created_by,
+    )
+
+    logger.debug(
+        "Récolte œufs: produit_fini pk=%s %+d → %s (lot pk=%s).",
+        produit.pk,
+        delta,
+        stock.quantite,
+        instance.lot_id,
+    )
+
+
+@receiver(pre_delete, sender=RecolteOeufs)
+def recolte_oeufs_pre_delete(sender, instance, **kwargs):
+    """Reverse the stock entry when a RecolteOeufs record is deleted."""
+    from stock.models import StockProduitFini, StockMouvement
+
+    produit = _get_produit_oeufs()
+    if not produit:
+        return
+
+    stock, _ = StockProduitFini.objects.get_or_create(
+        produit_fini=produit,
+        defaults={
+            "quantite": Decimal("0"),
+            "cout_moyen_production": Decimal("0"),
+            "seuil_alerte": Decimal("0"),
+        },
+    )
+    quantite_avant = stock.quantite
+    stock.quantite = stock.quantite - Decimal(str(instance.nombre_oeufs))
+    stock.save(update_fields=["quantite", "derniere_mise_a_jour"])
+
+    StockMouvement.objects.create(
+        produit_fini=produit,
+        type_mouvement=StockMouvement.TYPE_SORTIE,
+        source=StockMouvement.SOURCE_PONTE,
+        quantite=Decimal(str(instance.nombre_oeufs)),
+        quantite_avant=quantite_avant,
+        quantite_apres=stock.quantite,
+        date_mouvement=instance.date,
+        reference_id=instance.pk,
+        reference_label=f"Annulation récolte œufs pk={instance.pk} (suppression)",
+        created_by=instance.created_by,
     )

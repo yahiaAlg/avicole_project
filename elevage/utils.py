@@ -7,6 +7,8 @@ Business-logic helpers for the lot d'élevage domain.
   get_lot_summary        — Full KPI snapshot for one lot (used by detail view
                            and lot-profitability report)
   verifier_mortalite_anormale — Detect abnormal daily mortality (alert trigger)
+  lots_a_transferer      — Lots in Poussinière past the transfer-age threshold
+                           (alert trigger, same spirit as verifier_mortalite_anormale)
 """
 
 from decimal import Decimal
@@ -211,3 +213,35 @@ def verifier_mortalite_anormale(
     seuil_absolu = lot.nombre_poussins_initial * seuil_pourcentage / 100.0
 
     return lot.mortalites.filter(nombre__gte=seuil_absolu).exists()
+
+
+# ---------------------------------------------------------------------------
+# Transfer-due detection  (alert trigger — companion to verifier_mortalite_anormale)
+# ---------------------------------------------------------------------------
+
+
+def lots_a_transferer() -> list:
+    """
+    Return open lots currently housed in a Poussinière that have reached
+    (or passed) the configured transfer-age threshold
+    (ParametrageElevage.age_transfert_poussiniere_jours).
+
+    Used by the alert engine to prompt operators to create a TransfertLot
+    for each lot returned — this function only detects the condition, it
+    never moves a lot itself (that stays an explicit, auditable action via
+    TransfertLot — see elevage.signals.transfert_lot_post_save).
+
+    The DB-level filter narrows to open lots in a Poussinière; the actual
+    age/threshold comparison is delegated to LotElevage.doit_etre_transfere
+    (single source of truth) since age_jours is a Python property, not a
+    queryable field.
+    """
+    from elevage.models import LotElevage
+    from intrants.models import Batiment
+
+    candidats = LotElevage.objects.filter(
+        statut=LotElevage.STATUT_OUVERT,
+        batiment__type_batiment=Batiment.TYPE_POUSSINIERE,
+    ).select_related("batiment")
+
+    return [lot for lot in candidats if lot.doit_etre_transfere]

@@ -89,6 +89,44 @@ urlpatterns = [
         views.consommation_delete,
         name="consommation_delete",
     ),
+    # ── TransfertLot ─────────────────────────────────────────────────────
+    path(
+        "lots/<int:lot_pk>/transferer/",
+        views.transfert_create,
+        name="transfert_create",
+    ),
+    # ── PeseeEchantillon ─────────────────────────────────────────────────
+    path(
+        "lots/<int:lot_pk>/pesees/creer/",
+        views.pesee_create,
+        name="pesee_create",
+    ),
+    path(
+        "pesees/<int:pk>/supprimer/",
+        views.pesee_delete,
+        name="pesee_delete",
+    ),
+    # ── RecolteOeufs ─────────────────────────────────────────────────────
+    path(
+        "recoltes-oeufs/",
+        views.recolte_oeufs_list,
+        name="recolte_oeufs_list",
+    ),
+    path(
+        "lots/<int:lot_pk>/recoltes-oeufs/creer/",
+        views.recolte_oeufs_create,
+        name="recolte_oeufs_create",
+    ),
+    path(
+        "recoltes-oeufs/<int:pk>/modifier/",
+        views.recolte_oeufs_edit,
+        name="recolte_oeufs_edit",
+    ),
+    path(
+        "recoltes-oeufs/<int:pk>/supprimer/",
+        views.recolte_oeufs_delete,
+        name="recolte_oeufs_delete",
+    ),
     # ── AJAX ────────────────────────────────────────────────────────────
     path(
         "lots/<int:pk>/kpi.json",

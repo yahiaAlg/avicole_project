@@ -9,11 +9,30 @@ from django import forms
 
 from intrants.models import (
     CategorieIntrant,
+    CategorieQualite,
     TypeFournisseur,
     Fournisseur,
     Batiment,
     Intrant,
 )
+
+
+class CategorieQualiteForm(forms.ModelForm):
+    class Meta:
+        model = CategorieQualite
+        fields = [
+            "code",
+            "libelle",
+            "type_pesee",
+            "poids_min",
+            "poids_max",
+            "ordre",
+            "actif",
+        ]
+        widgets = {
+            "poids_min": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+            "poids_max": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+        }
 
 
 class CategorieIntrantForm(forms.ModelForm):
@@ -68,10 +87,38 @@ class FournisseurForm(forms.ModelForm):
 class BatimentForm(forms.ModelForm):
     class Meta:
         model = Batiment
-        fields = ["nom", "capacite", "description", "actif"]
+        fields = [
+            "nom",
+            "type_batiment",
+            "categorie_stockage",
+            "capacite",
+            "description",
+            "actif",
+        ]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 2}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["categorie_stockage"].required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        type_batiment = cleaned.get("type_batiment")
+        categorie_stockage = cleaned.get("categorie_stockage")
+
+        if type_batiment == Batiment.TYPE_ENTREPOT and not categorie_stockage:
+            self.add_error(
+                "categorie_stockage",
+                "مطلوب تحديد نوع التخزين عندما يكون المبنى مستودعاً.",
+            )
+        if type_batiment != Batiment.TYPE_ENTREPOT and categorie_stockage:
+            self.add_error(
+                "categorie_stockage",
+                "اترك هذا الحقل فارغاً إلا إذا كان المبنى مستودعاً.",
+            )
+        return cleaned
 
 
 class IntrantForm(forms.ModelForm):
@@ -80,6 +127,7 @@ class IntrantForm(forms.ModelForm):
         fields = [
             "designation",
             "categorie",
+            "stade",
             "unite_mesure",
             "fournisseurs",
             "seuil_alerte",

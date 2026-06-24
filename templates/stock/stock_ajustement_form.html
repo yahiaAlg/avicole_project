@@ -96,7 +96,7 @@
               تاريخ التسوية <span class="field-required">*</span>
             </label>
             <input type="date" name="date_ajustement" id="{{ form.date_ajustement.id_for_label }}"
-                   value="{{ form.date_ajustement.value|default:'' }}" class="form-input" max="{{ today_iso }}">
+                   value="{{ form.date_ajustement.value|default:'' }}" class="form-input">
             {% if form.date_ajustement.errors %}
             <div class="field-error">{{ form.date_ajustement.errors.0 }}</div>
             {% endif %}
@@ -811,12 +811,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
   /* ── Set date default to today if empty ──────────────────────────── */
   var dateInput = document.getElementById('{{ form.date_ajustement.id_for_label }}');
-  if (dateInput && !dateInput.value) {
+  if (dateInput) {
     var today = new Date();
     var y = today.getFullYear();
     var m = String(today.getMonth() + 1).padStart(2, '0');
     var d = String(today.getDate()).padStart(2, '0');
-    dateInput.value = y + '-' + m + '-' + d;
+    var todayIso = y + '-' + m + '-' + d;
+    dateInput.max = todayIso;
+    if (!dateInput.value) { dateInput.value = todayIso; }
   }
 
 });

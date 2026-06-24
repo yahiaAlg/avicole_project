@@ -64,6 +64,21 @@
               {% endfor %}
             </div>
 
+            <!-- Stade d'utilisation -->
+            <div class="form-group">
+              <label class="form-label" for="{{ form.stade.id_for_label }}">
+                مرحلة الاستخدام <span class="form-required">*</span>
+              </label>
+              <div class="input-wrapper">
+                <i class="bx bx-transfer input-icon"></i>
+                {{ form.stade }}
+              </div>
+              <div class="form-hint">يحدد ما إذا كان المدخل مخصصاً للكتاكيت أو الدجاج البالغ أو كل المراحل.</div>
+              {% for err in form.stade.errors %}
+              <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            </div>
+
             <!-- Unité de mesure -->
             <div class="form-group">
               <label class="form-label" for="{{ form.unite_mesure.id_for_label }}">

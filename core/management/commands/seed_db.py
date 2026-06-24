@@ -97,17 +97,19 @@ class Command(BaseCommand):
 
         # ── Categories & company (always seeded — safe to run on a blank DB) ──
         self._seed_company()
+        self._seed_parametrage_elevage()
         self._seed_users()
         categories_intrant = self._seed_categories_intrant()
         types_fournisseur = self._seed_types_fournisseur()
         categories_depense = self._seed_categories_depense()
+        self._seed_categories_qualite()
         produits_finis = self._seed_produits_finis()
 
         if mode == "minimal":
             self.stdout.write(
                 self.style.SUCCESS(
                     "\n✓ Minimal seed complete "
-                    "(company · users · categories · produits_finis only).\n"
+                    "(company · parametrage · users · categories · qualite · produits_finis only).\n"
                     "  Next: create fournisseurs, clients, bâtiments and intrants\n"
                     "  via the admin interface, then run the full ERP scenario.\n"
                 )
@@ -148,14 +150,20 @@ class Command(BaseCommand):
     def _clear(self, all_data: bool):
         self.stdout.write(self.style.WARNING("  Clearing operational data..."))
         # Import here to avoid circular import before Django is ready
-        from depenses.models import Depense
+
+        # ── Clients app ────────────────────────────────────────────────
         from clients.models import (
+            LivraisonPartielle,
+            VoyageLivraison,
+            AbonnementClient,
             PaiementClientAllocation,
             PaiementClient,
             FactureClient,
             BLClientLigne,
             BLClient,
         )
+
+        # ── Achats app ─────────────────────────────────────────────────
         from achats.models import (
             AllocationReglement,
             ReglementFournisseur,
@@ -164,8 +172,26 @@ class Command(BaseCommand):
             BLFournisseurLigne,
             BLFournisseur,
         )
-        from elevage.models import Consommation, Mortalite, LotElevage
-        from production.models import ProductionLigne, ProductionRecord
+
+        # ── Elevage app ────────────────────────────────────────────────
+        from elevage.models import (
+            RecolteOeufs,
+            PeseeEchantillon,
+            TransfertLot,
+            Consommation,
+            Mortalite,
+            LotElevage,
+        )
+
+        # ── Production app ─────────────────────────────────────────────
+        from production.models import (
+            CollecteFertilisant,
+            TraitementFertilisant,
+            ProductionLigne,
+            ProductionRecord,
+        )
+
+        # ── Stock app ──────────────────────────────────────────────────
         from stock.models import (
             StockMouvement,
             StockAjustement,
@@ -173,24 +199,56 @@ class Command(BaseCommand):
             StockIntrant,
         )
 
-        # Ordered to respect FK constraints
+        # ── Depenses app ───────────────────────────────────────────────
+        from depenses.models import (
+            BulletinPaie,
+            AcompteEmploye,
+            CongeEmploye,
+            Pointage,
+            Employe,
+            RetraitAssocie,
+            Associe,
+            Depense,
+        )
+
+        # Ordered to respect FK constraints (children before parents)
+        BulletinPaie.objects.all().delete()
+        AcompteEmploye.objects.all().delete()
+        CongeEmploye.objects.all().delete()
+        Pointage.objects.all().delete()
+        Employe.objects.all().delete()
+        RetraitAssocie.objects.all().delete()
+        Associe.objects.all().delete()
         Depense.objects.all().delete()
+
+        LivraisonPartielle.objects.all().delete()
+        VoyageLivraison.objects.all().delete()
+        AbonnementClient.objects.all().delete()
         PaiementClientAllocation.objects.all().delete()
         PaiementClient.objects.all().delete()
         FactureClient.objects.all().delete()
         BLClientLigne.objects.all().delete()
         BLClient.objects.all().delete()
+
         AllocationReglement.objects.all().delete()
         ReglementFournisseur.objects.all().delete()
         AcompteFournisseur.objects.all().delete()
         FactureFournisseur.objects.all().delete()
         BLFournisseurLigne.objects.all().delete()
         BLFournisseur.objects.all().delete()
+
+        RecolteOeufs.objects.all().delete()
+        PeseeEchantillon.objects.all().delete()
+        TransfertLot.objects.all().delete()
         Consommation.objects.all().delete()
         Mortalite.objects.all().delete()
         LotElevage.objects.all().delete()
+
+        CollecteFertilisant.objects.all().delete()
+        TraitementFertilisant.objects.all().delete()
         ProductionLigne.objects.all().delete()
         ProductionRecord.objects.all().delete()
+
         StockMouvement.objects.all().delete()
         StockAjustement.objects.all().delete()
         StockProduitFini.objects.all().delete()
@@ -199,6 +257,7 @@ class Command(BaseCommand):
         if all_data:
             self.stdout.write(self.style.WARNING("  Clearing master data..."))
             from intrants.models import (
+                CategorieQualite,
                 Intrant,
                 Batiment,
                 Fournisseur,
@@ -209,10 +268,12 @@ class Command(BaseCommand):
             from depenses.models import CategorieDepense
             from clients.models import Client
             from core.models import CompanyInfo, UserProfile
+            from elevage.models import ParametrageElevage
 
             Intrant.objects.all().delete()
             Batiment.objects.all().delete()
             Fournisseur.objects.all().delete()
+            CategorieQualite.objects.all().delete()
             TypeFournisseur.objects.all().delete()
             CategorieIntrant.objects.all().delete()
             ProduitFini.objects.all().delete()
@@ -221,6 +282,7 @@ class Command(BaseCommand):
             UserProfile.objects.all().delete()
             User.objects.filter(is_superuser=False).delete()
             CompanyInfo.objects.all().delete()
+            ParametrageElevage.objects.all().delete()
 
         self.stdout.write("  Done.\n")
 
@@ -249,6 +311,7 @@ class Command(BaseCommand):
                 taux_tva=Decimal("19.00"),
                 rib="00799999000123456789 12",
                 banque="BNA — Agence Setifien Centre",
+                tap="16970099123456",
                 devise="DZD",
                 pied_de_page=(
                     "Merci de votre confiance — Élevage Avicole Setifien\n"
@@ -261,6 +324,26 @@ class Command(BaseCommand):
             ),
         )
         self._log("CompanyInfo", created)
+        return obj
+
+    def _seed_parametrage_elevage(self):
+        """
+        Singleton farm-wide age thresholds (BR-LOT-05).
+        - age_transfert_poussiniere_jours: age at which chicks must move from
+          Poussinière → Poulailler.
+        - age_maturite_vente_jours: minimum age before slaughter/harvest is
+          allowed on a ProductionRecord.
+        """
+        from elevage.models import ParametrageElevage
+
+        obj, created = ParametrageElevage.objects.get_or_create(
+            pk=1,
+            defaults=dict(
+                age_transfert_poussiniere_jours=21,
+                age_maturite_vente_jours=35,
+            ),
+        )
+        self._log("ParametrageElevage", created)
         return obj
 
     def _seed_users(self):
@@ -329,20 +412,34 @@ class Command(BaseCommand):
         from intrants.models import CategorieIntrant
 
         seeds = [
-            dict(code="ALIMENT", libelle="علف", consommable_en_lot=True, ordre=1),
+            dict(
+                code="ALIMENT",
+                libelle="علف",
+                consommable_en_lot=True,
+                ordre=1,
+                actif=True,
+            ),
             dict(
                 code="POUSSIN",
                 libelle="كتكوت (دواجن حية)",
                 consommable_en_lot=False,
                 ordre=2,
+                actif=True,
             ),
             dict(
                 code="MEDICAMENT",
                 libelle="دواء / بيطري",
                 consommable_en_lot=True,
                 ordre=3,
+                actif=True,
             ),
-            dict(code="AUTRE", libelle="مدخل آخر", consommable_en_lot=False, ordre=4),
+            dict(
+                code="AUTRE",
+                libelle="مدخل آخر",
+                consommable_en_lot=False,
+                ordre=4,
+                actif=True,
+            ),
         ]
         result = {}
         for s in seeds:
@@ -357,11 +454,11 @@ class Command(BaseCommand):
         from intrants.models import TypeFournisseur
 
         seeds = [
-            dict(code="ALIMENTS", libelle="أعلاف", ordre=1),
-            dict(code="POUSSINS", libelle="كتاكيت", ordre=2),
-            dict(code="MEDICAMENTS", libelle="أدوية / بيطريين", ordre=3),
-            dict(code="SERVICES", libelle="خدمات", ordre=4),
-            dict(code="AUTRE", libelle="أخرى", ordre=5),
+            dict(code="ALIMENTS", libelle="أعلاف", ordre=1, actif=True),
+            dict(code="POUSSINS", libelle="كتاكيت", ordre=2, actif=True),
+            dict(code="MEDICAMENTS", libelle="أدوية / بيطريين", ordre=3, actif=True),
+            dict(code="SERVICES", libelle="خدمات", ordre=4, actif=True),
+            dict(code="AUTRE", libelle="أخرى", ordre=5, actif=True),
         ]
         result = {}
         for s in seeds:
@@ -429,6 +526,105 @@ class Command(BaseCommand):
             result[s["code"]] = obj
         self._log("CategorieDepense (8)", True)
         return result
+
+    def _seed_categories_qualite(self):
+        """
+        Seed default quality-grading brackets for birds and eggs.
+
+        Birds (oiseaux) — graded by average live weight in grams:
+          S / Standard / L / XL
+
+        Eggs (oeufs) — graded by average egg weight in grams:
+          S / M / L / XL  (aligned with EU egg-grading norms)
+
+        The unique constraint is (code, type_pesee) so the same letter code
+        can exist independently for each scale.
+        """
+        from intrants.models import CategorieQualite
+
+        seeds = [
+            # ── Oiseaux ────────────────────────────────────────────────
+            dict(
+                code="S",
+                type_pesee=CategorieQualite.TYPE_OISEAUX,
+                libelle="Petit (S)",
+                poids_min=Decimal("1400.00"),
+                poids_max=Decimal("1800.00"),
+                ordre=1,
+                actif=True,
+            ),
+            dict(
+                code="STANDARD",
+                type_pesee=CategorieQualite.TYPE_OISEAUX,
+                libelle="Standard",
+                poids_min=Decimal("1800.00"),
+                poids_max=Decimal("2200.00"),
+                ordre=2,
+                actif=True,
+            ),
+            dict(
+                code="L",
+                type_pesee=CategorieQualite.TYPE_OISEAUX,
+                libelle="Grand (L)",
+                poids_min=Decimal("2200.00"),
+                poids_max=Decimal("2600.00"),
+                ordre=3,
+                actif=True,
+            ),
+            dict(
+                code="XL",
+                type_pesee=CategorieQualite.TYPE_OISEAUX,
+                libelle="Très grand (XL)",
+                poids_min=Decimal("2600.00"),
+                poids_max=Decimal("3500.00"),
+                ordre=4,
+                actif=True,
+            ),
+            # ── Oeufs ──────────────────────────────────────────────────
+            dict(
+                code="S",
+                type_pesee=CategorieQualite.TYPE_OEUFS,
+                libelle="Petit (S)",
+                poids_min=Decimal("43.00"),
+                poids_max=Decimal("53.00"),
+                ordre=1,
+                actif=True,
+            ),
+            dict(
+                code="M",
+                type_pesee=CategorieQualite.TYPE_OEUFS,
+                libelle="Moyen (M)",
+                poids_min=Decimal("53.00"),
+                poids_max=Decimal("63.00"),
+                ordre=2,
+                actif=True,
+            ),
+            dict(
+                code="L",
+                type_pesee=CategorieQualite.TYPE_OEUFS,
+                libelle="Grand (L)",
+                poids_min=Decimal("63.00"),
+                poids_max=Decimal("73.00"),
+                ordre=3,
+                actif=True,
+            ),
+            dict(
+                code="XL",
+                type_pesee=CategorieQualite.TYPE_OEUFS,
+                libelle="Très grand (XL)",
+                poids_min=Decimal("73.00"),
+                poids_max=Decimal("90.00"),
+                ordre=4,
+                actif=True,
+            ),
+        ]
+        for s in seeds:
+            CategorieQualite.objects.get_or_create(
+                code=s["code"],
+                type_pesee=s["type_pesee"],
+                defaults=s,
+            )
+        self._log("CategorieQualite (8 — 4 oiseaux + 4 oeufs)", True)
 
     # ------------------------------------------------------------------
 
@@ -541,28 +737,43 @@ class Command(BaseCommand):
         return result
 
     def _seed_batiments(self):
+        """
+        Seed one of each building type:
+          - Bâtiment A / B  : Poulailler   (grow-out / production buildings)
+          - Poussinière 1   : Poussinière  (brooding — chicks start here, transfer to
+                              Poulailler once they exceed ParametrageElevage.age_transfert)
+          - Entrepôt Fertilisant : Entrepôt (fertiliser storage — requires categorie_stockage)
+
+        Using the typed model prevents downstream logic errors in LotElevage.phase,
+        doit_etre_transfere, and stade_intrant_attendu.
+        """
         from intrants.models import Batiment
 
         specs = [
             dict(
                 nom="Bâtiment A",
+                type_batiment=Batiment.TYPE_POULAILLER,
                 capacite=5000,
                 description="الحظيرة الرئيسية — تهوية ميكانيكية",
             ),
             dict(
                 nom="Bâtiment B",
+                type_batiment=Batiment.TYPE_POULAILLER,
                 capacite=4000,
                 description="الحظيرة الثانوية — تهوية طبيعية",
             ),
             dict(
-                nom="Bâtiment C",
-                capacite=6000,
-                description="حظيرة جديدة — عزل مُحسَّن",
+                nom="Poussinière 1",
+                type_batiment=Batiment.TYPE_POUSSINIERE,
+                capacite=10000,
+                description="حضانة الكتاكيت — الدفعات تبدأ هنا وتُنقل بعد بلوغ سن النقل",
             ),
             dict(
-                nom="Dépôt Aliments",
+                nom="Entrepôt Fertilisant",
+                type_batiment=Batiment.TYPE_ENTREPOT,
+                categorie_stockage=Batiment.STOCKAGE_FERTILISANT,
                 capacite=None,
-                description="مستودع تخزين الأعلاف والمدخلات",
+                description="مستودع تخزين السماد المعالج قبل الشحن",
             ),
         ]
         result = {}
@@ -573,13 +784,25 @@ class Command(BaseCommand):
         return result
 
     def _seed_intrants(self, cats, fournisseurs):
+        """
+        Seed the input-goods catalogue with the correct `stade` for each item:
+          - Feed démarrage  → STADE_DEMARRAGE  (Poussinière phase, age 0–14 days)
+          - Feed croissance → STADE_CROISSANCE  (Poulailler grow-out, age 15–28 days)
+          - Feed finition   → STADE_CROISSANCE  (Poulailler finishing, age 29+ days)
+          - Poussins        → STADE_DEMARRAGE   (received at day-old, enter brooding)
+          - Medicines / other → STADE_TOUS      (used across all phases)
+
+        This aligns with LotElevage.stade_intrant_attendu which narrows
+        the Consommation form's intrant queryset by building type.
+        """
         from intrants.models import Intrant
 
         specs = [
-            # ── Aliments ──────────────────────────────────────
+            # ── Aliments ──────────────────────────────────────────────
             dict(
                 code="ALIM-DEM",
                 cat="ALIMENT",
+                stade=Intrant.STADE_DEMARRAGE,
                 designation="علف البداية — الطور الأول (0–14 يوم)",
                 unite="sac",
                 seuil=10,
@@ -588,6 +811,7 @@ class Command(BaseCommand):
             dict(
                 code="ALIM-CRO",
                 cat="ALIMENT",
+                stade=Intrant.STADE_CROISSANCE,
                 designation="علف النمو — الطور الثاني (15–28 يوم)",
                 unite="sac",
                 seuil=15,
@@ -596,15 +820,17 @@ class Command(BaseCommand):
             dict(
                 code="ALIM-FIN",
                 cat="ALIMENT",
+                stade=Intrant.STADE_CROISSANCE,
                 designation="علف التسمين — الطور الثالث (29 يوم فأكثر)",
                 unite="sac",
                 seuil=20,
                 fnoms=["ONAB Setifien"],
             ),
-            # ── Poussins ─────────────────────────────────────
+            # ── Poussins ──────────────────────────────────────────────
             dict(
                 code="POUSS-R308",
                 cat="POUSSIN",
+                stade=Intrant.STADE_DEMARRAGE,
                 designation="كتكوت روس 308 (يوم واحد)",
                 unite="unite",
                 seuil=100,
@@ -613,15 +839,17 @@ class Command(BaseCommand):
             dict(
                 code="POUSS-C500",
                 cat="POUSSIN",
+                stade=Intrant.STADE_DEMARRAGE,
                 designation="كتكوت كوب 500 (يوم واحد)",
                 unite="unite",
                 seuil=100,
                 fnoms=["Couvoirs du Centre — CCA"],
             ),
-            # ── Médicaments ──────────────────────────────────
+            # ── Médicaments ───────────────────────────────────────────
             dict(
                 code="MED-NEWC",
                 cat="MEDICAMENT",
+                stade=Intrant.STADE_TOUS,
                 designation="لقاح نيوكاسل (هيتشنر B1)",
                 unite="dose",
                 seuil=500,
@@ -630,6 +858,7 @@ class Command(BaseCommand):
             dict(
                 code="MED-GCOR",
                 cat="MEDICAMENT",
+                stade=Intrant.STADE_TOUS,
                 designation="لقاح غامبورو (IBD متوسط)",
                 unite="dose",
                 seuil=500,
@@ -638,6 +867,7 @@ class Command(BaseCommand):
             dict(
                 code="MED-AMOX",
                 cat="MEDICAMENT",
+                stade=Intrant.STADE_TOUS,
                 designation="أموكسيسيلين 50% مسحوق",
                 unite="g",
                 seuil=200,
@@ -646,15 +876,17 @@ class Command(BaseCommand):
             dict(
                 code="MED-VITA",
                 cat="MEDICAMENT",
+                stade=Intrant.STADE_TOUS,
                 designation="فيتامينات + إلكتروليتات (مركّب)",
                 unite="litre",
                 seuil=5,
                 fnoms=["Sanofi Algérie (Vétérinaire)"],
             ),
-            # ── Autres ───────────────────────────────────────
+            # ── Autres ────────────────────────────────────────────────
             dict(
                 code="AUT-LITIERE",
                 cat="AUTRE",
+                stade=Intrant.STADE_TOUS,
                 designation="فراش (نشارة خشب)",
                 unite="sac",
                 seuil=20,
@@ -668,6 +900,7 @@ class Command(BaseCommand):
                 designation=s["designation"],
                 defaults=dict(
                     categorie=cat,
+                    stade=s["stade"],
                     unite_mesure=s["unite"],
                     seuil_alerte=Decimal(str(s["seuil"])),
                     actif=True,
@@ -774,9 +1007,9 @@ class Command(BaseCommand):
 
     def _seed_bl_fournisseurs(self, fournisseurs, intrants):
         """
-        Create 6 BL Fournisseurs covering aliments, poussins, and médicaments.
+        Create 7 BL Fournisseurs covering aliments, poussins, and médicaments.
         2 are in 'reçu' state (ready to invoice), 2 are already 'facturé',
-        1 is still a 'brouillon', 1 is 'en litige'.
+        1 is still a 'brouillon', 1 is 'en litige', 1 is 'autorisation_acces'.
         """
         from achats.models import BLFournisseur, BLFournisseurLigne
         from stock.models import StockIntrant
@@ -786,7 +1019,7 @@ class Command(BaseCommand):
                 ref="BLF-2025-001",
                 fnom="ONAB Setifien",
                 date_ago=60,
-                statut="facture",
+                statut=BLFournisseur.STATUT_FACTURE,
                 lines=[
                     ("ALIM-DEM", Decimal("100"), Decimal("1800.00")),
                     ("ALIM-CRO", Decimal("150"), Decimal("1720.00")),
@@ -796,7 +1029,7 @@ class Command(BaseCommand):
                 ref="BLF-2025-002",
                 fnom="Couvoirs du Centre — CCA",
                 date_ago=55,
-                statut="facture",
+                statut=BLFournisseur.STATUT_FACTURE,
                 lines=[
                     ("POUSS-R308", Decimal("5000"), Decimal("42.00")),
                 ],
@@ -805,7 +1038,7 @@ class Command(BaseCommand):
                 ref="BLF-2025-003",
                 fnom="Sanofi Algérie (Vétérinaire)",
                 date_ago=50,
-                statut="recu",
+                statut=BLFournisseur.STATUT_RECU,
                 lines=[
                     ("MED-NEWC", Decimal("5000"), Decimal("18.00")),
                     ("MED-GCOR", Decimal("3000"), Decimal("21.50")),
@@ -816,7 +1049,7 @@ class Command(BaseCommand):
                 ref="BLF-2025-004",
                 fnom="ONAB Setifien",
                 date_ago=30,
-                statut="recu",
+                statut=BLFournisseur.STATUT_RECU,
                 lines=[
                     ("ALIM-DEM", Decimal("80"), Decimal("1850.00")),
                     ("ALIM-CRO", Decimal("100"), Decimal("1760.00")),
@@ -827,7 +1060,7 @@ class Command(BaseCommand):
                 ref="BLF-2025-005",
                 fnom="Couvoirs du Centre — CCA",
                 date_ago=20,
-                statut="recu",
+                statut=BLFournisseur.STATUT_RECU,
                 lines=[
                     ("POUSS-C500", Decimal("4000"), Decimal("45.00")),
                 ],
@@ -836,7 +1069,7 @@ class Command(BaseCommand):
                 ref="BLF-2025-006",
                 fnom="Proxi-Aliments Boumerdès",
                 date_ago=10,
-                statut="brouillon",
+                statut=BLFournisseur.STATUT_BROUILLON,
                 lines=[
                     ("ALIM-FIN", Decimal("200"), Decimal("1700.00")),
                 ],
@@ -845,7 +1078,7 @@ class Command(BaseCommand):
                 ref="BLF-2025-007",
                 fnom="ONAB Setifien",
                 date_ago=45,
-                statut="litige",
+                statut=BLFournisseur.STATUT_LITIGE,
                 lines=[
                     ("ALIM-CRO", Decimal("50"), Decimal("1750.00")),
                 ],
@@ -873,10 +1106,11 @@ class Command(BaseCommand):
                         prix_unitaire=pu,
                     )
                     # Update StockIntrant for received BLs (simulate signal)
-                    if spec["statut"] in ("recu", "facture"):
-                        si, _ = __import__(
-                            "stock.models", fromlist=["StockIntrant"]
-                        ).StockIntrant.objects.get_or_create(
+                    if spec["statut"] in (
+                        BLFournisseur.STATUT_RECU,
+                        BLFournisseur.STATUT_FACTURE,
+                    ):
+                        si, _ = StockIntrant.objects.get_or_create(
                             intrant=intrants[icode],
                             defaults={
                                 "quantite": Decimal("0"),
@@ -1024,9 +1258,9 @@ class Command(BaseCommand):
     def _seed_lots(self, fournisseurs, batiments):
         """
         Seed 3 lots:
-          - Lot A (fermé, 45 days ago)
-          - Lot B (ouvert, 30 days ago)
-          - Lot C (ouvert, 10 days ago)
+          - Lot A (fermé, 75 days ago) — started in Poussinière, already transferred
+          - Lot B (ouvert, 40 days ago) — in Bâtiment A (poulailler), active production
+          - Lot C (ouvert, 10 days ago) — in Poussinière 1, not yet mature for transfer
         """
         from elevage.models import LotElevage
 
@@ -1045,23 +1279,23 @@ class Command(BaseCommand):
                 souche="Ross 308",
             ),
             dict(
-                designation="Lot Mars 2025 — Bâtiment B",
+                designation="Lot Mars 2025 — Bâtiment A",
                 date_ouverture=d(40),
                 date_fermeture=None,
                 statut=LotElevage.STATUT_OUVERT,
                 nombre_poussins_initial=4000,
                 fournisseur_poussins=cca,
-                batiment=batiments["Bâtiment B"],
+                batiment=batiments["Bâtiment A"],
                 souche="Cobb 500",
             ),
             dict(
-                designation="Lot Avril 2025 — Bâtiment C",
+                designation="Lot Avril 2025 — Poussinière 1",
                 date_ouverture=d(10),
                 date_fermeture=None,
                 statut=LotElevage.STATUT_OUVERT,
                 nombre_poussins_initial=6000,
                 fournisseur_poussins=cca,
-                batiment=batiments["Bâtiment C"],
+                batiment=batiments["Poussinière 1"],
                 souche="Ross 308",
             ),
         ]
@@ -1077,7 +1311,7 @@ class Command(BaseCommand):
         return result
 
     def _seed_mortalites(self, lots):
-        from elevage.models import Mortalite, LotElevage
+        from elevage.models import Mortalite
 
         mortalite_data = {
             "Lot Janvier 2025 — Bâtiment A": [
@@ -1090,14 +1324,14 @@ class Command(BaseCommand):
                 (40, 6, "Choc thermique"),
                 (35, 4, ""),
             ],
-            "Lot Mars 2025 — Bâtiment B": [
+            "Lot Mars 2025 — Bâtiment A": [
                 (38, 10, "Mort-né / faiblesse"),
                 (35, 6, ""),
                 (28, 8, "Infection respiratoire"),
                 (20, 4, ""),
                 (12, 3, ""),
             ],
-            "Lot Avril 2025 — Bâtiment C": [
+            "Lot Avril 2025 — Poussinière 1": [
                 (8, 15, "Mort-né / faiblesse"),
                 (5, 7, ""),
             ],
@@ -1123,11 +1357,11 @@ class Command(BaseCommand):
         Seed realistic daily feed + medicine consumption for each lot.
         Pattern: starter feed first 2 weeks, grower next 2 weeks, finisher after.
         """
-        from elevage.models import Consommation, LotElevage
+        from elevage.models import Consommation
 
         admin = User.objects.filter(is_superuser=True).first()
 
-        def _cons_for_lot(lot, open_ago, close_ago_or_none, initial_birds, suffix_key):
+        def _cons_for_lot(lot, open_ago, close_ago_or_none, initial_birds):
             """Generate consumption records every 3 days for a lot."""
             records = []
             close_ago = close_ago_or_none if close_ago_or_none else 0
@@ -1167,8 +1401,8 @@ class Command(BaseCommand):
 
         lot_params = {
             "Lot Janvier 2025 — Bâtiment A": (75, 30, 5000),
-            "Lot Mars 2025 — Bâtiment B": (40, None, 4000),
-            "Lot Avril 2025 — Bâtiment C": (10, None, 6000),
+            "Lot Mars 2025 — Bâtiment A": (40, None, 4000),
+            "Lot Avril 2025 — Poussinière 1": (10, None, 6000),
         }
 
         count = 0
@@ -1176,9 +1410,7 @@ class Command(BaseCommand):
             lot = lots.get(designation)
             if not lot:
                 continue
-            for cdate, intrant, qty in _cons_for_lot(
-                lot, open_ago, close_ago, birds, designation
-            ):
+            for cdate, intrant, qty in _cons_for_lot(lot, open_ago, close_ago, birds):
                 Consommation.objects.get_or_create(
                     lot=lot,
                     date=cdate,
@@ -1212,7 +1444,7 @@ class Command(BaseCommand):
         # ── Shortcuts ──────────────────────────────────────────────────
         pf = produits_finis  # alias for readability
         lot_a = lots.get("Lot Janvier 2025 — Bâtiment A")
-        lot_b = lots.get("Lot Mars 2025 — Bâtiment B")
+        lot_b = lots.get("Lot Mars 2025 — Bâtiment A")
 
         productions_created = 0
 
@@ -1231,8 +1463,6 @@ class Command(BaseCommand):
                 ),
             )
             if created:
-                # All 7 seeded product types represented so the catalogue
-                # looks populated from day one.
                 lines_a = [
                     # (produit_fini,               qty,              poids_unit, cout_unit)
                     (
@@ -1379,35 +1609,35 @@ class Command(BaseCommand):
                 ref="BLC-2025-001",
                 client=marche,
                 date_ago=28,
-                statut="facture",
+                statut=BLClient.STATUT_FACTURE,
                 lines=[(vivant, Decimal("1500"), Decimal("480"))],
             ),
             dict(
                 ref="BLC-2025-002",
                 client=palmier,
                 date_ago=25,
-                statut="facture",
+                statut=BLClient.STATUT_FACTURE,
                 lines=[(carcasse, Decimal("300"), Decimal("750"))],
             ),
             dict(
                 ref="BLC-2025-003",
                 client=amrane,
                 date_ago=20,
-                statut="livre",
+                statut=BLClient.STATUT_LIVRE,
                 lines=[(carcasse, Decimal("200"), Decimal("750"))],
             ),
             dict(
                 ref="BLC-2025-004",
                 client=marche,
                 date_ago=15,
-                statut="livre",
+                statut=BLClient.STATUT_LIVRE,
                 lines=[(vivant, Decimal("800"), Decimal("490"))],
             ),
             dict(
                 ref="BLC-2025-005",
                 client=palmier,
                 date_ago=5,
-                statut="brouillon",
+                statut=BLClient.STATUT_BROUILLON,
                 lines=[(carcasse, Decimal("100"), Decimal("760"))],
             ),
         ]
@@ -1428,8 +1658,11 @@ class Command(BaseCommand):
                     BLClientLigne.objects.create(
                         bl=bl, produit_fini=pf, quantite=qty, prix_unitaire=pu
                     )
-                    # Deduct from stock for validated BLs
-                    if spec["statut"] in ("livre", "facture"):
+                    # Deduct from stock for validated BLs (simulate signal)
+                    if spec["statut"] in (
+                        BLClient.STATUT_LIVRE,
+                        BLClient.STATUT_FACTURE,
+                    ):
                         try:
                             spf = StockProduitFini.objects.get(produit_fini=pf)
                             spf.quantite = max(Decimal("0"), spf.quantite - qty)
@@ -1550,8 +1783,8 @@ class Command(BaseCommand):
 
         admin = User.objects.filter(is_superuser=True).first()
         lot_a = lots.get("Lot Janvier 2025 — Bâtiment A")
-        lot_b = lots.get("Lot Mars 2025 — Bâtiment B")
-        lot_c = lots.get("Lot Avril 2025 — Bâtiment C")
+        lot_b = lots.get("Lot Mars 2025 — Bâtiment A")
+        lot_c = lots.get("Lot Avril 2025 — Poussinière 1")
         f_service = factures.get("FRN-2025-003")  # service invoice for linking demo
 
         specs = [
