@@ -1,6 +1,7 @@
 django
 pillow
-psycopg2-binary
+mysqlclient
 django-import-export
 whitenoise[brotli]
 gunicorn
+python-dotenv
