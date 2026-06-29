@@ -11,6 +11,7 @@
   <span style="font-weight:700;{% if summary.solde_net >= 0 %}color:#15803d;{% else %}color:#dc2626;{% endif %}">
     {{ summary.solde_net|floatformat:0 }} DZD
   </span>
+  <span style="font-size:11px;color:var(--text-muted);margin-right:6px;">(موردون + مصاريف + شركاء + رواتب)</span>
 {% endblock %}
 {% block topbar_actions %}
 <a href="?{% if date_debut %}date_debut={{ date_debut|date:"Y-m-d" }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:"Y-m-d" }}&{% endif %}export=csv" class="btn-ghost btn-sm">
@@ -65,30 +66,44 @@
   </div>
 </div>
 
-<!-- Top KPIs -->
-<div class="row g-3 mb-4">
-  <div class="col-xl-3 col-md-6">
+<!-- Top KPIs — row 1: inflows vs main outflows -->
+<div class="row g-3 mb-3">
+  <div class="col-xl-2 col-md-4 col-sm-6">
     <div class="metric-card">
       <div class="metric-icon ic-green"><i class="bx bxs-down-arrow-circle"></i></div>
       <div class="metric-label">تحصيلات العملاء</div>
       <div class="metric-value sm" style="color:#15803d;">{{ summary.total_encaissements|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
   </div>
-  <div class="col-xl-3 col-md-6">
+  <div class="col-xl-2 col-md-4 col-sm-6">
     <div class="metric-card">
       <div class="metric-icon ic-red"><i class="bx bxs-up-arrow-circle"></i></div>
       <div class="metric-label">مدفوعات الموردين</div>
       <div class="metric-value sm" style="color:#dc2626;">{{ summary.total_reglements_fournisseurs|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
   </div>
-  <div class="col-xl-3 col-md-6">
+  <div class="col-xl-2 col-md-4 col-sm-6">
     <div class="metric-card">
       <div class="metric-icon ic-orange"><i class="bx bxs-wallet"></i></div>
       <div class="metric-label">المصاريف التشغيلية</div>
       <div class="metric-value sm" style="color:#ea580c;">{{ summary.total_depenses|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
   </div>
-  <div class="col-xl-3 col-md-6">
+  <div class="col-xl-2 col-md-4 col-sm-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-purple"><i class="bx bxs-user-minus"></i></div>
+      <div class="metric-label">سحوبات الشركاء</div>
+      <div class="metric-value sm" style="color:#7c3aed;">{{ summary.total_retraits|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-md-4 col-sm-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-teal"><i class="bx bxs-id-card"></i></div>
+      <div class="metric-label">الرواتب والتسبيقات (RH)</div>
+      <div class="metric-value sm" style="color:#0d9488;">{{ summary.total_paie|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-md-4 col-sm-6">
     <div class="metric-card">
       <div class="metric-icon {% if summary.solde_net >= 0 %}ic-green{% else %}ic-red{% endif %}"><i class="bx bxs-bar-chart-alt-2"></i></div>
       <div class="metric-label">صافي الرصيد النقدي</div>
@@ -122,7 +137,26 @@
         <div class="flow-section out">
           <div class="flow-section__title"><i class="bx bxs-up-arrow-circle"></i> المدفوعات (المخارج)</div>
           <div class="flow-total out">{{ summary.total_sorties|floatformat:0 }} DZD</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">مدفوعات الموردين + المصاريف</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">موردون + مصاريف + شركاء + رواتب</div>
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
+            <div class="mode-row" style="justify-content:space-between;">
+              <span style="font-size:12px;color:#dc2626;"><i class="bx bxs-building" style="vertical-align:middle;margin-left:4px;"></i> مدفوعات الموردين</span>
+              <span style="font-weight:600;font-family:'Nunito',sans-serif;font-size:12.5px;">{{ summary.total_reglements_fournisseurs|floatformat:0 }} DZD</span>
+            </div>
+            <div class="mode-row" style="justify-content:space-between;">
+              <span style="font-size:12px;color:#ea580c;"><i class="bx bxs-wallet" style="vertical-align:middle;margin-left:4px;"></i> المصاريف التشغيلية</span>
+              <span style="font-weight:600;font-family:'Nunito',sans-serif;font-size:12.5px;">{{ summary.total_depenses|floatformat:0 }} DZD</span>
+            </div>
+            <div class="mode-row" style="justify-content:space-between;">
+              <span style="font-size:12px;color:#7c3aed;"><i class="bx bxs-user-minus" style="vertical-align:middle;margin-left:4px;"></i> سحوبات الشركاء</span>
+              <span style="font-weight:600;font-family:'Nunito',sans-serif;font-size:12.5px;">{{ summary.total_retraits|floatformat:0 }} DZD</span>
+            </div>
+            <div class="mode-row" style="justify-content:space-between;">
+              <span style="font-size:12px;color:#0d9488;"><i class="bx bxs-id-card" style="vertical-align:middle;margin-left:4px;"></i> رواتب وتسبيقات (RH)</span>
+              <span style="font-weight:600;font-family:'Nunito',sans-serif;font-size:12.5px;">{{ summary.total_paie|floatformat:0 }} DZD</span>
+            </div>
+          </div>
+          <div style="margin-top:10px;border-top:1px dashed var(--border);padding-top:8px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);">حسب طريقة الدفع</div>
           {% for m in summary.par_mode_sortie %}
           <div class="mode-row">
             <span>{{ m.label }}</span>
@@ -277,6 +311,96 @@
   </div>
 </div>
 
+<!-- Retraits Associés table -->
+<div class="section-card mb-3">
+  <div class="section-card__head">
+    <span class="section-card__title"><i class="bx bxs-user-minus" style="color:#7c3aed;margin-right:6px;"></i>سحوبات الشركاء (Retraits Associés)</span>
+    <span class="pill-base" style="background:rgba(124,58,237,.1);color:#7c3aed;">{{ summary.total_retraits|floatformat:0 }} DZD</span>
+  </div>
+  <div class="section-card__body no-pad">
+    {% if summary.detail_retraits %}
+    <div style="overflow-x:auto;">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>التاريخ</th>
+            <th>الشريك</th>
+            <th>طريقة الدفع</th>
+            <th>السبب</th>
+            <th>المرجع</th>
+            <th style="text-align:left;">المبلغ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in summary.detail_retraits %}
+          <tr class="stagger-row">
+            <td style="font-size:12.5px;">{{ r.date|date:"d/m/Y" }}</td>
+            <td style="font-weight:600;">{{ r.associe.nom }}</td>
+            <td><span class="pill-base pill-info">{{ r.get_mode_paiement_display }}</span></td>
+            <td style="font-size:12px;color:var(--text-muted);">{{ r.motif|default:"—"|truncatechars:50 }}</td>
+            <td style="font-size:12px;color:var(--text-muted);">{{ r.reference_document|default:"—" }}</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#7c3aed;">{{ r.montant|floatformat:0 }} DZD</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:30px 20px;">
+      <i class="bx bxs-user-minus empty-state__icon" style="color:#7c3aed;"></i>
+      <div class="empty-state__title">لا توجد سحوبات شركاء في هذه الفترة</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Paie RH table (acomptes + bulletins de paie payés) -->
+<div class="section-card">
+  <div class="section-card__head">
+    <span class="section-card__title"><i class="bx bxs-id-card" style="color:#0d9488;margin-right:6px;"></i>الرواتب والتسبيقات (RH)</span>
+    <span class="pill-base" style="background:rgba(13,148,136,.1);color:#0d9488;">{{ summary.total_paie|floatformat:0 }} DZD</span>
+  </div>
+  <div class="section-card__body no-pad">
+    {% if summary.detail_paie %}
+    <div style="overflow-x:auto;">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>التاريخ</th>
+            <th>العامل</th>
+            <th>النوع</th>
+            <th>طريقة الدفع</th>
+            <th>الفترة</th>
+            <th style="text-align:left;">المبلغ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in summary.detail_paie %}
+          <tr class="stagger-row">
+            <td style="font-size:12.5px;">{{ p.date|date:"d/m/Y" }}</td>
+            <td style="font-weight:600;">{{ p.employe }}</td>
+            <td>
+              <span class="pill-base {% if p.type == 'acompte' %}pill-warning{% else %}pill-success{% endif %}" style="font-size:10.5px;">
+                {% if p.type == 'acompte' %}تسبيق{% else %}راتب صافي{% endif %}
+              </span>
+            </td>
+            <td><span class="pill-base pill-info" style="font-size:10.5px;">{{ p.mode_paiement_display }}</span></td>
+            <td style="font-size:12px;color:var(--text-muted);">{{ p.periode|default:"—" }}</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#0d9488;">{{ p.montant|floatformat:0 }} DZD</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:30px 20px;">
+      <i class="bx bxs-id-card empty-state__icon" style="color:#0d9488;"></i>
+      <div class="empty-state__title">لا توجد مدفوعات رواتب في هذه الفترة</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
 <script id="cashflow-data" type="application/json">{{ chart_json|safe }}</script>
 {% endblock %}
 
@@ -296,14 +420,16 @@ document.addEventListener('DOMContentLoaded', function () {
     new Chart(cashflowEl, {
       type: 'bar',
       data: {
-        labels: ['تحصيلات', 'مدفوعات الموردين', 'مصاريف التشغيل', 'صافي الرصيد'],
+        labels: ['تحصيلات', 'مدفوعات موردين', 'مصاريف', 'سحوبات شركاء', 'رواتب (RH)', 'صافي الرصيد'],
         datasets: [{
           label: 'المبلغ (دج)',
-          data: [d.encaissements, d.reglements, d.depenses, d.solde],
+          data: [d.encaissements, d.reglements, d.depenses, d.retraits, d.paie, d.solde],
           backgroundColor: [
             'rgba(34,197,94,.7)',
             'rgba(239,68,68,.7)',
             'rgba(251,146,60,.7)',
+            'rgba(124,58,237,.65)',
+            'rgba(13,148,136,.65)',
             d.solde >= 0 ? 'rgba(56,189,248,.7)' : 'rgba(239,68,68,.5)'
           ],
           borderRadius: 6,

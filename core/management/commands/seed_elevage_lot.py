@@ -24,7 +24,8 @@ Utilisation :
 Notes :
     - La commande est idempotente (get_or_create partout).
     - Le lot doit déjà exister avec le statut OUVERT.
-    - Les intrants référencés doivent exister dans la base (créés via l'interface ou seed_db --mode demo).
+    - Les intrants référencés doivent exister dans la base (créés via l'interface
+      après avoir exécuté seed_db_minimal pour les catégories).
     - Les dates sont ABSOLUES (issues du scénario Mai 2026) ; pour un autre lot,
       adaptez les dates via --date-offset (décalage en jours par rapport aux dates du scénario).
 
@@ -52,26 +53,26 @@ DEFAULT_LOT_DESIGNATION = "Lot Mai 2026 — Bâtiment A"
 
 # Format : (date_iso, nombre, cause)
 MORTALITE_DATA = [
-    ("2026-05-13",  5, "Stress transport / déshydratation"),
+    ("2026-05-13", 5, "Stress transport / déshydratation"),
     ("2026-05-18", 10, "Infection respiratoire précoce"),
     ("2026-05-24", 12, "Aspergillose suspectée"),
-    ("2026-06-01",  8, "Coccidiose — traitement lancé"),
-    ("2026-06-14",  5, "Cause indéterminée"),
+    ("2026-06-01", 8, "Coccidiose — traitement lancé"),
+    ("2026-06-14", 5, "Cause indéterminée"),
 ]
 
 # Format : (date_iso, designation_intrant, quantite)
 # Désignations EXACTES telles qu'elles existent dans la table Intrant.
 ALIMENT_DATA = [
     # Démarrage J0→J14
-    ("2026-05-12", "علف البداية — الطور الأول (0–14 يوم)",  Decimal("25.000")),
-    ("2026-05-14", "علف البداية — الطور الأول (0–14 يوم)",  Decimal("25.000")),
-    ("2026-05-17", "علف البداية — الطور الأول (0–14 يوم)",  Decimal("50.000")),
-    ("2026-05-21", "علف البداية — الطور الأول (0–14 يوم)",  Decimal("50.000")),
-    ("2026-05-24", "علف البداية — الطور الأول (0–14 يوم)",  Decimal("50.000")),
+    ("2026-05-12", "علف البداية — الطور الأول (0–14 يوم)", Decimal("25.000")),
+    ("2026-05-14", "علف البداية — الطور الأول (0–14 يوم)", Decimal("25.000")),
+    ("2026-05-17", "علف البداية — الطور الأول (0–14 يوم)", Decimal("50.000")),
+    ("2026-05-21", "علف البداية — الطور الأول (0–14 يوم)", Decimal("50.000")),
+    ("2026-05-24", "علف البداية — الطور الأول (0–14 يوم)", Decimal("50.000")),
     # Croissance J15→J28
-    ("2026-05-25", "علف النمو — الطور الثاني (15–28 يوم)",  Decimal("60.000")),
-    ("2026-06-01", "علف النمو — الطور الثاني (15–28 يوم)",  Decimal("60.000")),
-    ("2026-06-08", "علف النمو — الطور الثاني (15–28 يوم)",  Decimal("60.000")),
+    ("2026-05-25", "علف النمو — الطور الثاني (15–28 يوم)", Decimal("60.000")),
+    ("2026-06-01", "علف النمو — الطور الثاني (15–28 يوم)", Decimal("60.000")),
+    ("2026-06-08", "علف النمو — الطور الثاني (15–28 يوم)", Decimal("60.000")),
     # Finition J29→J40
     ("2026-06-08", "علف التسمين — الطور الثالث (29 يوم فأكثر)", Decimal("50.000")),
     ("2026-06-13", "علف التسمين — الطور الثالث (29 يوم فأكثر)", Decimal("50.000")),
@@ -80,13 +81,13 @@ ALIMENT_DATA = [
 
 # Format : (date_iso, designation_intrant, quantite)
 MEDIC_DATA = [
-    ("2026-05-13", "فيتامينات + إلكتروليتات (مركّب)",   Decimal("2.000")),
-    ("2026-05-18", "أموكسيسيلين 50% مسحوق",             Decimal("250.000")),
-    ("2026-05-18", "فيتامينات + إلكتروليتات (مركّب)",   Decimal("3.000")),
-    ("2026-05-24", "لقاح نيوكاسل (هيتشنر B1)",          Decimal("2000.000")),
-    ("2026-06-01", "لقاح غامبورو (IBD متوسط)",           Decimal("1965.000")),
-    ("2026-06-01", "أموكسيسيلين 50% مسحوق",             Decimal("250.000")),
-    ("2026-06-01", "فيتامينات + إلكتروليتات (مركّب)",   Decimal("5.000")),
+    ("2026-05-13", "فيتامينات + إلكتروليتات (مركّب)", Decimal("2.000")),
+    ("2026-05-18", "أموكسيسيلين 50% مسحوق", Decimal("250.000")),
+    ("2026-05-18", "فيتامينات + إلكتروليتات (مركّب)", Decimal("3.000")),
+    ("2026-05-24", "لقاح نيوكاسل (هيتشنر B1)", Decimal("2000.000")),
+    ("2026-06-01", "لقاح غامبورو (IBD متوسط)", Decimal("1965.000")),
+    ("2026-06-01", "أموكسيسيلين 50% مسحوق", Decimal("250.000")),
+    ("2026-06-01", "فيتامينات + إلكتروليتات (مركّب)", Decimal("5.000")),
 ]
 
 
@@ -176,7 +177,7 @@ class Command(BaseCommand):
         if not admin:
             raise CommandError(
                 "Aucun super-utilisateur trouvé. "
-                "Exécutez seed_db --mode minimal en premier."
+                "Exécutez seed_db_minimal en premier."
             )
 
         # ── Seed sections ─────────────────────────────────────────────────
@@ -184,10 +185,14 @@ class Command(BaseCommand):
             self._seed_mortalites(lot, offset)
 
         if what in ("all", "aliments"):
-            self._seed_consommations(lot, ALIMENT_DATA, "Aliments", admin, offset)
+            self._seed_consommations(
+                lot, ALIMENT_DATA, "Aliments", admin, offset, "ALIMENT"
+            )
 
         if what in ("all", "medics"):
-            self._seed_consommations(lot, MEDIC_DATA, "Médicaments", admin, offset)
+            self._seed_consommations(
+                lot, MEDIC_DATA, "Médicaments", admin, offset, "MEDICAMENT"
+            )
 
         self.stdout.write(self.style.SUCCESS("\n✓ seed_elevage_lot terminé.\n"))
 
@@ -210,11 +215,15 @@ class Command(BaseCommand):
             if created:
                 created_count += 1
                 self.stdout.write(
-                    self.style.SUCCESS(f"  ✓ Mortalité {dt}  {nombre} oiseaux  {cause or '—'}")
+                    self.style.SUCCESS(
+                        f"  ✓ Mortalité {dt}  {nombre} oiseaux  {cause or '—'}"
+                    )
                 )
             else:
                 self.stdout.write(
-                    self.style.WARNING(f"  ~ Mortalité {dt}  {nombre} oiseaux  (déjà existante)")
+                    self.style.WARNING(
+                        f"  ~ Mortalité {dt}  {nombre} oiseaux  (déjà existante)"
+                    )
                 )
 
         self._log_summary("Mortalités", created_count, len(MORTALITE_DATA))
@@ -223,18 +232,23 @@ class Command(BaseCommand):
     # Consommations (aliments ou médicaments)
     # ------------------------------------------------------------------
 
-    def _seed_consommations(self, lot, data, label: str, admin, offset: timedelta):
+    def _seed_consommations(
+        self, lot, data, label: str, admin, offset: timedelta, categorie_code: str
+    ):
         from elevage.models import Consommation
         from intrants.models import Intrant
 
-        # Pre-resolve intrants by designation to give clear errors early
+        # Pre-resolve intrants by designation + category to give clear errors early
+        # and guard against MultipleObjectsReturned when designations are reused
+        # across different categories (the Intrant.designation field is not unique).
         intrant_cache: dict[str, object] = {}
         missing: list[str] = []
         for _, designation, _ in data:
             if designation not in intrant_cache:
                 try:
                     intrant_cache[designation] = Intrant.objects.get(
-                        designation=designation
+                        designation=designation,
+                        categorie__code=categorie_code,
                     )
                 except Intrant.DoesNotExist:
                     if designation not in missing:
@@ -244,14 +258,14 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.ERROR(
                     f"\n  ✗ Intrants introuvables pour {label} "
-                    f"(vérifiez la désignation exacte dans la base) :\n"
+                    f"(catégorie {categorie_code} — vérifiez la désignation exacte dans la base) :\n"
                     + "\n".join(f"      • {d}" for d in missing)
                 )
             )
             raise CommandError(
                 f"{len(missing)} intrant(s) manquant(s) — "
                 "créez-les via l'interface (STOCK → Intrants → Nouvel intrant) "
-                "ou exécutez seed_db --mode demo pour les pré-créer."
+                f"avec la catégorie {categorie_code}."
             )
 
         created_count = 0

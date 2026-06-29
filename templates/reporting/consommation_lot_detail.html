@@ -56,6 +56,11 @@
       {% if lot.date_fermeture %}<span class="lot-meta-badge"><i class="bx bxs-lock" style="color:#b45309;"></i> مُغلق بتاريخ {{ lot.date_fermeture|date:"d/m/Y" }}</span>{% endif %}
       <span class="lot-meta-badge"><i class="bx bxs-bird" style="color:#7c3aed;"></i> {{ lot.nombre_poussins_initial }} صوص</span>
       {% if lot.souche %}<span class="lot-meta-badge"><i class="bx bxs-tag" style="color:var(--text-muted);"></i> {{ lot.souche }}</span>{% endif %}
+      {% if lot.lot_parent %}
+      <span class="lot-meta-badge" title="دفعة فرعية من: {{ lot.lot_parent.designation }}">
+        <i class="bx bx-git-branch" style="color:#0284c7;"></i> فرعية من: {{ lot.lot_parent.designation }}
+      </span>
+      {% endif %}
       <span class="pill-base {% if lot.statut == 'ouvert' %}pill-success{% else %}pill-neutral{% endif %}" style="margin-left:auto;">
         {% if lot.statut == 'ouvert' %}مفتوح{% else %}مُغلق{% endif %}
       </span>
@@ -70,8 +75,9 @@
     <div class="kpi-chip__val">{{ summary.effectif_vivant }}<span class="kpi-chip__unit">رأس</span></div>
   </div>
   <div class="kpi-chip">
-    <div class="kpi-chip__label">النفوق</div>
-    <div class="kpi-chip__val" style="color:{% if summary.taux_mortalite > 5 %}#dc2626{% elif summary.taux_mortalite > 2 %}#b45309{% else %}#15803d{% endif %};">
+    <div class="kpi-chip__label">النفوق <span style="font-size:9px;">(عن المرجع)</span></div>
+    <div class="kpi-chip__val" style="color:{% if summary.taux_mortalite > 5 %}#dc2626{% elif summary.taux_mortalite > 2 %}#b45309{% else %}#15803d{% endif %};"
+         title="المرجع: {{ lot.nombre_poussins_reference }} طير (الأولي + المنقولون خارجاً)">
       {{ summary.taux_mortalite|floatformat:2 }}<span class="kpi-chip__unit">%</span>
     </div>
   </div>

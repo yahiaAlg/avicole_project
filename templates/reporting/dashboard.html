@@ -337,6 +337,22 @@ a.alert-metric{text-decoration:none;cursor:pointer;display:flex;}
     </div>
     <i class="bx bx-right-arrow-alt report-card__arrow"></i>
   </a>
+  <a href="{% url 'reporting:retraits_associes' %}" class="report-card">
+    <div class="report-card__icon ic-purple"><i class="bx bxs-user-account"></i></div>
+    <div class="report-card__content">
+      <div class="report-card__title">سحوبات الشركاء</div>
+      <div class="report-card__desc">ملخص السحوبات حسب الشريك وطريقة الدفع، مع إجماليات الفترة.</div>
+    </div>
+    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
+  </a>
+  <a href="{% url 'reporting:synthese_rh' %}" class="report-card">
+    <div class="report-card__icon ic-teal"><i class="bx bxs-group"></i></div>
+    <div class="report-card__content">
+      <div class="report-card__title">ملخص الموارد البشرية</div>
+      <div class="report-card__desc">الرواتب الإجمالية والصافية، التسبيقات، أيام الحضور والغياب والعطل لكل موظف.</div>
+    </div>
+    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
+  </a>
 </div>
 
 <div class="section-eyebrow">الربحية والإنتاج</div>
@@ -354,6 +370,14 @@ a.alert-metric{text-decoration:none;cursor:pointer;display:flex;}
     <div class="report-card__content">
       <div class="report-card__title">لوحة تحكم الإنتاج</div>
       <div class="report-card__desc">الطيور المذبوحة، الوزن الإجمالي، متوسط الوزن والتكلفة التقديرية لكل دفعة.</div>
+    </div>
+    <i class="bx bx-right-arrow-alt report-card__arrow"></i>
+  </a>
+  <a href="{% url 'reporting:oeufs_fertilisant' %}" class="report-card">
+    <div class="report-card__icon ic-amber"><i class="bx bxs-leaf"></i></div>
+    <div class="report-card__content">
+      <div class="report-card__title">البيض والسماد</div>
+      <div class="report-card__desc">جمع البيض (بالصينية) حسب الدفعة، معالجة السماد الخام وإنتاجية المعالجة.</div>
     </div>
     <i class="bx bx-right-arrow-alt report-card__arrow"></i>
   </a>

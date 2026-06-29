@@ -127,6 +127,7 @@
             <th style="text-align:center;">الحالة</th>
             <th style="text-align:left;">المبلغ الإجمالي</th>
             <th>الفاتورة(فواتير)</th>
+            <th>المستلم</th>
             <th>ملاحظات</th>
           </tr>
         </thead>
@@ -165,6 +166,7 @@
                 <span style="color:var(--text-muted);font-size:12px;">—</span>
               {% endfor %}
             </td>
+            <td style="font-size:12px;color:var(--text-muted);">{{ bl.signe_par|default:"—" }}</td>
             <td style="color:var(--text-muted);font-size:12px;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
               {{ bl.notes|default:"—" }}
             </td>

@@ -259,7 +259,8 @@
     <div class="brand__name">{{ company.nom }}</div>
     {% if company.adresse %}<div class="brand__sub">{{ company.adresse }}</div>{% endif %}
     {% if company.telephone %}<div class="brand__sub">{{ company.telephone }}</div>{% endif %}
-    {% if company.nif %}<div class="brand__sub">السجل الضريبي : {{ company.nif }}{% if company.rc %} — س.ت : {{ company.rc }}{% endif %}</div>{% endif %}
+    {% if company.nif %}<div class="brand__sub">السجل الضريبي : {{ company.nif }}{% if company.rc %} — س.ت : {{ company.rc }}{% endif %}{% if company.ai %} — م.ض : {{ company.ai }}{% endif %}</div>{% endif %}
+    {% if company.nis %}<div class="brand__sub">NIS : {{ company.nis }}{% if company.tap %} — TAP : {{ company.tap }}{% endif %}</div>{% endif %}
   </div>
   <div class="doc-title-block">
     <div class="doc-title">وصل حركة المخزون</div>
@@ -423,6 +424,8 @@
     {{ company.nom }}
     {% if company.adresse %} — {{ company.adresse }}{% endif %}
     {% if company.telephone %} — هاتف : {{ company.telephone }}{% endif %}
+    {% if company.rib %} — RIB : {{ company.rib }}{% if company.banque %} ({{ company.banque }}){% endif %}{% endif %}
+    {% if company.pied_de_page %}<br>{{ company.pied_de_page }}{% endif %}
   </div>
   <div class="doc-footer__text">
     وصل #{{ mouvement.pk }} — {{ mouvement.date_mouvement|date:"d/m/Y" }} — {{ mouvement.get_type_mouvement_display|upper }}

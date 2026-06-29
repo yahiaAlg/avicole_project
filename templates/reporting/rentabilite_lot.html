@@ -163,7 +163,8 @@
               <div style="font-size:11px;color:var(--text-muted);">أحياء : {{ r.effectif_vivant }}</div>
             </td>
             <td style="text-align:right;">
-              <span class="{% if r.taux_mortalite > 5 %}margin-neg{% else %}margin-pos{% endif %}">
+              <span class="{% if r.taux_mortalite > 5 %}margin-neg{% else %}margin-pos{% endif %}"
+                title="المرجع: {{ r.lot.nombre_poussins_reference }} طير (الأولي + المنقولون خارجاً)">
                 {{ r.taux_mortalite|floatformat:2 }}%
               </span>
               <div style="font-size:11px;color:var(--text-muted);">{{ r.total_mortalite }} رأس</div>
@@ -231,8 +232,9 @@
       <div class="kpi-mini__val" style="color:#15803d;">{{ lot_summary.effectif_vivant }}</div>
     </div>
     <div class="kpi-mini">
-      <div class="kpi-mini__label">النفوق</div>
-      <div class="kpi-mini__val {% if lot_summary.taux_mortalite > 5 %}margin-neg{% endif %}">{{ lot_summary.taux_mortalite|floatformat:2 }}%</div>
+      <div class="kpi-mini__label">النفوق <span style="font-size:9px;color:var(--text-muted);">(عن المرجع)</span></div>
+      <div class="kpi-mini__val {% if lot_summary.taux_mortalite > 5 %}margin-neg{% endif %}"
+           title="المرجع: {{ lot_obj.nombre_poussins_reference }} طير">{{ lot_summary.taux_mortalite|floatformat:2 }}%</div>
     </div>
     <div class="kpi-mini">
       <div class="kpi-mini__label">مدة التربية</div>

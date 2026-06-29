@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}البيض والسماد — تربية الدواجن{% endblock %}
+{% block nav_rapports %}active{% endblock %}
+{% block page_title %}تقرير البيض والسماد{% endblock %}
+{% block page_sub_text %}{{ total_oeufs }} بيضة — {{ total_plateaux }} صينية{% if rendement_global %} — مردودية السماد : {{ rendement_global }}%{% endif %}{% endblock %}
+{% block topbar_actions %}
+<a href="?{% if lot_pk %}lot={{ lot_pk }}&{% endif %}{% if batiment_pk %}batiment={{ batiment_pk }}&{% endif %}{% if date_debut %}date_debut={{ date_debut|date:"Y-m-d" }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:"Y-m-d" }}&{% endif %}export=csv" class="btn-ghost btn-sm">
+  <i class="bx bxs-spreadsheet"></i> تصدير CSV
+</a>
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> التقارير</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.chart-wrap { height: 200px; position: relative; }
+.by-prod-section { font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin:24px 0 10px;display:flex;align-items:center;gap:8px; }
+.by-prod-section::after { content:'';flex:1;height:1px;background:var(--border); }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="section-card mb-3">
+  <div class="section-card__body" style="padding:14px 20px;">
+    <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="input-wrapper" style="flex:1;min-width:180px;">
+        <i class="bx bxs-grid-alt input-icon"></i>
+        <select name="lot" class="field-input has-icon">
+          <option value="">جميع الدفعات (للبيض)</option>
+          {% for l in lots %}<option value="{{ l.pk }}" {% if lot_pk == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.designation }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="input-wrapper" style="flex:1;min-width:180px;">
+        <i class="bx bxs-building input-icon"></i>
+        <select name="batiment" class="field-input has-icon">
+          <option value="">جميع المباني (للسماد)</option>
+          {% for b in batiments %}<option value="{{ b.pk }}" {% if batiment_pk == b.pk|stringformat:"s" %}selected{% endif %}>{{ b.nom }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="input-wrapper" style="min-width:150px;">
+        <i class="bx bxs-calendar input-icon"></i>
+        <input type="date" name="date_debut" class="field-input has-icon" value="{{ date_debut|date:'Y-m-d' }}">
+      </div>
+      <div class="input-wrapper" style="min-width:150px;">
+        <i class="bx bxs-calendar input-icon"></i>
+        <input type="date" name="date_fin" class="field-input has-icon" value="{{ date_fin|date:'Y-m-d' }}">
+      </div>
+      <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> تصفية</button>
+      <a href="{% url 'reporting:oeufs_fertilisant' %}" class="btn-ghost btn-sm">إعادة تعيين</a>
+    </form>
+  </div>
+</div>
+
+<!-- KPI row -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-amber"><i class="bx bxs-circle"></i></div>
+      <div class="metric-label">إجمالي البيض المجموع</div>
+      <div class="metric-value sm">{{ total_oeufs }}</div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-amber"><i class="bx bxs-grid-alt"></i></div>
+      <div class="metric-label">الصواني (30 بيضة)</div>
+      <div class="metric-value sm">{{ total_plateaux }} <small style="font-size:12px;">+ {{ total_oeufs_hors }} فردية</small></div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-green"><i class="bx bxs-leaf"></i></div>
+      <div class="metric-label">السماد الخام المجموع</div>
+      <div class="metric-value sm">{{ total_brut|floatformat:0 }} <small style="font-size:12px;">كغ</small></div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-green"><i class="bx bxs-package"></i></div>
+      <div class="metric-label">السماد المعالج</div>
+      <div class="metric-value sm">{{ total_obtenu|floatformat:0 }} <small style="font-size:12px;">كغ {% if rendement_global %}({{ rendement_global }}%){% endif %}</small></div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-7">
+    <div class="section-card" style="height:100%;">
+      <div class="section-card__head"><span class="section-card__title">البيض حسب الدفعة</span></div>
+      <div class="section-card__body">
+        <div class="chart-wrap"><canvas id="oeufsByLotBar"></canvas></div>
+        {% if par_lot_oeufs %}
+        <div style="margin-top:12px;">
+          {% for r in par_lot_oeufs %}
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+            <span style="font-size:13px;font-weight:600;color:var(--text-primary);">{{ r.lot__designation|truncatechars:30 }}</span>
+            <div style="text-align:right;">
+              <span style="font-family:'Nunito',sans-serif;font-weight:700;">{{ r.oeufs }}</span>
+              <span style="font-size:11px;color:var(--text-muted);margin-right:4px;">بيضة — {{ r.nb }} جمع</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-5">
+    <div class="section-card" style="height:100%;">
+      <div class="section-card__head"><span class="section-card__title">السماد — خام → معالج</span></div>
+      <div class="section-card__body">
+        <div class="chart-wrap"><canvas id="fertilisantBar"></canvas></div>
+        {% if rendement_global %}
+        <div style="margin-top:16px;padding:12px 16px;background:rgba(34,197,94,.08);border-radius:var(--radius-md);border:1px solid rgba(34,197,94,.2);">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:4px;">مردودية المعالجة الإجمالية</div>
+          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:28px;color:#15803d;">{{ rendement_global }}%</div>
+          <div style="font-size:12px;color:var(--text-muted);">{{ total_obtenu|floatformat:0 }} كغ ناتج من {{ total_brut|floatformat:0 }} كغ خام</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Egg collection table -->
+<div class="by-prod-section">سجل جمع البيض</div>
+<div class="section-card mb-4">
+  <div class="section-card__head">
+    <span class="section-card__title">جمع البيض التفصيلي</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ oeufs_page.paginator.count }} عملية جمع</span>
+  </div>
+  <div class="section-card__body no-pad">
+    {% if oeufs_page.object_list %}
+    <div style="overflow-x:auto;">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>التاريخ</th>
+            <th>الدفعة</th>
+            <th>المبنى</th>
+            <th style="text-align:right;">عدد البيض</th>
+            <th style="text-align:right;">الصواني</th>
+            <th style="text-align:right;">فردي</th>
+            <th style="text-align:center;">الجودة</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in oeufs_page.object_list %}
+          <tr class="stagger-row">
+            <td>{{ r.date|date:"d/m/Y" }}</td>
+            <td><span style="font-weight:600;color:var(--text-primary);">{{ r.lot.designation|truncatechars:25 }}</span></td>
+            <td style="font-size:12.5px;color:var(--text-muted);">{{ r.lot.batiment.nom }}</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ r.nombre_oeufs }}</td>
+            <td style="text-align:right;color:#b45309;font-weight:600;">{{ r.nombre_plateaux }}</td>
+            <td style="text-align:right;font-size:12.5px;color:var(--text-muted);">{{ r.oeufs_hors_plateau }}</td>
+            <td style="text-align:center;">
+              {% if r.qualite %}<span class="pill-base pill-success">{{ r.qualite.libelle }}</span>{% else %}<span style="color:var(--text-muted);font-size:12px;">—</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if oeufs_page.has_other_pages %}
+    <div class="pagination-bar">
+      <span>Page {{ oeufs_page.number }} / {{ oeufs_page.paginator.num_pages }}</span>
+      <div class="page-links">
+        {% if oeufs_page.has_previous %}<a href="?page_oeufs={{ oeufs_page.previous_page_number }}{% if lot_pk %}&lot={{ lot_pk }}{% endif %}{% if date_debut %}&date_debut={{ date_debut|date:"Y-m-d" }}{% endif %}{% if date_fin %}&date_fin={{ date_fin|date:"Y-m-d" }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>{% endif %}
+        <span class="page-link active">{{ oeufs_page.number }}</span>
+        {% if oeufs_page.has_next %}<a href="?page_oeufs={{ oeufs_page.next_page_number }}{% if lot_pk %}&lot={{ lot_pk }}{% endif %}{% if date_debut %}&date_debut={{ date_debut|date:"Y-m-d" }}{% endif %}{% if date_fin %}&date_fin={{ date_fin|date:"Y-m-d" }}{% endif %}" class="page-link"><i class="bx bx-chevron-right"></i></a>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="empty-state"><i class="bx bxs-circle empty-state__icon"></i><div class="empty-state__title">لا عمليات جمع بيض</div><div class="empty-state__text">عدّل الفترة أو الدفعة.</div></div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Fertilizer tables -->
+<div class="by-prod-section">معالجة السماد</div>
+<div class="row g-3">
+  <div class="col-xl-6">
+    <div class="section-card">
+      <div class="section-card__head"><span class="section-card__title">عمليات الجمع الخام</span></div>
+      <div class="section-card__body no-pad">
+        {% if collectes_page.object_list %}
+        <div style="overflow-x:auto;">
+          <table class="table-base">
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>المبنى</th>
+                <th style="text-align:right;">الكمية (كغ)</th>
+                <th style="text-align:center;">الحالة</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in collectes_page.object_list %}
+              <tr class="stagger-row">
+                <td>{{ c.date_collecte|date:"d/m/Y" }}</td>
+                <td><span style="font-weight:600;">{{ c.batiment.nom }}</span></td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ c.quantite_brute_kg|floatformat:0 }}</td>
+                <td style="text-align:center;">{% if c.est_traitee %}<span class="pill-base pill-success">مُعالج</span>{% else %}<span class="pill-base pill-neutral">في الانتظار</span>{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state"><i class="bx bxs-leaf empty-state__icon"></i><div class="empty-state__title">لا عمليات جمع</div></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-6">
+    <div class="section-card">
+      <div class="section-card__head"><span class="section-card__title">عمليات المعالجة المعتمدة</span></div>
+      <div class="section-card__body no-pad">
+        {% if traitements %}
+        <div style="overflow-x:auto;">
+          <table class="table-base">
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>المنتج</th>
+                <th style="text-align:right;">الكمية (كغ)</th>
+                <th style="text-align:center;">المردودية</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in traitements %}
+              <tr class="stagger-row">
+                <td>{{ t.date_traitement|date:"d/m/Y" }}</td>
+                <td><span style="font-weight:600;">{{ t.produit_fini.designation }}</span>{% if t.methode %}<div style="font-size:11px;color:var(--text-muted);">{{ t.methode|truncatechars:25 }}</div>{% endif %}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">{{ t.quantite_obtenue_kg|floatformat:0 }}</td>
+                <td style="text-align:center;">{% if t.rendement_pourcentage %}<span class="pill-base pill-info">{{ t.rendement_pourcentage }}%</span>{% else %}<span style="color:var(--text-muted);font-size:12px;">—</span>{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state"><i class="bx bxs-package empty-state__icon"></i><div class="empty-state__title">لا عمليات معالجة</div></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script id="chart-data" type="application/json">{{ chart_json|safe }}</script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const d = JSON.parse(document.getElementById('chart-data').textContent);
+  const tip = {
+    backgroundColor:'#fff',borderColor:'rgba(0,0,0,.12)',borderWidth:1,
+    titleColor:'#1a2219',bodyColor:'#3d5242',padding:10,cornerRadius:8
+  };
+
+  // Eggs by lot
+  const oeufEl = document.getElementById('oeufsByLotBar');
+  if (oeufEl && d.oeufs_labels.length) {
+    new Chart(oeufEl, {
+      type:'bar',
+      data:{ labels:d.oeufs_labels, datasets:[{ label:'البيض', data:d.oeufs_values,
+        backgroundColor:'rgba(245,158,11,.7)', borderColor:'#f59e0b', borderWidth:1,
+        borderRadius:6, borderSkipped:false }] },
+      options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:{...tip,callbacks:{label:c=>' '+c.raw+' بيضة'}} },
+        scales:{ x:{grid:{color:'rgba(0,0,0,.05)'}}, y:{grid:{display:false}} } }
+    });
+  }
+
+  // Fertiliser brut vs obtenu
+  const fertEl = document.getElementById('fertilisantBar');
+  if (fertEl) {
+    const f = d.fertilisant;
+    new Chart(fertEl, {
+      type:'bar',
+      data:{ labels:['خام (كغ)','معالج (كغ)'],
+        datasets:[{ data:[f.brut, f.obtenu],
+          backgroundColor:['rgba(120,120,120,.5)','rgba(34,197,94,.7)'],
+          borderRadius:6, borderSkipped:false }] },
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:{...tip,callbacks:{label:c=>' '+new Intl.NumberFormat('fr-DZ').format(Math.round(c.raw))+' كغ'}} },
+        scales:{ x:{grid:{display:false}}, y:{grid:{color:'rgba(0,0,0,.04)'}} } }
+    });
+  }
+});
+</script>
+{% endblock %}

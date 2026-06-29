@@ -109,6 +109,24 @@ urlpatterns = [
         views.stock_mouvement_print,
         name="stock_mouvement_print",
     ),
+    # ── Rapport Retraits Associés (spec §23.7) ───────────────────────────
+    path(
+        "associes/retraits/",
+        views.rapport_retraits_associes,
+        name="retraits_associes",
+    ),
+    # ── Rapport Synthèse RH / Payroll (spec §23.8) ───────────────────────
+    path(
+        "rh/synthese/",
+        views.rapport_synthese_rh,
+        name="synthese_rh",
+    ),
+    # ── Rapport Œufs & Fertilisant (spec §23.10) ─────────────────────────
+    path(
+        "production/oeufs-fertilisant/",
+        views.rapport_oeufs_fertilisant,
+        name="oeufs_fertilisant",
+    ),
     # ── AJAX: KPI summary widget ─────────────────────────────────────────
     path(
         "kpi.json",

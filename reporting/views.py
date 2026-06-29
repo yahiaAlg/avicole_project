@@ -1783,6 +1783,452 @@ def stock_mouvement_print(request, pk):
 
 
 # ===========================================================================
+# 23.7 — Retraits Associés
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def rapport_retraits_associes(request):
+    """
+    Stakeholder withdrawal report (spec §23.7).
+
+    Shows per-associé totals and a detail table, filterable by period.
+    Filters:  ?associe=<pk>  ?date_debut=  ?date_fin=
+    Export:   ?export=csv
+
+    Access: FINANCIAL_ROLES (equity draw data)
+    """
+    if not _require_role(request, FINANCIAL_ROLES):
+        return redirect("reporting:dashboard")
+
+    from depenses.models import Associe, RetraitAssocie
+
+    date_debut, date_fin = _parse_dates(request)
+    today = datetime.date.today()
+    if not date_debut and not date_fin:
+        date_debut = today.replace(month=1, day=1)
+        date_fin = today
+
+    associe_pk = request.GET.get("associe", "").strip()
+
+    qs = RetraitAssocie.objects.select_related("associe", "enregistre_par").order_by(
+        "-date"
+    )
+
+    if date_debut:
+        qs = qs.filter(date__gte=date_debut)
+    if date_fin:
+        qs = qs.filter(date__lte=date_fin)
+    if associe_pk:
+        qs = qs.filter(associe_id=associe_pk)
+
+    grand_total = qs.aggregate(total=Sum("montant"), nb=Count("pk"))
+    total_dzd = grand_total["total"] or Decimal("0")
+
+    # Per-associé breakdown
+    par_associe = (
+        qs.values("associe__nom", "associe__pk")
+        .annotate(total=Sum("montant"), nb=Count("pk"))
+        .order_by("-total")
+    )
+
+    # Per-mode breakdown
+    from depenses.models import Depense
+
+    mode_label_map = dict(Depense.MODE_CHOICES)
+    par_mode = (
+        qs.values("mode_paiement")
+        .annotate(total=Sum("montant"), nb=Count("pk"))
+        .order_by("-total")
+    )
+    par_mode_display = [
+        {
+            "mode": r["mode_paiement"],
+            "label": mode_label_map.get(r["mode_paiement"], r["mode_paiement"]),
+            "total": r["total"],
+            "nb": r["nb"],
+        }
+        for r in par_mode
+    ]
+
+    if request.GET.get("export") == "csv":
+        headers = ["التاريخ", "الشريك", "المبلغ (دج)", "طريقة الدفع", "السبب", "مرجع"]
+        rows = [
+            [
+                r.date,
+                r.associe.nom,
+                r.montant,
+                mode_label_map.get(r.mode_paiement, r.mode_paiement),
+                r.motif,
+                r.reference_document,
+            ]
+            for r in qs
+        ]
+        return _csv_response("retraits_associes", headers, rows)
+
+    associes = Associe.objects.filter(actif=True).order_by("nom")
+    page = _paginate(qs, request.GET.get("page"))
+    par_associe_list = list(par_associe)
+
+    chart_json = json.dumps(
+        {
+            "labels": [r["associe__nom"] for r in par_associe_list],
+            "values": [float(r["total"]) for r in par_associe_list],
+            "modes": {
+                "labels": [m["label"] for m in par_mode_display],
+                "values": [float(m["total"]) for m in par_mode_display],
+            },
+        },
+        ensure_ascii=False,
+    )
+
+    return render(
+        request,
+        "reporting/retraits_associes.html",
+        {
+            "title": "سحوبات الشركاء",
+            "page": page,
+            "total_dzd": total_dzd,
+            "nb_total": grand_total["nb"] or 0,
+            "par_associe": par_associe_list,
+            "par_mode": par_mode_display,
+            "associes": associes,
+            "associe_pk": associe_pk,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+            "chart_json": chart_json,
+        },
+    )
+
+
+# ===========================================================================
+# 23.8 — Synthèse RH / Payroll Summary
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def rapport_synthese_rh(request):
+    """
+    HR / payroll summary (spec §23.8).
+
+    Aggregate payroll figures for a period: total gross, total advances,
+    total net paid, attendance breakdown.  Per-employee breakdown table.
+
+    Filters:  ?date_debut=  ?date_fin=  ?employe=<pk>  ?statut=
+    Export:   ?export=csv
+
+    Access: FINANCIAL_ROLES (payroll data is sensitive)
+    """
+    if not _require_role(request, FINANCIAL_ROLES):
+        return redirect("reporting:dashboard")
+
+    from depenses.models import AcompteEmploye, BulletinPaie, Employe
+
+    date_debut, date_fin = _parse_dates(request)
+    today = datetime.date.today()
+    if not date_debut and not date_fin:
+        date_debut = today.replace(month=1, day=1)
+        date_fin = today
+
+    employe_pk = request.GET.get("employe", "").strip()
+    statut = request.GET.get("statut", "").strip()
+
+    # Bulletins in period (filter by date_paiement when paid, else annee/mois)
+    bulletins_qs = BulletinPaie.objects.select_related(
+        "employe", "genere_par"
+    ).order_by("-annee", "-mois")
+
+    if date_debut:
+        bulletins_qs = bulletins_qs.filter(annee__gte=date_debut.year).filter(
+            annee__lte=(date_fin.year if date_fin else today.year)
+        )
+    if date_fin:
+        bulletins_qs = bulletins_qs.filter(annee__lte=date_fin.year)
+    if employe_pk:
+        bulletins_qs = bulletins_qs.filter(employe_id=employe_pk)
+    if statut:
+        bulletins_qs = bulletins_qs.filter(statut=statut)
+
+    # Aggregate totals
+    agg = bulletins_qs.aggregate(
+        total_brut=Sum("montant_brut"),
+        total_acomptes=Sum("total_acomptes"),
+        total_net=Sum("montant_net"),
+        total_presence=Sum("jours_presence"),
+        total_absence=Sum("jours_absence"),
+        total_repos=Sum("jours_repos"),
+        total_conge=Sum("jours_conge"),
+        total_heures_sup=Sum("total_heures_supplementaires"),
+        nb=Count("pk"),
+    )
+
+    # Advances in period (independently)
+    acomptes_qs = AcompteEmploye.objects.select_related("employe").filter(
+        date__gte=date_debut or today.replace(year=today.year - 1),
+        date__lte=date_fin or today,
+    )
+    if employe_pk:
+        acomptes_qs = acomptes_qs.filter(employe_id=employe_pk)
+    total_acomptes_payes = acomptes_qs.aggregate(total=Sum("montant"))[
+        "total"
+    ] or Decimal("0")
+
+    # Leave balances for active employees
+    from depenses.models import CongeEmploye
+
+    employes_actifs = Employe.objects.filter(actif=True).order_by("nom_complet")
+    soldes_conge = {}
+    for emp in employes_actifs:
+        accrued = Decimal(str(emp.anciennete_mois())) * Decimal("2.5")
+        used = sum(c.nb_jours or 0 for c in CongeEmploye.objects.filter(employe=emp))
+        soldes_conge[emp.pk] = max(Decimal("0"), accrued - Decimal(str(used)))
+
+    if request.GET.get("export") == "csv":
+        headers = [
+            "العامل",
+            "الشهر/السنة",
+            "الحالة",
+            "أيام الحضور",
+            "أيام الغياب",
+            "أيام الراحة",
+            "أيام العطلة",
+            "ساعات إضافية",
+            "مبلغ إجمالي (دج)",
+            "تسبيقات (دج)",
+            "صافي (دج)",
+        ]
+        rows = [
+            [
+                b.employe.nom_complet,
+                b.periode_label,
+                b.get_statut_display(),
+                b.jours_presence,
+                b.jours_absence,
+                b.jours_repos,
+                b.jours_conge,
+                b.total_heures_supplementaires,
+                b.montant_brut,
+                b.total_acomptes,
+                b.montant_net,
+            ]
+            for b in bulletins_qs
+        ]
+        return _csv_response("synthese_rh", headers, rows)
+
+    page = _paginate(bulletins_qs, request.GET.get("page"))
+    employes = Employe.objects.filter(actif=True).order_by("nom_complet")
+
+    chart_json = json.dumps(
+        {
+            "brut": float(agg["total_brut"] or 0),
+            "acomptes": float(agg["total_acomptes"] or 0),
+            "net": float(agg["total_net"] or 0),
+            "presence": agg["total_presence"] or 0,
+            "absence": agg["total_absence"] or 0,
+            "conge": agg["total_conge"] or 0,
+            "repos": agg["total_repos"] or 0,
+        },
+        ensure_ascii=False,
+    )
+
+    return render(
+        request,
+        "reporting/synthese_rh.html",
+        {
+            "title": "ملخص الموارد البشرية والرواتب",
+            "page": page,
+            "agg": agg,
+            "total_acomptes_payes": total_acomptes_payes,
+            "employes": employes,
+            "employes_actifs": employes_actifs,
+            "soldes_conge": soldes_conge,
+            "employe_pk": employe_pk,
+            "statut": statut,
+            "statut_choices": BulletinPaie.STATUT_CHOICES,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+            "chart_json": chart_json,
+        },
+    )
+
+
+# ===========================================================================
+# 23.10 — Rapport Œufs & Fertilisant (by-product report)
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def rapport_oeufs_fertilisant(request):
+    """
+    Egg collection and fertilizer by-product report (spec §23.10).
+
+    For laying lots: cumulative eggs collected, plateaux derived, quality
+    distribution from PeseeEchantillon.
+
+    For fertilizer: raw collected per building, treated, finished yield.
+
+    Filters:  ?lot=<pk>  ?batiment=<pk>  ?date_debut=  ?date_fin=
+    Export:   ?export=csv
+
+    Access: ALL_ROLES
+    """
+    from elevage.models import LotElevage, RecolteOeufs
+    from intrants.models import Batiment
+    from production.models import CollecteFertilisant, TraitementFertilisant
+
+    date_debut, date_fin = _parse_dates(request)
+    lot_pk = request.GET.get("lot", "").strip()
+    batiment_pk = request.GET.get("batiment", "").strip()
+
+    # ── Egg collections ──────────────────────────────────────────────────
+    oeufs_qs = RecolteOeufs.objects.select_related(
+        "lot", "lot__batiment", "pesee"
+    ).order_by("-date")
+    if date_debut:
+        oeufs_qs = oeufs_qs.filter(date__gte=date_debut)
+    if date_fin:
+        oeufs_qs = oeufs_qs.filter(date__lte=date_fin)
+    if lot_pk:
+        oeufs_qs = oeufs_qs.filter(lot_id=lot_pk)
+
+    oeufs_agg = oeufs_qs.aggregate(
+        total_oeufs=Sum("nombre_oeufs"),
+        nb=Count("pk"),
+    )
+    total_oeufs = oeufs_agg["total_oeufs"] or 0
+    total_plateaux = total_oeufs // 30
+    total_oeufs_hors = total_oeufs % 30
+
+    # Per-lot egg breakdown
+    par_lot_oeufs = (
+        oeufs_qs.values("lot__designation", "lot__pk")
+        .annotate(oeufs=Sum("nombre_oeufs"), nb=Count("pk"))
+        .order_by("-oeufs")
+    )
+
+    # ── Fertilizer ───────────────────────────────────────────────────────
+    collectes_qs = CollecteFertilisant.objects.select_related(
+        "batiment", "traitement"
+    ).order_by("-date_collecte")
+    if date_debut:
+        collectes_qs = collectes_qs.filter(date_collecte__gte=date_debut)
+    if date_fin:
+        collectes_qs = collectes_qs.filter(date_collecte__lte=date_fin)
+    if batiment_pk:
+        collectes_qs = collectes_qs.filter(batiment_id=batiment_pk)
+
+    collectes_agg = collectes_qs.aggregate(
+        total_brut=Sum("quantite_brute_kg"), nb=Count("pk")
+    )
+
+    traitements_qs = TraitementFertilisant.objects.select_related(
+        "produit_fini"
+    ).filter(statut=TraitementFertilisant.STATUT_VALIDE)
+    if date_debut:
+        traitements_qs = traitements_qs.filter(date_traitement__gte=date_debut)
+    if date_fin:
+        traitements_qs = traitements_qs.filter(date_traitement__lte=date_fin)
+
+    traitements_agg = traitements_qs.aggregate(
+        total_obtenu=Sum("quantite_obtenue_kg"), nb=Count("pk")
+    )
+    total_brut = collectes_agg["total_brut"] or Decimal("0")
+    total_obtenu = traitements_agg["total_obtenu"] or Decimal("0")
+    rendement_global = (
+        round(float(total_obtenu) / float(total_brut) * 100, 1) if total_brut else None
+    )
+
+    if request.GET.get("export") == "csv":
+        headers = [
+            "القسم",
+            "التاريخ",
+            "الدفعة / المبنى",
+            "البيانات",
+            "الكمية",
+            "وحدة",
+        ]
+        rows = []
+        for r in oeufs_qs:
+            rows.append(
+                [
+                    "بيض",
+                    r.date,
+                    r.lot.designation,
+                    f"جمع بيض — {r.nombre_oeufs} بيضة ({r.nombre_plateaux} صينية)",
+                    r.nombre_oeufs,
+                    "بيضة",
+                ]
+            )
+        for c in collectes_qs:
+            rows.append(
+                [
+                    "سماد — جمع خام",
+                    c.date_collecte,
+                    c.batiment.nom,
+                    "",
+                    c.quantite_brute_kg,
+                    "كغ",
+                ]
+            )
+        for t in traitements_qs:
+            rows.append(
+                [
+                    "سماد — معالجة",
+                    t.date_traitement,
+                    t.produit_fini.designation,
+                    t.methode,
+                    t.quantite_obtenue_kg,
+                    "كغ",
+                ]
+            )
+        return _csv_response("oeufs_fertilisant", headers, rows)
+
+    lots = LotElevage.objects.order_by("-date_ouverture")
+    batiments = Batiment.objects.filter(actif=True).order_by("nom")
+    oeufs_page = _paginate(oeufs_qs, request.GET.get("page_oeufs", 1))
+    collectes_page = _paginate(collectes_qs, request.GET.get("page_collectes", 1))
+
+    par_lot_list = list(par_lot_oeufs)
+    chart_json = json.dumps(
+        {
+            "oeufs_labels": [r["lot__designation"][:18] for r in par_lot_list],
+            "oeufs_values": [r["oeufs"] for r in par_lot_list],
+            "fertilisant": {
+                "brut": float(total_brut),
+                "obtenu": float(total_obtenu),
+                "rendement": rendement_global,
+            },
+        },
+        ensure_ascii=False,
+    )
+
+    return render(
+        request,
+        "reporting/oeufs_fertilisant.html",
+        {
+            "title": "تقرير البيض والسماد",
+            "total_oeufs": total_oeufs,
+            "total_plateaux": total_plateaux,
+            "total_oeufs_hors": total_oeufs_hors,
+            "oeufs_page": oeufs_page,
+            "par_lot_oeufs": par_lot_list,
+            "collectes_page": collectes_page,
+            "traitements": traitements_qs,
+            "total_brut": total_brut,
+            "total_obtenu": total_obtenu,
+            "rendement_global": rendement_global,
+            "lots": lots,
+            "batiments": batiments,
+            "lot_pk": lot_pk,
+            "batiment_pk": batiment_pk,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+            "chart_json": chart_json,
+        },
+    )
+
+
+# ===========================================================================
 # AJAX: quick-stats endpoints used by the reporting dashboard widgets
 # ===========================================================================
 

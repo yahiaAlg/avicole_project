@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}سحوبات الشركاء — تربية الدواجن{% endblock %}
+{% block nav_rapports %}active{% endblock %}
+{% block page_title %}سحوبات الشركاء{% endblock %}
+{% block page_sub_text %}الإجمالي : {{ total_dzd|floatformat:0 }} DZD — {{ nb_total }} سحب (سحوبات){% endblock %}
+{% block topbar_actions %}
+<a href="?{% if associe_pk %}associe={{ associe_pk }}&{% endif %}{% if date_debut %}date_debut={{ date_debut|date:"Y-m-d" }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:"Y-m-d" }}&{% endif %}export=csv" class="btn-ghost btn-sm">
+  <i class="bx bxs-spreadsheet"></i> تصدير CSV
+</a>
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> التقارير</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.chart-wrap { height: 200px; position: relative; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="section-card mb-3">
+  <div class="section-card__body" style="padding:14px 20px;">
+    <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="input-wrapper" style="flex:1;min-width:180px;">
+        <i class="bx bxs-user-account input-icon"></i>
+        <select name="associe" class="field-input has-icon">
+          <option value="">جميع الشركاء</option>
+          {% for a in associes %}<option value="{{ a.pk }}" {% if associe_pk == a.pk|stringformat:"s" %}selected{% endif %}>{{ a.nom }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="input-wrapper" style="min-width:150px;">
+        <i class="bx bxs-calendar input-icon"></i>
+        <input type="date" name="date_debut" class="field-input has-icon" value="{{ date_debut|date:'Y-m-d' }}">
+      </div>
+      <div class="input-wrapper" style="min-width:150px;">
+        <i class="bx bxs-calendar input-icon"></i>
+        <input type="date" name="date_fin" class="field-input has-icon" value="{{ date_fin|date:'Y-m-d' }}">
+      </div>
+      <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> تصفية</button>
+      <a href="{% url 'reporting:retraits_associes' %}" class="btn-ghost btn-sm">إعادة تعيين</a>
+    </form>
+  </div>
+</div>
+
+<!-- Charts -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-5">
+    <div class="section-card" style="height:100%;">
+      <div class="section-card__head"><span class="section-card__title">حسب الشريك</span></div>
+      <div class="section-card__body">
+        <div class="chart-wrap"><canvas id="associeBar"></canvas></div>
+        <div style="margin-top:12px;">
+          {% for r in par_associe %}
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">
+            <span style="font-size:13px;font-weight:600;color:var(--text-primary);">{{ r.associe__nom }}</span>
+            <div style="text-align:right;">
+              <span style="font-family:'Nunito',sans-serif;font-weight:700;">{{ r.total|floatformat:0 }} DZD</span>
+              <span style="font-size:11px;color:var(--text-muted);margin-right:6px;">{{ r.nb }} سحب</span>
+            </div>
+          </div>
+          {% empty %}
+          <div style="text-align:center;color:var(--text-muted);padding:20px 0;font-size:13px;">لا بيانات</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-7">
+    <div class="section-card" style="height:100%;">
+      <div class="section-card__head"><span class="section-card__title">حسب طريقة الدفع</span></div>
+      <div class="section-card__body">
+        <div class="chart-wrap"><canvas id="modeDonut"></canvas></div>
+        <div style="margin-top:12px;">
+          {% for m in par_mode %}
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">
+            <span style="font-size:13px;color:var(--text-secondary);">{{ m.label }}</span>
+            <span style="font-family:'Nunito',sans-serif;font-weight:700;">{{ m.total|floatformat:0 }} DZD</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Detail table -->
+<div class="section-card">
+  <div class="section-card__head">
+    <span class="section-card__title">تفاصيل السحوبات</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ page.paginator.count }} سحب (سحوبات)</span>
+  </div>
+  <div class="section-card__body no-pad">
+    {% if page.object_list %}
+    <div style="overflow-x:auto;">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>التاريخ</th>
+            <th>الشريك</th>
+            <th>طريقة الدفع</th>
+            <th>السبب</th>
+            <th>مرجع</th>
+            <th style="text-align:right;">المبلغ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in page.object_list %}
+          <tr class="stagger-row">
+            <td>{{ r.date|date:"d/m/Y" }}</td>
+            <td><span style="font-weight:600;color:var(--text-primary);">{{ r.associe.nom }}</span></td>
+            <td><span class="pill-base pill-info">{{ r.get_mode_paiement_display }}</span></td>
+            <td style="font-size:12.5px;color:var(--text-secondary);">{{ r.motif|default:"—" }}</td>
+            <td><span class="text-mono" style="font-size:12px;color:var(--text-muted);">{{ r.reference_document|default:"—" }}</span></td>
+            <td style="text-align:right;"><span class="val-money">{{ r.montant|floatformat:0 }} DZD</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--bg-raised);">
+            <td colspan="5" style="font-weight:700;padding:12px 14px;">المجموع</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;padding:12px 14px;">{{ total_dzd|floatformat:0 }} DZD</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    {% if page.has_other_pages %}
+    <div class="pagination-bar">
+      <span>Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      <div class="page-links">
+        {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}{% if associe_pk %}&associe={{ associe_pk }}{% endif %}{% if date_debut %}&date_debut={{ date_debut|date:"Y-m-d" }}{% endif %}{% if date_fin %}&date_fin={{ date_fin|date:"Y-m-d" }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>{% endif %}
+        <span class="page-link active">{{ page.number }}</span>
+        {% if page.has_next %}<a href="?page={{ page.next_page_number }}{% if associe_pk %}&associe={{ associe_pk }}{% endif %}{% if date_debut %}&date_debut={{ date_debut|date:"Y-m-d" }}{% endif %}{% if date_fin %}&date_fin={{ date_fin|date:"Y-m-d" }}{% endif %}" class="page-link"><i class="bx bx-chevron-right"></i></a>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="empty-state"><i class="bx bxs-user-account empty-state__icon"></i><div class="empty-state__title">لا سحوبات</div><div class="empty-state__text">عدّل الفترة أو الشريك.</div></div>
+    {% endif %}
+  </div>
+</div>
+
+<script id="chart-data" type="application/json">{{ chart_json|safe }}</script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const d = JSON.parse(document.getElementById('chart-data').textContent);
+  const COLORS = ['#22c55e','#38bdf8','#f59e0b','#c4b5fd','#fb923c','#5eead4'];
+  const tip = {
+    backgroundColor:'#fff',borderColor:'rgba(0,0,0,.12)',borderWidth:1,
+    titleColor:'#1a2219',bodyColor:'#3d5242',padding:10,cornerRadius:8,
+    callbacks:{ label: c => ' '+new Intl.NumberFormat('fr-DZ').format(Math.round(c.raw))+' DZD' }
+  };
+
+  if (d.labels.length) {
+    new Chart(document.getElementById('associeBar'), {
+      type:'bar',
+      data:{ labels:d.labels, datasets:[{ label:'السحوبات (دج)', data:d.values,
+        backgroundColor:'rgba(197,100,34,.7)', borderColor:'#c56422', borderWidth:1,
+        borderRadius:6, borderSkipped:false }] },
+      options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:tip },
+        scales:{ x:{grid:{color:'rgba(0,0,0,.05)'}}, y:{grid:{display:false}} } }
+    });
+  }
+
+  if (d.modes.labels.length) {
+    new Chart(document.getElementById('modeDonut'), {
+      type:'doughnut',
+      data:{ labels:d.modes.labels, datasets:[{ data:d.modes.values,
+        backgroundColor:COLORS, borderColor:'#fff', borderWidth:3 }] },
+      options:{ cutout:'68%', responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:tip } }
+    });
+  }
+});
+</script>
+{% endblock %}

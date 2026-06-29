@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}ملخص الموارد البشرية — تربية الدواجن{% endblock %}
+{% block nav_rapports %}active{% endblock %}
+{% block page_title %}ملخص الموارد البشرية والرواتب{% endblock %}
+{% block page_sub_text %}
+  الصافي الإجمالي : {{ agg.total_net|default:0|floatformat:0 }} DZD
+  {% if date_debut and date_fin %} — {{ date_debut|date:"d/m/Y" }} → {{ date_fin|date:"d/m/Y" }}{% endif %}
+{% endblock %}
+{% block topbar_actions %}
+<a href="?{% if employe_pk %}employe={{ employe_pk }}&{% endif %}{% if statut %}statut={{ statut }}&{% endif %}{% if date_debut %}date_debut={{ date_debut|date:"Y-m-d" }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:"Y-m-d" }}&{% endif %}export=csv" class="btn-ghost btn-sm">
+  <i class="bx bxs-spreadsheet"></i> تصدير CSV
+</a>
+<a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> التقارير</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.chart-wrap { height: 200px; position: relative; }
+.leave-badge { display:inline-flex;align-items:center;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600; }
+.leave-ok { background:rgba(34,197,94,.1);color:#15803d; }
+.leave-low { background:rgba(245,158,11,.1);color:#b45309; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="section-card mb-3">
+  <div class="section-card__body" style="padding:14px 20px;">
+    <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="input-wrapper" style="flex:1;min-width:180px;">
+        <i class="bx bxs-group input-icon"></i>
+        <select name="employe" class="field-input has-icon">
+          <option value="">جميع الموظفين</option>
+          {% for e in employes %}<option value="{{ e.pk }}" {% if employe_pk == e.pk|stringformat:"s" %}selected{% endif %}>{{ e.nom_complet }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="input-wrapper" style="min-width:150px;">
+        <i class="bx bxs-filter-alt input-icon"></i>
+        <select name="statut" class="field-input has-icon">
+          <option value="">جميع الحالات</option>
+          {% for val,lab in statut_choices %}<option value="{{ val }}" {% if statut == val %}selected{% endif %}>{{ lab }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="input-wrapper" style="min-width:150px;">
+        <i class="bx bxs-calendar input-icon"></i>
+        <input type="date" name="date_debut" class="field-input has-icon" value="{{ date_debut|date:'Y-m-d' }}">
+      </div>
+      <div class="input-wrapper" style="min-width:150px;">
+        <i class="bx bxs-calendar input-icon"></i>
+        <input type="date" name="date_fin" class="field-input has-icon" value="{{ date_fin|date:'Y-m-d' }}">
+      </div>
+      <button type="submit" class="btn-primary btn-sm"><i class="bx bxs-filter-alt"></i> تصفية</button>
+      <a href="{% url 'reporting:synthese_rh' %}" class="btn-ghost btn-sm">إعادة تعيين</a>
+    </form>
+  </div>
+</div>
+
+<!-- KPI row -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-green"><i class="bx bxs-dollar-circle"></i></div>
+      <div class="metric-label">المبلغ الإجمالي (خام)</div>
+      <div class="metric-value sm">{{ agg.total_brut|default:0|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-amber"><i class="bx bxs-credit-card"></i></div>
+      <div class="metric-label">التسبيقات المخصومة</div>
+      <div class="metric-value sm">{{ agg.total_acomptes|default:0|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-blue"><i class="bx bxs-wallet"></i></div>
+      <div class="metric-label">الصافي المدفوع</div>
+      <div class="metric-value sm">{{ agg.total_net|default:0|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-card">
+      <div class="metric-icon ic-purple"><i class="bx bxs-receipt"></i></div>
+      <div class="metric-label">إجمالي التسبيقات المدفوعة</div>
+      <div class="metric-value sm">{{ total_acomptes_payes|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-5">
+    <div class="section-card" style="height:100%;">
+      <div class="section-card__head"><span class="section-card__title">توزيع أيام العمل</span></div>
+      <div class="section-card__body">
+        <div class="chart-wrap"><canvas id="attendanceDonut"></canvas></div>
+        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          {% if agg.total_presence %}<div style="padding:8px 12px;background:var(--bg-raised);border-radius:var(--radius-sm);text-align:center;"><div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:20px;color:#15803d;">{{ agg.total_presence }}</div><div style="font-size:11px;color:var(--text-muted);">أيام حضور</div></div>{% endif %}
+          {% if agg.total_absence %}<div style="padding:8px 12px;background:var(--bg-raised);border-radius:var(--radius-sm);text-align:center;"><div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:20px;color:#dc2626;">{{ agg.total_absence }}</div><div style="font-size:11px;color:var(--text-muted);">أيام غياب</div></div>{% endif %}
+          {% if agg.total_conge %}<div style="padding:8px 12px;background:var(--bg-raised);border-radius:var(--radius-sm);text-align:center;"><div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:20px;color:#38bdf8;">{{ agg.total_conge }}</div><div style="font-size:11px;color:var(--text-muted);">أيام عطلة</div></div>{% endif %}
+          {% if agg.total_repos %}<div style="padding:8px 12px;background:var(--bg-raised);border-radius:var(--radius-sm);text-align:center;"><div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:20px;color:#7a8c78;">{{ agg.total_repos }}</div><div style="font-size:11px;color:var(--text-muted);">أيام راحة</div></div>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-7">
+    <div class="section-card" style="height:100%;">
+      <div class="section-card__head"><span class="section-card__title">مقارنة الرواتب</span></div>
+      <div class="section-card__body">
+        <div class="chart-wrap"><canvas id="payBar"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Payslip detail table -->
+<div class="section-card mb-4">
+  <div class="section-card__head">
+    <span class="section-card__title">كشوف الرواتب</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ page.paginator.count }} كشف</span>
+  </div>
+  <div class="section-card__body no-pad">
+    {% if page.object_list %}
+    <div style="overflow-x:auto;">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>الموظف</th>
+            <th>الشهر</th>
+            <th style="text-align:center;">الحالة</th>
+            <th style="text-align:center;">حضور</th>
+            <th style="text-align:center;">غياب</th>
+            <th style="text-align:center;">عطلة</th>
+            <th style="text-align:right;">ساعات إضافية</th>
+            <th style="text-align:right;">إجمالي</th>
+            <th style="text-align:right;">تسبيقات</th>
+            <th style="text-align:right;">صافي</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in page.object_list %}
+          <tr class="stagger-row">
+            <td><span style="font-weight:600;color:var(--text-primary);">{{ b.employe.nom_complet }}</span><div style="font-size:11px;color:var(--text-muted);">{{ b.employe.matricule }}</div></td>
+            <td><span class="text-mono" style="font-weight:600;">{{ b.periode_label }}</span></td>
+            <td style="text-align:center;">
+              {% if b.statut == 'paye' %}<span class="pill-base pill-success">مدفوع</span>
+              {% elif b.statut == 'valide' %}<span class="pill-base pill-info">مصادق</span>
+              {% else %}<span class="pill-base pill-neutral">مسودة</span>{% endif %}
+            </td>
+            <td style="text-align:center;font-weight:600;color:#15803d;">{{ b.jours_presence }}</td>
+            <td style="text-align:center;{% if b.jours_absence %}color:#dc2626;font-weight:600;{% else %}color:var(--text-muted);{% endif %}">{{ b.jours_absence }}</td>
+            <td style="text-align:center;color:#38bdf8;font-weight:600;">{{ b.jours_conge }}</td>
+            <td style="text-align:right;font-size:12.5px;">{{ b.total_heures_supplementaires|floatformat:2 }} h</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ b.montant_brut|floatformat:0 }}</td>
+            <td style="text-align:right;{% if b.total_acomptes %}color:#b45309;{% else %}color:var(--text-muted);{% endif %}font-size:12.5px;">{{ b.total_acomptes|floatformat:0 }}</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;color:#15803d;">{{ b.montant_net|floatformat:0 }} DZD</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--bg-raised);">
+            <td colspan="7" style="font-weight:700;padding:12px 14px;">المجموع</td>
+            <td style="text-align:right;font-weight:800;padding:12px 14px;">{{ agg.total_brut|default:0|floatformat:0 }}</td>
+            <td style="text-align:right;padding:12px 14px;color:#b45309;font-weight:700;">{{ agg.total_acomptes|default:0|floatformat:0 }}</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;padding:12px 14px;color:#15803d;">{{ agg.total_net|default:0|floatformat:0 }} DZD</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    {% if page.has_other_pages %}
+    <div class="pagination-bar">
+      <span>Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      <div class="page-links">
+        {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}{% if employe_pk %}&employe={{ employe_pk }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if date_debut %}&date_debut={{ date_debut|date:"Y-m-d" }}{% endif %}{% if date_fin %}&date_fin={{ date_fin|date:"Y-m-d" }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>{% endif %}
+        <span class="page-link active">{{ page.number }}</span>
+        {% if page.has_next %}<a href="?page={{ page.next_page_number }}{% if employe_pk %}&employe={{ employe_pk }}{% endif %}{% if statut %}&statut={{ statut }}{% endif %}{% if date_debut %}&date_debut={{ date_debut|date:"Y-m-d" }}{% endif %}{% if date_fin %}&date_fin={{ date_fin|date:"Y-m-d" }}{% endif %}" class="page-link"><i class="bx bx-chevron-right"></i></a>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="empty-state"><i class="bx bxs-group empty-state__icon"></i><div class="empty-state__title">لا كشوف رواتب</div><div class="empty-state__text">عدّل الفترة أو الموظف.</div></div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Leave balances -->
+<div class="section-card">
+  <div class="section-card__head"><span class="section-card__title">أرصدة الإجازات (الموظفون النشطون)</span></div>
+  <div class="section-card__body no-pad">
+    <div style="overflow-x:auto;">
+      <table class="table-base">
+        <thead>
+          <tr>
+            <th>الموظف</th>
+            <th>الوظيفة</th>
+            <th style="text-align:right;">تاريخ التوظيف</th>
+            <th style="text-align:center;">الأقدمية (أشهر)</th>
+            <th style="text-align:center;">الرصيد المتراكم</th>
+            <th style="text-align:center;">الرصيد المتبقي</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for emp in employes_actifs %}
+          <tr class="stagger-row">
+            <td><span style="font-weight:600;">{{ emp.nom_complet }}</span><div style="font-size:11px;color:var(--text-muted);">{{ emp.matricule }}</div></td>
+            <td style="font-size:12.5px;color:var(--text-secondary);">{{ emp.fonction|default:"—" }}</td>
+            <td style="text-align:right;font-size:12.5px;">{{ emp.date_embauche|date:"d/m/Y" }}</td>
+            <td style="text-align:center;font-weight:600;">{{ emp.anciennete_mois }}</td>
+            <td style="text-align:center;">{{ emp.anciennete_mois|floatformat:0 }} × 2.5 = <strong>{{ emp.anciennete_mois|add:0|floatformat:0 }}</strong> <span style="font-size:11px;color:var(--text-muted);">يوم متراكم</span></td>
+            <td style="text-align:center;">
+              {% with bal=soldes_conge|default:0 %}
+              {% if soldes_conge %}
+                {% for k,v in soldes_conge.items %}{% if k == emp.pk %}
+                <span class="leave-badge {% if v >= 5 %}leave-ok{% else %}leave-low{% endif %}">{{ v|floatformat:1 }} يوم</span>
+                {% endif %}{% endfor %}
+              {% endif %}
+              {% endwith %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">لا موظفون نشطون</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script id="chart-data" type="application/json">{{ chart_json|safe }}</script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const d = JSON.parse(document.getElementById('chart-data').textContent);
+  const tip = {
+    backgroundColor:'#fff',borderColor:'rgba(0,0,0,.12)',borderWidth:1,
+    titleColor:'#1a2219',bodyColor:'#3d5242',padding:10,cornerRadius:8,
+    callbacks:{ label: c => ' '+new Intl.NumberFormat('fr-DZ').format(Math.round(c.raw))+' DZD' }
+  };
+
+  // Attendance donut
+  const dEl = document.getElementById('attendanceDonut');
+  if (dEl && (d.presence+d.absence+d.conge+d.repos)) {
+    new Chart(dEl, {
+      type:'doughnut',
+      data:{ labels:['حضور','غياب','عطلة','راحة'],
+        datasets:[{ data:[d.presence,d.absence,d.conge,d.repos],
+          backgroundColor:['#22c55e','#ef4444','#38bdf8','#94a3b8'],
+          borderColor:'#fff',borderWidth:3 }] },
+      options:{ cutout:'65%',responsive:true,maintainAspectRatio:false,
+        plugins:{ legend:{ position:'bottom',labels:{boxWidth:10,font:{size:11}} },
+          tooltip:{ backgroundColor:'#fff',borderColor:'rgba(0,0,0,.12)',borderWidth:1,
+            titleColor:'#1a2219',bodyColor:'#3d5242',padding:10,cornerRadius:8,
+            callbacks:{ label: c => ' '+c.label+': '+c.raw+' يوم' } } } }
+    });
+  }
+
+  // Pay comparison bar
+  const bEl = document.getElementById('payBar');
+  if (bEl) {
+    new Chart(bEl, {
+      type:'bar',
+      data:{ labels:['إجمالي','تسبيقات','صافي'],
+        datasets:[{ data:[d.brut,d.acomptes,d.net],
+          backgroundColor:['rgba(56,189,248,.7)','rgba(245,158,11,.7)','rgba(34,197,94,.7)'],
+          borderRadius:6,borderSkipped:false }] },
+      options:{ responsive:true,maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:tip },
+        scales:{ x:{grid:{display:false}},
+          y:{grid:{color:'rgba(0,0,0,.04)'},
+            ticks:{callback:v=>new Intl.NumberFormat('fr-DZ').format(v)+' DZD',font:{size:10}}} } }
+    });
+  }
+});
+</script>
+{% endblock %}

@@ -178,7 +178,12 @@
             </td>
           </tr>
           {% endfor %}
-            <td></td>
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--bg-raised);">
+            <td colspan="6" style="font-weight:700;padding:12px 14px;">إجمالي المدخلات</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;padding:12px 14px;">{{ valeur_intrants|floatformat:0 }} DZD</td>
+            <td></td><td></td>
           </tr>
         </tfoot>
       </table>
@@ -256,7 +261,7 @@
           <tr style="background:var(--bg-raised);">
             <td colspan="6" style="font-weight:700;padding:12px 14px;">إجمالي المنتجات النهائية</td>
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;padding:12px 14px;">{{ valeur_produits|floatformat:0 }} DZD</td>
-            <td></td>
+            <td></td><td></td>
           </tr>
         </tfoot>
       </table>
