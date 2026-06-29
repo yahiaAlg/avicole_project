@@ -26,7 +26,13 @@ from decimal import Decimal
 from django.db.models.signals import post_save, pre_delete, pre_save
 from django.dispatch import receiver
 
-from elevage.models import Consommation, Mortalite, TransfertLot, RecolteOeufs
+from elevage.models import (
+    Consommation,
+    Mortalite,
+    TransfertLot,
+    RecolteOeufs,
+    LotElevage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -562,26 +568,149 @@ def _appliquer_entree_stock_correction(
 @receiver(post_save, sender=TransfertLot)
 def transfert_lot_post_save(sender, instance, created, **kwargs):
     """
-    On creation of a TransfertLot, move the lot to batiment_destination.
-    Re-saves (edits to notes/motif etc.) never re-trigger the move — only
-    the initial creation does, so a lot can't be silently relocated twice
-    by editing an existing transfer record.
+    On creation of a TransfertLot, execute the chosen mode:
+
+    MODE_FULL
+        Move the source lot's batiment to batiment_destination (existing behaviour).
+        Baseline unchanged — all birds travel together as one cohort.
+
+    MODE_SPLIT_NEW
+        Partial move — source lot stays in its current building:
+          • source.nombre_poussins_initial -= effectif_transfere
+          • A new child LotElevage is created at batiment_destination with
+            nombre_poussins_initial = effectif_transfere, inheriting
+            fournisseur_poussins / souche / date_ouverture from the parent.
+          • TransfertLot.lot_enfant is back-patched to the new child lot.
+
+    MODE_SPLIT_MERGE
+        Partial move — source stays, destination absorbs the birds:
+          • source.nombre_poussins_initial -= effectif_transfere
+          • lot_destination.nombre_poussins_initial += effectif_transfere
+
+    Re-saves (edits to notes/motif) never re-trigger — only initial creation.
     """
     if not created:
         return
 
     lot = instance.lot
-    lot.batiment = instance.batiment_destination
-    lot.save(update_fields=["batiment", "updated_at"])
+    mode = instance.mode
 
-    logger.info(
-        "TransfertLot pk=%s: lot pk=%s déplacé de %s vers %s (âge: %s jours).",
-        instance.pk,
-        lot.pk,
-        instance.batiment_origine_id,
-        instance.batiment_destination_id,
-        instance.age_jours_transfert,
-    )
+    if mode == instance.MODE_FULL:
+        # ── Full transfer: source loses all transferred birds, a child lot
+        #    is created at the destination building, then source is closed.
+        n = instance.effectif_transfere
+
+        # 1. Decrease source baseline
+        lot.nombre_poussins_initial = lot.nombre_poussins_initial - n
+        lot.save(update_fields=["nombre_poussins_initial", "updated_at"])
+
+        # 2. Build child lot designation
+        designation = (
+            instance.designation_lot_enfant.strip()
+            if instance.designation_lot_enfant
+            else f"{lot.designation} — {instance.batiment_destination.nom}"
+        )
+
+        # 3. Create child lot at destination
+        child_lot = LotElevage.objects.create(
+            designation=designation,
+            date_ouverture=lot.date_ouverture,
+            nombre_poussins_initial=n,
+            fournisseur_poussins=lot.fournisseur_poussins,
+            bl_fournisseur_poussins=None,
+            batiment=instance.batiment_destination,
+            souche=lot.souche,
+            notes=(
+                f"دفعة منقولة كاملةً من «{lot.designation}» "
+                f"بتاريخ {instance.date_transfert.strftime('%d/%m/%Y')} "
+                f"({n} طير)."
+            ),
+            lot_parent=lot,
+            created_by=instance.created_by,
+        )
+
+        # 4. Back-patch lot_enfant
+        TransfertLot.objects.filter(pk=instance.pk).update(lot_enfant=child_lot)
+
+        # 5. Close the source lot — it is now empty
+        lot.fermer(date_fermeture=instance.date_transfert)
+
+        logger.info(
+            "TransfertLot pk=%s (FULL): lot pk=%s closed; "
+            "child lot pk=%s created at batiment pk=%s (age %s j).",
+            instance.pk,
+            lot.pk,
+            child_lot.pk,
+            instance.batiment_destination_id,
+            instance.age_jours_transfert,
+        )
+
+    elif mode == instance.MODE_SPLIT_NEW:
+        # ── Partial: create child lot ────────────────────────────────────
+        n = instance.effectif_transfere
+
+        # Decrease source baseline
+        lot.nombre_poussins_initial = lot.nombre_poussins_initial - n
+        lot.save(update_fields=["nombre_poussins_initial", "updated_at"])
+
+        # Build child lot designation
+        designation = (
+            instance.designation_lot_enfant.strip()
+            or f"{lot.designation} — شق {instance.date_transfert.strftime('%d/%m/%Y')}"
+        )
+
+        child_lot = LotElevage.objects.create(
+            designation=designation,
+            date_ouverture=lot.date_ouverture,
+            nombre_poussins_initial=n,
+            fournisseur_poussins=lot.fournisseur_poussins,
+            bl_fournisseur_poussins=None,  # not a new delivery — no BL
+            batiment=instance.batiment_destination,
+            souche=lot.souche,
+            notes=(
+                f"دفعة فرعية مُنشأة بالتقسيم من «{lot.designation}» "
+                f"بتاريخ {instance.date_transfert.strftime('%d/%m/%Y')} "
+                f"({n} طير)."
+            ),
+            lot_parent=lot,
+            created_by=instance.created_by,
+        )
+
+        # Back-patch lot_enfant without re-triggering this signal
+        TransfertLot.objects.filter(pk=instance.pk).update(lot_enfant=child_lot)
+
+        logger.info(
+            "TransfertLot pk=%s (SPLIT_NEW): lot pk=%s baseline -%s; "
+            "child lot pk=%s created at batiment pk=%s.",
+            instance.pk,
+            lot.pk,
+            n,
+            child_lot.pk,
+            instance.batiment_destination_id,
+        )
+
+    elif mode == instance.MODE_SPLIT_MERGE:
+        # ── Partial: merge into existing destination lot ─────────────────
+        n = instance.effectif_transfere
+        dest_lot = instance.lot_destination
+
+        # Decrease source baseline
+        lot.nombre_poussins_initial = lot.nombre_poussins_initial - n
+        lot.save(update_fields=["nombre_poussins_initial", "updated_at"])
+
+        # Increase destination baseline
+        dest_lot.nombre_poussins_initial = dest_lot.nombre_poussins_initial + n
+        dest_lot.save(update_fields=["nombre_poussins_initial", "updated_at"])
+
+        logger.info(
+            "TransfertLot pk=%s (SPLIT_MERGE): lot pk=%s baseline -%s; "
+            "dest lot pk=%s baseline +%s.",
+            instance.pk,
+            lot.pk,
+            n,
+            dest_lot.pk,
+            n,
+        )
 
 
 # ---------------------------------------------------------------------------

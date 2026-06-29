@@ -118,6 +118,17 @@ class LotElevage(models.Model):
         help_text="مثال: Ross 308, Cobb 500",
     )
     notes = models.TextField(verbose_name="ملاحظات", blank=True)
+
+    # Lineage: set when this lot is created by a SPLIT_NEW transfer
+    lot_parent = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="lots_enfants",
+        verbose_name="الدفعة الأم (عند التقسيم)",
+    )
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -172,11 +183,46 @@ class LotElevage(models.Model):
         return self.nombre_poussins_initial - self.total_mortalite - abattus
 
     @property
+    def nombre_poussins_reference(self):
+        """
+        True denominator for mortality-rate calculations.
+
+        When a TransfertLot is saved, the signal decrements
+        nombre_poussins_initial by effectif_transfere so that effectif_vivant
+        stays correct (it never subtracts transferred birds explicitly).
+        As a side-effect, using nombre_poussins_initial directly as the
+        mortality denominator inflates taux_mortalite after any transfer
+        (worst case: 100 % after a full transfer even when mortality is low).
+
+        The correct denominator is the total birds this lot ever housed:
+            initial_before_transfers = nombre_poussins_initial
+                                       + Σ transferts_sortants.effectif_transfere
+
+        This restores the original cohort size by adding back all birds that
+        left via TransfertLot, without touching the working baseline that
+        effectif_vivant depends on.
+        """
+        from django.db.models import Sum
+
+        transferts_out = (
+            self.transferts.aggregate(total=Sum("effectif_transfere"))["total"] or 0
+        )
+        return self.nombre_poussins_initial + transferts_out
+
+    @property
     def taux_mortalite(self):
-        """Mortality rate as a percentage."""
-        if self.nombre_poussins_initial == 0:
+        """
+        Mortality rate as a percentage of the true initial cohort.
+
+        Uses nombre_poussins_reference (not nombre_poussins_initial) so that
+        transfers do not inflate the rate — a full transfer of 5 978 birds out
+        of 6 000 (with 22 deaths) correctly yields 22/6 000 ≈ 0.37 %, not
+        22/22 = 100 %.
+        """
+        ref = self.nombre_poussins_reference
+        if ref == 0:
             return 0
-        return round(self.total_mortalite / self.nombre_poussins_initial * 100, 2)
+        return round(self.total_mortalite / ref * 100, 2)
 
     @property
     def duree_elevage(self):
@@ -387,14 +433,31 @@ class Consommation(models.Model):
 
 class TransfertLot(models.Model):
     """
-    Records the move of a lot from one building to another — typically
-    Poussinière → Poulailler once the chicks pass the configured age
-    threshold (ParametrageElevage.age_transfert_poussiniere_jours).
+    Records the move of a lot (full or partial split) from one building to another.
 
-    The lot itself is never closed for this move (unlike fermer()); it keeps
-    accumulating mortality/consommation/production history. On creation,
-    the signal handler updates LotElevage.batiment to batiment_destination.
+    Modes
+    -----
+    MODE_FULL        — Whole live flock moves; lot.batiment updated to destination.
+                       Baseline unchanged (same cohort, different building).
+    MODE_SPLIT_NEW   — Partial move; a child LotElevage is created at destination
+                       (inheriting souche/fournisseur/date_ouverture from parent).
+                       Source lot.nombre_poussins_initial decreases by effectif_transfere.
+    MODE_SPLIT_MERGE — Partial move; effectif_transfere birds are merged into an
+                       existing open lot at destination (lot_destination).
+                       Source baseline decreases; destination baseline increases.
+
+    On creation the transfert_lot_post_save signal applies the chosen mode.
+    TransfertLot records are immutable (no edit/delete view).
     """
+
+    MODE_FULL = "full"
+    MODE_SPLIT_NEW = "split_new"
+    MODE_SPLIT_MERGE = "split_merge"
+    MODE_CHOICES = [
+        (MODE_FULL, "نقل كامل — الدفعة بأكملها تنتقل"),
+        (MODE_SPLIT_NEW, "تقسيم — إنشاء دفعة فرعية جديدة في الوجهة"),
+        (MODE_SPLIT_MERGE, "تقسيم — دمج في دفعة موجودة في الوجهة"),
+    ]
 
     lot = models.ForeignKey(
         LotElevage,
@@ -424,6 +487,39 @@ class TransfertLot(models.Model):
     )
     motif = models.CharField(max_length=255, blank=True, verbose_name="السبب")
     notes = models.TextField(blank=True, verbose_name="ملاحظات")
+
+    # Split-mode fields (null for MODE_FULL)
+    mode = models.CharField(
+        max_length=15,
+        choices=MODE_CHOICES,
+        default=MODE_FULL,
+        verbose_name="نوع النقل",
+    )
+    # SPLIT_MERGE: the existing lot that receives the birds
+    lot_destination = models.ForeignKey(
+        LotElevage,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transferts_recus_fusion",
+        verbose_name="الدفعة الوجهة (عند الدمج)",
+    )
+    # SPLIT_NEW: child lot created by the signal (set post-save)
+    lot_enfant = models.OneToOneField(
+        LotElevage,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transfert_origine",
+        verbose_name="الدفعة الفرعية المنشأة",
+    )
+    # SPLIT_NEW: designation for the new child lot (defaults to auto-generated)
+    designation_lot_enfant = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="تسمية الدفعة الفرعية",
+    )
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -463,6 +559,24 @@ class TransfertLot(models.Model):
                     f"L'effectif transféré ({self.effectif_transfere}) dépasse "
                     f"l'effectif vivant du lot ({self.lot.effectif_vivant})."
                 )
+        # Split-mode: partial transfer only
+        if self.mode in (self.MODE_SPLIT_NEW, self.MODE_SPLIT_MERGE):
+            if self.lot_id and self.effectif_transfere:
+                if self.effectif_transfere >= self.lot.effectif_vivant:
+                    raise ValidationError(
+                        "في نمط التقسيم، يجب أن يكون عدد الطيور المنقولة أقل من العدد الحي الكلي."
+                    )
+        # Merge mode: lot_destination required and must be open at destination building
+        if self.mode == self.MODE_SPLIT_MERGE:
+            if not self.lot_destination_id:
+                raise ValidationError("يجب تحديد الدفعة الوجهة عند اختيار نمط الدمج.")
+            if self.lot_destination_id == self.lot_id:
+                raise ValidationError("لا يمكن دمج الدفعة مع نفسها.")
+            if (
+                self.lot_destination_id
+                and self.lot_destination.statut == LotElevage.STATUT_FERME
+            ):
+                raise ValidationError("الدفعة الوجهة مغلقة — اختر دفعة مفتوحة.")
 
 
 class PeseeEchantillon(models.Model):

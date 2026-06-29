@@ -207,10 +207,15 @@ def verifier_mortalite_anormale(
         lot (LotElevage): The lot to check.
         seuil_pourcentage (float): Daily mortality % threshold (default 5%).
     """
-    if lot.nombre_poussins_initial == 0:
+    # Use nombre_poussins_reference (true initial cohort size) rather than
+    # nombre_poussins_initial, which shrinks after transfers and would produce
+    # a falsely low absolute threshold — triggering spurious alerts on
+    # post-transfer lots where even a single death crosses the threshold.
+    ref = lot.nombre_poussins_reference
+    if ref == 0:
         return False
 
-    seuil_absolu = lot.nombre_poussins_initial * seuil_pourcentage / 100.0
+    seuil_absolu = ref * seuil_pourcentage / 100.0
 
     return lot.mortalites.filter(nombre__gte=seuil_absolu).exists()
 

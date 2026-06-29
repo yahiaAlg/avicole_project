@@ -15,9 +15,9 @@
 {% block content %}
 <div class="page-body">
   <div class="row justify-content-center">
-    <div class="col-xl-7 col-lg-9">
+    <div class="col-xl-8 col-lg-10">
 
-      <!-- Lot context -->
+      <!-- Lot context bar -->
       <div class="card mb-3">
         <div style="padding:14px 18px;display:flex;gap:20px;flex-wrap:wrap;">
           <div style="text-align:center;flex:1;min-width:80px;">
@@ -26,7 +26,7 @@
           </div>
           <div style="text-align:center;flex:1;min-width:80px;">
             <div class="ctx-label">العدد الحي</div>
-            <div class="ctx-val" style="color:var(--accent-text);">{{ lot.effectif_vivant|floatformat:0 }}</div>
+            <div class="ctx-val" style="color:var(--accent-text);" id="ctx-effectif">{{ lot.effectif_vivant|floatformat:0 }}</div>
           </div>
           <div style="text-align:center;flex:1;min-width:80px;">
             <div class="ctx-label">العمر (أيام)</div>
@@ -46,10 +46,12 @@
           </div>
         </div>
 
-        <form method="post" novalidate>
+        <form method="post" novalidate id="transfert-form">
           {% csrf_token %}
+          {# Hidden fields managed by JS / locked from lot #}
           {{ form.lot }}
           {{ form.batiment_origine }}
+          {{ form.mode }}  {# rendered as HiddenInput in the form — JS writes to it #}
 
           {% if form.non_field_errors %}
           <div class="form-errors-global">
@@ -57,6 +59,55 @@
             <div>{% for err in form.non_field_errors %}<div>{{ err }}</div>{% endfor %}</div>
           </div>
           {% endif %}
+
+          <!-- ── Step 1 : Transfer mode ─────────────────────────────── -->
+          <div class="section-title">نوع النقل</div>
+
+          <div class="mode-cards" id="mode-cards">
+
+            <label class="mode-card" data-mode="{{ MODE_FULL }}" id="card-full">
+              <div class="mode-card__radio">
+                <div class="mode-card__dot"></div>
+              </div>
+              <div class="mode-card__icon" style="background:rgba(34,197,94,.12);color:#15803d;">
+                <i class="bx bx-transfer"></i>
+              </div>
+              <div>
+                <div class="mode-card__title">نقل كامل</div>
+                <div class="mode-card__sub">الدفعة بأكملها ({{ lot.effectif_vivant|floatformat:0 }} طير) تنتقل إلى المبنى الجديد</div>
+              </div>
+            </label>
+
+            <label class="mode-card" data-mode="{{ MODE_SPLIT_NEW }}" id="card-split-new">
+              <div class="mode-card__radio">
+                <div class="mode-card__dot"></div>
+              </div>
+              <div class="mode-card__icon" style="background:rgba(234,179,8,.12);color:#a16207;">
+                <i class="bx bx-git-branch"></i>
+              </div>
+              <div>
+                <div class="mode-card__title">تقسيم — دفعة فرعية جديدة</div>
+                <div class="mode-card__sub">جزء من الدفعة ينتقل ويُؤسِّس دفعة فرعية مستقلة في المبنى الجديد</div>
+              </div>
+            </label>
+
+            <label class="mode-card" data-mode="{{ MODE_SPLIT_MERGE }}" id="card-split-merge">
+              <div class="mode-card__radio">
+                <div class="mode-card__dot"></div>
+              </div>
+              <div class="mode-card__icon" style="background:rgba(56,189,248,.12);color:#0284c7;">
+                <i class="bx bx-merge"></i>
+              </div>
+              <div>
+                <div class="mode-card__title">تقسيم — دمج في دفعة موجودة</div>
+                <div class="mode-card__sub">جزء من الدفعة ينتقل ويُضاف إلى دفعة مفتوحة في المبنى الجديد</div>
+              </div>
+            </label>
+
+          </div>
+
+          <!-- ── Step 2 : Common fields ─────────────────────────────── -->
+          <div class="section-title" style="margin-top:24px;">تفاصيل النقل</div>
 
           <div class="row g-3">
             <!-- Date transfert -->
@@ -111,15 +162,71 @@
                   <i class="bx bxs-user-voice input-icon"></i>
                   {{ form.effectif_transfere }}
                 </div>
-                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">الحد الأقصى: {{ lot.effectif_vivant|floatformat:0 }} طائر حي</div>
+                <div class="field-hint" id="effectif-hint">
+                  الحد الأقصى: {{ lot.effectif_vivant|floatformat:0 }} طائر حي
+                </div>
                 {% if form.effectif_transfere.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.effectif_transfere.errors|join:", " }}</div>{% endif %}
               </div>
             </div>
           </div>
 
-          <!-- Motif -->
-          <div class="form-group">
-            <label class="form-label" for="{{ form.motif.id_for_label }}">السبب <span style="font-size:11px;color:var(--text-muted);font-weight:400;">— اختياري</span></label>
+          <!-- ── Step 3a : SPLIT_NEW — designation for child lot ──────── -->
+          <div id="section-split-new" style="display:none;">
+            <div class="split-info-box" style="border-color:rgba(234,179,8,.3);background:rgba(234,179,8,.06);">
+              <i class="bx bx-git-branch" style="color:#a16207;font-size:18px;flex-shrink:0;"></i>
+              <div>
+                <strong style="color:#92400e;">تقسيم — دفعة فرعية</strong>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                  ستُنقص قاعدة الدفعة الحالية بعدد الطيور المنقولة، وتُنشأ دفعة فرعية جديدة في المبنى الجديد
+                  ترث السلالة والمورد وتاريخ الفتح.
+                </div>
+              </div>
+            </div>
+            <div class="form-group" style="margin-top:14px;">
+              <label class="form-label" for="{{ form.designation_lot_enfant.id_for_label }}">
+                اسم الدفعة الفرعية
+                <span style="font-size:11px;color:var(--text-muted);font-weight:400;">— اختياري (يُولَّد تلقائيًا إن تُرك فارغًا)</span>
+              </label>
+              <div class="input-wrap">
+                <i class="bx bxs-grid-alt input-icon"></i>
+                {{ form.designation_lot_enfant }}
+              </div>
+              {% if form.designation_lot_enfant.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.designation_lot_enfant.errors|join:", " }}</div>{% endif %}
+            </div>
+          </div>
+
+          <!-- ── Step 3b : SPLIT_MERGE — destination lot ──────────────── -->
+          <div id="section-split-merge" style="display:none;">
+            <div class="split-info-box" style="border-color:rgba(56,189,248,.3);background:rgba(56,189,248,.06);">
+              <i class="bx bx-merge" style="color:#0284c7;font-size:18px;flex-shrink:0;"></i>
+              <div>
+                <strong style="color:#075985;">تقسيم — دمج في دفعة موجودة</strong>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                  ستُنقص قاعدة الدفعة الحالية، وتُزاد قاعدة الدفعة الوجهة بعدد الطيور المنقولة.
+                  اختر المبنى الجديد أولًا لتظهر الدفعات المتاحة فيه.
+                </div>
+              </div>
+            </div>
+            <div class="form-group" style="margin-top:14px;">
+              <label class="form-label" for="{{ form.lot_destination.id_for_label }}">
+                الدفعة الوجهة <span class="required-star">*</span>
+              </label>
+              <div class="input-wrap">
+                <i class="bx bxs-grid-alt input-icon"></i>
+                {{ form.lot_destination }}
+              </div>
+              <div class="field-hint" id="lot-dest-hint" style="display:none;">
+                لا توجد دفعات مفتوحة في المبنى المختار.
+              </div>
+              {% if form.lot_destination.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.lot_destination.errors|join:", " }}</div>{% endif %}
+            </div>
+          </div>
+
+          <!-- ── Motif + Notes (always visible) ───────────────────────── -->
+          <div class="form-group" style="margin-top:8px;">
+            <label class="form-label" for="{{ form.motif.id_for_label }}">
+              السبب <span style="font-size:11px;color:var(--text-muted);font-weight:400;">— اختياري</span>
+            </label>
             <div class="input-wrap">
               <i class="bx bxs-info-circle input-icon"></i>
               {{ form.motif }}
@@ -127,7 +234,6 @@
             {% if form.motif.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.motif.errors|join:", " }}</div>{% endif %}
           </div>
 
-          <!-- Notes -->
           <div class="form-group">
             <label class="form-label" for="{{ form.notes.id_for_label }}">ملاحظات</label>
             <div class="input-wrap input-wrap--textarea">
@@ -139,7 +245,7 @@
 
           <div class="form-actions">
             <a href="{% url 'elevage:lot_detail' lot.pk %}" class="btn-ghost">إلغاء</a>
-            <button type="submit" class="btn-primary">
+            <button type="submit" class="btn-primary" id="submit-btn">
               <i class="bx bx-transfer"></i> {{ action_label }}
             </button>
           </div>
@@ -156,19 +262,77 @@
   .card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden; }
   .ctx-label { font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:4px; }
   .ctx-val { font-family:'Nunito',sans-serif;font-weight:800;font-size:20px;color:var(--text-primary); }
+
   .form-card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;animation:fadeIn .3s ease; }
-  .form-card__header { display:flex;align-items:center;gap:14px;margin-bottom:24px;padding-bottom:18px;border-bottom:1px solid var(--border); }
+  .form-card__header { display:flex;align-items:center;gap:14px;margin-bottom:22px;padding-bottom:16px;border-bottom:1px solid var(--border); }
   .form-card__icon { width:44px;height:44px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0; }
   .form-card__title { font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;color:var(--text-primary); }
   .form-card__sub { font-size:12px;color:var(--text-muted);margin-top:2px; }
-  .form-group { margin-bottom:18px; }
+
+  .section-title {
+    font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--text-muted);margin-bottom:12px;
+  }
+
+  /* Mode cards */
+  .mode-cards { display:flex;flex-direction:column;gap:8px; }
+  .mode-card {
+    display:flex;align-items:center;gap:14px;
+    padding:14px 16px;
+    border:1.5px solid var(--border);
+    border-radius:var(--radius-md);
+    cursor:pointer;
+    transition:border-color .15s,background .12s;
+  }
+  .mode-card:hover { border-color:var(--border-strong);background:var(--bg-hover); }
+  .mode-card.selected { border-color:var(--accent);background:rgba(34,197,94,.06); }
+  .mode-card__radio {
+    width:18px;height:18px;border-radius:50%;
+    border:1.5px solid var(--border-strong);
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;transition:border-color .15s;
+  }
+  .mode-card.selected .mode-card__radio { border-color:var(--accent); }
+  .mode-card__dot {
+    width:8px;height:8px;border-radius:50%;
+    background:var(--accent);opacity:0;
+    transition:opacity .15s;
+  }
+  .mode-card.selected .mode-card__dot { opacity:1; }
+  .mode-card__icon {
+    width:38px;height:38px;border-radius:var(--radius-sm);
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px;flex-shrink:0;
+  }
+  .mode-card__title { font-family:'Nunito',sans-serif;font-weight:700;font-size:14px;color:var(--text-primary); }
+  .mode-card__sub { font-size:11.5px;color:var(--text-muted);margin-top:2px; }
+
+  /* Split info boxes */
+  .split-info-box {
+    display:flex;gap:12px;align-items:flex-start;
+    border:1px solid;border-radius:var(--radius-md);
+    padding:12px 14px;margin-bottom:4px;
+  }
+
+  /* Form fields */
+  .form-group { margin-bottom:16px; }
   .form-label { display:block;font-size:12px;font-weight:500;color:var(--text-secondary);letter-spacing:.03em;margin-bottom:6px; }
   .required-star { color:#dc2626; }
+  .field-hint { font-size:11px;color:var(--text-muted);margin-top:4px; }
   .input-wrap { position:relative; }
   .input-icon { position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none; }
-  .input-wrap input,.input-wrap select,.input-wrap textarea { width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13.5px;padding:11px 40px 11px 13px;transition:border-color .15s,box-shadow .15s;appearance:none;-webkit-appearance:none; }
+  .input-wrap input,.input-wrap select,.input-wrap textarea {
+    width:100%;background:var(--bg-surface);border:1px solid var(--border);
+    border-radius:var(--radius-md);color:var(--text-primary);
+    font-family:'Inter',sans-serif;font-size:13.5px;
+    padding:11px 40px 11px 13px;
+    transition:border-color .15s,box-shadow .15s;
+    appearance:none;-webkit-appearance:none;
+  }
   .input-wrap textarea { padding-top:12px;resize:vertical;min-height:72px; }
-  .input-wrap input:focus,.input-wrap select:focus,.input-wrap textarea:focus { border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.15);outline:none; }
+  .input-wrap input:focus,.input-wrap select:focus,.input-wrap textarea:focus {
+    border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.15);outline:none;
+  }
   .input-wrap--textarea .input-icon { top:14px;transform:none; }
   .field-error { display:flex;align-items:center;gap:5px;font-size:12px;color:#dc2626;margin-top:5px; }
   .form-errors-global { display:flex;align-items:flex-start;gap:10px;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius-md);padding:12px 16px;margin-bottom:20px;font-size:13px;color:#dc2626; }
@@ -177,5 +341,111 @@
   .btn-primary:hover { opacity:.88;color:#fff; }
   .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s,border-color .12s,color .12s;text-decoration:none; }
   .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  /* ── Constants from Django context ──────────────────────────────────── */
+  const MODE_FULL        = "{{ MODE_FULL }}";
+  const MODE_SPLIT_NEW   = "{{ MODE_SPLIT_NEW }}";
+  const MODE_SPLIT_MERGE = "{{ MODE_SPLIT_MERGE }}";
+  const EFFECTIF_VIVANT  = {{ lot.effectif_vivant }};
+
+  /* Lots per batiment — {batiment_pk: [{pk, designation}, ...]} */
+  const lotsParBatiment = {{ lots_par_batiment_json|safe }};
+
+  /* ── DOM refs ──────────────────────────────────────────────────────── */
+  const modeInput          = document.querySelector('[name="mode"]');
+  const effectifInput      = document.querySelector('[name="effectif_transfere"]');
+  const batimentSelect     = document.querySelector('[name="batiment_destination"]');
+  const lotDestSelect      = document.querySelector('[name="lot_destination"]');
+  const sectionSplitNew    = document.getElementById('section-split-new');
+  const sectionSplitMerge  = document.getElementById('section-split-merge');
+  const effectifHint       = document.getElementById('effectif-hint');
+  const lotDestHint        = document.getElementById('lot-dest-hint');
+
+  /* ── Mode card click handler ─────────────────────────────────────────── */
+  let currentMode = modeInput.value || MODE_FULL;
+
+  function selectMode(mode) {
+    currentMode = mode;
+    modeInput.value = mode;
+
+    document.querySelectorAll('.mode-card').forEach(card => {
+      card.classList.toggle('selected', card.dataset.mode === mode);
+    });
+
+    /* Effectif: FULL → lock to full live count; SPLIT → free input */
+    if (mode === MODE_FULL) {
+      effectifInput.value = EFFECTIF_VIVANT;
+      effectifInput.readOnly = true;
+      effectifInput.style.opacity = '.7';
+      effectifHint.textContent = 'نقل كامل — جميع الطيور الحية';
+    } else {
+      effectifInput.readOnly = false;
+      effectifInput.style.opacity = '1';
+      effectifHint.textContent =
+        'الحد الأقصى: ' + (EFFECTIF_VIVANT - 1) + ' طائر (التقسيم يجب أن يكون جزئيًا)';
+      if (parseInt(effectifInput.value, 10) >= EFFECTIF_VIVANT) {
+        effectifInput.value = '';
+      }
+    }
+
+    /* Conditional sections */
+    sectionSplitNew.style.display   = mode === MODE_SPLIT_NEW   ? '' : 'none';
+    sectionSplitMerge.style.display = mode === MODE_SPLIT_MERGE ? '' : 'none';
+
+    if (mode === MODE_SPLIT_MERGE) {
+      refreshLotDestOptions();
+    }
+  }
+
+  document.querySelectorAll('.mode-card').forEach(card => {
+    card.addEventListener('click', () => selectMode(card.dataset.mode));
+  });
+
+  /* ── lot_destination filtering by batiment_destination ──────────────── */
+  function refreshLotDestOptions() {
+    const batId = batimentSelect.value;
+    const lots  = (batId && lotsParBatiment[batId]) ? lotsParBatiment[batId] : [];
+
+    /* Save currently selected value to restore if still valid */
+    const prev = lotDestSelect.value;
+
+    /* Rebuild options */
+    lotDestSelect.innerHTML = '<option value="">— اختر الدفعة الوجهة —</option>';
+    lots.forEach(function (l) {
+      const opt = document.createElement('option');
+      opt.value = l.pk;
+      opt.textContent = l.designation;
+      if (String(l.pk) === prev) opt.selected = true;
+      lotDestSelect.appendChild(opt);
+    });
+
+    /* Show/hide "no lots" hint */
+    if (currentMode === MODE_SPLIT_MERGE) {
+      lotDestHint.style.display = lots.length === 0 && batId ? '' : 'none';
+    }
+  }
+
+  batimentSelect.addEventListener('change', function () {
+    if (currentMode === MODE_SPLIT_MERGE) refreshLotDestOptions();
+  });
+
+  /* ── Initial state ───────────────────────────────────────────────────── */
+  selectMode(currentMode);
+
+  /* If form was re-rendered after a POST error, restore previously chosen
+     mode so the user sees the right section with their data intact. */
+  const postedMode = modeInput.value;
+  if (postedMode && postedMode !== MODE_FULL) {
+    selectMode(postedMode);
+  }
+
+})();
+</script>
 {% endblock %}

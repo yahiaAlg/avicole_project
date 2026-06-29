@@ -228,9 +228,17 @@ class ConsommationForm(forms.ModelForm):
 
 class TransfertLotForm(forms.ModelForm):
     """
-    Move a lot from its current building (typically Poussinière) to another
-    (typically Poulailler). batiment_origine is pre-filled and locked from
-    the lot's current batiment; batiment_destination excludes it.
+    Move a lot from its current building to another, in one of three modes:
+
+    MODE_FULL        — whole live flock relocates; baseline unchanged.
+    MODE_SPLIT_NEW   — partial move; a child lot is auto-created at destination
+                       (source baseline decreases by effectif_transfere).
+    MODE_SPLIT_MERGE — partial move; birds merge into an existing open lot at
+                       destination (source baseline decreases, dest increases).
+
+    batiment_origine is pre-filled and locked from the lot's current batiment.
+    lot_destination is only required for MODE_SPLIT_MERGE.
+    designation_lot_enfant is optional for MODE_SPLIT_NEW (auto-generated if blank).
     """
 
     class Meta:
@@ -242,12 +250,19 @@ class TransfertLotForm(forms.ModelForm):
             "date_transfert",
             "age_jours_transfert",
             "effectif_transfere",
+            "mode",
+            "lot_destination",
+            "designation_lot_enfant",
             "motif",
             "notes",
         ]
         widgets = {
             "date_transfert": forms.DateInput(attrs={"type": "date"}),
             "notes": forms.Textarea(attrs={"rows": 2}),
+            "designation_lot_enfant": forms.TextInput(),
+            # mode rendered as hidden input — the template uses card radio buttons
+            # that write to this field via JS so the value still POST-es correctly.
+            "mode": forms.HiddenInput(),
         }
 
     def __init__(self, *args, lot=None, **kwargs):
@@ -260,6 +275,8 @@ class TransfertLotForm(forms.ModelForm):
         )
         self.fields["motif"].required = False
         self.fields["notes"].required = False
+        self.fields["lot_destination"].required = False
+        self.fields["designation_lot_enfant"].required = False
 
         if lot:
             self.fields["lot"].initial = lot
@@ -271,6 +288,10 @@ class TransfertLotForm(forms.ModelForm):
             ].queryset.exclude(pk=lot.batiment_id)
             self.fields["age_jours_transfert"].initial = lot.age_jours
             self.fields["effectif_transfere"].initial = lot.effectif_vivant
+            # lot_destination: all other open lots (template JS filters by building)
+            self.fields["lot_destination"].queryset = LotElevage.objects.filter(
+                statut=LotElevage.STATUT_OUVERT
+            ).exclude(pk=lot.pk)
             self._lot = lot
         else:
             self._lot = None
@@ -281,18 +302,44 @@ class TransfertLotForm(forms.ModelForm):
         origine = cleaned.get("batiment_origine")
         destination = cleaned.get("batiment_destination")
         effectif = cleaned.get("effectif_transfere")
+        mode = cleaned.get("mode") or TransfertLot.MODE_FULL
+        lot_dest = cleaned.get("lot_destination")
 
         if lot and lot.statut == LotElevage.STATUT_FERME:
             raise ValidationError("Impossible de transférer un lot fermé.")
+
         if origine and destination and origine.pk == destination.pk:
             raise ValidationError(
                 "Le bâtiment de destination doit être différent du bâtiment d'origine."
             )
+
         if lot and effectif and effectif > lot.effectif_vivant:
             raise ValidationError(
                 f"L'effectif transféré ({effectif}) dépasse l'effectif vivant "
                 f"du lot ({lot.effectif_vivant})."
             )
+
+        # Split modes: effectif must be strictly LESS than full live count
+        if mode in (TransfertLot.MODE_SPLIT_NEW, TransfertLot.MODE_SPLIT_MERGE):
+            if lot and effectif and effectif >= lot.effectif_vivant:
+                raise ValidationError(
+                    "في نمط التقسيم، يجب أن يكون عدد الطيور المنقولة أقل من العدد الحي الكلي "
+                    f"({lot.effectif_vivant} طير). للنقل الكامل، اختر «نقل كامل»."
+                )
+
+        # Merge mode: lot_destination is required and must be valid
+        if mode == TransfertLot.MODE_SPLIT_MERGE:
+            if not lot_dest:
+                raise ValidationError("يجب تحديد الدفعة الوجهة عند اختيار نمط الدمج.")
+            if lot and lot_dest.pk == lot.pk:
+                raise ValidationError("لا يمكن دمج الدفعة مع نفسها.")
+            if lot_dest.statut == LotElevage.STATUT_FERME:
+                raise ValidationError("الدفعة الوجهة مغلقة — اختر دفعة مفتوحة.")
+            if destination and lot_dest.batiment_id != destination.pk:
+                raise ValidationError(
+                    "الدفعة الوجهة يجب أن تكون في المبنى المختار كوجهة النقل."
+                )
+
         return cleaned
 
 

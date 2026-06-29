@@ -571,7 +571,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var barEl   = document.getElementById('calc-marge-bar');
   var pctCurr = document.getElementById('calc-marge-pct-current');
   var dzdCurr = document.getElementById('calc-marge-dzd-current');
-  var pvDflt  = {{ produit.prix_vente_defaut|floatformat:4 }};
+  var pvDflt  = parseFloat("{{ produit.prix_vente_defaut|floatformat:4 }}".replace(',', '.'));
 
   if (cmpEl) {
     var cmp = parseFloat(cmpEl.textContent) || 0;

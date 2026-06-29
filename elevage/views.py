@@ -1020,40 +1020,67 @@ def mortalite_list(request):
 @login_required(login_url=LOGIN_URL)
 def transfert_create(request, lot_pk):
     """
-    Move a lot from its current building to another (typically Poussinière
-    → Poulailler once it reaches age_transfert_poussiniere_jours).
+    Move a lot from its current building to another, in one of three modes:
 
-    The lot itself is never closed by this — only batiment_destination is
-    applied to it (transfert_lot_post_save signal). TransfertLot records are
-    immutable once created (no edit/delete view is provided).
+    MODE_FULL        — whole flock relocates (existing behaviour).
+    MODE_SPLIT_NEW   — partial move; a child lot is created at destination;
+                       source baseline decreases by effectif_transfere.
+    MODE_SPLIT_MERGE — partial move; birds merge into an existing open lot at
+                       destination; source baseline decreases, dest increases.
+
+    TransfertLot records are immutable once created (no edit/delete view).
+    The signal (transfert_lot_post_save) applies the chosen mode on save.
     """
+    import datetime
+    import json
+
     lot = get_object_or_404(LotElevage, pk=lot_pk)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
 
+    # Build {batiment_pk → [{pk, designation}]} for JS lot_destination filtering.
+    open_lots = (
+        LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT)
+        .exclude(pk=lot.pk)
+        .values("pk", "designation", "batiment_id")
+    )
+    lots_par_batiment: dict = {}
+    for entry in open_lots:
+        bid = str(entry["batiment_id"])
+        lots_par_batiment.setdefault(bid, []).append(
+            {"pk": entry["pk"], "designation": entry["designation"]}
+        )
+    lots_par_batiment_json = json.dumps(lots_par_batiment, ensure_ascii=False)
+
     if request.method == "POST":
         form = TransfertLotForm(request.POST, lot=lot)
         if form.is_valid():
             try:
-                transfert = form.save(commit=False)
-                transfert.lot = lot
-                transfert.created_by = request.user
-                transfert.save()  # signal moves lot.batiment → destination
+                with transaction.atomic():
+                    transfert = form.save(commit=False)
+                    transfert.lot = lot
+                    transfert.created_by = request.user
+                    transfert.save()  # signal applies mode
 
+                mode = transfert.mode
+                mode_labels = {
+                    TransfertLot.MODE_FULL: "نقل كامل",
+                    TransfertLot.MODE_SPLIT_NEW: "تقسيم — دفعة فرعية جديدة",
+                    TransfertLot.MODE_SPLIT_MERGE: "تقسيم — دمج في دفعة موجودة",
+                }
                 messages.success(
                     request,
-                    f"تم نقل الدفعة « {lot.designation} » إلى "
-                    f"« {transfert.batiment_destination.nom} » "
+                    f"({mode_labels.get(mode, mode)}) — تم نقل «{lot.designation}» "
+                    f"إلى «{transfert.batiment_destination.nom}» "
                     f"({transfert.effectif_transfere} طير، العمر {transfert.age_jours_transfert} يوم).",
                 )
                 logger.info(
-                    "TransfertLot pk=%s created for lot pk=%s by '%s' (%s → %s).",
+                    "TransfertLot pk=%s (mode=%s) created for lot pk=%s by '%s'.",
                     transfert.pk,
+                    mode,
                     lot.pk,
                     request.user,
-                    transfert.batiment_origine_id,
-                    transfert.batiment_destination_id,
                 )
                 return redirect("elevage:lot_detail", pk=lot.pk)
 
@@ -1065,10 +1092,12 @@ def transfert_create(request, lot_pk):
         else:
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
-        import datetime
-
         form = TransfertLotForm(
-            lot=lot, initial={"date_transfert": datetime.date.today()}
+            lot=lot,
+            initial={
+                "date_transfert": datetime.date.today(),
+                "mode": TransfertLot.MODE_FULL,
+            },
         )
 
     return render(
@@ -1079,6 +1108,10 @@ def transfert_create(request, lot_pk):
             "lot": lot,
             "title": f"نقل الدفعة — {lot.designation}",
             "action_label": "تأكيد النقل",
+            "lots_par_batiment_json": lots_par_batiment_json,
+            "MODE_FULL": TransfertLot.MODE_FULL,
+            "MODE_SPLIT_NEW": TransfertLot.MODE_SPLIT_NEW,
+            "MODE_SPLIT_MERGE": TransfertLot.MODE_SPLIT_MERGE,
         },
     )
 
