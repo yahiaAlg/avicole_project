@@ -192,6 +192,67 @@ def depenses_dashboard(request):
 
     nb_categories_actives = CategorieDepense.objects.filter(actif=True).count()
 
+    # ── RH + Retraits summaries (for dashboard KPIs) ──────────────────────
+    rh_summary = get_rh_summary(date_debut=date_debut, date_fin=date_fin)
+    retraits_summary = get_retraits_associes_summary(
+        date_debut=date_debut, date_fin=date_fin
+    )
+
+    # ── Bulletin status breakdown (global, for status donut) ──────────────
+    bulletins_statuts = {
+        "brouillon": BulletinPaie.objects.filter(
+            statut=BulletinPaie.STATUT_BROUILLON
+        ).count(),
+        "valide": BulletinPaie.objects.filter(
+            statut=BulletinPaie.STATUT_VALIDE
+        ).count(),
+        "paye": BulletinPaie.objects.filter(statut=BulletinPaie.STATUT_PAYE).count(),
+    }
+
+    # ── 6-month payroll + retraits trend (mirrors expense trend) ──────────
+    from django.db.models import Sum as _Sum, Count as _Count
+
+    tendance_paie_retraits_6_mois = []
+    for i in range(5, -1, -1):
+        target = premier_du_mois
+        for _ in range(i):
+            target = (target - datetime.timedelta(days=1)).replace(day=1)
+        if i == 0:
+            mois_fin = today
+        else:
+            next_m = (target.replace(day=28) + datetime.timedelta(days=4)).replace(
+                day=1
+            )
+            mois_fin = next_m - datetime.timedelta(days=1)
+        sal = (
+            BulletinPaie.objects.filter(
+                statut=BulletinPaie.STATUT_PAYE,
+                date_paiement__gte=target,
+                date_paiement__lte=mois_fin,
+            ).aggregate(total=_Sum("montant_net"))["total"]
+            or 0
+        )
+        acomp = (
+            AcompteEmploye.objects.filter(
+                date__gte=target, date__lte=mois_fin
+            ).aggregate(total=_Sum("montant"))["total"]
+            or 0
+        )
+        retr = (
+            RetraitAssocie.objects.filter(
+                date__gte=target, date__lte=mois_fin
+            ).aggregate(total=_Sum("montant"))["total"]
+            or 0
+        )
+        tendance_paie_retraits_6_mois.append(
+            {
+                "label": target.strftime("%b %Y"),
+                "salaires": float(sal),
+                "acomptes": float(acomp),
+                "retraits": float(retr),
+            }
+        )
+
     # ── Period-over-period delta % ────────────────────────────────────────
     total_periode = summary_periode["total"]
     total_precedent = summary_precedent["total"]
@@ -236,6 +297,11 @@ def depenses_dashboard(request):
             "premier_du_mois": premier_du_mois,
             "premier_de_lannee": premier_de_lannee,
             "delta_pct": delta_pct,
+            # RH + Retraits
+            "rh_summary": rh_summary,
+            "retraits_summary": retraits_summary,
+            "bulletins_statuts": bulletins_statuts,
+            "tendance_paie_retraits_6_mois": tendance_paie_retraits_6_mois,
             "title": "لوحة تحكم — المصروفات",
         },
     )

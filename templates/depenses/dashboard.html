@@ -113,6 +113,47 @@
 
   </div>
 
+  <!-- ══ RH + Associés KPI Row ═════════════════════════════════════════════ -->
+  <div class="kpi-grid kpi-grid-4">
+
+    <div class="kpi-card kpi-purple">
+      <div class="kpi-icon"><i class="bx bxs-user-check"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">الموظفون النشطون</div>
+        <div class="kpi-value">{{ rh_summary.nb_employes_actifs }}</div>
+        <div class="kpi-sub"><a href="{% url 'depenses:employe_list' %}" class="kpi-link">إدارة الموظفين</a></div>
+      </div>
+    </div>
+
+    <div class="kpi-card {% if rh_summary.bulletins_en_attente %}kpi-orange{% else %}kpi-slate{% endif %}">
+      <div class="kpi-icon"><i class="bx bxs-receipt"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">كشوف الراتب قيد الانتظار</div>
+        <div class="kpi-value">{{ rh_summary.bulletins_en_attente }}</div>
+        <div class="kpi-sub"><a href="{% url 'depenses:bulletin_paie_list' %}" class="kpi-link">عرض الكشوف</a></div>
+      </div>
+    </div>
+
+    <div class="kpi-card kpi-blue">
+      <div class="kpi-icon"><i class="bx bxs-id-card"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">رواتب مدفوعة · {{ periode_label }}</div>
+        <div class="kpi-value">{{ rh_summary.total_salaires_payes|floatformat:0 }}<span class="kpi-unit">DZD</span></div>
+        <div class="kpi-sub">{{ rh_summary.nb_bulletins_payes }} كشف مدفوع · تسبيقات: {{ rh_summary.total_acomptes|floatformat:0 }} DZD</div>
+      </div>
+    </div>
+
+    <div class="kpi-card kpi-purple2">
+      <div class="kpi-icon"><i class="bx bxs-credit-card-alt"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">سحوبات الشركاء · {{ periode_label }}</div>
+        <div class="kpi-value">{{ retraits_summary.total|floatformat:0 }}<span class="kpi-unit">DZD</span></div>
+        <div class="kpi-sub">{{ retraits_summary.nb }} عملية · <a href="{% url 'depenses:retrait_list' %}" class="kpi-link">التفاصيل</a></div>
+      </div>
+    </div>
+
+  </div>
+
   <!-- ══ Charts Row ════════════════════════════════════════════════════════ -->
   <div class="chart-row chart-2-1">
 
@@ -145,6 +186,64 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- ══ RH + Associés Charts ══════════════════════════════════════════════ -->
+  <div class="chart-row chart-1-1">
+
+    <!-- Payroll 6-month trend -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-eyebrow">الموارد البشرية</div>
+          <div class="chart-title">الرواتب والتسبيقات · 6 أشهر</div>
+        </div>
+        <div class="chart-legend">
+          <span class="legend-dot" style="background:#818cf8;"></span>رواتب مدفوعة
+          <span class="legend-dot" style="background:#34d399;margin-inline-start:12px;"></span>تسبيقات
+          <span class="legend-dot" style="background:#f472b6;margin-inline-start:12px;"></span>سحوبات الشركاء
+        </div>
+      </div>
+      <div class="chart-body">
+        <canvas id="chartPayeRetraits"></canvas>
+      </div>
+    </div>
+
+    <!-- Right column: payslip status donut + partner withdrawals -->
+    <div class="chart-col-stack">
+
+      <!-- Payslip status donut -->
+      <div class="chart-card chart-card-half">
+        <div class="chart-header">
+          <div>
+            <div class="chart-eyebrow">كشوف الرواتب</div>
+            <div class="chart-title">حالة الكشوف (إجمالي)</div>
+          </div>
+        </div>
+        <div class="chart-body chart-body-sm" style="position:relative;display:flex;align-items:center;justify-content:center;">
+          <canvas id="chartBulletinsStatut"></canvas>
+          <div class="donut-center" id="donutBulletinsCenter">—</div>
+        </div>
+      </div>
+
+      <!-- Per-partner withdrawals -->
+      <div class="chart-card chart-card-half">
+        <div class="chart-header">
+          <div>
+            <div class="chart-eyebrow">سحوبات الشركاء · {{ periode_label }}</div>
+            <div class="chart-title">توزيع السحوبات</div>
+          </div>
+        </div>
+        {% if retraits_summary.par_associe %}
+        <div class="chart-body chart-body-sm">
+          <canvas id="chartAssocies"></canvas>
+        </div>
+        {% else %}
+        <div class="empty-state small"><i class="bx bx-group"></i><p>لا توجد سحوبات في هذه الفترة.</p></div>
+        {% endif %}
+      </div>
+
+    </div>
   </div>
 
   <!-- ══ Bottom Grid ════════════════════════════════════════════════════════ -->
@@ -299,21 +398,25 @@
 {% block extra_css %}
 <style>
 :root {
-  --kpi-red-bg:    rgba(248,113,113,.12); --kpi-red-fg:    #dc2626;
-  --kpi-orange-bg: rgba(251,146,60,.12);  --kpi-orange-fg: #c2410c;
-  --kpi-indigo-bg: rgba(99,102,241,.10);  --kpi-indigo-fg: #4f46e5;
-  --kpi-teal-bg:   rgba(45,212,191,.10);  --kpi-teal-fg:   #0d9488;
-  --kpi-green-bg:  rgba(34,197,94,.10);   --kpi-green-fg:  #15803d;
-  --kpi-slate-bg:  rgba(148,163,184,.10); --kpi-slate-fg:  #475569;
+  --kpi-red-bg:     rgba(248,113,113,.12); --kpi-red-fg:     #dc2626;
+  --kpi-orange-bg:  rgba(251,146,60,.12);  --kpi-orange-fg:  #c2410c;
+  --kpi-indigo-bg:  rgba(99,102,241,.10);  --kpi-indigo-fg:  #4f46e5;
+  --kpi-teal-bg:    rgba(45,212,191,.10);  --kpi-teal-fg:    #0d9488;
+  --kpi-green-bg:   rgba(34,197,94,.10);   --kpi-green-fg:   #15803d;
+  --kpi-slate-bg:   rgba(148,163,184,.10); --kpi-slate-fg:   #475569;
+  --kpi-blue-bg:    rgba(56,189,248,.12);  --kpi-blue-fg:    #0369a1;
+  --kpi-purple-bg:  rgba(139,92,246,.12);  --kpi-purple-fg:  #7c3aed;
+  --kpi-purple2-bg: rgba(217,70,239,.10);  --kpi-purple2-fg: #a21caf;
 }
 
 .dep-body { padding: 24px 28px; }
 @media(max-width:768px){ .dep-body{ padding:16px 14px; } }
 
 /* ── KPI grid ─────────────────────────────────────────────── */
-.kpi-grid { display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:20px; }
-@media(max-width:1200px){ .kpi-grid{ grid-template-columns:repeat(3,1fr); } }
-@media(max-width:600px){  .kpi-grid{ grid-template-columns:repeat(2,1fr); } }
+.kpi-grid { display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:14px; }
+.kpi-grid-4 { grid-template-columns:repeat(4,1fr);margin-bottom:20px; }
+@media(max-width:1200px){ .kpi-grid{ grid-template-columns:repeat(3,1fr); } .kpi-grid-4{ grid-template-columns:repeat(2,1fr); } }
+@media(max-width:600px){  .kpi-grid{ grid-template-columns:repeat(2,1fr); } .kpi-grid-4{ grid-template-columns:repeat(2,1fr); } }
 
 .kpi-card {
   border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--bg-surface);
@@ -331,6 +434,9 @@
 .kpi-teal   .kpi-icon { background:var(--kpi-teal-bg);   color:var(--kpi-teal-fg); }
 .kpi-green  .kpi-icon { background:var(--kpi-green-bg);  color:var(--kpi-green-fg); }
 .kpi-slate  .kpi-icon { background:var(--kpi-slate-bg);  color:var(--kpi-slate-fg); }
+.kpi-blue   .kpi-icon { background:var(--kpi-blue-bg);   color:var(--kpi-blue-fg); }
+.kpi-purple .kpi-icon { background:var(--kpi-purple-bg); color:var(--kpi-purple-fg); }
+.kpi-purple2 .kpi-icon { background:var(--kpi-purple2-bg); color:var(--kpi-purple2-fg); }
 
 .kpi-label { font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px; }
 .kpi-value { font-size:22px;font-weight:800;color:var(--text-primary);line-height:1.1;margin-bottom:3px;font-family:'Nunito',sans-serif; }
@@ -342,7 +448,12 @@
 /* ── Charts ───────────────────────────────────────────────── */
 .chart-row { display:grid;gap:14px;margin-bottom:14px; }
 .chart-2-1 { grid-template-columns:2fr 1fr; }
-@media(max-width:960px){ .chart-2-1{ grid-template-columns:1fr; } }
+.chart-1-1 { grid-template-columns:1fr 1fr; }
+@media(max-width:960px){ .chart-2-1,.chart-1-1{ grid-template-columns:1fr; } }
+
+.chart-col-stack { display:flex;flex-direction:column;gap:14px; }
+.chart-card-half { flex:1; }
+.chart-body-sm { height:140px; }
 
 .chart-card {
   background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);
@@ -602,6 +713,114 @@
       }
     });
   })();
+  /* ── 3. Payroll + Retraits 6-month trend ────────────────────────────── */
+  (function buildPayeRetraits(){
+    const ctx = document.getElementById('chartPayeRetraits');
+    if (!ctx) return;
+    const raw     = {{ tendance_paie_retraits_6_mois|safe }};
+    const labels  = raw.map(d => d.label);
+    const sal     = raw.map(d => d.salaires);
+    const acomp   = raw.map(d => d.acomptes);
+    const retr    = raw.map(d => d.retraits);
+
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label:'رواتب مدفوعة', data:sal,   backgroundColor:'rgba(129,140,248,.28)', borderColor:'#818cf8', borderWidth:2, borderRadius:4 },
+          { label:'تسبيقات',       data:acomp, backgroundColor:'rgba(52,211,153,.25)',  borderColor:'#34d399', borderWidth:2, borderRadius:4 },
+          { label:'سحوبات الشركاء',data:retr,  backgroundColor:'rgba(244,114,182,.22)', borderColor:'#f472b6', borderWidth:2, borderRadius:4 },
+        ],
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        interaction:{ mode:'index', intersect:false },
+        plugins:{ legend:{ display:false }, tooltip:tipDefaults },
+        scales:{
+          x: { grid:{ display:false }, border:{ display:false }, ticks:{ color:C.textMuted } },
+          y: { grid:gridOpts, border:{ display:false },
+               ticks:{ color:C.textMuted, callback: v => v>=1000 ? (v/1000).toFixed(0)+'k' : v },
+               title:{ display:true, text:'DZD', color:C.textMuted, font:{ size:10 } } },
+        },
+      },
+    });
+  })();
+
+  /* ── 4. Bulletin status donut ────────────────────────────────────────── */
+  (function buildBulletinsStatut(){
+    const ctx      = document.getElementById('chartBulletinsStatut');
+    const centerEl = document.getElementById('donutBulletinsCenter');
+    if (!ctx) return;
+
+    const vals   = [{{ bulletins_statuts.brouillon }}, {{ bulletins_statuts.valide }}, {{ bulletins_statuts.paye }}];
+    const labels = ['مسودة','مصادق عليه','مدفوع'];
+    const colors = ['#fb923c','#818cf8','#34d399'];
+    const total  = vals.reduce((a,b)=>a+b,0);
+
+    if (!total){ centerEl.textContent='لا توجد كشوف'; return; }
+
+    centerEl.innerHTML = `<div style="font-size:16px;font-weight:800;">${total}</div><div style="font-size:9px;color:var(--text-muted);">كشف</div>`;
+
+    const chart = new Chart(ctx, {
+      type:'doughnut',
+      data:{ labels, datasets:[{ data:vals, backgroundColor:colors, borderColor:C.bgSurface, borderWidth:3, hoverOffset:6 }] },
+      options:{
+        responsive:true, maintainAspectRatio:false, cutout:'68%',
+        plugins:{
+          legend:{ display:true, position:'bottom', labels:{ padding:8, boxWidth:9, boxHeight:9, font:{ size:10 }, color:C.textMuted } },
+          tooltip:{ ...tipDefaults, callbacks:{ label: c=>' '+c.label+': '+c.parsed } },
+        },
+      },
+    });
+
+    ctx.addEventListener('mousemove', e => {
+      const pts = chart.getElementsAtEventForMode(e,'nearest',{intersect:true},false);
+      if(pts.length){
+        const i=pts[0].index;
+        centerEl.innerHTML=`<div style="font-size:14px;font-weight:800;color:${colors[i]};">${vals[i]}</div><div style="font-size:9px;color:var(--text-muted);">${labels[i]}</div>`;
+      } else {
+        centerEl.innerHTML=`<div style="font-size:16px;font-weight:800;">${total}</div><div style="font-size:9px;color:var(--text-muted);">كشف</div>`;
+      }
+    });
+  })();
+
+  /* ── 5. Per-partner withdrawals bar ─────────────────────────────────── */
+  (function buildAssocies(){
+    const ctx = document.getElementById('chartAssocies');
+    if (!ctx) return;
+
+    const rawLabels = [{% for row in retraits_summary.par_associe %}"{{ row.associe.nom }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+    const rawValues = [{% for row in retraits_summary.par_associe %}{{ row.total|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}];
+
+    if (!rawLabels.length) return;
+
+    const PALETTE = ['#a78bfa','#f472b6','#34d399','#38bdf8','#fb923c','#818cf8'];
+
+    new Chart(ctx, {
+      type:'bar',
+      data:{
+        labels: rawLabels,
+        datasets:[{
+          label:'السحوبات (دج)',
+          data: rawValues,
+          backgroundColor: rawLabels.map((_,i)=> PALETTE[i % PALETTE.length]+'44'),
+          borderColor:      rawLabels.map((_,i)=> PALETTE[i % PALETTE.length]),
+          borderWidth:2, borderRadius:5,
+        }],
+      },
+      options:{
+        indexAxis:'y',
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ display:false }, tooltip:{ ...tipDefaults, callbacks:{ label: c=>` ${c.parsed.x.toLocaleString('ar-DZ',{maximumFractionDigits:0})} DZD` } } },
+        scales:{
+          x:{ grid:gridOpts, border:{ display:false }, ticks:{ color:C.textMuted, callback: v=>v>=1000?(v/1000).toFixed(0)+'k':v } },
+          y:{ grid:{ display:false }, border:{ display:false }, ticks:{ color:C.textMuted, font:{ size:11 } } },
+        },
+      },
+    });
+  })();
+
   /* ── Date-range preset buttons ───────────────────────────── */
   (function initPresets(){
     const form  = document.getElementById('dashFilterForm');

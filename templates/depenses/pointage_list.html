@@ -94,7 +94,7 @@
 </div>
 
 <!-- Generate month panel -->
-<div id="generer-panel" style="display:none;" class="modal-overlay">
+<div id="generer-panel" class="modal-overlay">
   <div class="modal-box">
     <div class="modal-header">
       <div class="section-eyebrow"><i class="bx bx-calendar-plus"></i> توليد شهر حضور</div>
@@ -164,8 +164,8 @@
   .empty-state__icon { font-size:32px; display:block; margin-bottom:12px; color:var(--border-strong); }
   .empty-state__title { font-family:'Nunito',sans-serif; font-size:15px; font-weight:700; color:var(--text-secondary); margin-bottom:6px; }
   /* Modal */
-  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:500; display:flex!important; align-items:center; justify-content:center; padding:20px; animation:fadeIn .2s ease; }
-  .modal-overlay[style*="display:none"] { display:none!important; }
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:500; align-items:center; justify-content:center; padding:20px; animation:fadeIn .2s ease; }
+  .modal-overlay.is-open { display:flex; }
   .modal-box { background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:24px 28px; max-width:440px; width:100%; display:flex; flex-direction:column; gap:14px; box-shadow:0 8px 32px rgba(0,0,0,.14); }
   .modal-header { display:flex; align-items:center; justify-content:space-between; }
   .modal-close { background:transparent; border:none; color:var(--text-muted); font-size:20px; cursor:pointer; display:flex; }
@@ -190,8 +190,8 @@
 {% block extra_js %}
 <script>
 const panel = document.getElementById('generer-panel');
-function openPanel(){ panel.style.display=''; }
-function closePanel(){ panel.style.display='none'; }
+function openPanel(){ panel.classList.add('is-open'); }
+function closePanel(){ panel.classList.remove('is-open'); }
 document.getElementById('btn-generer-mois').addEventListener('click', openPanel);
 document.getElementById('btn-close-generer').addEventListener('click', closePanel);
 document.getElementById('btn-close2').addEventListener('click', closePanel);
