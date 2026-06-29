@@ -19,6 +19,7 @@ from clients.models import (
     AbonnementClient,
     VoyageLivraison,
     LivraisonPartielle,
+    PrixMarche,
 )
 
 # ---------------------------------------------------------------------------
@@ -653,3 +654,53 @@ class LivraisonPartielleAdmin(admin.ModelAdmin):
                 "created_at",
             )
         return self.readonly_fields
+
+
+# ---------------------------------------------------------------------------
+# PrixMarche — daily egg market price history
+# ---------------------------------------------------------------------------
+
+
+@admin.register(PrixMarche)
+class PrixMarcheAdmin(admin.ModelAdmin):
+    list_display = (
+        "date",
+        "produit_fini",
+        "prix_marche",
+        "source",
+        "created_by",
+        "created_at",
+    )
+    list_filter = ("produit_fini", "date")
+    search_fields = ("produit_fini__designation", "source", "notes")
+    date_hierarchy = "date"
+    readonly_fields = ("created_by", "created_at", "updated_at")
+    autocomplete_fields = ()
+
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "produit_fini",
+                    "date",
+                    "prix_marche",
+                    "source",
+                )
+            },
+        ),
+        (
+            "Notes",
+            {
+                "fields": ("notes",),
+                "classes": ("collapse",),
+            },
+        ),
+        (
+            "Horodatage",
+            {
+                "fields": ("created_by", "created_at", "updated_at"),
+                "classes": ("collapse",),
+            },
+        ),
+    )

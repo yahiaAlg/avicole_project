@@ -607,3 +607,45 @@ class LivraisonPartielleForm(forms.ModelForm):
                     f"تتجاوز الكمية المتعاقد عليها ({abonnement.quantite_totale_prevue})."
                 )
         return cleaned
+
+
+# ---------------------------------------------------------------------------
+# PrixMarche form — daily egg market price entry
+# ---------------------------------------------------------------------------
+
+
+class PrixMarcheForm(forms.ModelForm):
+    """Form for entering / editing a market price record."""
+
+    class Meta:
+        from clients.models import PrixMarche
+
+        model = PrixMarche
+        fields = ["produit_fini", "date", "prix_marche", "source", "notes"]
+        widgets = {
+            "produit_fini": forms.Select(attrs={"class": "form-control"}),
+            "date": forms.DateInput(
+                attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"
+            ),
+            "prix_marche": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01", "min": "0"}
+            ),
+            "source": forms.TextInput(attrs={"class": "form-control"}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Limit to egg-type products only (TYPE_OEUFS) when that constant exists.
+        try:
+            from production.models import ProduitFini
+
+            self.fields["produit_fini"].queryset = ProduitFini.objects.filter(
+                type_produit=ProduitFini.TYPE_OEUFS
+            ).order_by("designation")
+        except Exception:
+            # Fallback: show all active products if the constant isn't available.
+            from production.models import ProduitFini as PF
+            self.fields["produit_fini"].queryset = PF.objects.filter(
+                actif=True
+            ).order_by("designation")

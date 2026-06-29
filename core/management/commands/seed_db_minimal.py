@@ -16,7 +16,10 @@ management/commands/seed_db_minimal.py
     • CategorieDepense      — SALAIRES / ENERGIE / MAINTENANCE / TRANSPORT /
                               VETERINAIRE / FOURNITURES / TAXES / DIVERS
     • CategorieQualite (8)  — 4 tranches oiseaux + 4 tranches œufs
-    • ProduitFini (7)       — دجاج حي / جثة / صدر / فخذ / جناح / كبد / قانصة
+    • ProduitFini (9)       — دجاج حي / جثة / صدر / فخذ / جناح / كبد / قانصة
+                              + بيض الاستهلاك / ألفيول بيض (TYPE_OEUFS)
+    • PrixMarche (6)        — أسعار سوق ابتدائية لمنتجَي البيض
+                              (3 نقاط سعرية لكل منتج — يُحدَّث يدوياً)
 
 ما لا يتم إنشاؤه (يُسجَّل يدوياً عبر الواجهة):
     • Fournisseurs  • Clients  • Bâtiments  • Intrants
@@ -73,6 +76,7 @@ class Command(BaseCommand):
         self._seed_categories_depense()
         self._seed_categories_qualite()
         self._seed_produits_finis()
+        self._seed_prix_marche()
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -82,7 +86,9 @@ class Command(BaseCommand):
                 "    2. Créer les clients       → VENTES › Clients › Nouveau\n"
                 "    3. Créer les bâtiments     → STOCK › Bâtiments › Nouveau\n"
                 "    4. Créer les intrants      → STOCK › Intrants › Nouvel intrant\n"
-                "    5. Lancer le cycle ERP     → scénario Phase 1 — Achats Intrants\n"
+                "    5. Mettre à jour les prix du marché quotidiennement\n"
+                "       → VENTES › Prix du marché › Nouveau prix\n"
+                "    6. Lancer le cycle ERP     → scénario Phase 1 — Achats Intrants\n"
             )
         )
 
@@ -97,7 +103,9 @@ class Command(BaseCommand):
         from production.models import ProduitFini
         from core.models import CompanyInfo, UserProfile
         from elevage.models import ParametrageElevage
+        from clients.models import PrixMarche
 
+        PrixMarche.objects.all().delete()
         ProduitFini.objects.all().delete()
         CategorieQualite.objects.all().delete()
         CategorieDepense.objects.all().delete()
@@ -447,6 +455,26 @@ class Command(BaseCommand):
             dict(designation="جناح دجاج", type_produit="decoupe", unite="kg", prix=620),
             dict(designation="كبد دجاج", type_produit="abats", unite="kg", prix=420),
             dict(designation="قانصة دجاج", type_produit="abats", unite="kg", prix=350),
+            # ── Oeufs ─────────────────────────────────────────────────────────
+            dict(
+                designation="صينية بيض (30 بيضة)",
+                type_produit=ProduitFini.TYPE_OEUFS,
+                unite="plateau",
+                prix=350,
+            ),
+            # ── Fertilisants ──────────────────────────────────────────────────
+            dict(
+                designation="سماد دواجن معالج (مجفف)",
+                type_produit="fertilisant",
+                unite="kg",
+                prix=28,
+            ),
+            dict(
+                designation="سماد دواجن خام (غير معالج)",
+                type_produit="fertilisant",
+                unite="kg",
+                prix=12,
+            ),
         ]
         for s in specs:
             ProduitFini.objects.get_or_create(
@@ -459,6 +487,100 @@ class Command(BaseCommand):
                 ),
             )
         self._log(f"ProduitsFinis ({len(specs)})", True)
+
+    def _seed_prix_marche(self):
+        """
+        Seed a short history of market prices for the two egg products.
+
+        These are plausible DZD/unit reference prices drawn from the kind of
+        supplier statement visible in the project's reference image (≈ 480–543
+        DZD per plateau range).  Operators should update prices daily via
+        VENTES › Prix du marché.
+        """
+        import datetime
+        from production.models import ProduitFini
+        from clients.models import PrixMarche
+
+        try:
+            oeuf = ProduitFini.objects.get(designation="بيض الاستهلاك")
+            alveole = ProduitFini.objects.get(designation="ألفيول بيض (30 بيضة)")
+        except ProduitFini.DoesNotExist:
+            self.stdout.write(
+                self.style.WARNING(
+                    "  ~ PrixMarche ignoré : منتجات البيض غير موجودة بعد."
+                )
+            )
+            return
+
+        today = datetime.date.today()
+
+        # Six price points spread over ~90 days — one per product per date.
+        # Prices reflect a mild upward trend typical of Algerian egg markets.
+        seeds = [
+            # بيض الاستهلاك (per unit)
+            dict(
+                produit_fini=oeuf,
+                date=today - datetime.timedelta(days=90),
+                prix_marche=Decimal("14.50"),
+                source="السوق المحلي",
+                notes="سعر مرجعي ابتدائي",
+            ),
+            dict(
+                produit_fini=oeuf,
+                date=today - datetime.timedelta(days=45),
+                prix_marche=Decimal("15.00"),
+                source="السوق المحلي",
+                notes="",
+            ),
+            dict(
+                produit_fini=oeuf,
+                date=today - datetime.timedelta(days=1),
+                prix_marche=Decimal("15.50"),
+                source="السوق المحلي",
+                notes="آخر سعر مسجّل",
+            ),
+            # ألفيول بيض (per plateau of 30)
+            dict(
+                produit_fini=alveole,
+                date=today - datetime.timedelta(days=90),
+                prix_marche=Decimal("430.00"),
+                source="السوق المحلي",
+                notes="سعر مرجعي ابتدائي",
+            ),
+            dict(
+                produit_fini=alveole,
+                date=today - datetime.timedelta(days=45),
+                prix_marche=Decimal("450.00"),
+                source="السوق المحلي",
+                notes="",
+            ),
+            dict(
+                produit_fini=alveole,
+                date=today - datetime.timedelta(days=1),
+                prix_marche=Decimal("465.00"),
+                source="السوق المحلي",
+                notes="آخر سعر مسجّل",
+            ),
+        ]
+
+        created_count = 0
+        for s in seeds:
+            _, created = PrixMarche.objects.get_or_create(
+                produit_fini=s["produit_fini"],
+                date=s["date"],
+                defaults={
+                    "prix_marche": s["prix_marche"],
+                    "source": s["source"],
+                    "notes": s["notes"],
+                },
+            )
+            if created:
+                created_count += 1
+
+        self._log(
+            f"PrixMarche ({len(seeds)} — 3 × بيض استهلاك + 3 × ألفيول)",
+            created_count > 0,
+        )
 
     # ------------------------------------------------------------------
 

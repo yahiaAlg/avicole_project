@@ -150,6 +150,33 @@ urlpatterns = [
         views.paiement_client_print,
         name="paiement_client_print",
     ),
+    # ── Fiche des dettes client ──────────────────────────────────────────
+    path(
+        "clients/<int:pk>/fiche-dettes/",
+        views.fiche_dettes_client,
+        name="fiche_dettes_client",
+    ),
+    # ── Prix Marché ──────────────────────────────────────────────────────
+    path(
+        "prix-marche/",
+        views.prix_marche_list,
+        name="prix_marche_list",
+    ),
+    path(
+        "prix-marche/creer/",
+        views.prix_marche_create,
+        name="prix_marche_create",
+    ),
+    path(
+        "prix-marche/<int:pk>/modifier/",
+        views.prix_marche_edit,
+        name="prix_marche_edit",
+    ),
+    path(
+        "prix-marche/<int:pk>/supprimer/",
+        views.prix_marche_delete,
+        name="prix_marche_delete",
+    ),
     # ── AJAX ─────────────────────────────────────────────────────────────
     path(
         "clients/<int:pk>/solde.json",

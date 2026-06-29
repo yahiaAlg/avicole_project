@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}فيشة الديون — {{ client.nom }}{% endblock %}
+
+{% block nav_clients %}active{% endblock %}
+
+{% block page_title %}فيشة الديون — {{ client.nom }}{% endblock %}
+{% block page_sub_text %}مقارنة أسعار الشراء الفعلية بأسعار السوق{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'clients:client_detail' client.pk %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> العودة إلى الملف
+  </a>
+  <a href="?{{ request.GET.urlencode }}&print=1" class="btn-ghost" onclick="window.print();return false;" title="طباعة">
+    <i class="bx bxs-printer"></i> طباعة
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+
+  <!-- ── Filters ── -->
+  <div class="filters-bar">
+    <form method="get" class="filters-form" id="filter-form">
+      <select name="produit_fini" class="filter-select">
+        <option value="">كل المنتجات</option>
+        {% for p in produits_disponibles %}
+        <option value="{{ p.pk }}" {% if produit_fini_pk == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.designation }}</option>
+        {% endfor %}
+      </select>
+      <input type="date" name="date_debut" value="{% if date_debut %}{{ date_debut|date:'Y-m-d' }}{% endif %}" class="filter-date" placeholder="من">
+      <input type="date" name="date_fin"   value="{% if date_fin %}{{ date_fin|date:'Y-m-d' }}{% endif %}"   class="filter-date" placeholder="إلى">
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> تصفية</button>
+    </form>
+  </div>
+
+  <!-- ── Client summary card ── -->
+  <div class="summary-strip">
+    <div class="summary-item">
+      <span class="summary-label">العميل</span>
+      <span class="summary-val">{{ client.nom }}</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-label">الفترة</span>
+      <span class="summary-val">
+        {% if date_debut %}{{ date_debut|date:"d/m/Y" }}{% else %}—{% endif %}
+        →
+        {% if date_fin %}{{ date_fin|date:"d/m/Y" }}{% else %}اليوم{% endif %}
+      </span>
+    </div>
+    <div class="summary-item summary-item--accent">
+      <span class="summary-label">إجمالي المشتريات</span>
+      <span class="summary-val">{{ total_montant|floatformat:0 }} دج</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-label">عدد السطور</span>
+      <span class="summary-val">{{ lignes|length }}</span>
+    </div>
+  </div>
+
+  <!-- ── Main table ── -->
+  <div class="card">
+    <div class="card-header-row">
+      <div class="section-eyebrow">
+        <i class="bx bx-receipt"></i> تفاصيل المشتريات مقارنةً بأسعار السوق
+      </div>
+      <a href="{% url 'clients:prix_marche_list' %}" class="btn-ghost btn-xs" style="font-size:12px;">
+        <i class="bx bx-trending-up"></i> إدارة أسعار السوق
+      </a>
+    </div>
+
+    {% if lignes %}
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>التاريخ</th>
+            <th>المرجع</th>
+            <th>المنتج</th>
+            <th class="text-num">الكمية</th>
+            <th class="text-num">سعر الفاتورة (دج)</th>
+            <th class="text-num">سعر السوق (دج)</th>
+            <th class="text-num">الفارق/وحدة</th>
+            <th class="text-num">المبلغ (دج)</th>
+            <th class="text-num">الرصيد التراكمي (دج)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in lignes %}
+          <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+            <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">{{ row.date|date:"d/m/Y" }}</td>
+            <td>
+              <a href="{% url 'clients:bl_client_detail' row.bl.pk %}" class="ref-link">
+                {{ row.reference }}
+              </a>
+            </td>
+            <td>
+              <span class="product-name">{{ row.produit.designation }}</span>
+              <span class="product-unit">{{ row.produit.unite_mesure }}</span>
+            </td>
+            <td class="text-num">{{ row.quantite|floatformat:0 }}</td>
+            <td class="text-num fw-bold">{{ row.prix_unitaire|floatformat:2 }}</td>
+            <td class="text-num">
+              {% if row.prix_marche is not None %}
+                {{ row.prix_marche|floatformat:2 }}
+              {% else %}
+                <span class="no-data" title="لم يُسجَّل سعر سوق لهذا التاريخ">—</span>
+              {% endif %}
+            </td>
+            <td class="text-num">
+              {% if row.marge_unitaire is not None %}
+                <span class="marge-badge {% if row.marge_unitaire > 0 %}marge-pos{% elif row.marge_unitaire < 0 %}marge-neg{% else %}marge-zero{% endif %}">
+                  {% if row.marge_unitaire > 0 %}+{% endif %}{{ row.marge_unitaire|floatformat:2 }}
+                  {% if row.marge_pct is not None %}
+                    <small>({% if row.marge_pct > 0 %}+{% endif %}{{ row.marge_pct|floatformat:1 }}%)</small>
+                  {% endif %}
+                </span>
+              {% else %}
+                <span class="no-data">—</span>
+              {% endif %}
+            </td>
+            <td class="text-num fw-bold">{{ row.montant|floatformat:0 }}</td>
+            <td class="text-num solde-cumul">{{ row.solde_cumul|floatformat:0 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr class="totals-row">
+            <td colspan="7" class="text-num" style="font-size:12px;color:var(--text-muted);">المجموع</td>
+            <td class="text-num fw-bold" style="font-size:14px;">{{ total_montant|floatformat:0 }} دج</td>
+            <td class="text-num solde-cumul fw-bold" style="font-size:14px;">{{ total_montant|floatformat:0 }} دج</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- ── Market price legend ── -->
+    <div class="legend-bar">
+      <span class="legend-item">
+        <span class="dot dot-pos"></span> السعر أعلى من السوق (فارق موجب — العميل يدفع أكثر)
+      </span>
+      <span class="legend-item">
+        <span class="dot dot-neg"></span> السعر أقل من السوق (خصم — العميل يدفع أقل)
+      </span>
+      <span class="legend-item">
+        <span class="dot dot-na"></span> بدون سعر مرجعي
+      </span>
+    </div>
+
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bx-receipt" style="font-size:32px;color:var(--border-strong);display:block;margin-bottom:12px;"></i>
+      <div style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">لا توجد سطور تسليم في هذه الفترة</div>
+      <div style="font-size:13px;">عدّل الفلاتر أو تحقق من وصلات التسليم.</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── Market price history card ── -->
+  {% if lignes %}
+  <div class="card" style="margin-top:18px;">
+    <div class="card-header-row">
+      <div class="section-eyebrow"><i class="bx bx-trending-up"></i> تاريخ أسعار السوق المرجعية</div>
+    </div>
+    <div class="history-grid">
+      {% regroup lignes by produit as produit_groups %}
+      {% for group in produit_groups %}
+      <div class="history-col">
+        <div class="history-product">{{ group.grouper.designation }}</div>
+        <div class="history-prices">
+          {% for row in group.list %}
+            {% if row.prix_marche is not None %}
+            <div class="history-row">
+              <span class="history-date">{{ row.date|date:"d/m/Y" }}</span>
+              <span class="history-price">{{ row.prix_marche|floatformat:2 }} دج</span>
+            </div>
+            {% endif %}
+          {% empty %}
+          <div style="font-size:12px;color:var(--text-muted);padding:8px;">بدون سعر مرجعي</div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── RTL ── */
+  .page-body { direction: rtl; }
+
+  /* Filters */
+  .filters-bar { margin-bottom: 16px; }
+  .filters-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .filter-select, .filter-date { padding: 9px 12px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 13px; color: var(--text-secondary); font-family: 'Inter',sans-serif; cursor: pointer; direction: rtl; }
+  .filter-select:focus, .filter-date:focus { border-color: var(--accent); outline: none; }
+  .filter-date { min-width: 130px; }
+  .btn-sm  { padding: 8px 14px; font-size: 13px; }
+  .btn-xs  { padding: 6px 12px; font-size: 12px; }
+
+  /* Summary strip */
+  .summary-strip { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .summary-item { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 18px; display: flex; flex-direction: column; gap: 3px; min-width: 160px; }
+  .summary-item--accent { border-color: var(--accent); background: rgba(34,197,94,.05); }
+  .summary-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
+  .summary-val { font-family: 'Nunito',sans-serif; font-weight: 700; font-size: 15px; color: var(--text-primary); }
+
+  /* Card */
+  .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .card-header-row { padding: 14px 18px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .05em; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+
+  /* Table */
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th { padding: 10px 12px; font-size: 11px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: right; background: var(--bg-base); }
+  .data-table thead th.text-num { text-align: left; }
+  .data-table tbody td { padding: 10px 12px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); text-align: right; }
+  .data-table tbody td.text-num { text-align: left; font-family: 'Nunito',sans-serif; }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .table-row { animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i) * 25ms); }
+  .table-row:hover td { background: var(--bg-hover); }
+
+  tfoot.totals-row td, tfoot tr.totals-row td {
+    border-top: 2px solid var(--border-strong);
+    background: var(--bg-base);
+    padding: 11px 12px;
+  }
+
+  .fw-bold { font-weight: 700; color: var(--text-primary) !important; }
+  .text-num { text-align: left !important; font-family: 'Nunito',sans-serif; }
+
+  .ref-link { color: var(--accent-text); font-weight: 600; text-decoration: none; font-family: 'Nunito',sans-serif; }
+  .ref-link:hover { text-decoration: underline; }
+
+  .product-name { font-weight: 500; color: var(--text-primary); display: block; }
+  .product-unit { font-size: 11px; color: var(--text-muted); }
+
+  .no-data { color: var(--text-muted); font-size: 12px; }
+
+  /* Margin badge */
+  .marge-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; font-family: 'Nunito',sans-serif; }
+  .marge-badge small { font-weight: 400; font-size: 10px; opacity: .8; }
+  .marge-pos  { background: rgba(239,68,68,.10); color: #dc2626; }   /* client paid more → "expensive" */
+  .marge-neg  { background: rgba(34,197,94,.12); color: #15803d; }   /* client got a discount */
+  .marge-zero { background: var(--bg-hover); color: var(--text-muted); }
+
+  /* Running balance */
+  .solde-cumul { font-family: 'Nunito',sans-serif; font-weight: 700; color: var(--text-primary) !important; }
+
+  /* Legend */
+  .legend-bar { display: flex; gap: 20px; flex-wrap: wrap; padding: 12px 16px; border-top: 1px solid var(--border); background: var(--bg-base); font-size: 12px; color: var(--text-muted); }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .dot-pos { background: #dc2626; }
+  .dot-neg { background: #15803d; }
+  .dot-na  { background: var(--border-strong); }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 48px 20px; color: var(--text-muted); }
+
+  /* History grid */
+  .history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0; }
+  .history-col { border-left: 1px solid var(--border); padding: 14px 16px; }
+  .history-col:last-child { border-left: none; }
+  .history-product { font-family: 'Nunito',sans-serif; font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 10px; }
+  .history-prices { display: flex; flex-direction: column; gap: 5px; }
+  .history-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px dashed var(--border); }
+  .history-row:last-child { border-bottom: none; }
+  .history-date { font-size: 12px; color: var(--text-muted); }
+  .history-price { font-family: 'Nunito',sans-serif; font-weight: 700; font-size: 13px; color: var(--text-primary); }
+
+  /* Shared buttons */
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);} }
+
+  /* ── Print ── */
+  @media print {
+    .filters-bar, .topbar { display: none !important; }
+    .page-body { direction: rtl; }
+    .card { border: 1px solid #ccc; box-shadow: none; }
+    .summary-strip { break-inside: avoid; }
+    .table-row { animation: none; }
+  }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelector('#filter-form select[name="produit_fini"]')
+    ?.addEventListener('change', function () {
+      document.getElementById('filter-form').submit();
+    });
+});
+</script>
+{% endblock %}

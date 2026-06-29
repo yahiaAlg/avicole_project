@@ -45,6 +45,7 @@ from clients.forms import (
     AbonnementClientForm,
     VoyageLivraisonForm,
     LivraisonPartielleForm,
+    PrixMarcheForm,
 )
 from clients.models import (
     BLClient,
@@ -56,6 +57,7 @@ from clients.models import (
     AbonnementClient,
     VoyageLivraison,
     LivraisonPartielle,
+    PrixMarche,
 )
 from clients.utils import (
     appliquer_paiement_client,
@@ -1754,3 +1756,257 @@ def livraison_partielle_delete(request, pk):
         messages.error(request, f"خطأ أثناء الحذف: {exc}")
 
     return redirect("clients:abonnement_detail", pk=abo.pk)
+
+
+# ===========================================================================
+# Fiche des dettes client  — purchase history vs. market price
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def fiche_dettes_client(request, pk):
+    """
+    Debt sheet for a specific client: all egg BL lines in a date range,
+    with the prevailing market price on each delivery date, the unit margin,
+    and a running cumulative balance.
+
+    Query params:
+      ?date_debut=YYYY-MM-DD
+      ?date_fin=YYYY-MM-DD
+      ?produit_fini=<pk>   — filter to one product
+    """
+    import datetime as dt
+    from decimal import Decimal
+
+    client = get_object_or_404(Client, pk=pk)
+
+    # ── filters ──────────────────────────────────────────────────────────
+    date_debut_str = request.GET.get("date_debut", "")
+    date_fin_str = request.GET.get("date_fin", "")
+    produit_fini_pk = request.GET.get("produit_fini", "")
+
+    date_debut = None
+    date_fin = None
+    try:
+        if date_debut_str:
+            date_debut = dt.date.fromisoformat(date_debut_str)
+        if date_fin_str:
+            date_fin = dt.date.fromisoformat(date_fin_str)
+    except ValueError:
+        pass
+
+    # ── BL lines for this client ─────────────────────────────────────────
+    # Only include validated (Livré / Facturé) BLs — exclude drafts and disputed.
+    qs = (
+        BLClientLigne.objects.filter(
+            bl__client=client,
+            bl__statut__in=[BLClient.STATUT_LIVRE, BLClient.STATUT_FACTURE],
+        )
+        .select_related("bl", "produit_fini")
+        .order_by("bl__date_bl", "bl__pk", "pk")
+    )
+
+    if date_debut:
+        qs = qs.filter(bl__date_bl__gte=date_debut)
+    if date_fin:
+        qs = qs.filter(bl__date_bl__lte=date_fin)
+    if produit_fini_pk:
+        qs = qs.filter(produit_fini__pk=produit_fini_pk)
+
+    # ── Enrich each line with market price & margin ───────────────────────
+    lignes_enrichies = []
+    solde_cumul = Decimal("0")
+
+    for ligne in qs:
+        prix_marche = PrixMarche.get_price_on(ligne.produit_fini, ligne.bl.date_bl)
+        montant = ligne.montant_total
+        solde_cumul += montant
+
+        marge_unitaire = None
+        marge_pct = None
+        if prix_marche is not None:
+            marge_unitaire = ligne.prix_unitaire - prix_marche
+            if prix_marche > 0:
+                marge_pct = (marge_unitaire / prix_marche) * 100
+
+        lignes_enrichies.append(
+            {
+                "ligne": ligne,
+                "bl": ligne.bl,
+                "date": ligne.bl.date_bl,
+                "reference": ligne.bl.reference,
+                "produit": ligne.produit_fini,
+                "quantite": ligne.quantite,
+                "prix_unitaire": ligne.prix_unitaire,
+                "montant": montant,
+                "prix_marche": prix_marche,
+                "marge_unitaire": marge_unitaire,
+                "marge_pct": marge_pct,
+                "solde_cumul": solde_cumul,
+            }
+        )
+
+    # ── Totals ────────────────────────────────────────────────────────────
+    total_montant = sum(l["montant"] for l in lignes_enrichies)
+
+    # distinct product list for the filter dropdown
+    from production.models import ProduitFini
+
+    produits_disponibles = (
+        ProduitFini.objects.filter(
+            lignes_bl_client__bl__client=client,
+            type_produit=ProduitFini.TYPE_OEUFS,
+        )
+        .distinct()
+        .order_by("designation")
+        if hasattr(ProduitFini, "TYPE_OEUFS")
+        else ProduitFini.objects.filter(lignes_bl_client__bl__client=client)
+        .distinct()
+        .order_by("designation")
+    )
+
+    return render(
+        request,
+        "clients/fiche_dettes_client.html",
+        {
+            "client": client,
+            "lignes": lignes_enrichies,
+            "total_montant": total_montant,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+            "produit_fini_pk": produit_fini_pk,
+            "produits_disponibles": produits_disponibles,
+            "title": f"فيشة الديون — {client.nom}",
+        },
+    )
+
+
+# ===========================================================================
+# PrixMarche — Market price list / create / edit / delete
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def prix_marche_list(request):
+    """List market prices with optional filters."""
+    from production.models import ProduitFini
+
+    qs = PrixMarche.objects.select_related("produit_fini").order_by(
+        "-date", "produit_fini__designation"
+    )
+
+    produit_pk = request.GET.get("produit", "")
+    if produit_pk:
+        qs = qs.filter(produit_fini__pk=produit_pk)
+
+    date_debut_str = request.GET.get("date_debut", "")
+    date_fin_str = request.GET.get("date_fin", "")
+    if date_debut_str:
+        qs = qs.filter(date__gte=date_debut_str)
+    if date_fin_str:
+        qs = qs.filter(date__lte=date_fin_str)
+
+    # Product list for filter — egg products only where possible
+    try:
+        produits = ProduitFini.objects.filter(
+            type_produit=ProduitFini.TYPE_OEUFS
+        ).order_by("designation")
+    except Exception:
+        produits = ProduitFini.objects.all().order_by("designation")
+
+    page = _paginate(qs, request.GET.get("page"))
+
+    return render(
+        request,
+        "clients/prix_marche_list.html",
+        {
+            "page": page,
+            "produits": produits,
+            "produit_pk": produit_pk,
+            "date_debut": date_debut_str,
+            "date_fin": date_fin_str,
+            "title": "أسعار السوق",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def prix_marche_create(request):
+    """Create a new market-price record."""
+    import datetime as dt
+
+    if request.method == "POST":
+        form = PrixMarcheForm(request.POST)
+        if form.is_valid():
+            try:
+                prix = form.save(commit=False)
+                prix.created_by = request.user
+                prix.save()
+                messages.success(
+                    request,
+                    f"تم تسجيل سعر السوق: {prix.produit_fini.designation} — {prix.date} : {prix.prix_marche} د.ج",
+                )
+                logger.info("PrixMarche pk=%s created by '%s'.", prix.pk, request.user)
+                return redirect("clients:prix_marche_list")
+            except Exception as exc:
+                logger.exception("Error creating PrixMarche: %s", exc)
+                messages.error(request, f"خطأ أثناء الحفظ: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        form = PrixMarcheForm(initial={"date": dt.date.today()})
+
+    return render(
+        request,
+        "clients/prix_marche_form.html",
+        {"form": form, "title": "سعر سوق جديد", "action_label": "حفظ"},
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def prix_marche_edit(request, pk):
+    """Edit an existing market-price record."""
+    prix = get_object_or_404(PrixMarche, pk=pk)
+
+    if request.method == "POST":
+        form = PrixMarcheForm(request.POST, instance=prix)
+        if form.is_valid():
+            try:
+                form.save()
+                messages.success(request, "تم تحديث سعر السوق.")
+                logger.info("PrixMarche pk=%s updated by '%s'.", prix.pk, request.user)
+                return redirect("clients:prix_marche_list")
+            except Exception as exc:
+                logger.exception("Error updating PrixMarche pk=%s: %s", prix.pk, exc)
+                messages.error(request, f"خطأ أثناء التحديث: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        form = PrixMarcheForm(instance=prix)
+
+    return render(
+        request,
+        "clients/prix_marche_form.html",
+        {
+            "form": form,
+            "prix": prix,
+            "title": f"تعديل سعر — {prix.produit_fini.designation} ({prix.date})",
+            "action_label": "حفظ التعديلات",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def prix_marche_delete(request, pk):
+    """Delete a market-price record (POST-only)."""
+    prix = get_object_or_404(PrixMarche, pk=pk)
+    ref = str(prix)
+    try:
+        prix.delete()
+        messages.success(request, f"تم حذف سعر السوق: {ref}")
+        logger.info("PrixMarche pk=%s deleted by '%s'.", pk, request.user)
+    except Exception as exc:
+        logger.exception("Error deleting PrixMarche pk=%s: %s", pk, exc)
+        messages.error(request, f"خطأ أثناء الحذف: {exc}")
+    return redirect("clients:prix_marche_list")

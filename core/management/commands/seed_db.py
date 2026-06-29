@@ -138,8 +138,12 @@ class Command(BaseCommand):
         bl_clients = self._seed_bl_clients(clients, produits_finis)
         factures_client = self._seed_factures_client(clients, bl_clients)
         self._seed_paiements_client(clients, factures_client)
+        self._seed_prix_marche(produits_finis)
 
         self._seed_depenses(categories_depense, lots, factures_fournisseur)
+        self._seed_associes()
+        self._seed_employes_rh(batiments)
+        self._seed_fertilisants(batiments)
 
         self.stdout.write(self.style.SUCCESS("\n✓ Full demo seed complete.\n"))
 
@@ -161,6 +165,7 @@ class Command(BaseCommand):
             FactureClient,
             BLClientLigne,
             BLClient,
+            PrixMarche,
         )
 
         # ── Achats app ─────────────────────────────────────────────────
@@ -229,6 +234,7 @@ class Command(BaseCommand):
         FactureClient.objects.all().delete()
         BLClientLigne.objects.all().delete()
         BLClient.objects.all().delete()
+        PrixMarche.objects.all().delete()
 
         AllocationReglement.objects.all().delete()
         ReglementFournisseur.objects.all().delete()
@@ -954,6 +960,26 @@ class Command(BaseCommand):
                 unite="kg",
                 prix=350,
             ),
+            # ── Oeufs ─────────────────────────────────────────────────────────
+            dict(
+                designation="صينية بيض (30 بيضة)",
+                type_produit="oeufs",
+                unite="plateau",
+                prix=350,
+            ),
+            # ── Fertilisants ──────────────────────────────────────────────────
+            dict(
+                designation="سماد دواجن معالج (مجفف)",
+                type_produit="fertilisant",
+                unite="kg",
+                prix=28,
+            ),
+            dict(
+                designation="سماد دواجن خام (غير معالج)",
+                type_produit="fertilisant",
+                unite="kg",
+                prix=12,
+            ),
         ]
         result = {}
         for s in specs:
@@ -967,11 +993,346 @@ class Command(BaseCommand):
                 ),
             )
             result[s["designation"]] = obj
-        self._log(f"ProduitsFinis ({len(specs)})", True)
+        self._log(f"ProduitsFinis ({len(specs)} — incl. 2 fertilisants)", True)
         return result
 
     # ------------------------------------------------------------------
     # ── OPERATIONAL / DEMO DATA ────────────────────────────────────────
+    # ------------------------------------------------------------------
+
+    def _seed_fertilisants(self, batiments):
+        """
+        Seed CollecteFertilisant (raw manure pickups) and one validated
+        TraitementFertilisant batch that produces finished fertilizer stock.
+        Pattern mirrors _seed_productions: create BROUILLON, attach collectes,
+        then transition to VALIDE so the stock signal fires correctly.
+        """
+        from production.models import (
+            CollecteFertilisant,
+            TraitementFertilisant,
+            ProduitFini,
+        )
+
+        admin = User.objects.filter(is_superuser=True).first()
+        bat_a = batiments.get("Bâtiment A")
+        bat_b = batiments.get("Bâtiment B")
+        prod_fert = ProduitFini.objects.filter(
+            type_produit=ProduitFini.TYPE_FERTILISANT,
+            designation="سماد دواجن معالج (مجفف)",
+        ).first()
+        if not prod_fert:
+            self._log("Fertilisants — skipped (no fertilisant product found)", False)
+            return
+
+        # ── Traitement 1 — validated batch (stock credited via signal) ──
+        trt, trt_created = TraitementFertilisant.objects.get_or_create(
+            date_traitement=d(18),
+            defaults=dict(
+                methode="تجفيف طبيعي في الهواء الطلق",
+                produit_fini=prod_fert,
+                quantite_obtenue_kg=Decimal("820.000"),
+                cout_unitaire_estime=Decimal("9.5000"),
+                statut=TraitementFertilisant.STATUT_BROUILLON,
+                created_by=admin,
+            ),
+        )
+        collectes_created = 0
+        for bat, date_c, qty in [
+            (bat_a, d(25), Decimal("620.000")),
+            (bat_a, d(22), Decimal("590.000")),
+            (bat_b, d(21), Decimal("480.000")),
+        ]:
+            if bat:
+                _, c = CollecteFertilisant.objects.get_or_create(
+                    batiment=bat,
+                    date_collecte=date_c,
+                    defaults=dict(
+                        quantite_brute_kg=qty,
+                        traitement=trt,
+                        created_by=admin,
+                    ),
+                )
+                if c:
+                    collectes_created += 1
+
+        if trt_created:
+            trt.statut = TraitementFertilisant.STATUT_VALIDE
+            trt.save()
+
+        # ── Traitement 2 — brouillon (not yet validated) ────────────────
+        trt2, trt2_created = TraitementFertilisant.objects.get_or_create(
+            date_traitement=d(3),
+            defaults=dict(
+                methode="تخمير (compostage)",
+                produit_fini=prod_fert,
+                quantite_obtenue_kg=Decimal("0.000"),
+                cout_unitaire_estime=Decimal("0.0000"),
+                statut=TraitementFertilisant.STATUT_BROUILLON,
+                created_by=admin,
+            ),
+        )
+        for bat, date_c, qty in [
+            (bat_a, d(8), Decimal("540.000")),
+            (bat_b, d(6), Decimal("460.000")),
+        ]:
+            if bat:
+                _, c = CollecteFertilisant.objects.get_or_create(
+                    batiment=bat,
+                    date_collecte=date_c,
+                    defaults=dict(
+                        quantite_brute_kg=qty,
+                        traitement=trt2,
+                        created_by=admin,
+                    ),
+                )
+                if c:
+                    collectes_created += 1
+
+        self._log(
+            f"CollecteFertilisant ({collectes_created}) + "
+            f"TraitementFertilisant (1 validé + 1 brouillon)",
+            trt_created,
+        )
+
+    # ------------------------------------------------------------------
+
+    def _seed_associes(self):
+        """
+        Seed Associe (stakeholder) master records and sample RetraitAssocie
+        (equity withdrawals — BR-ASSOC-01/02, never inserted into Depense).
+        """
+        from depenses.models import Associe, RetraitAssocie
+
+        admin = User.objects.filter(is_superuser=True).first()
+
+        assoc_specs = [
+            dict(
+                nom="كريم مزياني",
+                telephone="0555 123 456",
+                pourcentage_parts=Decimal("60.00"),
+            ),
+            dict(
+                nom="ليندة عودية",
+                telephone="0770 987 654",
+                pourcentage_parts=Decimal("40.00"),
+            ),
+        ]
+        associes = {}
+        for s in assoc_specs:
+            obj, _ = Associe.objects.get_or_create(nom=s["nom"], defaults=s)
+            associes[s["nom"]] = obj
+
+        retrait_specs = [
+            dict(
+                assoc="كريم مزياني",
+                date=d(60),
+                montant=Decimal("150000"),
+                mode="especes",
+                motif="سحب شخصي — يناير 2025",
+            ),
+            dict(
+                assoc="ليندة عودية",
+                date=d(60),
+                montant=Decimal("100000"),
+                mode="virement",
+                motif="سحب شخصي — يناير 2025",
+            ),
+            dict(
+                assoc="كريم مزياني",
+                date=d(30),
+                montant=Decimal("120000"),
+                mode="especes",
+                motif="تسبيق على الأرباح — فبراير 2025",
+            ),
+            dict(
+                assoc="ليندة عودية",
+                date=d(30),
+                montant=Decimal("80000"),
+                mode="cheque",
+                motif="تسبيق على الأرباح — فبراير 2025",
+            ),
+        ]
+        ret_count = 0
+        for s in retrait_specs:
+            assoc = associes[s["assoc"]]
+            _, created = RetraitAssocie.objects.get_or_create(
+                associe=assoc,
+                date=s["date"],
+                montant=s["montant"],
+                defaults=dict(
+                    mode_paiement=s["mode"],
+                    motif=s["motif"],
+                    enregistre_par=admin,
+                ),
+            )
+            if created:
+                ret_count += 1
+
+        self._log(
+            f"Associés (2) + RetraitAssocie ({ret_count})",
+            True,
+        )
+
+    # ------------------------------------------------------------------
+
+    def _seed_employes_rh(self, batiments):
+        """
+        Seed Employe master records, 30-day Pointage history, one AcompteEmploye
+        advance per employee, and a validated BulletinPaie for last month.
+
+        Rotation rule (BR-RH-01):
+          emp1 repos = vendredi (4), emp2 repos = samedi (5); they are binômes.
+        Daily rate BR-RH-02: salaire_base / 25.
+        """
+        from depenses.models import Employe, Pointage, AcompteEmploye, BulletinPaie
+
+        import calendar
+
+        admin = User.objects.filter(is_superuser=True).first()
+        bat_a = batiments.get("Bâtiment A")
+
+        # ── Employees ──────────────────────────────────────────────────
+        emp1, _ = Employe.objects.get_or_create(
+            matricule="EMP-001",
+            defaults=dict(
+                nom_complet="يوسف بوزيدي",
+                fonction="عامل تربية",
+                telephone="0661 11 22 33",
+                date_embauche=d(365),
+                batiment=bat_a,
+                jour_repos_habituel=Employe.JOUR_VENDREDI,
+                salaire_base_mensuel=Decimal("32000.00"),
+                heures_normales_jour=Decimal("8.00"),
+                taux_majoration_heure_sup=Decimal("1.50"),
+                actif=True,
+            ),
+        )
+        emp2, _ = Employe.objects.get_or_create(
+            matricule="EMP-002",
+            defaults=dict(
+                nom_complet="محمد صهراوي",
+                fonction="عامل تربية",
+                telephone="0772 44 55 66",
+                date_embauche=d(300),
+                batiment=bat_a,
+                jour_repos_habituel=Employe.JOUR_SAMEDI,
+                binome=emp1,
+                salaire_base_mensuel=Decimal("32000.00"),
+                heures_normales_jour=Decimal("8.00"),
+                taux_majoration_heure_sup=Decimal("1.50"),
+                actif=True,
+            ),
+        )
+        # Set emp1.binome = emp2 now that emp2 exists
+        if not emp1.binome_id:
+            emp1.binome = emp2
+            emp1.save(update_fields=["binome"])
+
+        # ── Pointage — last 30 days for both employees ──────────────────
+        pointage_count = 0
+        for emp in [emp1, emp2]:
+            for offset in range(30, 0, -1):
+                day = d(offset)
+                wday = day.weekday()
+                if wday == emp.jour_repos_habituel:
+                    statut = Pointage.STATUT_REPOS
+                    heures_sup = Decimal("0.00")
+                elif offset in (15, 22):  # two absence days per employee
+                    statut = Pointage.STATUT_ABSENT
+                    heures_sup = Decimal("0.00")
+                else:
+                    statut = Pointage.STATUT_PRESENT
+                    heures_sup = (
+                        Decimal("1.50") if wday == 3 else Decimal("0.00")
+                    )  # Thu overtime
+                _, created = Pointage.objects.get_or_create(
+                    employe=emp,
+                    date=day,
+                    defaults=dict(statut=statut, heures_supplementaires=heures_sup),
+                )
+                if created:
+                    pointage_count += 1
+
+        # ── AcompteEmploye — one advance per employee ───────────────────
+        acompte_count = 0
+        for emp, montant, motif in [
+            (emp1, Decimal("5000.00"), "تسبيق — منتصف شهر مارس 2025"),
+            (emp2, Decimal("4000.00"), "تسبيق — منتصف شهر مارس 2025"),
+        ]:
+            _, created = AcompteEmploye.objects.get_or_create(
+                employe=emp,
+                date=d(15),
+                defaults=dict(
+                    montant=montant,
+                    mode_paiement="especes",
+                    motif=motif,
+                    enregistre_par=admin,
+                ),
+            )
+            if created:
+                acompte_count += 1
+
+        # ── BulletinPaie — validated payslip for previous full month ────
+        # Determine last full month
+        today_date = date.today()
+        if today_date.month == 1:
+            bp_annee, bp_mois = today_date.year - 1, 12
+        else:
+            bp_annee, bp_mois = today_date.year, today_date.month - 1
+
+        bulletin_count = 0
+        taux_j = (Decimal("32000.00") / Decimal("25")).quantize(Decimal("0.01"))
+        days_in_month = calendar.monthrange(bp_annee, bp_mois)[1]
+
+        for emp in [emp1, emp2]:
+            # Count repos days in that month for this employee
+            repos = sum(
+                1
+                for day_n in range(1, days_in_month + 1)
+                if date(bp_annee, bp_mois, day_n).weekday() == emp.jour_repos_habituel
+            )
+            jours_pres = days_in_month - repos - 2  # 2 absences
+            jours_sup_hrs = Decimal("4.50")  # 3 Thursdays × 1.5 h
+            montant_sup = (taux_j / Decimal("8")) * Decimal("1.5") * jours_sup_hrs
+            montant_brut = taux_j * jours_pres + montant_sup
+            acompte_deduit = Decimal("5000.00") if emp == emp1 else Decimal("4000.00")
+            montant_net = max(montant_brut - acompte_deduit, Decimal("0.00"))
+
+            bp, bp_created = BulletinPaie.objects.get_or_create(
+                employe=emp,
+                annee=bp_annee,
+                mois=bp_mois,
+                defaults=dict(
+                    jours_presence=jours_pres,
+                    jours_absence=2,
+                    jours_repos=repos,
+                    jours_conge=0,
+                    total_heures_supplementaires=jours_sup_hrs,
+                    salaire_base_reference=Decimal("32000.00"),
+                    taux_journalier=taux_j,
+                    montant_heures_sup=montant_sup.quantize(Decimal("0.01")),
+                    montant_brut=montant_brut.quantize(Decimal("0.01")),
+                    total_acomptes=acompte_deduit,
+                    montant_net=montant_net.quantize(Decimal("0.01")),
+                    statut=BulletinPaie.STATUT_PAYE,
+                    date_paiement=d(5),
+                    mode_paiement="especes",
+                    genere_par=admin,
+                ),
+            )
+            if bp_created:
+                bulletin_count += 1
+                # Link the acompte to this bulletin
+                AcompteEmploye.objects.filter(
+                    employe=emp, date=d(15), bulletin_paie__isnull=True
+                ).update(bulletin_paie=bp)
+
+        self._log(
+            f"Employés (2) + Pointage ({pointage_count}) + "
+            f"AcompteEmploye ({acompte_count}) + BulletinPaie ({bulletin_count})",
+            True,
+        )
+
     # ------------------------------------------------------------------
 
     def _seed_stock_initial(self, intrants):
@@ -997,7 +1358,11 @@ class Command(BaseCommand):
         }
         for code, intrant in intrants.items():
             qty, pmp = opening.get(code, (Decimal("0"), Decimal("0")))
-            StockIntrant.objects.get_or_create(
+            # update_or_create (not get_or_create) so we overwrite the
+            # zero-balance StockIntrant that the Intrant post_save signal
+            # auto-creates on every new catalogue entry.  Using get_or_create
+            # would silently leave every opening balance at 0.
+            StockIntrant.objects.update_or_create(
                 intrant=intrant,
                 defaults={"quantite": qty, "prix_moyen_pondere": pmp},
             )
@@ -1040,8 +1405,16 @@ class Command(BaseCommand):
                 date_ago=50,
                 statut=BLFournisseur.STATUT_RECU,
                 lines=[
-                    ("MED-NEWC", Decimal("5000"), Decimal("18.00")),
-                    ("MED-GCOR", Decimal("3000"), Decimal("21.50")),
+                    (
+                        "MED-NEWC",
+                        Decimal("14000"),
+                        Decimal("18.00"),
+                    ),  # 3 lots × up to 6000 birds each − opening 2000
+                    (
+                        "MED-GCOR",
+                        Decimal("8000"),
+                        Decimal("21.50"),
+                    ),  # Lots A+B × 5000+4000 birds − opening 1500
                     ("MED-AMOX", Decimal("2000"), Decimal("44.00")),
                 ],
             ),
@@ -1053,7 +1426,11 @@ class Command(BaseCommand):
                 lines=[
                     ("ALIM-DEM", Decimal("80"), Decimal("1850.00")),
                     ("ALIM-CRO", Decimal("100"), Decimal("1760.00")),
-                    ("ALIM-FIN", Decimal("120"), Decimal("1690.00")),
+                    (
+                        "ALIM-FIN",
+                        Decimal("200"),
+                        Decimal("1690.00"),
+                    ),  # Lots A(150)+B(96)=246 sacs needed; opening=60
                 ],
             ),
             dict(
@@ -1595,14 +1972,25 @@ class Command(BaseCommand):
 
     def _seed_bl_clients(self, clients, produits_finis):
         from clients.models import BLClient, BLClientLigne
-        from stock.models import StockProduitFini
 
         admin = User.objects.filter(is_superuser=True).first()
         vivant = produits_finis["دجاج حي (الوزن الكامل)"]
         carcasse = produits_finis["جثة كاملة منزوعة الأحشاء"]
+        oeuf = produits_finis.get("صينية بيض (30 بيضة)")
         marche = clients["Marché de Gros Setifien"]
         palmier = clients["Restaurant Le Palmier"]
         amrane = clients["Boucherie Amrane & Fils"]
+        epicerie = clients["Épicerie Centrale Azazga"]
+        grossiste = clients["Grossiste Alger Sud"]
+
+        # ── Ensure egg stock exists (eggs are not created by a ProductionRecord) ──
+        if oeuf:
+            from stock.models import StockProduitFini as _SPF
+
+            _SPF.objects.update_or_create(
+                produit_fini=oeuf,
+                defaults={"quantite": Decimal("3000")},
+            )
 
         bl_specs = [
             dict(
@@ -1640,16 +2028,46 @@ class Command(BaseCommand):
                 statut=BLClient.STATUT_BROUILLON,
                 lines=[(carcasse, Decimal("100"), Decimal("760"))],
             ),
+            # ── Egg BLs (drive fiche_dettes_client demo data) ────────────────
+            dict(
+                ref="BLC-2025-006",
+                client=marche,
+                date_ago=32,
+                statut=BLClient.STATUT_LIVRE,
+                lines=[(oeuf, Decimal("500"), Decimal("350.00"))],
+            ),
+            dict(
+                ref="BLC-2025-007",
+                client=epicerie,
+                date_ago=22,
+                statut=BLClient.STATUT_LIVRE,
+                lines=[(oeuf, Decimal("200"), Decimal("345.00"))],
+            ),
+            dict(
+                ref="BLC-2025-008",
+                client=grossiste,
+                date_ago=12,
+                statut=BLClient.STATUT_LIVRE,
+                lines=[(oeuf, Decimal("800"), Decimal("355.00"))],
+            ),
         ]
 
         result = {}
         for spec in bl_specs:
+            # Skip egg BLs if the egg product wasn't seeded
+            if any(pf is None for pf, *_ in spec["lines"]):
+                continue
+
+            target_statut = spec["statut"]
+
+            # Always create as BROUILLON first so lines can be inserted before
+            # the transition signal fires (mirrors the ProductionRecord pattern).
             bl, created = BLClient.objects.get_or_create(
                 reference=spec["ref"],
                 defaults=dict(
                     client=spec["client"],
                     date_bl=d(spec["date_ago"]),
-                    statut=spec["statut"],
+                    statut=BLClient.STATUT_BROUILLON,
                     created_by=admin,
                 ),
             )
@@ -1658,17 +2076,14 @@ class Command(BaseCommand):
                     BLClientLigne.objects.create(
                         bl=bl, produit_fini=pf, quantite=qty, prix_unitaire=pu
                     )
-                    # Deduct from stock for validated BLs (simulate signal)
-                    if spec["statut"] in (
-                        BLClient.STATUT_LIVRE,
-                        BLClient.STATUT_FACTURE,
-                    ):
-                        try:
-                            spf = StockProduitFini.objects.get(produit_fini=pf)
-                            spf.quantite = max(Decimal("0"), spf.quantite - qty)
-                            spf.save()
-                        except StockProduitFini.DoesNotExist:
-                            pass
+                # Transition to LIVRE so the post_save signal fires with lines
+                # already in the DB and correctly decrements StockProduitFini.
+                # FACTURE BLs also go through LIVRE here — _seed_factures_client
+                # will lock them to FACTURE via the FactureClient.bls m2m signal.
+                if target_statut in (BLClient.STATUT_LIVRE, BLClient.STATUT_FACTURE):
+                    bl.statut = BLClient.STATUT_LIVRE
+                    bl.save()
+
             result[spec["ref"]] = bl
 
         self._log(f"BLClients ({len(bl_specs)})", True)
@@ -1775,6 +2190,55 @@ class Command(BaseCommand):
             )
 
         self._log("PaiementsClient (2) + Allocations", True)
+
+    # ------------------------------------------------------------------
+
+    def _seed_prix_marche(self, produits_finis):
+        """
+        Seed historical egg market prices (PrixMarche) that span the egg BL dates
+        so the fiche_dettes_client can compute meaningful margins:
+
+          BLC-2025-006  d(32)  actual 350 → market on d(32) = last price ≤ d(32)
+                                = record at d(35): 330 → margin = +20 (above market)
+          BLC-2025-007  d(22)  actual 345 → market on d(22) = record at d(25): 340
+                                → margin = +5  (above market)
+          BLC-2025-008  d(12)  actual 355 → market on d(12) = record at d(15): 348
+                                → margin = +7  (above market)
+        """
+        from clients.models import PrixMarche
+
+        oeuf = produits_finis.get("صينية بيض (30 بيضة)")
+        if not oeuf:
+            self._log("PrixMarche — skipped (no egg product found)", False)
+            return
+
+        admin = User.objects.filter(is_superuser=True).first()
+
+        # (days_ago, prix_marche, source)
+        prix_specs = [
+            (45, Decimal("320.00"), "ONAB"),
+            (35, Decimal("330.00"), "ONAB"),  # used for BLC-2025-006 (d32)
+            (25, Decimal("340.00"), "السوق المحلي"),  # used for BLC-2025-007 (d22)
+            (15, Decimal("348.00"), "السوق المحلي"),  # used for BLC-2025-008 (d12)
+            (5, Decimal("358.00"), "ONAB"),
+        ]
+
+        count = 0
+        for days_ago, prix, source in prix_specs:
+            _, created = PrixMarche.objects.get_or_create(
+                produit_fini=oeuf,
+                date=d(days_ago),
+                defaults=dict(
+                    prix_marche=prix,
+                    source=source,
+                    notes="",
+                    created_by=admin,
+                ),
+            )
+            if created:
+                count += 1
+
+        self._log(f"PrixMarche ({count} records — صينية بيض)", True)
 
     # ------------------------------------------------------------------
 

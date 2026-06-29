@@ -733,3 +733,76 @@ class LivraisonPartielle(models.Model):
                     f"الكمية المسلَّمة الإجمالية ({deja_livre + self.quantite_livree}) "
                     f"تتجاوز الكمية المتعاقد عليها ({self.abonnement.quantite_totale_prevue})."
                 )
+
+
+# ---------------------------------------------------------------------------
+# PrixMarche — daily egg market price history (dynamic pricing)
+# ---------------------------------------------------------------------------
+
+
+class PrixMarche(models.Model):
+    """
+    Historical market price for a ProduitFini on a specific date.
+
+    Enables the «fiche des dettes» to compare the actual invoice price
+    recorded on a BL to the prevailing market price on that delivery date,
+    computing the margin (or discount) granted to the client.
+
+    One record per (produit_fini, date) pair; later entries for the same
+    pair overwrite in-app via update (enforce unique_together).
+    """
+
+    produit_fini = models.ForeignKey(
+        "production.ProduitFini",
+        on_delete=models.PROTECT,
+        related_name="prix_marche",
+        verbose_name="المنتج النهائي",
+    )
+    date = models.DateField(verbose_name="تاريخ السعر")
+    prix_marche = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        verbose_name="سعر السوق (د.ج/وحدة)",
+        validators=[MinValueValidator(0)],
+    )
+    source = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="المصدر",
+        help_text="مثال: ONAB، السوق المحلي، إلخ.",
+    )
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="prix_marche_saisis",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "سعر السوق"
+        verbose_name_plural = "أسعار السوق"
+        ordering = ["-date"]
+        unique_together = [("produit_fini", "date")]
+
+    def __str__(self):
+        return (
+            f"{self.produit_fini.designation} — {self.date} : "
+            f"{self.prix_marche} د.ج"
+        )
+
+    @classmethod
+    def get_price_on(cls, produit_fini, date):
+        """
+        Return the most recent market price on or before *date* for
+        *produit_fini*, or None if no price has ever been recorded.
+        """
+        return (
+            cls.objects.filter(produit_fini=produit_fini, date__lte=date)
+            .order_by("-date")
+            .values_list("prix_marche", flat=True)
+            .first()
+        )

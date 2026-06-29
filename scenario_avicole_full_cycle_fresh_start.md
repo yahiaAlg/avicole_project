@@ -2,7 +2,7 @@
 
 ## Cycle Intégral : Achat Intrants → Ouverture Lot → Élevage → Abattage → Vente → Dépenses
 
-> **Document** : Spécification fonctionnelle d'exécution  
+> **Document** : Spécification fonctionnelle d'exécution (mis à jour v1.3)  
 > **Lot cible** : `Lot Mai 2026 — Bâtiment A` — 2 000 poussins Ross 308  
 > **Durée cycle** : 40 jours (10 mai → 19 juin 2026)  
 > **Point de départ** : `python manage.py seed_db --mode minimal` — zéro donnée opérationnelle
@@ -92,10 +92,10 @@ flowchart TD
 
 ```mermaid
 mindmap
-  root((seed_db\n--mode minimal))
+  root((seed_db_minimal))
     Compagnie
       Élevage Avicole Setifien
-      TVA 19%
+      assujetti_tva=True / taux_tva=19%
       Préfixes BLF / BLC / FAC / FRN
     Utilisateurs
       admin / admin1234
@@ -114,15 +114,32 @@ mindmap
       SALAIRES / ENERGIE / MAINTENANCE
       TRANSPORT / VETERINAIRE
       FOURNITURES / TAXES / DIVERS
-    Produits Finis x7
-      Poulet vivant / Carcasse entière
-      Blanc / Cuisse / Aile / Foie / Gésier
+    Catégories Qualité x8
+      Oiseaux — S/Standard/L/XL
+      Oeufs — S/M/L/XL
+    Produits Finis x10
+      Poulet vivant — unite 480 DZD
+      Carcasse entière — kg 750 DZD
+      Découpes x3 — kg
+      Abats x2 — kg
+      Plateau oeufs — plateau 350 DZD
+      Fertilisant x2 — kg
+    Paramétrage Élevage
+      age_transfert_poussiniere=21 j
+      age_maturite_vente=35 j
+    Prix Marché x6
+      3 historiques bيض استهلاك
+      3 historiques ألفيول بيض
 ```
 
 > ⚠️ **Tout le reste est à zéro.** Aucun fournisseur, aucun client, aucun bâtiment,
 > aucun intrant, aucun BL, aucun lot, aucune facture, aucun mouvement de stock.
 > La **Phase 0** ci-dessous couvre la saisie manuelle de toutes les instances physiques
 > requises pour le cycle complet.
+>
+> 📌 **TVA** : CompanyInfo.taux_tva = 19 % (valeur seed). Les factures clients
+> volaille sont exonérées → le champ taux_tva sera surchargé à **0 %** à la création
+> de chaque facture (Phase 6).
 
 ---
 
@@ -223,6 +240,33 @@ CLI-5 — Grossiste Alger Sud  (optionnel)
   plafond_credit : 1 000 000,00
 ```
 
+### 0.0 Configurer le Paramétrage Élevage
+
+```
+Module : PARAMÈTRES → Paramétrage Élevage → [Modifier]
+Modèle : ParametrageElevage (singleton — une seule ligne en base)
+
+✅ Le seed_db_minimal crée déjà ce singleton avec les valeurs suivantes :
+   age_transfert_poussiniere_jours : 21   ← seeded
+   age_maturite_vente_jours        : 35   ← seeded
+
+Impact sur ce cycle :
+
+  age_maturite_vente_jours = 35 ← le lot dure 40 j > 35 → ProductionRecord
+                                   validable ✅ Aucun ajustement nécessaire.
+
+  age_transfert_poussiniere_jours = 21 ← à J+21 (2026-05-31) le système
+                                          lève l'alerte "doit_etre_transfere".
+                                          ⚠️ Pour ce lot broiler Ross 308 de 40 j
+                                          qui reste en Poussinière tout le cycle,
+                                          ignorer l'alerte dashboard — aucun
+                                          TransfertLot ne sera créé.
+                                          (Pour les lots volaille longue durée /
+                                          ponte, configurer à 126 j ou adapter.)
+```
+
+---
+
 ### 0.3 Créer les Bâtiments
 
 ```
@@ -231,24 +275,29 @@ Modèle : Batiment
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 BAT-1 — Bâtiment A  ← requis pour le lot
-  nom         : Bâtiment A
-  capacite    : 5 000
-  description : الحظيرة الرئيسية — تهوية ميكانيكية
+  nom             : Bâtiment A
+  type_batiment   : poussiniere   ← REQUIS — le lot s'ouvre obligatoirement
+                                    dans une Poussinière (BR-LOT-01)
+  capacite        : 5 000
+  description     : الحظيرة الرئيسية — تهوية ميكانيكية
 
 BAT-2 — Bâtiment B  (optionnel — lots futurs)
-  nom         : Bâtiment B
-  capacite    : 4 000
-  description : الحظيرة الثانوية — تهوية طبيعية
+  nom             : Bâtiment B
+  type_batiment   : poulailler
+  capacite        : 4 000
+  description     : الحظيرة الثانوية — تهوية طبيعية
 
 BAT-3 — Bâtiment C  (optionnel)
-  nom         : Bâtiment C
-  capacite    : 6 000
-  description : حظيرة جديدة — عزل مُحسَّن
+  nom             : Bâtiment C
+  type_batiment   : poulailler
+  capacite        : 6 000
+  description     : حظيرة جديدة — عزل مُحسَّن
 
 BAT-4 — Dépôt Aliments  (optionnel)
-  nom         : Dépôt Aliments
-  capacite    : (laisser vide)
-  description : مستودع تخزين الأعلاف والمدخلات
+  nom               : Dépôt Aliments
+  type_batiment     : entrepot
+  categorie_stockage: (laisser vide ou choisir selon usage)
+  description       : مستودع تخزين الأعلاف والمدخلات
 ```
 
 ### 0.4 Créer les Intrants
@@ -261,6 +310,7 @@ Modèle : Intrant
 INT-1 — Poussin Ross 308  ← requis (BLF-0001, ouverture lot)
   designation    : كتكوت روس 308 (يوم واحد)
   categorie      : POUSSIN
+  stade          : tous          ← non consommable_en_lot ; stade N/A
   unite_mesure   : unite
   seuil_alerte   : 100
   fournisseurs   : Couvoirs du Centre — CCA
@@ -268,6 +318,7 @@ INT-1 — Poussin Ross 308  ← requis (BLF-0001, ouverture lot)
 INT-2 — Aliment Démarrage  ← requis (BLF-0002, consommations J0→J14)
   designation    : علف البداية — الطور الأول (0–14 يوم)
   categorie      : ALIMENT
+  stade          : demarrage     ← visible uniquement pour lots en Poussinière
   unite_mesure   : sac
   seuil_alerte   : 10
   fournisseurs   : ONAB Setifien
@@ -275,6 +326,11 @@ INT-2 — Aliment Démarrage  ← requis (BLF-0002, consommations J0→J14)
 INT-3 — Aliment Croissance  ← requis (BLF-0002, consommations J15→J28)
   designation    : علف النمو — الطور الثاني (15–28 يوم)
   categorie      : ALIMENT
+  stade          : tous      ← CRITIQUE : le lot reste en Poussinière 40 j (< 21 j seuil
+                               transfert n'est que l'alerte, pas une obligation). Le filtre
+                               ConsommationForm inclut uniquement stade=demarrage et stade=tous
+                               pour les lots en Poussinière. Si stade=croissance, cet intrant
+                               serait INVISIBLE dans le formulaire → mettre tous.
   unite_mesure   : sac
   seuil_alerte   : 15
   fournisseurs   : ONAB Setifien
@@ -282,6 +338,7 @@ INT-3 — Aliment Croissance  ← requis (BLF-0002, consommations J15→J28)
 INT-4 — Aliment Finition  ← requis (BLF-0003, consommations J29→J40)
   designation    : علف التسمين — الطور الثالث (29 يوم فأكثر)
   categorie      : ALIMENT
+  stade          : tous      ← même raison qu'INT-3 — lot toujours en Poussinière
   unite_mesure   : sac
   seuil_alerte   : 20
   fournisseurs   : ONAB Setifien
@@ -289,6 +346,7 @@ INT-4 — Aliment Finition  ← requis (BLF-0003, consommations J29→J40)
 INT-5 — Vaccin Newcastle  ← requis (BLF-0004, vaccination J14)
   designation    : لقاح نيوكاسل (هيتشنر B1)
   categorie      : MEDICAMENT
+  stade          : tous
   unite_mesure   : dose
   seuil_alerte   : 500
   fournisseurs   : Sanofi Algérie (Vétérinaire)
@@ -296,6 +354,7 @@ INT-5 — Vaccin Newcastle  ← requis (BLF-0004, vaccination J14)
 INT-6 — Vaccin Gumboro  ← requis (BLF-0004, vaccination J22)
   designation    : لقاح غامبورو (IBD متوسط)
   categorie      : MEDICAMENT
+  stade          : tous
   unite_mesure   : dose
   seuil_alerte   : 500
   fournisseurs   : Sanofi Algérie (Vétérinaire)
@@ -303,6 +362,7 @@ INT-6 — Vaccin Gumboro  ← requis (BLF-0004, vaccination J22)
 INT-7 — Amoxicilline 50%  ← requis (BLF-0004, traitement J8+J22)
   designation    : أموكسيسيلين 50% مسحوق
   categorie      : MEDICAMENT
+  stade          : tous
   unite_mesure   : g
   seuil_alerte   : 200
   fournisseurs   : Sanofi Algérie (Vétérinaire)
@@ -310,6 +370,7 @@ INT-7 — Amoxicilline 50%  ← requis (BLF-0004, traitement J8+J22)
 INT-8 — Vitamines + Électrolytes  ← requis (BLF-0004, support J3/J8/J22)
   designation    : فيتامينات + إلكتروليتات (مركّب)
   categorie      : MEDICAMENT
+  stade          : tous
   unite_mesure   : litre
   seuil_alerte   : 5
   fournisseurs   : Sanofi Algérie (Vétérinaire)
@@ -317,6 +378,7 @@ INT-8 — Vitamines + Électrolytes  ← requis (BLF-0004, support J3/J8/J22)
 INT-9 — Poussin Cobb 500  (optionnel — lots futurs)
   designation    : كتكوت كوب 500 (يوم واحد)
   categorie      : POUSSIN
+  stade          : tous
   unite_mesure   : unite
   seuil_alerte   : 100
   fournisseurs   : Couvoirs du Centre — CCA
@@ -324,6 +386,7 @@ INT-9 — Poussin Cobb 500  (optionnel — lots futurs)
 INT-10 — Litière  (optionnel)
   designation    : فراش (نشارة خشب)
   categorie      : AUTRE
+  stade          : tous
   unite_mesure   : sac
   seuil_alerte   : 20
   fournisseurs   : (laisser vide)
@@ -333,7 +396,6 @@ INT-10 — Litière  (optionnel)
 > créées. Stock = 0 partout. Passer à la Phase 1 — Achats Intrants.
 
 ---
-
 
 ## 3. Phase 1 — Achats Intrants
 
@@ -387,6 +449,8 @@ Module : ACHATS → BL Fournisseur → [Nouveau]
 Règle  : statut ne peut prendre que Brouillon / Reçu / En litige (BR-BLF-02)
          date_bl ≤ aujourd'hui (clean_date_bl)
          pièce jointe : PDF/JPG/PNG ≤ 5 Mo
+         type_document : bl_classique (défaut) ou autorisation_acces
+         → Pour ce cycle, tous les BL sont de type bl_classique
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 BLF-2026-0001 — Poussins CCA
@@ -567,12 +631,18 @@ Modèle : LotElevage
   nombre_poussins_initial  : 2 000        ← ≥ 1 (BR-LOT clean)
   fournisseur_poussins     : Couvoirs du Centre — CCA
   bl_fournisseur_poussins  : BLF-2026-0001  ← BL statut RECU ou FACTURE
-  batiment                 : Bâtiment A
+  batiment                 : Bâtiment A   ← DOIT être type poussiniere (BR-LOT-01)
   souche                   : Ross 308
+  lot_parent               : (vide — lot racine, pas issu d'un TransfertLot)
   notes                    : "Densité : 13,3 oiseaux/m² — Surface utile 150 m²"
 
   → statut = ouvert
   → effectif_vivant = 2 000
+  → nombre_poussins_reference = 2 000  ← = initial + Σ transferts_sortants (0 ici)
+
+⚠️ Poussin stock : l'ouverture du lot ne décrémente PAS le stock intrant.
+   Le stock Poussin Ross 308 diminue uniquement au fil des mortalités enregistrées
+   (−1 par oiseau mort via signal mortalite_post_save).
 ```
 
 ---
@@ -613,17 +683,21 @@ timeline
 Module : ÉLEVAGE → Lot → [Enregistrer mortalité]
 Règle  : BR-LOT-03 lot doit être ouvert
          cumul mortalités ≤ nombre_poussins_initial (validation dans clean())
+         Signal mortalite_post_save → StockIntrant(Poussin Ross 308) ↓ nombre
+         Signal mortalite_pre_delete → StockIntrant(Poussin Ross 308) ↑ nombre (annulation)
 
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│ Date       │ Nombre │ Cause                          │ Cumul après │ Vivants    │
-├────────────┼────────┼────────────────────────────────┼─────────────┼────────────┤
-│ 2026-05-13 │      5 │ Stress transport / déshydratation│         5  │    1 995   │
-│ 2026-05-18 │     10 │ Infection respiratoire précoce │        15  │    1 985   │
-│ 2026-05-24 │     12 │ Aspergilllose suspectée        │        27  │    1 973   │
-│ 2026-06-01 │      8 │ Coccidiose — traitement lancé  │        35  │    1 965   │
-│ 2026-06-14 │      5 │ Cause indéterminée             │        40  │    1 960   │
-└────────────┴────────┴────────────────────────────────┴─────────────┴────────────┘
-  taux_mortalite final : 40 / 2 000 = 2,00 %
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Date       │ Nombre │ Cause                          │ Cumul │ Vivants │ Stock Poussin après │
+├────────────┼────────┼────────────────────────────────┼───────┼─────────┼────────────────────┤
+│ 2026-05-13 │      5 │ Stress transport / déshydratation│    5 │  1 995  │ 2 000 − 5 = 1 995  │
+│ 2026-05-18 │     10 │ Infection respiratoire précoce │   15  │  1 985  │ 1 995 − 10 = 1 985 │
+│ 2026-05-24 │     12 │ Aspergilllose suspectée        │   27  │  1 973  │ 1 985 − 12 = 1 973 │
+│ 2026-06-01 │      8 │ Coccidiose — traitement lancé  │   35  │  1 965  │ 1 973 − 8 = 1 965  │
+│ 2026-06-14 │      5 │ Cause indéterminée             │   40  │  1 960  │ 1 965 − 5 = 1 960  │
+└────────────┴────────┴────────────────────────────────┴───────┴─────────┴────────────────────┘
+  taux_mortalite final : 40 / nombre_poussins_reference (2 000) = 2,00 %
+  Stock Poussin Ross 308 final : 2 000 − 40 = 1 960 unités
+  (= effectif_vivant à l'abattage — cohérence garantie par les signaux)
 ```
 
 ### 5.3 Consommations Aliment (`ConsommationForm`)
@@ -721,6 +795,11 @@ stateDiagram-v2
 Module : PRODUCTION → [Nouveau enregistrement]
 Modèle : ProductionRecord
 
+⚠️ Règle BR-LOT-05 (maturité) : la validation est bloquée si l'âge du lot
+   est inférieur à ParametrageElevage.age_maturite_vente_jours.
+   Ce lot a 40 jours au 2026-06-19 → age_maturite_vente_jours doit être ≤ 40.
+   (Voir Phase 0 §0.0 — à configurer avant ouverture du lot)
+
   lot                      : Lot Mai 2026 — Bâtiment A  ← statut ouvert requis
   date_production          : 2026-06-19
   nombre_oiseaux_abattus   : 1 960   ← ≤ effectif_vivant (1 960) ✅
@@ -736,18 +815,24 @@ Modèle : ProductionRecord
 ```
 Lignes (1 record → N lignes produits finis) :
 
-  ┌────────────────────────────────────────────────────────────────────────────────┐
-  │ produit_fini          │ quantite │ poids_unit │ cout_unit_est │ valeur_totale  │
-  ├───────────────────────┼──────────┼────────────┼───────────────┼────────────────┤
-  │ Poulet vivant         │  500,000 │ 2,100 kg   │ 320,0000 DZD  │  160 000,00    │
-  │ Carcasse entière vide │ 1 460,000│ 1,470 kg   │ 280,0000 DZD  │  408 800,00    │
-  └───────────────────────┴──────────┴────────────┴───────────────┴────────────────┘
+⚠️ Unités issues du seed :
+   • Poulet vivant     → unite_mesure = unite  (prix défaut 480 DZD/u)
+   • Carcasse entière  → unite_mesure = kg     (prix défaut 750 DZD/kg)
+   La quantite se saisit dans l'unité du produit fini.
 
-  Total valeur estimée : 568 800,00 DZD
+  ┌────────────────────────────────────────────────────────────────────────────────────┐
+  │ produit_fini          │ quantite    │ poids_unit  │ cout_unit_est │ valeur_totale  │
+  ├───────────────────────┼─────────────┼─────────────┼───────────────┼────────────────┤
+  │ Poulet vivant         │    500,000  │   2,100 kg  │  320,0000 DZD │   160 000,00   │
+  │ Carcasse entière      │  2 146,200  │   1,470 kg  │  220,0000 DZD │   472 164,00   │
+  │                       │ (1 460 × 1,470 kg)                                         │
+  └───────────────────────┴─────────────┴─────────────┴───────────────┴────────────────┘
+
+  Total valeur estimée : 632 164,00 DZD
 
   Action : [Valider] → statut = valide
     → StockProduitFini(Poulet vivant)    ↑ +500,000 unités
-    → StockProduitFini(Carcasse entière) ↑ +1 460,000 unités
+    → StockProduitFini(Carcasse entière) ↑ +2 146,200 kg
     → 2 × StockMouvement (source=production, type=entree)
 ```
 
@@ -766,17 +851,18 @@ Modèle : LotElevage.fermer()
 
 ### 6.5 Indicateurs zootechniques finaux
 
-| Indicateur                  | Calcul                         | Valeur        |
-| --------------------------- | ------------------------------ | ------------- |
-| Effectif initial            | —                              | 2 000 oiseaux |
-| Mortalités totales          | —                              | 40 oiseaux    |
-| Taux de mortalité           | 40 / 2 000 × 100               | **2,00 %**    |
-| Oiseaux abattus             | 2 000 − 40                     | **1 960**     |
-| Poids moyen à l'abattage    | 4 116 / 1 960                  | **2,100 kg**  |
-| Durée d'élevage             | J0 → J40                       | **40 jours**  |
-| Consommation aliment totale | 200 + 180 + 150                | **530 sacs**  |
-| GMQ (gain moyen quotidien)  | 2 100g / 40j                   | **52,5 g/j**  |
-| IC (indice de consommation) | 530 × 25 kg / (1 960 × 2,1 kg) | **≈ 3,24**    |
+| Indicateur                    | Calcul                                   | Valeur        |
+| ----------------------------- | ---------------------------------------- | ------------- |
+| Effectif initial              | —                                        | 2 000 oiseaux |
+| Mortalités totales            | —                                        | 40 oiseaux    |
+| **nombre_poussins_reference** | initial + Σ transferts_sortants (0)      | **2 000**     |
+| Taux de mortalité             | 40 / **nombre_poussins_reference** × 100 | **2,00 %**    |
+| Oiseaux abattus               | 2 000 − 40                               | **1 960**     |
+| Poids moyen à l'abattage      | 4 116 / 1 960                            | **2,100 kg**  |
+| Durée d'élevage               | J0 → J40                                 | **40 jours**  |
+| Consommation aliment totale   | 200 + 180 + 150                          | **530 sacs**  |
+| GMQ (gain moyen quotidien)    | 2 100g / 40j                             | **52,5 g/j**  |
+| IC (indice de consommation)   | 530 × 25 kg / (1 960 × 2,1 kg)           | **≈ 3,24**    |
 
 ---
 
@@ -920,6 +1006,7 @@ FAC-2026-0001 — Marché de Gros Setifien
   date_echeance  : 2026-07-20   ← +30 jours
   montant_ht     : 744 000,00 ← auto
   taux_tva       : 0,00 %      ← volaille exonérée TVA
+  montant_tva    : 0,00
   montant_ttc    : 744 000,00
 
   Paiement 1 :
@@ -927,28 +1014,36 @@ FAC-2026-0001 — Marché de Gros Setifien
     date_paiement : 2026-06-20
     montant       : 744 000,00
     mode_paiement : especes
+    mode_allocation: manuel      ← user choisit quelle(s) facture(s) couvrir (BR-FAC-03)
     Allocation    : → FAC-2026-0001 : 744 000 DZD → statut = Payée ✅
 
 FAC-2026-0002 — Boucherie Amrane & Fils
   bls          : [BLC-2026-0002]
   montant_ht   : 396 000,00
+  taux_tva     : 0,00 %
+  montant_tva  : 0,00
   montant_ttc  : 396 000,00 (exonéré)
 
   Paiement 2 :
     montant       : 200 000,00
     mode_paiement : cheque
     reference     : "CHQ-AMRANE-1044"
+    mode_allocation: manuel
     Allocation    : → FAC-2026-0002 : 200 000 DZD → Partiellement payée
     reste_a_payer : 196 000,00 DZD ← en attente
 
 FAC-2026-0003 — Restaurant Le Palmier
   bls          : [BLC-2026-0003]
+  montant_ht   : 200 460,00
+  taux_tva     : 0,00 %
+  montant_tva  : 0,00
   montant_ttc  : 200 460,00
 
   Paiement 3 :
     montant       : 200 460,00
     mode_paiement : virement
     reference     : "VIR-PALMIER-22062026"
+    mode_allocation: manuel
     Allocation    : → FAC-2026-0003 : 200 460 DZD → Payée ✅
 ```
 
@@ -1110,15 +1205,20 @@ timeline
 | **BR-BLF-01**    | Achats   | Impact stock uniquement à la validation du BL   | Signal `post_save` BLFournisseurLigne                |
 | **BR-BLF-02**    | Achats   | BL Facturé verrouillé — impossible à modifier   | `BLFournisseurForm.clean()` + `est_verrouille`       |
 | **BR-BLF-03**    | Achats   | BL En litige exclu de la sélection facture      | Queryset `FactureFournisseurForm`                    |
+| **BR-BLF-05**    | Achats   | Autorisation d'accès expirée bloquée (Reçu)     | Form + signal (`date_expiration_autorisation`)       |
 | **BR-FAF-01**    | Achats   | Montant facture = auto-somme lignes BL          | Signal calcul post-save                              |
 | **BR-FAF-02**    | Achats   | Seuls les BL Reçu du même fournisseur           | `FactureFournisseurForm.clean()`                     |
 | **BR-FAF-04**    | Achats   | Statut Payé non sélectionnable                  | `STATUT_USER_CHOICES` sans Payé                      |
 | **BR-REG-03**    | Achats   | Allocation FIFO automatique                     | Signal `post_save` ReglementFournisseur              |
 | **BR-REG-06**    | Achats   | Règlements immuables                            | Pas de formulaire d'édition                          |
-| **BR-LOT-01**    | Élevage  | Lot nécessite nb poussins + BL                  | `LotElevageForm.clean()`                             |
+| **BR-LOT-01**    | Élevage  | Lot s'ouvre dans une Poussinière uniquement     | `LotElevageForm.clean()` + `batiment.type_batiment`  |
+| **BR-LOT-02**    | Élevage  | Lot nécessite nb poussins + BL                  | `LotElevageForm.clean()`                             |
 | **BR-LOT-03**    | Élevage  | Mortalité/Consommation sur lot ouvert seulement | `MortaliteForm.clean()` + `ConsommationForm.clean()` |
 | **BR-LOT-04**    | Élevage  | Fermeture lot requiert ≥ 1 production validée   | Validé dans la vue avant `LotFermetureForm`          |
+| **BR-LOT-05**    | Élevage  | Production bloquée si lot < age_maturite_jours  | `ProductionRecord` validate + vue                    |
+| **BR-MOR-01**    | Élevage  | Mortalité décrémente le stock intrant poussin   | Signal `mortalite_post_save` → StockIntrant          |
 | **BR-INT-03**    | Stock    | Consommation ≤ stock disponible                 | `ConsommationForm.clean()`                           |
+| **BR-INT-04**    | Intrants | Stade intrant filtré selon type_batiment du lot | `ConsommationForm` queryset                          |
 | **BR-INT-05**    | Intrants | Unité mesure immuable si mouvements existent    | `IntrantForm.clean_unite_mesure()`                   |
 | **BR-DEP-01/03** | Dépenses | facture_liee = Service uniquement               | `DepenseForm.clean()`                                |
 | **BR-DEP-04**    | Dépenses | Attribution lot optionnelle                     | Champ `lot` optionnel                                |
@@ -1145,6 +1245,8 @@ flowchart LR
     end
     subgraph LOT["Lot Élevage"]
         lt1[ouvert] --> |fermer\nBR-LOT-04| lt2[fermé 🔒]
+        lt1 --> |"TransfertLot MODE_FULL\n→ crée lot enfant\n→ source auto-fermé"| lt2
+        lt1 --> |"MODE_SPLIT_NEW ou SPLIT_MERGE\n→ lot source reste ouvert"| lt1
     end
     subgraph BLC["BL Client"]
         bc1[brouillon] --> |valider| bc2[livré]
@@ -1181,7 +1283,7 @@ flowchart LR
 > zéro opérationnel, zéro instance physique.
 > **Phase 0** : fournisseurs / clients / bâtiment / intrants saisis manuellement.
 
-| Phase   | Entité                | Référence / Identifiant                | Statut final              |
+| Phase | Entité                | Référence / Identifiant                | Statut final              |
 | ----- | --------------------- | -------------------------------------- | ------------------------- |
 | 1     | BL Fournisseur        | BLF-2026-0001 (Poussins CCA)           | Facturé 🔒                |
 | 1     | BL Fournisseur        | BLF-2026-0002 (Aliments ONAB lot 1)    | Facturé 🔒                |
@@ -1205,3 +1307,23 @@ flowchart LR
 ---
 
 _Fin du document — ÉlevageERP Scénario Complet Lot Mai 2026 — Ross 308 — 2 000 oiseaux_
+
+---
+
+## Annexe B — Domaines v1.3 non exercés dans ce scénario broiler
+
+Les fonctionnalités suivantes existent dans le système (spec v1.3) mais ne sont
+pas activées par ce cycle de 40 jours sur un lot Ross 308 standard :
+
+| Domaine / Feature                               | Pourquoi absent ici                                                      |
+| ----------------------------------------------- | ------------------------------------------------------------------------ |
+| **TransfertLot**                                | Lot trop court (40 j < 126 j seuil transfert) — aucun déménagement       |
+| **PeseeEchantillon**                            | Optionnel ; non requis pour ouvrir / fermer le lot ou valider production |
+| **RecolteOeufs**                                | Lot broiler — pas de phase ponte                                         |
+| **CollecteFertilisant / TraitementFertilisant** | Non exercé dans ce cycle ; disponible par bâtiment                       |
+| **AbonnementClient / LivraisonPartielle**       | Ventes one-shot via BL Client ; pas d'abonnement récurrent               |
+| **Autorisation d'Accès (BLF)**                  | ONAB peut émettre ce type ; cycle utilise bl_classique pour simplifier   |
+| **Associés / RetraitAssocie**                   | Aucun retrait enregistré dans ce cycle                                   |
+| **RH (Employe / Pointage / BulletinPaie)**      | DEP-001 couvre le salaire en dépense occasionnelle                       |
+| **PrixMarche / Fiche Dettes Client**            | Non utilisé dans ce cycle ; outil analytique                             |
+| **CompanyInfo (TVA multi-taux)**                | Factures exonérées TVA → taux_tva = 0 % uniforme                         |
