@@ -11,6 +11,7 @@ Business-logic helpers for the production module.
 
 from decimal import Decimal
 import logging
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +141,7 @@ def allouer_cout_production(production_record) -> None:
 # ---------------------------------------------------------------------------
 
 
-def get_rendement_abattage(production_record) -> Decimal | None:
+def get_rendement_abattage(production_record) -> Optional[Decimal]:
     """
     Slaughter yield = poids_total_kg / (nombre_oiseaux_abattus × poids_moyen_vif)
 

@@ -5,7 +5,9 @@ Django settings for config project.
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+import pymysql
 
+pymysql.install_as_MySQLdb()
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -96,6 +98,12 @@ DATABASES = {
         "PORT": os.environ.get("DB_PORT", "3306"),
         "OPTIONS": {
             "charset": "utf8mb4",
+            "init_command": (
+                "SET character_set_client = utf8mb4, "
+                "character_set_connection = utf8mb4, "
+                "character_set_results = utf8mb4, "
+                "collation_connection = utf8mb4_unicode_ci"
+            ),
         },
     }
 }

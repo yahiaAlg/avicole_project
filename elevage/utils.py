@@ -12,6 +12,7 @@ Business-logic helpers for the lot d'élevage domain.
 """
 
 from decimal import Decimal
+from typing import Optional
 import datetime
 import logging
 
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 def calculer_ic(
     total_aliment_kg: Decimal, poids_total_produit_kg: Decimal
-) -> Decimal | None:
+) -> Optional[Decimal]:
     """
     IC = total feed consumed (kg) / total live-weight produced (kg).
 
