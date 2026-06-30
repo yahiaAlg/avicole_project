@@ -178,7 +178,7 @@ def main() -> None:
         output = args.output or Path(default_output)
     elif args.folder:
         folder = args.folder.resolve()
-        output = args.output or folder.parent / f"{folder.name}_master.md"
+        output = args.output or folder / f"{folder.name}_master.md"
     else:
         parser.error("Provide a folder argument or use --default <type>")
 
