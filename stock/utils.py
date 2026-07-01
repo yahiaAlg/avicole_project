@@ -15,6 +15,17 @@ Business-logic helpers for the stock (inventory management) module.
                                applied delta deviates significantly from the
                                book balance at the time of adjustment (audit
                                flag for manual corrections).
+
+v1.4 — Multi-Branch Architecture (§3.5 / BR-BRA-07): this is the single
+biggest structural change in the whole codebase — StockIntrant and
+StockProduitFini are no longer one row per catalogue item, they are one row
+per **(branche, item)** pair, and StockMouvement / StockAjustement now carry
+a required `branche` FK. Every function below gains an optional `branche`
+parameter: pass it for the **Vue par Branche** figures (exactly what that
+branch's chef de branche already saw pre-v1.4); omit it for **Vue Globale**,
+which aggregates across every branche and — per §8.1 — includes a
+per-branche breakdown so an admin can compare branches side by side rather
+than only seeing a single grand total.
 """
 
 from decimal import Decimal
@@ -28,34 +39,36 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def get_stock_status_report() -> dict:
+def get_stock_status_report(branche=None) -> dict:
     """
     Build a complete snapshot of current stock levels for every intrant and
     produit fini in the catalogue.
 
+    v1.4 (§3.5.3 / BR-BRA-07): a stock balance is now per (branche, item).
+    Pass `branche` for the Vue par Branche report — one row per item,
+    exactly what that branch's chef de branche sees. Omit it for Vue
+    Globale: each row is the catalogue item's figures aggregated across
+    every branche (quantite/valeur summed, prix_moyen_pondere recomputed as
+    the company-wide weighted average), plus a `par_branche` breakdown list
+    so an admin can compare branches side by side (§8.1 / §3.5.5).
+
     Returns a dict with two lists:
 
     ``intrants``
-        One entry per StockIntrant (joined to its Intrant catalogue record):
+        One entry per item (per StockIntrant row when `branche` is given;
+        aggregated across StockIntrant rows when it is not):
           - designation, categorie, unite_mesure
           - quantite            — current balance
           - seuil_alerte        — minimum threshold
           - en_alerte           — bool (quantite <= seuil_alerte)
           - prix_moyen_pondere  — weighted-average cost (DZD / unit)
           - valeur_stock        — quantite × PMP (DZD)
-          - stock_pk            — StockIntrant PK
           - intrant_pk          — Intrant PK
+          - stock_pk            — StockIntrant PK (Vue par Branche only)
+          - par_branche         — list[dict] per-branche breakdown (Vue Globale only)
 
     ``produits_finis``
-        One entry per StockProduitFini (joined to its ProduitFini record):
-          - designation, type_produit, unite_mesure
-          - quantite
-          - seuil_alerte
-          - en_alerte           — bool (quantite <= seuil_alerte)
-          - cout_moyen_production
-          - valeur_stock
-          - stock_pk
-          - produit_pk
+        Same shape as ``intrants``, for StockProduitFini / ProduitFini.
 
     ``totaux``
         Aggregated valuation totals:
@@ -63,67 +76,25 @@ def get_stock_status_report() -> dict:
           - valeur_totale_produits  (Decimal)
           - nb_alertes_intrants     (int)
           - nb_alertes_produits     (int)
+
+    Args:
+        branche (Branche | None): Scope to one branch; omit for Vue Globale.
     """
     from stock.models import StockIntrant, StockProduitFini
 
-    intrant_rows = []
-    valeur_totale_intrants = Decimal("0")
-    nb_alertes_intrants = 0
-
-    intrant_stocks = StockIntrant.objects.select_related(
-        "intrant", "intrant__categorie"
-    ).order_by("intrant__categorie__libelle", "intrant__designation")
-
-    for s in intrant_stocks:
-        en_alerte = s.en_alerte  # uses model property
-        valeur = s.valeur_stock  # uses model property
-        valeur_totale_intrants += valeur
-        if en_alerte:
-            nb_alertes_intrants += 1
-
-        intrant_rows.append(
-            {
-                "stock_pk": s.pk,
-                "intrant_pk": s.intrant_id,
-                "designation": s.intrant.designation,
-                "categorie": s.intrant.categorie.libelle,
-                "unite_mesure": s.intrant.unite_mesure,
-                "quantite": s.quantite,
-                "seuil_alerte": s.intrant.seuil_alerte,
-                "en_alerte": en_alerte,
-                "prix_moyen_pondere": s.prix_moyen_pondere,
-                "valeur_stock": valeur,
-            }
+    if branche is not None:
+        intrant_rows, valeur_totale_intrants, nb_alertes_intrants = (
+            _stock_rows_par_branche(StockIntrant, branche, segment="intrant")
         )
-
-    produit_rows = []
-    valeur_totale_produits = Decimal("0")
-    nb_alertes_produits = 0
-
-    produit_stocks = StockProduitFini.objects.select_related("produit_fini").order_by(
-        "produit_fini__type_produit", "produit_fini__designation"
-    )
-
-    for s in produit_stocks:
-        en_alerte = s.en_alerte  # uses model property
-        valeur = s.valeur_stock  # uses model property
-        valeur_totale_produits += valeur
-        if en_alerte:
-            nb_alertes_produits += 1
-
-        produit_rows.append(
-            {
-                "stock_pk": s.pk,
-                "produit_pk": s.produit_fini_id,
-                "designation": s.produit_fini.designation,
-                "type_produit": s.produit_fini.get_type_produit_display(),
-                "unite_mesure": s.produit_fini.unite_mesure,
-                "quantite": s.quantite,
-                "seuil_alerte": s.seuil_alerte,
-                "en_alerte": en_alerte,
-                "cout_moyen_production": s.cout_moyen_production,
-                "valeur_stock": valeur,
-            }
+        produit_rows, valeur_totale_produits, nb_alertes_produits = (
+            _stock_rows_par_branche(StockProduitFini, branche, segment="produit_fini")
+        )
+    else:
+        intrant_rows, valeur_totale_intrants, nb_alertes_intrants = (
+            _stock_rows_vue_globale(StockIntrant, segment="intrant")
+        )
+        produit_rows, valeur_totale_produits, nb_alertes_produits = (
+            _stock_rows_vue_globale(StockProduitFini, segment="produit_fini")
         )
 
     return {
@@ -136,6 +107,199 @@ def get_stock_status_report() -> dict:
             "nb_alertes_produits": nb_alertes_produits,
         },
     }
+
+
+def _stock_rows_par_branche(stock_model, branche, segment: str):
+    """
+    Internal helper for get_stock_status_report — Vue par Branche: one row
+    per (branche, item) for the given segment ("intrant" or "produit_fini").
+    """
+    if segment == "intrant":
+        stocks = (
+            stock_model.objects.select_related("intrant", "intrant__categorie")
+            .filter(branche=branche)
+            .order_by("intrant__categorie__libelle", "intrant__designation")
+        )
+    else:
+        stocks = (
+            stock_model.objects.select_related("produit_fini")
+            .filter(branche=branche)
+            .order_by("produit_fini__type_produit", "produit_fini__designation")
+        )
+
+    rows = []
+    valeur_totale = Decimal("0")
+    nb_alertes = 0
+
+    for s in stocks:
+        en_alerte = s.en_alerte
+        valeur = s.valeur_stock
+        valeur_totale += valeur
+        if en_alerte:
+            nb_alertes += 1
+
+        if segment == "intrant":
+            rows.append(
+                {
+                    "stock_pk": s.pk,
+                    "intrant_pk": s.intrant_id,
+                    "designation": s.intrant.designation,
+                    "categorie": s.intrant.categorie.libelle,
+                    "unite_mesure": s.intrant.unite_mesure,
+                    "quantite": s.quantite,
+                    "seuil_alerte": s.intrant.seuil_alerte,
+                    "en_alerte": en_alerte,
+                    "prix_moyen_pondere": s.prix_moyen_pondere,
+                    "valeur_stock": valeur,
+                }
+            )
+        else:
+            rows.append(
+                {
+                    "stock_pk": s.pk,
+                    "produit_pk": s.produit_fini_id,
+                    "designation": s.produit_fini.designation,
+                    "type_produit": s.produit_fini.get_type_produit_display(),
+                    "unite_mesure": s.produit_fini.unite_mesure,
+                    "quantite": s.quantite,
+                    "seuil_alerte": s.seuil_alerte,
+                    "en_alerte": en_alerte,
+                    "cout_moyen_production": s.cout_moyen_production,
+                    "valeur_stock": valeur,
+                }
+            )
+
+    return rows, valeur_totale, nb_alertes
+
+
+def _stock_rows_vue_globale(stock_model, segment: str):
+    """
+    Internal helper for get_stock_status_report — Vue Globale: one row per
+    catalogue item, aggregated across every branche, with a `par_branche`
+    breakdown list (§3.5.5).
+    """
+    from collections import defaultdict
+
+    if segment == "intrant":
+        stocks = stock_model.objects.select_related(
+            "intrant", "intrant__categorie", "branche"
+        ).order_by("intrant__categorie__libelle", "intrant__designation")
+    else:
+        stocks = stock_model.objects.select_related("produit_fini", "branche").order_by(
+            "produit_fini__type_produit", "produit_fini__designation"
+        )
+
+    par_item: dict = defaultdict(
+        lambda: {
+            "item": None,
+            "quantite": Decimal("0"),
+            "valeur": Decimal("0"),
+            "par_branche": [],
+        }
+    )
+
+    for s in stocks:
+        item = s.intrant if segment == "intrant" else s.produit_fini
+        entry = par_item[item.pk]
+        entry["item"] = item
+        entry["quantite"] += s.quantite
+        entry["valeur"] += s.valeur_stock
+        entry["par_branche"].append(
+            {
+                "branche": s.branche,
+                "quantite": s.quantite,
+                "valeur_stock": s.valeur_stock,
+                "en_alerte": s.en_alerte,
+                **(
+                    {"prix_moyen_pondere": s.prix_moyen_pondere}
+                    if segment == "intrant"
+                    else {"cout_moyen_production": s.cout_moyen_production}
+                ),
+            }
+        )
+
+    rows = []
+    valeur_totale = Decimal("0")
+    nb_alertes = 0
+
+    for item_pk, data in par_item.items():
+        item = data["item"]
+        quantite = data["quantite"]
+        valeur = data["valeur"]
+        seuil_alerte = item.seuil_alerte if segment == "intrant" else None
+        # Company-wide weighted-average unit cost, recomputed from totals
+        # (per-branche PMP/CMP cannot simply be averaged, since branches
+        # may hold very different quantities — BR-BRA-07).
+        cout_unitaire_moyen = (
+            round(valeur / quantite, 4) if quantite > 0 else Decimal("0")
+        )
+
+        valeur_totale += valeur
+
+        if segment == "intrant":
+            en_alerte = quantite <= item.seuil_alerte
+            if en_alerte:
+                nb_alertes += 1
+            rows.append(
+                {
+                    "intrant_pk": item_pk,
+                    "designation": item.designation,
+                    "categorie": item.categorie.libelle,
+                    "unite_mesure": item.unite_mesure,
+                    "quantite": quantite,
+                    "seuil_alerte": seuil_alerte,
+                    "en_alerte": en_alerte,
+                    "prix_moyen_pondere": cout_unitaire_moyen,
+                    "valeur_stock": valeur,
+                    "par_branche": data["par_branche"],
+                }
+            )
+        else:
+            # StockProduitFini.seuil_alerte lives on the stock row, not the
+            # catalogue item — for Vue Globale, flag the item if its
+            # combined quantity is at/under the SUM of every branche's
+            # individual threshold (each branch's own bar, added up).
+            seuil_total = sum(
+                (row.get("seuil_alerte") or Decimal("0")) for row in []
+            )  # placeholder, replaced below
+            rows.append(
+                {
+                    "produit_pk": item_pk,
+                    "designation": item.designation,
+                    "type_produit": item.get_type_produit_display(),
+                    "unite_mesure": item.unite_mesure,
+                    "quantite": quantite,
+                    "cout_moyen_production": cout_unitaire_moyen,
+                    "valeur_stock": valeur,
+                    "par_branche": data["par_branche"],
+                }
+            )
+
+    if segment != "intrant":
+        # Second pass for produits finis: en_alerte / seuil_alerte require
+        # the per-row seuil_alerte values, summed per item (each branche
+        # keeps its own threshold on its StockProduitFini row).
+        seuils_par_item: dict = defaultdict(Decimal)
+        from stock.models import StockProduitFini as _SPF
+
+        for s in stock_model.objects.all():
+            seuils_par_item[s.produit_fini_id] += s.seuil_alerte
+
+        for row in rows:
+            seuil_total = seuils_par_item.get(row["produit_pk"], Decimal("0"))
+            row["seuil_alerte"] = seuil_total
+            row["en_alerte"] = row["quantite"] <= seuil_total
+            if row["en_alerte"]:
+                nb_alertes += 1
+
+    rows.sort(
+        key=lambda r: (
+            r.get("categorie") or r.get("type_produit") or "",
+            r["designation"],
+        )
+    )
+
+    return rows, valeur_totale, nb_alertes
 
 
 # ---------------------------------------------------------------------------

@@ -24,16 +24,26 @@ from django.conf import settings
 
 class StockIntrant(models.Model):
     """
-    Current balance for one Intrant (one-to-one relationship).
-    The balance is never edited directly — it is updated exclusively
-    through StockMouvement records triggered by validated BL Fournisseur,
-    Consommation, and StockAjustement events.
+    Current balance for one Intrant **within one Branche** (v1.4, BR-BRA-07).
+
+    Pre-v1.4 this was a One-to-One on `intrant`; now the same catalogue
+    item can have a different quantity and weighted-average cost in each
+    branch, so the unique key becomes (branche, intrant). The balance is
+    never edited directly — it is updated exclusively through
+    StockMouvement records triggered by validated BL Fournisseur,
+    Consommation, and StockAjustement events, all scoped to this branche.
     """
 
-    intrant = models.OneToOneField(
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="stocks_intrants",
+        verbose_name="الفرع",
+    )
+    intrant = models.ForeignKey(
         "intrants.Intrant",
         on_delete=models.CASCADE,
-        related_name="stock",
+        related_name="stocks",
         verbose_name="المدخل",
     )
     quantite = models.DecimalField(
@@ -54,10 +64,16 @@ class StockIntrant(models.Model):
     class Meta:
         verbose_name = "مخزون المدخلات"
         verbose_name_plural = "مخازن المدخلات"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["branche", "intrant"], name="unique_stock_intrant_par_branche"
+            )
+        ]
 
     def __str__(self):
         return (
-            f"{self.intrant.designation} — {self.quantite} {self.intrant.unite_mesure}"
+            f"{self.intrant.designation} [{self.branche.code}] — "
+            f"{self.quantite} {self.intrant.unite_mesure}"
         )
 
     @property
@@ -76,15 +92,26 @@ class StockIntrant(models.Model):
 
 class StockProduitFini(models.Model):
     """
-    Current balance for one ProduitFini.
-    Increases via validated ProductionRecord lines.
-    Decreases via validated BL Client lines.
+    Current balance for one ProduitFini **within one Branche** (v1.4, BR-BRA-07).
+
+    Pre-v1.4 this was a One-to-One on `produit_fini`; now the same
+    finished-product type can sit at a different quantity and average
+    production cost in each branch, so the unique key becomes
+    (branche, produit_fini). Increases via validated ProductionRecord
+    lines for that branch. Decreases via validated BL Client lines for
+    that branch.
     """
 
-    produit_fini = models.OneToOneField(
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="stocks_produits_finis",
+        verbose_name="الفرع",
+    )
+    produit_fini = models.ForeignKey(
         "production.ProduitFini",
         on_delete=models.CASCADE,
-        related_name="stock",
+        related_name="stocks",
         verbose_name="المنتج النهائي",
     )
     quantite = models.DecimalField(
@@ -110,9 +137,18 @@ class StockProduitFini(models.Model):
     class Meta:
         verbose_name = "مخزون المنتج النهائي"
         verbose_name_plural = "مخازن المنتجات النهائية"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["branche", "produit_fini"],
+                name="unique_stock_produit_fini_par_branche",
+            )
+        ]
 
     def __str__(self):
-        return f"{self.produit_fini.designation} — {self.quantite} {self.produit_fini.unite_mesure}"
+        return (
+            f"{self.produit_fini.designation} [{self.branche.code}] — "
+            f"{self.quantite} {self.produit_fini.unite_mesure}"
+        )
 
     @property
     def valeur_stock(self):
@@ -167,6 +203,18 @@ class StockMouvement(models.Model):
         (SOURCE_FERTILISANT, "معالجة السماد"),
         (SOURCE_LIVRAISON_ABONNEMENT, "تسليم اشتراك عميل"),
     ]
+
+    # v1.4 — quantite_avant/quantite_apres now refer to that branche's
+    # StockIntrant/StockProduitFini row, not a single farm-wide balance
+    # (BR-BRA-07). Required and explicit (not derived) since this is an
+    # immutable audit record that must stay correct even if the source
+    # document is later reassigned.
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="mouvements_stock",
+        verbose_name="الفرع",
+    )
 
     # Target stock item — exactly one must be set.
     intrant = models.ForeignKey(
@@ -256,6 +304,15 @@ class StockAjustement(models.Model):
 
     segment = models.CharField(
         max_length=20, choices=SEGMENT_CHOICES, verbose_name="قطاع المخزون"
+    )
+    # v1.4 — identifies which branch's StockIntrant/StockProduitFini row is
+    # being corrected (BR-BRA-07). Required and explicit for the same
+    # immutability reason as StockMouvement.branche above.
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="ajustements_stock",
+        verbose_name="الفرع",
     )
     # Exactly one of the two FKs below is populated.
     intrant = models.ForeignKey(

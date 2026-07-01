@@ -45,6 +45,11 @@ class BLFournisseurForm(forms.ModelForm):
 
     BR-BLF-02 : Facturé BLs are fully locked.
     BR-BLF-05 : An expired autorisation d'accès cannot be confirmed as Reçu.
+    BR-BRA-01 : every BL belongs to exactly one branche — the goods land in
+                that branche's StockIntrant. Pass `branche=<Branche
+                instance>` from the view when the user is locked to one
+                branch (chef de branche / opérateur, BR-BRA-02) to
+                pre-select and lock the field.
     """
 
     # All statut values a user may choose.  The form's clean() enforces
@@ -60,6 +65,7 @@ class BLFournisseurForm(forms.ModelForm):
         model = BLFournisseur
         fields = [
             "reference",
+            "branche",
             "fournisseur",
             "date_bl",
             "type_document",
@@ -83,11 +89,19 @@ class BLFournisseurForm(forms.ModelForm):
             "notes_reception": forms.Textarea(attrs={"rows": 2}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
+        from core.models import Branche
+
         self.fields["fournisseur"].queryset = Fournisseur.objects.filter(
             actif=True
         ).order_by("nom")
+        self.fields["branche"].queryset = Branche.objects.filter(actif=True).order_by(
+            "nom"
+        )
+        if branche:
+            self.fields["branche"].initial = branche
+            self.fields["branche"].widget = forms.HiddenInput()
         self.fields["statut"].choices = self.STATUT_USER_CHOICES
         self.fields["reference_fournisseur"].required = False
         self.fields["notes_reception"].required = False
@@ -224,6 +238,12 @@ class FactureFournisseurForm(forms.ModelForm):
                The view must pass `fournisseur` kwarg to apply this filter.
     BR-FAF-04: STATUT_PAYE is excluded from the form choices — only signals/
                settlement records set this value.
+    BR-BRA-01: must match the branche of every selected BL (the model's
+               docstring notes this is enforced at the view/M2M-assignment
+               layer — done here in clean()). Pass `branche=<Branche
+               instance>` from the view when the user is locked to one
+               branch (chef de branche / opérateur, BR-BRA-02) to
+               pre-select, lock the field, and scope the bls queryset.
     """
 
     # Statut choices available to the user.
@@ -236,6 +256,7 @@ class FactureFournisseurForm(forms.ModelForm):
         model = FactureFournisseur
         fields = [
             "reference",
+            "branche",
             "fournisseur",
             "bls",
             "date_facture",
@@ -251,28 +272,36 @@ class FactureFournisseurForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 2}),
         }
 
-    def __init__(self, *args, fournisseur=None, **kwargs):
+    def __init__(self, *args, fournisseur=None, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
+        from core.models import Branche
+
         self.fields["statut"].choices = self.STATUT_USER_CHOICES
         self.fields["date_echeance"].required = False
         self.fields["notes"].required = False
+        self.fields["branche"].queryset = Branche.objects.filter(actif=True).order_by(
+            "nom"
+        )
+        self._branche = branche
+        if branche:
+            self.fields["branche"].initial = branche
+            self.fields["branche"].widget = forms.HiddenInput()
 
+        bls_qs = BLFournisseur.objects.filter(statut=BLFournisseur.STATUT_RECU)
         if fournisseur:
             # BR-FAF-02: only Reçu BLs for the selected supplier.
-            self.fields["bls"].queryset = BLFournisseur.objects.filter(
-                fournisseur=fournisseur,
-                statut=BLFournisseur.STATUT_RECU,
-            ).order_by("date_bl")
+            bls_qs = bls_qs.filter(fournisseur=fournisseur)
             self.fields["fournisseur"].initial = fournisseur
             self.fields["fournisseur"].widget = forms.HiddenInput()
-        else:
-            self.fields["bls"].queryset = BLFournisseur.objects.filter(
-                statut=BLFournisseur.STATUT_RECU
-            ).order_by("fournisseur__nom", "date_bl")
+        if branche:
+            # BR-BRA-01: only BLs from the same branche as this invoice.
+            bls_qs = bls_qs.filter(branche=branche)
+        self.fields["bls"].queryset = bls_qs.order_by("fournisseur__nom", "date_bl")
 
     def clean(self):
         cleaned = super().clean()
         fournisseur = cleaned.get("fournisseur")
+        branche = cleaned.get("branche") or self._branche
         bls = cleaned.get("bls")
         date_facture = cleaned.get("date_facture")
         date_echeance = cleaned.get("date_echeance")
@@ -297,6 +326,15 @@ class FactureFournisseurForm(forms.ModelForm):
                     f"'Reçu' et ne peuvent pas être facturés : {', '.join(non_recu)}."
                 )
 
+        # BR-BRA-01: every selected BL must belong to this invoice's branche.
+        if branche and bls:
+            bad_branche = [bl.reference for bl in bls if bl.branche_id != branche.pk]
+            if bad_branche:
+                raise ValidationError(
+                    f"BR-BRA-01 : les BLs suivants n'appartiennent pas à la branche "
+                    f"sélectionnée : {', '.join(bad_branche)}."
+                )
+
         # Due date must be ≥ invoice date.
         if date_facture and date_echeance and date_echeance < date_facture:
             raise ValidationError(
@@ -316,15 +354,22 @@ class FactureFournisseurForm(forms.ModelForm):
 class ReglementFournisseurForm(forms.ModelForm):
     """
     Record a supplier payment.  On save, the FIFO allocation engine runs
-    automatically via post_save signal (BR-REG-03).
+    automatically via post_save signal (BR-REG-03), scoped to this
+    règlement's branche (BR-BRA-01) — it can only settle invoices in the
+    same branche.
 
     BR-REG-06: no edit form — règlements are immutable after creation.
+
+    Pass `branche=<Branche instance>` from the view when the current user
+    is locked to one branch (chef de branche / opérateur, BR-BRA-02) to
+    pre-select and lock the field.
     """
 
     class Meta:
         model = ReglementFournisseur
         fields = [
             "fournisseur",
+            "branche",
             "date_reglement",
             "montant",
             "mode_paiement",
@@ -337,16 +382,24 @@ class ReglementFournisseurForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 2}),
         }
 
-    def __init__(self, *args, fournisseur=None, **kwargs):
+    def __init__(self, *args, fournisseur=None, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
+        from core.models import Branche
+
         self.fields["fournisseur"].queryset = Fournisseur.objects.filter(
             actif=True
         ).order_by("nom")
+        self.fields["branche"].queryset = Branche.objects.filter(actif=True).order_by(
+            "nom"
+        )
         self.fields["reference_paiement"].required = False
         self.fields["notes"].required = False
         if fournisseur:
             self.fields["fournisseur"].initial = fournisseur
             self.fields["fournisseur"].widget = forms.HiddenInput()
+        if branche:
+            self.fields["branche"].initial = branche
+            self.fields["branche"].widget = forms.HiddenInput()
 
     def clean_montant(self):
         montant = self.cleaned_data["montant"]

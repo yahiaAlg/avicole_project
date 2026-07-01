@@ -10,6 +10,7 @@
   لوحة التحكم المالية
   {% if fournisseur.type_principal %} · {{ fournisseur.type_principal.libelle }}{% endif %}
   {% if not fournisseur.actif %} · <span style="color:#dc2626;">غير نشط</span>{% endif %}
+  {% if active_branche %} · فرع {{ active_branche.nom }}{% else %} · <span style="color:var(--accent-text);">جميع الفروع</span>{% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
@@ -212,6 +213,7 @@
     {% for a in autorisations_expirees %}
     <a href="{% url 'achats:bl_fournisseur_detail' a.pk %}" class="autoris-ref-link">
       {{ a.reference }}
+      {% if not active_branche %} · {{ a.branche.nom }}{% endif %}
       {% if a.date_expiration_autorisation %}
         — انتهى {{ a.date_expiration_autorisation|date:"d/m/Y" }}
       {% endif %}
@@ -238,6 +240,7 @@
         <tr>
           <th>المرجع</th>
           <th>رقم التفويض</th>
+          {% if not active_branche %}<th>الفرع</th>{% endif %}
           <th>التاريخ</th>
           <th>ينتهي في</th>
           <th>السائق</th>
@@ -252,6 +255,7 @@
             <a href="{% url 'achats:bl_fournisseur_detail' a.pk %}" class="ref-link">{{ a.reference }}</a>
           </td>
           <td style="color:var(--text-muted);">{{ a.numero_autorisation|default:"—" }}</td>
+          {% if not active_branche %}<td style="color:var(--text-muted);">{{ a.branche.nom }}</td>{% endif %}
           <td style="color:var(--text-muted);">{{ a.date_bl|date:"d/m/Y" }}</td>
           <td>
             {% if a.date_expiration_autorisation %}
@@ -363,6 +367,7 @@
           <div class="payment-item__mode">{{ reg.get_mode_paiement_display }}</div>
           <div class="payment-item__date">{{ reg.date_reglement|date:"d/m/Y" }}
             {% if reg.reference_paiement %} · {{ reg.reference_paiement }}{% endif %}
+            {% if not active_branche %} · {{ reg.branche.nom }}{% endif %}
           </div>
           <div class="payment-item__allocs" style="font-size:11px;color:var(--text-muted);margin-top:1px;">
             {{ reg.allocations.count }} فاتورة مخصصة
@@ -402,6 +407,7 @@
         <tr>
           <th>مرجع الوصل</th>
           <th>التاريخ</th>
+          {% if not active_branche %}<th>الفرع</th>{% endif %}
           <th>مرجع المورد</th>
           <th>الأسطر</th>
           <th style="text-align:left;">المبلغ الإجمالي</th>
@@ -416,6 +422,7 @@
             <a href="{% url 'achats:bl_fournisseur_detail' bl.pk %}" class="ref-link">{{ bl.reference }}</a>
           </td>
           <td style="color:var(--text-muted);">{{ bl.date_bl|date:"d/m/Y" }}</td>
+          {% if not active_branche %}<td style="color:var(--text-muted);">{{ bl.branche.nom }}</td>{% endif %}
           <td style="color:var(--text-muted);font-size:12px;">{{ bl.reference_fournisseur|default:"—" }}</td>
           <td style="color:var(--text-muted);">{{ bl.lignes.count }}</td>
           <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">

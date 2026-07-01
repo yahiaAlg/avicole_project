@@ -13,6 +13,25 @@ Business rules enforced here:
   BR-DEP-04  Dépenses may optionally be attributed to a lot for profitability.
   BR-ASSOC-02  Retraits are always manual.
   BR-RH-01..05 see depenses/models.py module docstring.
+
+v1.4 multi-branch notes (§3.5):
+  BR-BRA-01  Depense.branche is a required FK — explicit field on DepenseForm.
+             Pass `branche=<Branche instance>` from the view when the
+             current user is locked to one branch (chef de branche /
+             opérateur, BR-BRA-02) to pre-select/lock the field and to
+             scope the optional `lot` / `facture_liee` choices to that
+             same branche.
+  BR-BRA-08  Associe / RetraitAssocie are intentionally NEVER branche-scoped
+             — equity withdrawals belong to the company as a whole. No
+             `branche` field, no `branche` kwarg, on either form.
+  BR-BRA-09  Employe.branche (and the branche of everything chained off an
+             employee — Pointage, CongeEmploye, AcompteEmploye,
+             BulletinPaie) is DERIVED from `employe.batiment.branche`, not
+             stored. None of those models gain a `branche` field; instead,
+             every form below that exposes an `employe` or `batiment`
+             picker accepts an optional `branche=<Branche instance>` kwarg
+             to scope that picker's queryset (via the `batiment__branche`
+             join for employee-based pickers).
 """
 
 import datetime
@@ -47,6 +66,13 @@ class DepenseForm(forms.ModelForm):
     """
     Record an operational expense.
 
+    BR-BRA-01: every dépense belongs to exactly one branche (required FK).
+    Pass `branche=<Branche instance>` from the view when the current user
+    is locked to one branch (chef de branche / opérateur, BR-BRA-02) to
+    pre-select and lock the field. The optional `lot` and `facture_liee`
+    choices are scoped to that same branche, and clean() duplicates
+    Depense.clean()'s same-branche guard for a friendlier form-level error.
+
     BR-DEP-03: facture_liee is optional and restricted to Service-type invoices
                only.  The queryset is filtered accordingly.
     BR-DEP-04: lot attribution is optional.
@@ -56,6 +82,7 @@ class DepenseForm(forms.ModelForm):
         model = Depense
         fields = [
             "date",
+            "branche",
             "categorie",
             "description",
             "montant",
@@ -75,24 +102,42 @@ class DepenseForm(forms.ModelForm):
             ),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
+        from core.models import Branche
 
         # Active categories only, ordered for display.
         self.fields["categorie"].queryset = CategorieDepense.objects.filter(
             actif=True
         ).order_by("ordre", "libelle")
 
-        # BR-DEP-04: all lots shown; lot attribution is informational.
-        self.fields["lot"].queryset = LotElevage.objects.order_by("-date_ouverture")
+        self.fields["branche"].queryset = Branche.objects.filter(actif=True).order_by(
+            "nom"
+        )
+        self._branche = branche
+        if branche:
+            self.fields["branche"].initial = branche
+            self.fields["branche"].widget = forms.HiddenInput()
+
+        # BR-DEP-04 / BR-BRA-01: lot attribution is informational, but must
+        # stay within the dépense's own branche — scope the choices when
+        # the branche is locked so the user can't even pick a bad one.
+        lot_qs = LotElevage.objects.order_by("-date_ouverture")
+        if branche:
+            lot_qs = lot_qs.filter(branche=branche)
+        self.fields["lot"].queryset = lot_qs
         self.fields["lot"].required = False
 
-        # BR-DEP-03: only Service-type supplier invoices may be linked.
+        # BR-DEP-03 / BR-BRA-01: only Service-type supplier invoices may be
+        # linked, scoped to this branche when locked (same reasoning as lot).
         from achats.models import FactureFournisseur
 
-        self.fields["facture_liee"].queryset = FactureFournisseur.objects.filter(
+        facture_qs = FactureFournisseur.objects.filter(
             type_facture=FactureFournisseur.TYPE_SERVICE
-        ).order_by("-date_facture")
+        )
+        if branche:
+            facture_qs = facture_qs.filter(branche=branche)
+        self.fields["facture_liee"].queryset = facture_qs.order_by("-date_facture")
         self.fields["facture_liee"].required = False
         self.fields["facture_liee"].help_text = (
             "اختياري — للفواتير من النوع خدمة فقط (BR-DEP-03)."
@@ -118,6 +163,8 @@ class DepenseForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        branche = cleaned.get("branche") or self._branche
+        lot = cleaned.get("lot")
         facture_liee = cleaned.get("facture_liee")
 
         # BR-DEP-01 / BR-DEP-03: double-guard — only Service invoices allowed.
@@ -134,6 +181,27 @@ class DepenseForm(forms.ModelForm):
                         )
                     }
                 )
+
+        # BR-BRA-01: the optional lot / facture_liee links must stay within
+        # this dépense's own branche (mirrors Depense.clean()).
+        if branche and lot and lot.branche_id != branche.pk:
+            raise ValidationError(
+                {
+                    "lot": (
+                        "BR-BRA-01 : la dépense et le lot attribué doivent "
+                        "appartenir à la même branche."
+                    )
+                }
+            )
+        if branche and facture_liee and facture_liee.branche_id != branche.pk:
+            raise ValidationError(
+                {
+                    "facture_liee": (
+                        "BR-BRA-01 : la dépense et la facture fournisseur liée "
+                        "doivent appartenir à la même branche."
+                    )
+                }
+            )
         return cleaned
 
 
@@ -146,6 +214,10 @@ class DepenseFilterForm(forms.Form):
     """
     Non-model form used to filter the dépenses list view.
     All fields are optional.
+
+    Pass `branche=<Branche instance>` from the view to scope the `lot`
+    choices to that branche (BR-BRA-01) — the dépenses themselves are
+    already filtered by the active branche at the queryset level in the view.
     """
 
     categorie = forms.ModelChoiceField(
@@ -178,6 +250,13 @@ class DepenseFilterForm(forms.Form):
         label="طريقة الدفع",
     )
 
+    def __init__(self, *args, branche=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if branche:
+            self.fields["lot"].queryset = self.fields["lot"].queryset.filter(
+                branche=branche
+            )
+
     def clean(self):
         cleaned = super().clean()
         date_debut = cleaned.get("date_debut")
@@ -198,6 +277,10 @@ class DashboardFilterForm(forms.Form):
     """
     Date-range filter for the dépenses dashboard.
     Both fields are optional; defaults are applied in the view.
+
+    No `branche` field: the dashboard is scoped to the currently active
+    branche (or Vue Globale) by the view via depenses.utils helpers, not
+    by this form — mirrors the rest of the app (§3.5.4/3.5.5).
     """
 
     date_debut = forms.DateField(
@@ -224,6 +307,12 @@ class DashboardFilterForm(forms.Form):
 
 # ===========================================================================
 # Associés — Stakeholders & withdrawals  (BR-ASSOC-01 / BR-ASSOC-02)
+#
+# v1.4 note: per BR-BRA-08, Associe and RetraitAssocie are intentionally
+# NEVER branche-scoped — equity withdrawals belong to the company as a
+# whole. Neither form below takes a `branche` kwarg or exposes a `branche`
+# field; this is deliberate, not an oversight (mirrors VoyageLivraison /
+# PrixMarche in clients/forms.py, and CategorieDepense above).
 # ===========================================================================
 
 
@@ -282,7 +371,7 @@ class RetraitAssocieForm(forms.ModelForm):
 
 
 class RetraitFilterForm(forms.Form):
-    """Non-model filter form for the retraits list view."""
+    """Non-model filter form for the retraits list view. Global — BR-BRA-08."""
 
     associe = forms.ModelChoiceField(
         queryset=Associe.objects.order_by("nom"),
@@ -307,11 +396,19 @@ class RetraitFilterForm(forms.Form):
 
 
 # ===========================================================================
-# RH — Employees  (BR-RH-01 / BR-RH-02)
+# RH — Employees  (BR-RH-01 / BR-RH-02 / BR-BRA-09)
 # ===========================================================================
 
 
 class EmployeForm(forms.ModelForm):
+    """
+    BR-BRA-09: Employe.branche is DERIVED from `batiment.branche`, not
+    stored — there is no `branche` field here. Pass `branche=<Branche
+    instance>` from the view when the current user is locked to one
+    branch (chef de branche / opérateur, BR-BRA-02) to scope the
+    `batiment` and `binome` choices to that branche.
+    """
+
     class Meta:
         model = Employe
         fields = [
@@ -335,18 +432,24 @@ class EmployeForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 2}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
         from intrants.models import Batiment
 
-        self.fields["batiment"].queryset = Batiment.objects.filter(actif=True).order_by(
-            "nom"
-        )
+        batiment_qs = Batiment.objects.filter(actif=True).order_by("nom")
+        if branche:
+            # BR-BRA-09: scope the building picker so the employee's
+            # derived branche can only land in the locked branche.
+            batiment_qs = batiment_qs.filter(branche=branche)
+        self.fields["batiment"].queryset = batiment_qs
         self.fields["batiment"].required = False
 
         binome_qs = Employe.objects.filter(actif=True).order_by("nom_complet")
         if self.instance and self.instance.pk:
             binome_qs = binome_qs.exclude(pk=self.instance.pk)
+        if branche:
+            # The rest-day partner naturally works at the same branche.
+            binome_qs = binome_qs.filter(batiment__branche=branche)
         self.fields["binome"].queryset = binome_qs
         self.fields["binome"].required = False
 
@@ -359,12 +462,18 @@ class EmployeForm(forms.ModelForm):
 
 
 # ===========================================================================
-# RH — Attendance (Pointage)  (BR-RH-05)
+# RH — Attendance (Pointage)  (BR-RH-05 / BR-BRA-09)
 # ===========================================================================
 
 
 class PointageForm(forms.ModelForm):
-    """Single-day attendance entry/correction."""
+    """
+    Single-day attendance entry/correction.
+
+    BR-BRA-09: Pointage.branche is inherited from employe.branche — pass
+    `branche=<Branche instance>` from the view when the current user is
+    locked to one branch to scope the `employe` choices.
+    """
 
     class Meta:
         model = Pointage
@@ -377,11 +486,14 @@ class PointageForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 2}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["employe"].queryset = Employe.objects.filter(actif=True).order_by(
-            "nom_complet"
-        )
+        employe_qs = Employe.objects.filter(actif=True).order_by("nom_complet")
+        if branche:
+            # BR-BRA-09: employe.branche is derived via batiment — filter
+            # through the join since there is no stored column to match on.
+            employe_qs = employe_qs.filter(batiment__branche=branche)
+        self.fields["employe"].queryset = employe_qs
         self.fields["notes"].required = False
 
     def clean(self):
@@ -402,6 +514,9 @@ class GenererPointagesMoisForm(forms.Form):
     Non-model form: pre-fill a whole month of Pointage rows for one employee
     (PRESENT by default, REPOS on jour_repos_habituel) so HR only has to
     correct the exceptions (absences, congés, heures sup).
+
+    Pass `branche=<Branche instance>` from the view to scope the `employe`
+    choices (BR-BRA-09).
     """
 
     employe = forms.ModelChoiceField(
@@ -411,9 +526,20 @@ class GenererPointagesMoisForm(forms.Form):
     annee = forms.IntegerField(label="السنة", min_value=2000, max_value=2100)
     mois = forms.IntegerField(label="الشهر", min_value=1, max_value=12)
 
+    def __init__(self, *args, branche=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if branche:
+            self.fields["employe"].queryset = self.fields["employe"].queryset.filter(
+                batiment__branche=branche
+            )
+
 
 class PointageFilterForm(forms.Form):
-    """Non-model filter form for the pointage list view."""
+    """
+    Non-model filter form for the pointage list view.
+    Pass `branche=<Branche instance>` from the view to scope the `employe`
+    choices (BR-BRA-09).
+    """
 
     employe = forms.ModelChoiceField(
         queryset=Employe.objects.order_by("nom_complet"),
@@ -433,6 +559,13 @@ class PointageFilterForm(forms.Form):
         label="الحالة",
     )
 
+    def __init__(self, *args, branche=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if branche:
+            self.fields["employe"].queryset = self.fields["employe"].queryset.filter(
+                batiment__branche=branche
+            )
+
     def clean(self):
         cleaned = super().clean()
         date_debut = cleaned.get("date_debut")
@@ -443,7 +576,7 @@ class PointageFilterForm(forms.Form):
 
 
 # ===========================================================================
-# RH — Paid leave (CongeEmploye)  (BR-RH-03)
+# RH — Paid leave (CongeEmploye)  (BR-RH-03 / BR-BRA-09)
 # ===========================================================================
 
 
@@ -451,6 +584,9 @@ class CongeEmployeForm(forms.ModelForm):
     """
     Record a paid-leave block. `nb_jours` is computed automatically on save
     (see CongeEmploye.save()) and is therefore excluded from the form.
+
+    Pass `branche=<Branche instance>` from the view to scope the `employe`
+    choices (BR-BRA-09).
     """
 
     class Meta:
@@ -462,11 +598,12 @@ class CongeEmployeForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 2}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["employe"].queryset = Employe.objects.filter(actif=True).order_by(
-            "nom_complet"
-        )
+        employe_qs = Employe.objects.filter(actif=True).order_by("nom_complet")
+        if branche:
+            employe_qs = employe_qs.filter(batiment__branche=branche)
+        self.fields["employe"].queryset = employe_qs
         self.fields["motif"].required = False
         self.fields["notes"].required = False
 
@@ -482,11 +619,16 @@ class CongeEmployeForm(forms.ModelForm):
 
 
 # ===========================================================================
-# RH — Salary advances (AcompteEmploye)  (BR-RH-04)
+# RH — Salary advances (AcompteEmploye)  (BR-RH-04 / BR-BRA-09)
 # ===========================================================================
 
 
 class AcompteEmployeForm(forms.ModelForm):
+    """
+    Pass `branche=<Branche instance>` from the view to scope the `employe`
+    choices (BR-BRA-09).
+    """
+
     class Meta:
         model = AcompteEmploye
         fields = ["employe", "date", "montant", "mode_paiement", "motif", "notes"]
@@ -496,11 +638,12 @@ class AcompteEmployeForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 2}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["employe"].queryset = Employe.objects.filter(actif=True).order_by(
-            "nom_complet"
-        )
+        employe_qs = Employe.objects.filter(actif=True).order_by("nom_complet")
+        if branche:
+            employe_qs = employe_qs.filter(batiment__branche=branche)
+        self.fields["employe"].queryset = employe_qs
         self.fields["motif"].required = False
         self.fields["notes"].required = False
 
@@ -518,7 +661,7 @@ class AcompteEmployeForm(forms.ModelForm):
 
 
 # ===========================================================================
-# RH — Payroll (BulletinPaie)  (BR-RH-02 / BR-RH-05)
+# RH — Payroll (BulletinPaie)  (BR-RH-02 / BR-RH-05 / BR-BRA-09)
 # ===========================================================================
 
 
@@ -526,6 +669,9 @@ class GenererBulletinPaieForm(forms.Form):
     """
     Non-model form: select employee + period to (re)compute a payslip via
     depenses.utils.calculer_donnees_paie(). The view persists the result.
+
+    Pass `branche=<Branche instance>` from the view to scope the `employe`
+    choices (BR-BRA-09).
     """
 
     employe = forms.ModelChoiceField(
@@ -535,9 +681,20 @@ class GenererBulletinPaieForm(forms.Form):
     annee = forms.IntegerField(label="السنة", min_value=2000, max_value=2100)
     mois = forms.IntegerField(label="الشهر", min_value=1, max_value=12)
 
+    def __init__(self, *args, branche=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if branche:
+            self.fields["employe"].queryset = self.fields["employe"].queryset.filter(
+                batiment__branche=branche
+            )
+
 
 class BulletinPaiementForm(forms.ModelForm):
-    """Mark a payslip as paid: date + payment method only."""
+    """
+    Mark a payslip as paid: date + payment method only.
+    No `branche` kwarg needed — no FK picker to scope, and the payslip's
+    employee is already fixed by the time this form is used.
+    """
 
     class Meta:
         model = BulletinPaie
@@ -555,7 +712,11 @@ class BulletinPaiementForm(forms.ModelForm):
 
 
 class RHFilterForm(forms.Form):
-    """Non-model filter form for RH list views (pointage / bulletins)."""
+    """
+    Non-model filter form for RH list views (pointage / bulletins).
+    Pass `branche=<Branche instance>` from the view to scope the `employe`
+    choices (BR-BRA-09).
+    """
 
     employe = forms.ModelChoiceField(
         queryset=Employe.objects.order_by("nom_complet"),
@@ -567,3 +728,10 @@ class RHFilterForm(forms.Form):
         required=False, label="السنة", min_value=2000, max_value=2100
     )
     mois = forms.IntegerField(required=False, label="الشهر", min_value=1, max_value=12)
+
+    def __init__(self, *args, branche=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if branche:
+            self.fields["employe"].queryset = self.fields["employe"].queryset.filter(
+                batiment__branche=branche
+            )

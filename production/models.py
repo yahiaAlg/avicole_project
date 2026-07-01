@@ -77,8 +77,18 @@ class ProduitFini(models.Model):
 
     @property
     def quantite_en_stock(self):
+        """
+        v1.4 — Vue Globale total: StockProduitFini is now one row per
+        (branche, produit_fini) pair (BR-BRA-07). Use
+        `quantite_en_stock_branche(branche)` to read a single branch's
+        balance instead.
+        """
+        result = self.stocks.aggregate(total=models.Sum("quantite"))["total"]
+        return result or 0
+
+    def quantite_en_stock_branche(self, branche):
         try:
-            return self.stock.quantite
+            return self.stocks.get(branche=branche).quantite
         except Exception:
             return 0
 
@@ -104,6 +114,15 @@ class ProductionRecord(models.Model):
         on_delete=models.PROTECT,
         related_name="productions",
         verbose_name="دفعة التربية",
+    )
+    # v1.4 — denormalized from lot.branche for direct filtering (BR-BRA-01);
+    # kept in sync automatically in save(), never set by hand.
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="productions",
+        verbose_name="الفرع",
+        editable=False,
     )
     date_production = models.DateField(verbose_name="تاريخ الإنتاج / الذبح")
     nombre_oiseaux_abattus = models.PositiveIntegerField(
@@ -166,6 +185,9 @@ class ProductionRecord(models.Model):
             )
 
     def save(self, *args, **kwargs):
+        # v1.4 — branche always mirrors the lot's branche (BR-BRA-01).
+        if self.lot_id:
+            self.branche_id = self.lot.branche_id
         # Auto-compute average weight when total weight is provided.
         if self.poids_total_kg and self.nombre_oiseaux_abattus:
             self.poids_moyen_kg = round(
@@ -249,6 +271,15 @@ class CollecteFertilisant(models.Model):
         related_name="collectes_fertilisant",
         verbose_name="المبنى",
     )
+    # v1.4 — denormalized from batiment.branche for direct filtering
+    # (BR-BRA-01); kept in sync automatically in save(), never set by hand.
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="collectes_fertilisant",
+        verbose_name="الفرع",
+        editable=False,
+    )
     date_collecte = models.DateField(verbose_name="تاريخ الجمع")
     quantite_brute_kg = models.DecimalField(
         max_digits=12,
@@ -292,6 +323,20 @@ class CollecteFertilisant(models.Model):
     def clean(self):
         from django.core.exceptions import ValidationError
 
+        # v1.4 — a treatment batch is single-branche; every raw collecte
+        # assigned to it must come from a bâtiment in that same branche
+        # (BR-BRA-01). This guards the aggregate quantite_brute_totale_kg /
+        # cout calculations from silently mixing two branches together.
+        if (
+            self.traitement_id
+            and self.batiment_id
+            and self.batiment.branche_id != self.traitement.branche_id
+        ):
+            raise ValidationError(
+                "BR-BRA-01 : ce bâtiment n'appartient pas à la même branche "
+                "que le traitement sélectionné."
+            )
+
         if self.traitement_id and self.pk:
             original = CollecteFertilisant.objects.filter(pk=self.pk).first()
             if (
@@ -304,6 +349,12 @@ class CollecteFertilisant(models.Model):
                     "Impossible de réaffecter une collecte déjà incluse dans "
                     "un traitement validé."
                 )
+
+    def save(self, *args, **kwargs):
+        # v1.4 — branche always mirrors the bâtiment's branche (BR-BRA-01).
+        if self.batiment_id:
+            self.branche_id = self.batiment.branche_id
+        super().save(*args, **kwargs)
 
 
 class TraitementFertilisant(models.Model):
@@ -325,6 +376,17 @@ class TraitementFertilisant(models.Model):
     ]
 
     date_traitement = models.DateField(verbose_name="تاريخ المعالجة")
+    # v1.4 — explicit, since a treatment batch is created before its raw
+    # collectes are necessarily assigned; CollecteFertilisant.clean()
+    # guards that every assigned collecte's bâtiment matches this branche
+    # (BR-BRA-01). The resulting StockProduitFini credit lands in this
+    # branche's stock row.
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="traitements_fertilisant",
+        verbose_name="الفرع",
+    )
     methode = models.CharField(
         max_length=255,
         blank=True,

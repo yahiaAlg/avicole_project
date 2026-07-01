@@ -66,6 +66,7 @@
         <tr>
           <th>التاريخ</th>
           <th>المورد</th>
+          {% if not active_branche %}<th>الفرع</th>{% endif %}
           <th>طريقة الدفع</th>
           <th>مرجع الدفع</th>
           <th style="text-align:left;">المبلغ</th>
@@ -82,6 +83,7 @@
               {{ reg.fournisseur.nom }}
             </a>
           </td>
+          {% if not active_branche %}<td style="color:var(--text-muted);">{{ reg.branche.nom }}</td>{% endif %}
           <td>
             <span class="mode-badge mode-{{ reg.mode_paiement }}">
               {% if reg.mode_paiement == "especes" %}<i class="bx bxs-coin"></i>

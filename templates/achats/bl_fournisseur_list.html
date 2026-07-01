@@ -85,6 +85,7 @@
           <th>المرجع</th>
           <th>النوع</th>
           <th>المورد</th>
+          {% if not active_branche %}<th>الفرع</th>{% endif %}
           <th>التاريخ</th>
           <th>مرجع المورد</th>
           <th>الحالة</th>
@@ -111,6 +112,7 @@
           <td>
             <span style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ bl.fournisseur.nom }}</span>
           </td>
+          {% if not active_branche %}<td style="color:var(--text-muted);">{{ bl.branche.nom }}</td>{% endif %}
           <td style="color:var(--text-muted);">{{ bl.date_bl|date:"d/m/Y" }}</td>
           <td style="color:var(--text-muted);">{{ bl.reference_fournisseur|default:"—" }}</td>
           <td>

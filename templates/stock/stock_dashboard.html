@@ -102,7 +102,9 @@
               <tr style="--row-i:{{ forloop.counter0 }};">
                 <td>
                   <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:var(--text-primary);">{{ s.intrant.designation }}</div>
-                  <div style="font-size:11px;color:var(--text-muted);">{{ s.intrant.categorie.libelle }}</div>
+                  <div style="font-size:11px;color:var(--text-muted);">
+                    {{ s.intrant.categorie.libelle }}{% if vue_globale %} — <i class="bx bxs-buildings"></i> {{ s.branche.nom }}{% endif %}
+                  </div>
                 </td>
                 <td>
                   <span style="font-family:'Nunito',sans-serif;font-weight:800;color:#dc2626;font-size:14px;">{{ s.quantite|floatformat:2 }}</span>
@@ -146,7 +148,9 @@
               <tr style="--row-i:{{ forloop.counter0 }};">
                 <td>
                   <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:var(--text-primary);">{{ s.produit_fini.designation }}</div>
-                  <div style="font-size:11px;color:var(--text-muted);">{{ s.produit_fini.get_type_produit_display }}</div>
+                  <div style="font-size:11px;color:var(--text-muted);">
+                    {{ s.produit_fini.get_type_produit_display }}{% if vue_globale %} — <i class="bx bxs-buildings"></i> {{ s.branche.nom }}{% endif %}
+                  </div>
                 </td>
                 <td>
                   <span style="font-family:'Nunito',sans-serif;font-weight:800;color:#dc2626;font-size:14px;">{{ s.quantite|floatformat:2 }}</span>
@@ -198,8 +202,10 @@
                   <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:var(--text-primary);">
                     {% if m.intrant %}{{ m.intrant.designation }}{% elif m.produit_fini %}{{ m.produit_fini.designation }}{% endif %}
                   </div>
-                  {% if m.reference_label %}
-                  <div style="font-size:11px;color:var(--text-muted);">{{ m.reference_label }}</div>
+                  {% if m.reference_label or vue_globale %}
+                  <div style="font-size:11px;color:var(--text-muted);">
+                    {{ m.reference_label }}{% if m.reference_label and vue_globale %} — {% endif %}{% if vue_globale %}<i class="bx bxs-buildings"></i> {{ m.branche.nom }}{% endif %}
+                  </div>
                   {% endif %}
                 </td>
                 <td>

@@ -17,6 +17,10 @@ Business rules enforced here:
     applying a delta, so the physical-count value is authoritative.
   - A StockMouvement of type AJUSTEMENT is always created for auditability,
     regardless of whether the delta is positive or negative.
+  - v1.4 (BR-BRA-07): StockIntrant / StockProduitFini are keyed by
+    (branche, item), not by item alone. StockAjustement.branche is required
+    and explicit — it identifies which branch's stock row is being
+    corrected, and is propagated to the resulting StockMouvement.
 """
 
 import logging
@@ -34,9 +38,11 @@ logger = logging.getLogger(__name__)
 def stock_ajustement_post_save(sender, instance, created, **kwargs):
     """
     On creation of a StockAjustement:
-      1. Determine the target stock record (StockIntrant or StockProduitFini).
+      1. Determine the target stock record (StockIntrant or StockProduitFini)
+         for instance.branche.
       2. Overwrite its quantite with instance.quantite_apres.
-      3. Create a StockMouvement (AJUSTEMENT) preserving before/after values.
+      3. Create a StockMouvement (AJUSTEMENT) preserving before/after values,
+         scoped to the same branche.
 
     Subsequent saves of the same StockAjustement are no-ops (immutability).
     """
@@ -46,6 +52,7 @@ def stock_ajustement_post_save(sender, instance, created, **kwargs):
     from stock.models import StockIntrant, StockProduitFini, StockMouvement
 
     segment = instance.segment
+    branche = instance.branche
 
     # ── Resolve target stock record ─────────────────────────────────────────
     if segment == StockAjustement.SEGMENT_INTRANT:
@@ -58,6 +65,7 @@ def stock_ajustement_post_save(sender, instance, created, **kwargs):
             return
 
         stock, _ = StockIntrant.objects.get_or_create(
+            branche=branche,
             intrant_id=instance.intrant_id,
             defaults={"quantite": Decimal("0"), "prix_moyen_pondere": Decimal("0")},
         )
@@ -74,6 +82,7 @@ def stock_ajustement_post_save(sender, instance, created, **kwargs):
             return
 
         stock, _ = StockProduitFini.objects.get_or_create(
+            branche=branche,
             produit_fini_id=instance.produit_fini_id,
             defaults={
                 "quantite": Decimal("0"),
@@ -98,13 +107,14 @@ def stock_ajustement_post_save(sender, instance, created, **kwargs):
     stock.save(update_fields=["quantite", "derniere_mise_a_jour"])
 
     logger.info(
-        "StockAjustement pk=%s applied: %s → %s → %s (segment=%s, item pk=%s).",
+        "StockAjustement pk=%s applied: %s → %s → %s (segment=%s, item pk=%s, branche=%s).",
         instance.pk,
         instance.quantite_avant,
         instance.quantite_apres,
         stock.quantite,
         segment,
         instance.intrant_id or instance.produit_fini_id,
+        branche.code,
     )
 
     # ── Determine mouvement type based on delta sign ────────────────────────
@@ -124,6 +134,7 @@ def stock_ajustement_post_save(sender, instance, created, **kwargs):
     )
 
     StockMouvement.objects.create(
+        branche=branche,
         intrant=intrant_ref,
         produit_fini=produit_ref,
         type_mouvement=type_mouvement,

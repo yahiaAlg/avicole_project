@@ -97,8 +97,9 @@ class Command(BaseCommand):
 
         # ── Categories & company (always seeded — safe to run on a blank DB) ──
         self._seed_company()
+        branches = self._seed_branches()
         self._seed_parametrage_elevage()
-        self._seed_users()
+        self._seed_users(branches)
         categories_intrant = self._seed_categories_intrant()
         types_fournisseur = self._seed_types_fournisseur()
         categories_depense = self._seed_categories_depense()
@@ -119,31 +120,31 @@ class Command(BaseCommand):
         # ── Physical master data (demo mode only) ────────────────────────
         fournisseurs = self._seed_fournisseurs(types_fournisseur)
         clients = self._seed_clients()
-        batiments = self._seed_batiments()
+        batiments = self._seed_batiments(branches)
         intrants = self._seed_intrants(categories_intrant, fournisseurs)
 
         # ── Operational / demo data ──────────────────────────────────────
-        self._seed_stock_initial(intrants)
-        bl_fournisseurs = self._seed_bl_fournisseurs(fournisseurs, intrants)
+        self._seed_stock_initial(intrants, branches)
+        bl_fournisseurs = self._seed_bl_fournisseurs(fournisseurs, intrants, branches)
         factures_fournisseur = self._seed_factures_fournisseur(
-            fournisseurs, bl_fournisseurs
+            fournisseurs, bl_fournisseurs, branches
         )
-        self._seed_reglements_fournisseur(fournisseurs, factures_fournisseur)
+        self._seed_reglements_fournisseur(fournisseurs, factures_fournisseur, branches)
 
         lots = self._seed_lots(fournisseurs, batiments)
         self._seed_mortalites(lots)
         self._seed_consommations(lots, intrants)
         productions = self._seed_productions(lots, produits_finis)
 
-        bl_clients = self._seed_bl_clients(clients, produits_finis)
-        factures_client = self._seed_factures_client(clients, bl_clients)
-        self._seed_paiements_client(clients, factures_client)
+        bl_clients = self._seed_bl_clients(clients, produits_finis, branches)
+        factures_client = self._seed_factures_client(clients, bl_clients, branches)
+        self._seed_paiements_client(clients, factures_client, branches)
         self._seed_prix_marche(produits_finis)
 
-        self._seed_depenses(categories_depense, lots, factures_fournisseur)
+        self._seed_depenses(categories_depense, lots, factures_fournisseur, branches)
         self._seed_associes()
         self._seed_employes_rh(batiments)
-        self._seed_fertilisants(batiments)
+        self._seed_fertilisants(batiments, branches)
 
         self.stdout.write(self.style.SUCCESS("\n✓ Full demo seed complete.\n"))
 
@@ -273,7 +274,7 @@ class Command(BaseCommand):
             from production.models import ProduitFini
             from depenses.models import CategorieDepense
             from clients.models import Client
-            from core.models import CompanyInfo, UserProfile
+            from core.models import CompanyInfo, UserProfile, Branche
             from elevage.models import ParametrageElevage
 
             Intrant.objects.all().delete()
@@ -289,12 +290,54 @@ class Command(BaseCommand):
             User.objects.filter(is_superuser=False).delete()
             CompanyInfo.objects.all().delete()
             ParametrageElevage.objects.all().delete()
+            # Branche last — Batiment (PROTECT) and UserProfile (PROTECT)
+            # both reference it and are already cleared above (BR-BRA-01/02).
+            Branche.objects.all().delete()
 
         self.stdout.write("  Done.\n")
 
     # ------------------------------------------------------------------
     # ── MASTER DATA ────────────────────────────────────────────────────
     # ------------------------------------------------------------------
+
+    def _seed_branches(self):
+        """
+        Seed the two operational branches the rest of the demo data is
+        scoped to (v1.4, BR-BRA-01/05):
+          - STF : the original/main site — keeps almost all of the legacy
+                  single-branch demo data (bâtiments A/B, Poussinière 1,
+                  the fertilisant warehouse, every lot/BL/facture below).
+          - BBA : a smaller second site used to prove branch isolation
+                  actually works (its own bâtiment, lot, stock, BL, dépense).
+
+        `chef_de_branche` is wired up in _seed_users(), once the chef de
+        branche user accounts (and their profiles) exist — Branche.clean()
+        requires the assigned user to already carry the 'chef_branche' role.
+        """
+        from core.models import Branche
+
+        specs = [
+            dict(
+                nom="الفرع الرئيسي — سطيف",
+                code="STF",
+                wilaya="Setifien",
+                adresse="Zone Industrielle, Route Nationale 12",
+                telephone="0555 123 456",
+            ),
+            dict(
+                nom="فرع برج بوعريريج",
+                code="BBA",
+                wilaya="Bordj Bou Arréridj",
+                adresse="Zone d'Activité, Route de Sétif",
+                telephone="0555 222 333",
+            ),
+        ]
+        result = {}
+        for s in specs:
+            obj, _ = Branche.objects.get_or_create(code=s["code"], defaults=s)
+            result[s["code"]] = obj
+        self._log(f"Branches ({len(specs)})", True)
+        return result
 
     def _seed_company(self):
         from core.models import CompanyInfo
@@ -352,9 +395,15 @@ class Command(BaseCommand):
         self._log("ParametrageElevage", created)
         return obj
 
-    def _seed_users(self):
+    def _seed_users(self, branches):
         from core.models import UserProfile
 
+        stf = branches["STF"]
+        bba = branches["BBA"]
+
+        # role/branche per BR-BRA-02/03: chef_branche and operateur are
+        # REQUIRED to carry a branche; admin/manager are never bound;
+        # comptable is left unbound here too (= Vue Globale, BR-BRA-04).
         users_spec = [
             dict(
                 username="admin",
@@ -364,6 +413,7 @@ class Command(BaseCommand):
                 is_superuser=True,
                 is_staff=True,
                 role="admin",
+                branche=None,
                 password="admin1234",
             ),
             dict(
@@ -374,7 +424,19 @@ class Command(BaseCommand):
                 is_superuser=False,
                 is_staff=True,
                 role="manager",
+                branche=None,
                 password="gerant1234",
+            ),
+            dict(
+                username="chef_stf",
+                first_name="Rachid",
+                last_name="Belkacem",
+                email="chef.stf@avicole.dz",
+                is_superuser=False,
+                is_staff=True,
+                role="chef_branche",
+                branche=stf,
+                password="chefstf1234",
             ),
             dict(
                 username="operateur1",
@@ -384,7 +446,19 @@ class Command(BaseCommand):
                 is_superuser=False,
                 is_staff=False,
                 role="operateur",
+                branche=stf,
                 password="op1_1234",
+            ),
+            dict(
+                username="chef_bba",
+                first_name="Fatiha",
+                last_name="Cherif",
+                email="chef.bba@avicole.dz",
+                is_superuser=False,
+                is_staff=True,
+                role="chef_branche",
+                branche=bba,
+                password="chefbba1234",
             ),
             dict(
                 username="comptable",
@@ -394,13 +468,16 @@ class Command(BaseCommand):
                 is_superuser=False,
                 is_staff=False,
                 role="comptable",
+                branche=None,
                 password="compta1234",
             ),
         ]
         created_count = 0
         for spec in users_spec:
+            spec = dict(spec)
             role = spec.pop("role")
             password = spec.pop("password")
+            branche = spec.pop("branche")
             user, created = User.objects.get_or_create(
                 username=spec["username"],
                 defaults=spec,
@@ -409,8 +486,22 @@ class Command(BaseCommand):
                 user.set_password(password)
                 user.save()
                 created_count += 1
-            UserProfile.objects.get_or_create(user=user, defaults={"role": role})
-        self._log(f"Users ({len(users_spec)})", created_count > 0)
+            UserProfile.objects.get_or_create(
+                user=user, defaults={"role": role, "branche": branche}
+            )
+
+        # ── Wire the chef_de_branche back-reference (BR-BRA-02) ──────────
+        # Branche.clean() requires the assigned user to already hold the
+        # 'chef_branche' role, so this can only happen now that profiles
+        # exist above.
+        for code, username in (("STF", "chef_stf"), ("BBA", "chef_bba")):
+            branche = branches[code]
+            if not branche.chef_de_branche_id:
+                branche.chef_de_branche = User.objects.get(username=username)
+                branche.full_clean()
+                branche.save()
+
+        self._log(f"Users ({len(users_spec)}) + chefs de branche", created_count > 0)
 
     # ------------------------------------------------------------------
 
@@ -742,44 +833,60 @@ class Command(BaseCommand):
         self._log(f"Clients ({len(specs)})", True)
         return result
 
-    def _seed_batiments(self):
+    def _seed_batiments(self, branches):
         """
         Seed one of each building type:
-          - Bâtiment A / B  : Poulailler   (grow-out / production buildings)
+          - Bâtiment A / B  : Poulailler   (grow-out / production buildings) — STF
           - Poussinière 1   : Poussinière  (brooding — chicks start here, transfer to
-                              Poulailler once they exceed ParametrageElevage.age_transfert)
-          - Entrepôt Fertilisant : Entrepôt (fertiliser storage — requires categorie_stockage)
+                              Poulailler once they exceed ParametrageElevage.age_transfert) — STF
+          - Entrepôt Fertilisant : Entrepôt (fertiliser storage — requires categorie_stockage) — STF
+          - Bâtiment C      : Poulailler — BBA's own building, used to prove
+                              branch isolation (BR-BRA-01/07) end to end.
 
         Using the typed model prevents downstream logic errors in LotElevage.phase,
         doit_etre_transfere, and stade_intrant_attendu.
         """
         from intrants.models import Batiment
 
+        stf = branches["STF"]
+        bba = branches["BBA"]
+
         specs = [
             dict(
                 nom="Bâtiment A",
+                branche=stf,
                 type_batiment=Batiment.TYPE_POULAILLER,
                 capacite=5000,
                 description="الحظيرة الرئيسية — تهوية ميكانيكية",
             ),
             dict(
                 nom="Bâtiment B",
+                branche=stf,
                 type_batiment=Batiment.TYPE_POULAILLER,
                 capacite=4000,
                 description="الحظيرة الثانوية — تهوية طبيعية",
             ),
             dict(
                 nom="Poussinière 1",
+                branche=stf,
                 type_batiment=Batiment.TYPE_POUSSINIERE,
                 capacite=10000,
                 description="حضانة الكتاكيت — الدفعات تبدأ هنا وتُنقل بعد بلوغ سن النقل",
             ),
             dict(
                 nom="Entrepôt Fertilisant",
+                branche=stf,
                 type_batiment=Batiment.TYPE_ENTREPOT,
                 categorie_stockage=Batiment.STOCKAGE_FERTILISANT,
                 capacite=None,
                 description="مستودع تخزين السماد المعالج قبل الشحن",
+            ),
+            dict(
+                nom="Bâtiment C",
+                branche=bba,
+                type_batiment=Batiment.TYPE_POULAILLER,
+                capacite=2500,
+                description="الحظيرة الرئيسية — فرع برج بوعريريج",
             ),
         ]
         result = {}
@@ -1000,7 +1107,7 @@ class Command(BaseCommand):
     # ── OPERATIONAL / DEMO DATA ────────────────────────────────────────
     # ------------------------------------------------------------------
 
-    def _seed_fertilisants(self, batiments):
+    def _seed_fertilisants(self, batiments, branches):
         """
         Seed CollecteFertilisant (raw manure pickups) and one validated
         TraitementFertilisant batch that produces finished fertilizer stock.
@@ -1014,6 +1121,7 @@ class Command(BaseCommand):
         )
 
         admin = User.objects.filter(is_superuser=True).first()
+        stf = branches["STF"]
         bat_a = batiments.get("Bâtiment A")
         bat_b = batiments.get("Bâtiment B")
         prod_fert = ProduitFini.objects.filter(
@@ -1028,6 +1136,7 @@ class Command(BaseCommand):
         trt, trt_created = TraitementFertilisant.objects.get_or_create(
             date_traitement=d(18),
             defaults=dict(
+                branche=stf,
                 methode="تجفيف طبيعي في الهواء الطلق",
                 produit_fini=prod_fert,
                 quantite_obtenue_kg=Decimal("820.000"),
@@ -1063,6 +1172,7 @@ class Command(BaseCommand):
         trt2, trt2_created = TraitementFertilisant.objects.get_or_create(
             date_traitement=d(3),
             defaults=dict(
+                branche=stf,
                 methode="تخمير (compostage)",
                 produit_fini=prod_fert,
                 quantite_obtenue_kg=Decimal("0.000"),
@@ -1335,49 +1445,83 @@ class Command(BaseCommand):
 
     # ------------------------------------------------------------------
 
-    def _seed_stock_initial(self, intrants):
+    def _seed_stock_initial(self, intrants, branches):
         """
-        Bootstrap StockIntrant rows (one-to-one with each Intrant).
-        The balance here represents opening stock BEFORE any BL.
-        In a real migration you'd use StockAjustement records instead;
-        for seeding we write directly to stay simple.
+        Bootstrap StockIntrant rows for each (branche, intrant) pair
+        (v1.4, BR-BRA-07 — the unique key is now (branche, intrant), not
+        intrant alone). The balance here represents opening stock BEFORE
+        any BL. In a real migration you'd use StockAjustement records
+        instead; for seeding we write directly to stay simple.
         """
         from stock.models import StockIntrant
 
-        opening = {
-            "ALIM-DEM": (Decimal("80"), Decimal("1850.00")),
-            "ALIM-CRO": (Decimal("120"), Decimal("1750.00")),
-            "ALIM-FIN": (Decimal("60"), Decimal("1700.00")),
-            "POUSS-R308": (Decimal("0"), Decimal("0")),
-            "POUSS-C500": (Decimal("0"), Decimal("0")),
-            "MED-NEWC": (Decimal("2000"), Decimal("18.50")),
-            "MED-GCOR": (Decimal("1500"), Decimal("22.00")),
-            "MED-AMOX": (Decimal("800"), Decimal("45.00")),
-            "MED-VITA": (Decimal("20"), Decimal("1200.00")),
-            "AUT-LITIERE": (Decimal("30"), Decimal("600.00")),
+        opening_by_branche = {
+            "STF": {
+                "ALIM-DEM": (Decimal("80"), Decimal("1850.00")),
+                "ALIM-CRO": (Decimal("120"), Decimal("1750.00")),
+                "ALIM-FIN": (Decimal("60"), Decimal("1700.00")),
+                "POUSS-R308": (Decimal("0"), Decimal("0")),
+                "POUSS-C500": (Decimal("0"), Decimal("0")),
+                "MED-NEWC": (Decimal("2000"), Decimal("18.50")),
+                "MED-GCOR": (Decimal("1500"), Decimal("22.00")),
+                "MED-AMOX": (Decimal("800"), Decimal("45.00")),
+                "MED-VITA": (Decimal("20"), Decimal("1200.00")),
+                "AUT-LITIERE": (Decimal("30"), Decimal("600.00")),
+            },
+            # BBA is a smaller site — proportionally smaller opening stock,
+            # but with enough headroom on MED-NEWC/MED-VITA to cover the
+            # vaccination doses its own lot will consume (see
+            # _seed_consommations) without going negative.
+            "BBA": {
+                "ALIM-DEM": (Decimal("30"), Decimal("1860.00")),
+                "ALIM-CRO": (Decimal("20"), Decimal("1760.00")),
+                "ALIM-FIN": (Decimal("0"), Decimal("0")),
+                "POUSS-R308": (Decimal("0"), Decimal("0")),
+                "POUSS-C500": (Decimal("0"), Decimal("0")),
+                "MED-NEWC": (Decimal("1800"), Decimal("19.00")),
+                "MED-GCOR": (Decimal("400"), Decimal("22.50")),
+                "MED-AMOX": (Decimal("200"), Decimal("46.00")),
+                "MED-VITA": (Decimal("6"), Decimal("1210.00")),
+                "AUT-LITIERE": (Decimal("10"), Decimal("610.00")),
+            },
         }
-        for code, intrant in intrants.items():
-            qty, pmp = opening.get(code, (Decimal("0"), Decimal("0")))
-            # update_or_create (not get_or_create) so we overwrite the
-            # zero-balance StockIntrant that the Intrant post_save signal
-            # auto-creates on every new catalogue entry.  Using get_or_create
-            # would silently leave every opening balance at 0.
-            StockIntrant.objects.update_or_create(
-                intrant=intrant,
-                defaults={"quantite": qty, "prix_moyen_pondere": pmp},
-            )
-        self._log(f"StockIntrant (opening balances for {len(opening)} intrants)", True)
+
+        total = 0
+        for code_branche, opening in opening_by_branche.items():
+            branche = branches[code_branche]
+            for code, intrant in intrants.items():
+                qty, pmp = opening.get(code, (Decimal("0"), Decimal("0")))
+                # update_or_create (not get_or_create) so we overwrite the
+                # zero-balance StockIntrant that the Branche/Intrant
+                # post_save signals auto-create for every (branche, intrant)
+                # pair. Using get_or_create would silently leave every
+                # opening balance at 0.
+                StockIntrant.objects.update_or_create(
+                    branche=branche,
+                    intrant=intrant,
+                    defaults={"quantite": qty, "prix_moyen_pondere": pmp},
+                )
+                total += 1
+        self._log(
+            f"StockIntrant (opening balances — {total} branche×intrant rows)", True
+        )
 
     # ------------------------------------------------------------------
 
-    def _seed_bl_fournisseurs(self, fournisseurs, intrants):
+    def _seed_bl_fournisseurs(self, fournisseurs, intrants, branches):
         """
         Create 7 BL Fournisseurs covering aliments, poussins, and médicaments.
         2 are in 'reçu' state (ready to invoice), 2 are already 'facturé',
         1 is still a 'brouillon', 1 is 'en litige', 1 is 'autorisation_acces'.
+
+        All 7 are scoped to the STF branche (BR-BRA-01) — BBA's stock is
+        seeded directly as an opening balance in _seed_stock_initial instead
+        of via its own delivery chain, to keep this demo dataset lean.
         """
         from achats.models import BLFournisseur, BLFournisseurLigne
         from stock.models import StockIntrant
+
+        stf = branches["STF"]
 
         bl_specs = [
             dict(
@@ -1468,6 +1612,7 @@ class Command(BaseCommand):
             bl, created = BLFournisseur.objects.get_or_create(
                 reference=spec["ref"],
                 defaults=dict(
+                    branche=stf,
                     fournisseur=fournisseurs[spec["fnom"]],
                     date_bl=d(spec["date_ago"]),
                     statut=spec["statut"],
@@ -1488,6 +1633,7 @@ class Command(BaseCommand):
                         BLFournisseur.STATUT_FACTURE,
                     ):
                         si, _ = StockIntrant.objects.get_or_create(
+                            branche=stf,
                             intrant=intrants[icode],
                             defaults={
                                 "quantite": Decimal("0"),
@@ -1509,7 +1655,7 @@ class Command(BaseCommand):
         self._log(f"BLFournisseurs ({len(bl_specs)})", True)
         return result
 
-    def _seed_factures_fournisseur(self, fournisseurs, bls):
+    def _seed_factures_fournisseur(self, fournisseurs, bls, branches):
         """
         Create 2 Factures Fournisseurs from the 'facture'-status BLs.
         One fully paid, one partially paid.
@@ -1517,6 +1663,7 @@ class Command(BaseCommand):
         from achats.models import FactureFournisseur
 
         admin = User.objects.filter(is_superuser=True).first()
+        stf = branches["STF"]
 
         # Compute montant from BLs
         bl1 = bls["BLF-2025-001"]
@@ -1531,6 +1678,7 @@ class Command(BaseCommand):
         f1, created = FactureFournisseur.objects.get_or_create(
             reference="FRN-2025-001",
             defaults=dict(
+                branche=stf,
                 fournisseur=fournisseurs["ONAB Setifien"],
                 date_facture=d(58),
                 date_echeance=d(28),
@@ -1550,6 +1698,7 @@ class Command(BaseCommand):
         f2, created = FactureFournisseur.objects.get_or_create(
             reference="FRN-2025-002",
             defaults=dict(
+                branche=stf,
                 fournisseur=fournisseurs["Couvoirs du Centre — CCA"],
                 date_facture=d(53),
                 date_echeance=d(23),
@@ -1569,6 +1718,7 @@ class Command(BaseCommand):
         f3, created = FactureFournisseur.objects.get_or_create(
             reference="FRN-2025-003",
             defaults=dict(
+                branche=stf,
                 fournisseur=fournisseurs["Techno-Avicole Services"],
                 date_facture=d(15),
                 date_echeance=d(1),
@@ -1585,7 +1735,7 @@ class Command(BaseCommand):
         self._log("FacturesFournisseurs (3)", True)
         return result
 
-    def _seed_reglements_fournisseur(self, fournisseurs, factures):
+    def _seed_reglements_fournisseur(self, fournisseurs, factures, branches):
         """
         Seed règlements + allocations for the supplier settlement chain.
         Simulates the FIFO engine output manually.
@@ -1593,6 +1743,7 @@ class Command(BaseCommand):
         from achats.models import ReglementFournisseur, AllocationReglement
 
         admin = User.objects.filter(is_superuser=True).first()
+        stf = branches["STF"]
 
         f1 = factures["FRN-2025-001"]
         f2 = factures["FRN-2025-002"]
@@ -1602,6 +1753,7 @@ class Command(BaseCommand):
             fournisseur=fournisseurs["ONAB Setifien"],
             date_reglement=d(40),
             defaults=dict(
+                branche=stf,
                 montant=f1.montant_total,
                 mode_paiement="cheque",
                 reference_paiement="CHQ-0012345",
@@ -1618,6 +1770,7 @@ class Command(BaseCommand):
             fournisseur=fournisseurs["Couvoirs du Centre — CCA"],
             date_reglement=d(35),
             defaults=dict(
+                branche=stf,
                 montant=f2.montant_regle,
                 mode_paiement="especes",
                 created_by=admin,
@@ -1634,10 +1787,12 @@ class Command(BaseCommand):
 
     def _seed_lots(self, fournisseurs, batiments):
         """
-        Seed 3 lots:
+        Seed 4 lots:
           - Lot A (fermé, 75 days ago) — started in Poussinière, already transferred
           - Lot B (ouvert, 40 days ago) — in Bâtiment A (poulailler), active production
           - Lot C (ouvert, 10 days ago) — in Poussinière 1, not yet mature for transfer
+          - Lot D (ouvert, 12 days ago) — in Bâtiment C, BBA branche (BR-BRA-01
+            isolation demo — `branche` is auto-derived from `batiment` in save()).
         """
         from elevage.models import LotElevage
 
@@ -1673,6 +1828,16 @@ class Command(BaseCommand):
                 nombre_poussins_initial=6000,
                 fournisseur_poussins=cca,
                 batiment=batiments["Poussinière 1"],
+                souche="Ross 308",
+            ),
+            dict(
+                designation="Lot Mai 2025 — Bâtiment C",
+                date_ouverture=d(12),
+                date_fermeture=None,
+                statut=LotElevage.STATUT_OUVERT,
+                nombre_poussins_initial=1500,
+                fournisseur_poussins=cca,
+                batiment=batiments["Bâtiment C"],
                 souche="Ross 308",
             ),
         ]
@@ -1711,6 +1876,10 @@ class Command(BaseCommand):
             "Lot Avril 2025 — Poussinière 1": [
                 (8, 15, "Mort-né / faiblesse"),
                 (5, 7, ""),
+            ],
+            "Lot Mai 2025 — Bâtiment C": [
+                (10, 6, "Mort-né / faiblesse"),
+                (6, 3, ""),
             ],
         }
 
@@ -1780,6 +1949,7 @@ class Command(BaseCommand):
             "Lot Janvier 2025 — Bâtiment A": (75, 30, 5000),
             "Lot Mars 2025 — Bâtiment A": (40, None, 4000),
             "Lot Avril 2025 — Poussinière 1": (10, None, 6000),
+            "Lot Mai 2025 — Bâtiment C": (12, None, 1500),
         }
 
         count = 0
@@ -1970,10 +2140,12 @@ class Command(BaseCommand):
 
     # ------------------------------------------------------------------
 
-    def _seed_bl_clients(self, clients, produits_finis):
+    def _seed_bl_clients(self, clients, produits_finis, branches):
         from clients.models import BLClient, BLClientLigne
 
         admin = User.objects.filter(is_superuser=True).first()
+        stf = branches["STF"]
+        bba = branches["BBA"]
         vivant = produits_finis["دجاج حي (الوزن الكامل)"]
         carcasse = produits_finis["جثة كاملة منزوعة الأحشاء"]
         oeuf = produits_finis.get("صينية بيض (30 بيضة)")
@@ -1984,17 +2156,27 @@ class Command(BaseCommand):
         grossiste = clients["Grossiste Alger Sud"]
 
         # ── Ensure egg stock exists (eggs are not created by a ProductionRecord) ──
+        # v1.4 — one row per (branche, produit_fini) (BR-BRA-07): STF carries
+        # the bulk of the demo egg stock, BBA a smaller balance of its own to
+        # back BLC-2025-009 below and prove the two branches' stock never mix.
         if oeuf:
             from stock.models import StockProduitFini as _SPF
 
             _SPF.objects.update_or_create(
+                branche=stf,
                 produit_fini=oeuf,
                 defaults={"quantite": Decimal("3000")},
+            )
+            _SPF.objects.update_or_create(
+                branche=bba,
+                produit_fini=oeuf,
+                defaults={"quantite": Decimal("400")},
             )
 
         bl_specs = [
             dict(
                 ref="BLC-2025-001",
+                branche=stf,
                 client=marche,
                 date_ago=28,
                 statut=BLClient.STATUT_FACTURE,
@@ -2002,6 +2184,7 @@ class Command(BaseCommand):
             ),
             dict(
                 ref="BLC-2025-002",
+                branche=stf,
                 client=palmier,
                 date_ago=25,
                 statut=BLClient.STATUT_FACTURE,
@@ -2009,6 +2192,7 @@ class Command(BaseCommand):
             ),
             dict(
                 ref="BLC-2025-003",
+                branche=stf,
                 client=amrane,
                 date_ago=20,
                 statut=BLClient.STATUT_LIVRE,
@@ -2016,6 +2200,7 @@ class Command(BaseCommand):
             ),
             dict(
                 ref="BLC-2025-004",
+                branche=stf,
                 client=marche,
                 date_ago=15,
                 statut=BLClient.STATUT_LIVRE,
@@ -2023,6 +2208,7 @@ class Command(BaseCommand):
             ),
             dict(
                 ref="BLC-2025-005",
+                branche=stf,
                 client=palmier,
                 date_ago=5,
                 statut=BLClient.STATUT_BROUILLON,
@@ -2031,6 +2217,7 @@ class Command(BaseCommand):
             # ── Egg BLs (drive fiche_dettes_client demo data) ────────────────
             dict(
                 ref="BLC-2025-006",
+                branche=stf,
                 client=marche,
                 date_ago=32,
                 statut=BLClient.STATUT_LIVRE,
@@ -2038,6 +2225,7 @@ class Command(BaseCommand):
             ),
             dict(
                 ref="BLC-2025-007",
+                branche=stf,
                 client=epicerie,
                 date_ago=22,
                 statut=BLClient.STATUT_LIVRE,
@@ -2045,10 +2233,22 @@ class Command(BaseCommand):
             ),
             dict(
                 ref="BLC-2025-008",
+                branche=stf,
                 client=grossiste,
                 date_ago=12,
                 statut=BLClient.STATUT_LIVRE,
                 lines=[(oeuf, Decimal("800"), Decimal("355.00"))],
+            ),
+            # ── BBA — same client (Épicerie), served independently out of
+            # the BBA branche's own stock (spec §11/§3.5.3 ¶4: "the same
+            # client can be served by several branches independently") ───
+            dict(
+                ref="BLC-2025-009",
+                branche=bba,
+                client=epicerie,
+                date_ago=8,
+                statut=BLClient.STATUT_LIVRE,
+                lines=[(oeuf, Decimal("150"), Decimal("352.00"))],
             ),
         ]
 
@@ -2065,6 +2265,7 @@ class Command(BaseCommand):
             bl, created = BLClient.objects.get_or_create(
                 reference=spec["ref"],
                 defaults=dict(
+                    branche=spec["branche"],
                     client=spec["client"],
                     date_bl=d(spec["date_ago"]),
                     statut=BLClient.STATUT_BROUILLON,
@@ -2089,10 +2290,11 @@ class Command(BaseCommand):
         self._log(f"BLClients ({len(bl_specs)})", True)
         return result
 
-    def _seed_factures_client(self, clients, bls):
+    def _seed_factures_client(self, clients, bls, branches):
         from clients.models import FactureClient
 
         admin = User.objects.filter(is_superuser=True).first()
+        stf = branches["STF"]
 
         bl1 = bls["BLC-2025-001"]  # marché
         bl2 = bls["BLC-2025-002"]  # palmier
@@ -2110,9 +2312,12 @@ class Command(BaseCommand):
         factures = {}
 
         # Facture 1 — Marché — partially paid
+        # v1.4 — branche must match every BL included in `bls` (BR-BRA-01);
+        # bl1 is STF, so this facture is STF.
         f1, created = FactureClient.objects.get_or_create(
             reference="FAC-2025-001",
             defaults=dict(
+                branche=stf,
                 client=clients["Marché de Gros Setifien"],
                 date_facture=d(27),
                 date_echeance=d(1),
@@ -2130,10 +2335,11 @@ class Command(BaseCommand):
             f1.bls.set([bl1])
         factures["FAC-2025-001"] = f1
 
-        # Facture 2 — Palmier — fully paid
+        # Facture 2 — Palmier — fully paid (bl2 is also STF)
         f2, created = FactureClient.objects.get_or_create(
             reference="FAC-2025-002",
             defaults=dict(
+                branche=stf,
                 client=clients["Restaurant Le Palmier"],
                 date_facture=d(24),
                 date_echeance=d(9),
@@ -2154,19 +2360,23 @@ class Command(BaseCommand):
         self._log("FacturesClient (2)", True)
         return factures
 
-    def _seed_paiements_client(self, clients, factures):
+    def _seed_paiements_client(self, clients, factures, branches):
         from clients.models import PaiementClient, PaiementClientAllocation
 
         admin = User.objects.filter(is_superuser=True).first()
+        stf = branches["STF"]
         f1 = factures["FAC-2025-001"]
         f2 = factures["FAC-2025-002"]
 
         # Partial payment on FAC-2025-001
+        # v1.4 — a paiement's branche must match the facture(s) it allocates
+        # to (BR-BRA-01); both factures here are STF.
         p1, created = PaiementClient.objects.get_or_create(
             client=clients["Marché de Gros Setifien"],
             date_paiement=d(20),
             montant=Decimal("400000.00"),
             defaults=dict(
+                branche=stf,
                 mode_paiement="cheque",
                 reference_paiement="CHQ-CLI-0091",
                 created_by=admin,
@@ -2182,7 +2392,7 @@ class Command(BaseCommand):
             client=clients["Restaurant Le Palmier"],
             date_paiement=d(18),
             montant=f2.montant_ttc,
-            defaults=dict(mode_paiement="especes", created_by=admin),
+            defaults=dict(branche=stf, mode_paiement="especes", created_by=admin),
         )
         if created:
             PaiementClientAllocation.objects.create(
@@ -2242,10 +2452,15 @@ class Command(BaseCommand):
 
     # ------------------------------------------------------------------
 
-    def _seed_depenses(self, categories, lots, factures):
+    def _seed_depenses(self, categories, lots, factures, branches):
         from depenses.models import Depense
 
         admin = User.objects.filter(is_superuser=True).first()
+        # v1.4 — Depense.branche is required (BR-BRA-01) and must match the
+        # branche of any linked lot/facture_liee. lot_a/b/c all sit in STF
+        # bâtiments and f_service (FRN-2025-003) is also STF, so the whole
+        # demo batch is STF.
+        stf = branches["STF"]
         lot_a = lots.get("Lot Janvier 2025 — Bâtiment A")
         lot_b = lots.get("Lot Mars 2025 — Bâtiment A")
         lot_c = lots.get("Lot Avril 2025 — Poussinière 1")
@@ -2382,6 +2597,7 @@ class Command(BaseCommand):
                 categorie=categories[s["cat"]],
                 description=s["desc"],
                 defaults=dict(
+                    branche=stf,
                     montant=s["montant"],
                     mode_paiement=s["mode"],
                     lot=s.get("lot"),

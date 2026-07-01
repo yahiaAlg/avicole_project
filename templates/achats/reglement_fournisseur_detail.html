@@ -36,6 +36,10 @@
           <div class="detail-title-val">{{ reglement.date_reglement|date:"d/m/Y" }}</div>
         </div>
         <div>
+          <div class="detail-eyebrow">الفرع</div>
+          <div class="detail-title-val">{{ reglement.branche.nom }}</div>
+        </div>
+        <div>
           <div class="detail-eyebrow">المبلغ</div>
           <div class="detail-title-val amount-primary">{{ reglement.montant|floatformat:0 }} DZD</div>
         </div>

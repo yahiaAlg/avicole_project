@@ -11,6 +11,14 @@ Import policy:
   StockAjustement   — import supported — this is the intended mechanism for
                        correcting physical-count discrepancies.  Importing
                        triggers the post_save signal which updates the balance.
+
+v1.4 — multi-branch architecture (BR-BRA-07): StockIntrant and
+StockProduitFini are now keyed by (branche, intrant) / (branche,
+produit_fini) instead of one row per catalogue item; StockMouvement and
+StockAjustement both carry a required, explicit `branche` FK identifying
+which branch's balance is affected. `branche` is exposed read-only on the
+three export-only resources, and is a mandatory import column on
+StockAjustementResource.
 """
 
 from import_export import resources, fields
@@ -26,6 +34,7 @@ from stock.models import (
 )
 from intrants.models import Intrant
 from production.models import ProduitFini
+from core.models import Branche
 
 # ---------------------------------------------------------------------------
 # StockIntrant — EXPORT ONLY
@@ -36,8 +45,17 @@ class StockIntrantResource(resources.ModelResource):
     """
     EXPORT ONLY — current intrant stock levels with PMP and alert flag.
     Used for inventory reporting and stock-count sheets.
+
+    v1.4 — one row per (branche, intrant) pair (BR-BRA-07); `branche` is
+    exposed read-only for reporting.
     """
 
+    branche = fields.Field(
+        column_name="branche_code",
+        attribute="branche",
+        widget=ForeignKeyWidget(Branche, field="code"),
+        readonly=True,
+    )
     intrant_designation = fields.Field(
         column_name="intrant_designation",
         attribute="intrant__designation",
@@ -77,6 +95,7 @@ class StockIntrantResource(resources.ModelResource):
         import_id_fields = ["id"]
         fields = [
             "id",
+            "branche",
             "intrant_designation",
             "intrant_categorie",
             "unite_mesure",
@@ -104,8 +123,17 @@ class StockIntrantResource(resources.ModelResource):
 class StockProduitFiniResource(resources.ModelResource):
     """
     EXPORT ONLY — current finished-goods stock levels.
+
+    v1.4 — one row per (branche, produit_fini) pair (BR-BRA-07); `branche`
+    is exposed read-only for reporting.
     """
 
+    branche = fields.Field(
+        column_name="branche_code",
+        attribute="branche",
+        widget=ForeignKeyWidget(Branche, field="code"),
+        readonly=True,
+    )
     produit_fini_designation = fields.Field(
         column_name="produit_fini_designation",
         attribute="produit_fini__designation",
@@ -140,6 +168,7 @@ class StockProduitFiniResource(resources.ModelResource):
         import_id_fields = ["id"]
         fields = [
             "id",
+            "branche",
             "produit_fini_designation",
             "type_produit",
             "unite_mesure",
@@ -169,8 +198,18 @@ class StockMouvementResource(resources.ModelResource):
     EXPORT ONLY — full stock movement audit trail.
     Both stock segments are covered in a single resource; only one of
     (intrant_designation / produit_fini_designation) is populated per row.
+
+    v1.4 — `branche` is now a required, explicit field on every movement
+    (identifies which branch's balance changed — BR-BRA-07); exposed
+    read-only here.
     """
 
+    branche = fields.Field(
+        column_name="branche_code",
+        attribute="branche",
+        widget=ForeignKeyWidget(Branche, field="code"),
+        readonly=True,
+    )
     intrant_designation = fields.Field(
         column_name="intrant_designation",
         attribute="intrant__designation",
@@ -194,6 +233,7 @@ class StockMouvementResource(resources.ModelResource):
         import_id_fields = ["id"]
         fields = [
             "id",
+            "branche",
             "intrant_designation",
             "produit_fini_designation",
             "type_mouvement",
@@ -227,13 +267,22 @@ class StockAjustementResource(resources.ModelResource):
 
     Importing a StockAjustement row triggers the post_save signal which:
       1. Overwrites StockIntrant.quantite or StockProduitFini.quantite with
-         quantite_apres (physical count is authoritative).
-      2. Creates a StockMouvement (AJUSTEMENT) for audit.
+         quantite_apres (physical count is authoritative), for that branche's
+         row (v1.4, BR-BRA-07).
+      2. Creates a StockMouvement (AJUSTEMENT) for audit, also scoped to
+         that branche.
 
     Exactly one of (intrant / produit_fini) must be supplied per row,
-    matching the segment value.
+    matching the segment value. `branche` (v1.4) is required and explicit
+    — it identifies which branch's StockIntrant/StockProduitFini row is
+    being corrected.
     """
 
+    branche = fields.Field(
+        column_name="branche_code",
+        attribute="branche",
+        widget=ForeignKeyWidget(Branche, field="code"),
+    )
     intrant = fields.Field(
         column_name="intrant_designation",
         attribute="intrant",
@@ -258,6 +307,7 @@ class StockAjustementResource(resources.ModelResource):
         fields = [
             "id",
             "segment",
+            "branche",
             "intrant",
             "produit_fini",
             "date_ajustement",
@@ -271,9 +321,11 @@ class StockAjustementResource(resources.ModelResource):
 
     def before_import_row(self, row, row_number=None, **kwargs):
         """
-        Validate that segment, intrant/produit_fini, and raison are consistent.
+        Validate that segment, branche, intrant/produit_fini, and raison
+        are consistent.
         """
         segment = row.get("segment", "").strip()
+        branche_code = row.get("branche_code", "").strip()
         intrant_col = row.get("intrant_designation", "").strip()
         produit_col = row.get("produit_fini_designation", "").strip()
         raison = row.get("raison", "").strip()
@@ -282,6 +334,12 @@ class StockAjustementResource(resources.ModelResource):
             raise ValueError(
                 f"Ligne {row_number}: le champ 'raison' est obligatoire pour "
                 "un ajustement de stock."
+            )
+
+        if not branche_code:
+            raise ValueError(
+                f"Ligne {row_number}: le champ 'branche_code' est obligatoire "
+                "(BR-BRA-07) — il identifie quelle ligne de stock est corrigée."
             )
 
         if segment == StockAjustement.SEGMENT_INTRANT:

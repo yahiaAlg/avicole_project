@@ -47,6 +47,16 @@ class BLFournisseur(models.Model):
     reference = models.CharField(
         max_length=50, unique=True, verbose_name="مرجع وصل التسليم"
     )
+    # v1.4 — Fournisseur stays global (§3.5.3), but the delivery note
+    # itself belongs to exactly one branche (BR-BRA-01): the goods land
+    # in that branche's StockIntrant. Set explicitly at creation — the
+    # chef de branche's own branche, or chosen by an admin.
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="bls_fournisseur",
+        verbose_name="الفرع",
+    )
     fournisseur = models.ForeignKey(
         "intrants.Fournisseur",
         on_delete=models.PROTECT,
@@ -229,6 +239,15 @@ class FactureFournisseur(models.Model):
     reference = models.CharField(
         max_length=50, unique=True, verbose_name="مرجع الفاتورة"
     )
+    # v1.4 — must match the branche of every BL included in `bls` below
+    # (enforced at the view/M2M-assignment layer, since `bls` can only be
+    # validated once this record has a pk — BR-BRA-01).
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="factures_fournisseur",
+        verbose_name="الفرع",
+    )
     fournisseur = models.ForeignKey(
         "intrants.Fournisseur",
         on_delete=models.PROTECT,
@@ -369,6 +388,16 @@ class ReglementFournisseur(models.Model):
         related_name="reglements",
         verbose_name="المورد",
     )
+    # v1.4 — the FIFO engine (achats.utils.appliquer_reglement_fifo) must
+    # only allocate this règlement across FactureFournisseur rows in the
+    # SAME branche (BR-BRA-01) — a payment recorded in one branch cannot
+    # silently settle another branch's invoices.
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="reglements_fournisseur",
+        verbose_name="الفرع",
+    )
     date_reglement = models.DateField(verbose_name="تاريخ التسوية")
     montant = models.DecimalField(
         max_digits=14,
@@ -443,6 +472,21 @@ class AllocationReglement(models.Model):
             f"{self.montant_alloue} DZD"
         )
 
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        # v1.4 — the FIFO engine must only allocate within the same
+        # branche (BR-BRA-01); mirrors PaiementClientAllocation.clean().
+        if (
+            self.reglement_id
+            and self.facture_id
+            and self.reglement.branche_id != self.facture.branche_id
+        ):
+            raise ValidationError(
+                "BR-BRA-01 : le règlement et la facture doivent appartenir "
+                "à la même branche."
+            )
+
 
 class AcompteFournisseur(models.Model):
     """
@@ -455,6 +499,14 @@ class AcompteFournisseur(models.Model):
         on_delete=models.PROTECT,
         related_name="acomptes",
         verbose_name="المورد",
+    )
+    # v1.4 — credited against this branche only; auto-synced from the
+    # source règlement's branche in save() when one is set (BR-BRA-01).
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="acomptes_fournisseur",
+        verbose_name="الفرع",
     )
     reglement = models.OneToOneField(
         ReglementFournisseur,
@@ -483,3 +535,8 @@ class AcompteFournisseur(models.Model):
     def __str__(self):
         status = "مستخدمة" if self.utilise else "قيد الانتظار"
         return f"Acompte {self.fournisseur.nom} — {self.montant} DZD [{status}]"
+
+    def save(self, *args, **kwargs):
+        if self.reglement_id:
+            self.branche_id = self.reglement.branche_id
+        super().save(*args, **kwargs)

@@ -6,23 +6,29 @@ Import-export resources for the poultry raising module.
 Import policy:
   LotElevage      — import supported for OUVERT lots only; FERME lots are
                      locked (closing a lot has stock/financial implications
-                     that cannot be safely replayed via CSV).
+                     that cannot be safely replayed via CSV). v1.4: `branche`
+                     is denormalized read-only (always mirrors
+                     batiment.branche — BR-BRA-01); never set on import.
   Mortalite       — import supported (bulk historical entry); open lots only.
   Consommation    — import supported (bulk historical entry); open lots only.
                      Warning: importing Consommation rows triggers the post_save
                      signal which will deduct from StockIntrant — ensure stock
                      records are correct before bulk importing.
-  TransfertLot    — import supported; open lots only (mirrors model.clean()).
-                     Importing fires the signal that updates LotElevage.batiment.
-  PeseeEchantillon — import supported (bulk historical entry); no lot-status
-                     restriction (sampling is informational, not a stock event).
-  RecolteOeufs    — import supported; open lots only. Importing fires the
-                     signal that credits StockProduitFini for the egg product.
   ParametrageElevage — no resource: singleton row managed via the admin only.
+
+v1.4 — TransfertLot, PeseeEchantillon, and RecolteOeufs no longer have an
+import-export resource here. Admin registration for these three models
+dropped ImportExportModelAdmin in favor of the standard web workflow:
+  - TransfertLot.clean() now also enforces that origin/destination
+    bâtiments share the same branche as the lot (BR-BRA-01), a guard that
+    is awkward to replay safely from a flat CSV row-by-row import.
+  - PeseeEchantillon / RecolteOeufs derive `branche` from their parent lot
+    (read-only, not stored) — purely informational here, so bulk import of
+    these stays a manual/admin-only workflow going forward.
 """
 
 from import_export import resources, fields
-from import_export.widgets import ForeignKeyWidget, BooleanWidget
+from import_export.widgets import ForeignKeyWidget
 
 from django.contrib.auth.models import User
 
@@ -30,12 +36,10 @@ from elevage.models import (
     LotElevage,
     Mortalite,
     Consommation,
-    TransfertLot,
-    PeseeEchantillon,
-    RecolteOeufs,
 )
 from intrants.models import Fournisseur, Batiment, Intrant
 from achats.models import BLFournisseur
+from core.models import Branche
 
 # ---------------------------------------------------------------------------
 # LotElevage
@@ -49,6 +53,9 @@ class LotElevageResource(resources.ModelResource):
     FK columns use human-readable names / references rather than integer IDs.
     Computed KPIs (effectif_vivant, taux_mortalite, etc.) are included on
     export for reporting dashboards.
+
+    `branche` (v1.4) always mirrors batiment.branche (BR-BRA-01) — readonly,
+    auto-synced by model.save(), never set on import.
     """
 
     fournisseur_poussins = fields.Field(
@@ -60,6 +67,12 @@ class LotElevageResource(resources.ModelResource):
         column_name="batiment_nom",
         attribute="batiment",
         widget=ForeignKeyWidget(Batiment, field="nom"),
+    )
+    branche = fields.Field(
+        column_name="branche_code",
+        attribute="branche",
+        widget=ForeignKeyWidget(Branche, field="code"),
+        readonly=True,
     )
     bl_fournisseur_poussins = fields.Field(
         column_name="bl_poussins_reference",
@@ -120,6 +133,7 @@ class LotElevageResource(resources.ModelResource):
             "fournisseur_poussins",
             "bl_fournisseur_poussins",
             "batiment",
+            "branche",
             "souche",
             "notes",
             "total_mortalite",
@@ -170,12 +184,17 @@ class MortaliteResource(resources.ModelResource):
 
     `lot` is resolved by LotElevage designation for operator convenience.
     Bulk import is useful for entering historical records.
+    `branche_code` (v1.4) is derived from lot.branche (BR-BRA-01), export only.
     """
 
     lot = fields.Field(
         column_name="lot_designation",
         attribute="lot",
         widget=ForeignKeyWidget(LotElevage, field="designation"),
+    )
+    branche_code = fields.Field(
+        column_name="branche_code",
+        readonly=True,
     )
 
     class Meta:
@@ -186,6 +205,7 @@ class MortaliteResource(resources.ModelResource):
         fields = [
             "id",
             "lot",
+            "branche_code",
             "date",
             "nombre",
             "cause",
@@ -193,6 +213,10 @@ class MortaliteResource(resources.ModelResource):
             "created_at",
         ]
         export_order = fields
+
+    def dehydrate_branche_code(self, obj):
+        branche = obj.branche
+        return branche.code if branche else ""
 
     def before_import_row(self, row, row_number=None, **kwargs):
         """
@@ -229,6 +253,7 @@ class ConsommationResource(resources.ModelResource):
     `intrant` is resolved by Intrant.designation; if multiple intrants share
     the same designation, use IntrantResource to obtain and supply the `id`
     column instead.
+    `branche_code` (v1.4) is derived from lot.branche (BR-BRA-01), export only.
     """
 
     lot = fields.Field(
@@ -240,6 +265,10 @@ class ConsommationResource(resources.ModelResource):
         column_name="intrant_designation",
         attribute="intrant",
         widget=ForeignKeyWidget(Intrant, field="designation"),
+    )
+    branche_code = fields.Field(
+        column_name="branche_code",
+        readonly=True,
     )
     created_by = fields.Field(
         column_name="created_by_username",
@@ -256,6 +285,7 @@ class ConsommationResource(resources.ModelResource):
         fields = [
             "id",
             "lot",
+            "branche_code",
             "date",
             "intrant",
             "quantite",
@@ -264,6 +294,10 @@ class ConsommationResource(resources.ModelResource):
             "created_at",
         ]
         export_order = fields
+
+    def dehydrate_branche_code(self, obj):
+        branche = obj.branche
+        return branche.code if branche else ""
 
     def before_import_row(self, row, row_number=None, **kwargs):
         """
@@ -304,236 +338,4 @@ class ConsommationResource(resources.ModelResource):
                 raise ValueError(
                     f"Ligne {row_number}: plusieurs intrants partagent la désignation "
                     f"'{designation_intrant}'. Fournissez la colonne 'id' pour lever l'ambiguïté."
-                )
-
-
-# ---------------------------------------------------------------------------
-# TransfertLot
-# ---------------------------------------------------------------------------
-
-
-class TransfertLotResource(resources.ModelResource):
-    """
-    Import / export of lot building-transfer events.
-
-    `lot`, `batiment_origine`, `batiment_destination` are resolved by
-    human-readable names. Importing a row fires the post_save signal that
-    updates LotElevage.batiment — only import for open lots.
-    """
-
-    lot = fields.Field(
-        column_name="lot_designation",
-        attribute="lot",
-        widget=ForeignKeyWidget(LotElevage, field="designation"),
-    )
-    batiment_origine = fields.Field(
-        column_name="batiment_origine_nom",
-        attribute="batiment_origine",
-        widget=ForeignKeyWidget(Batiment, field="nom"),
-    )
-    batiment_destination = fields.Field(
-        column_name="batiment_destination_nom",
-        attribute="batiment_destination",
-        widget=ForeignKeyWidget(Batiment, field="nom"),
-    )
-    created_by = fields.Field(
-        column_name="created_by_username",
-        attribute="created_by",
-        widget=ForeignKeyWidget(User, field="username"),
-        readonly=True,
-    )
-
-    class Meta:
-        model = TransfertLot
-        skip_unchanged = True
-        report_skipped = False
-        import_id_fields = ["id"]
-        fields = [
-            "id",
-            "lot",
-            "batiment_origine",
-            "batiment_destination",
-            "date_transfert",
-            "age_jours_transfert",
-            "effectif_transfere",
-            "motif",
-            "notes",
-            "created_by",
-            "created_at",
-        ]
-        export_order = fields
-
-    def before_import_row(self, row, row_number=None, **kwargs):
-        """
-        Reject transfers for closed lots and same-building transfers
-        (mirrors TransfertLot.clean()).
-        """
-        designation = row.get("lot_designation", "").strip()
-        if designation:
-            try:
-                lot = LotElevage.objects.get(designation=designation)
-                if lot.statut == LotElevage.STATUT_FERME:
-                    raise ValueError(
-                        f"Ligne {row_number}: impossible d'importer un transfert "
-                        f"sur le lot fermé '{designation}'."
-                    )
-            except LotElevage.DoesNotExist:
-                raise ValueError(
-                    f"Ligne {row_number}: lot '{designation}' introuvable."
-                )
-
-        origine = row.get("batiment_origine_nom", "").strip()
-        destination = row.get("batiment_destination_nom", "").strip()
-        if origine and destination and origine == destination:
-            raise ValueError(
-                f"Ligne {row_number}: le bâtiment de destination doit être "
-                "différent du bâtiment d'origine."
-            )
-
-
-# ---------------------------------------------------------------------------
-# PeseeEchantillon
-# ---------------------------------------------------------------------------
-
-
-class PeseeEchantillonResource(resources.ModelResource):
-    """
-    Import / export of sample-weighing events.
-    No lot-status restriction — sampling is informational, not a stock event.
-    """
-
-    lot = fields.Field(
-        column_name="lot_designation",
-        attribute="lot",
-        widget=ForeignKeyWidget(LotElevage, field="designation"),
-    )
-    created_by = fields.Field(
-        column_name="created_by_username",
-        attribute="created_by",
-        widget=ForeignKeyWidget(User, field="username"),
-        readonly=True,
-    )
-
-    # Computed properties — export only
-    poids_moyen_g = fields.Field(
-        column_name="poids_moyen_g",
-        attribute="poids_moyen_g",
-        readonly=True,
-    )
-    qualite_libelle = fields.Field(
-        column_name="qualite_libelle",
-        readonly=True,
-    )
-
-    class Meta:
-        model = PeseeEchantillon
-        skip_unchanged = True
-        report_skipped = False
-        import_id_fields = ["id"]
-        fields = [
-            "id",
-            "lot",
-            "date",
-            "type_pesee",
-            "nombre_sujets",
-            "poids_total_g",
-            "poids_moyen_g",
-            "qualite_libelle",
-            "notes",
-            "created_by",
-            "created_at",
-        ]
-        export_order = fields
-
-    def dehydrate_qualite_libelle(self, obj):
-        qualite = obj.qualite
-        return qualite.libelle if qualite else ""
-
-    def before_import_row(self, row, row_number=None, **kwargs):
-        designation = row.get("lot_designation", "").strip()
-        if designation and not LotElevage.objects.filter(
-            designation=designation
-        ).exists():
-            raise ValueError(f"Ligne {row_number}: lot '{designation}' introuvable.")
-
-
-# ---------------------------------------------------------------------------
-# RecolteOeufs
-# ---------------------------------------------------------------------------
-
-
-class RecolteOeufsResource(resources.ModelResource):
-    """
-    Import / export of daily egg-collection events.
-
-    `pesee` is resolved by id (PeseeEchantillon has no other unique column);
-    leave blank for collections with no matching same-day sample weighing.
-    Importing fires the signal that credits StockProduitFini for the farm's
-    egg product — only import for open lots.
-    """
-
-    lot = fields.Field(
-        column_name="lot_designation",
-        attribute="lot",
-        widget=ForeignKeyWidget(LotElevage, field="designation"),
-    )
-    pesee = fields.Field(
-        column_name="pesee_id",
-        attribute="pesee",
-        widget=ForeignKeyWidget(PeseeEchantillon, field="id"),
-    )
-    created_by = fields.Field(
-        column_name="created_by_username",
-        attribute="created_by",
-        widget=ForeignKeyWidget(User, field="username"),
-        readonly=True,
-    )
-
-    # Computed properties — export only
-    nombre_plateaux = fields.Field(
-        column_name="nombre_plateaux",
-        attribute="nombre_plateaux",
-        readonly=True,
-    )
-    oeufs_hors_plateau = fields.Field(
-        column_name="oeufs_hors_plateau",
-        attribute="oeufs_hors_plateau",
-        readonly=True,
-    )
-
-    class Meta:
-        model = RecolteOeufs
-        skip_unchanged = True
-        report_skipped = False
-        import_id_fields = ["id"]
-        fields = [
-            "id",
-            "lot",
-            "date",
-            "nombre_oeufs",
-            "nombre_plateaux",
-            "oeufs_hors_plateau",
-            "pesee",
-            "notes",
-            "created_by",
-            "created_at",
-        ]
-        export_order = fields
-
-    def before_import_row(self, row, row_number=None, **kwargs):
-        """
-        Reject egg collections for closed lots (mirrors RecolteOeufs.clean()).
-        """
-        designation = row.get("lot_designation", "").strip()
-        if designation:
-            try:
-                lot = LotElevage.objects.get(designation=designation)
-                if lot.statut == LotElevage.STATUT_FERME:
-                    raise ValueError(
-                        f"Ligne {row_number}: impossible d'importer une récolte d'œufs "
-                        f"sur le lot fermé '{designation}'."
-                    )
-            except LotElevage.DoesNotExist:
-                raise ValueError(
-                    f"Ligne {row_number}: lot '{designation}' introuvable."
                 )

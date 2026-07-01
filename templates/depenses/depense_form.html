@@ -36,6 +36,12 @@
           </div>
           <div class="form-card__body">
 
+            {{ form.branche }}
+            <div class="branche-indicator">
+              <i class="bx bxs-buildings"></i>
+              <span>الفرع: <strong>{{ active_branche.nom|default:depense.branche.nom }}</strong></span>
+            </div>
+
             <!-- Date -->
             <div class="form-group">
               <label class="form-label" for="{{ form.date.id_for_label }}">
@@ -270,6 +276,9 @@
   .form-card__body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
   .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
   .section-eyebrow i { font-size: 13px; }
+
+  .branche-indicator { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-secondary); background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; }
+  .branche-indicator i { font-size: 15px; color: var(--accent-text); }
 
   .form-group { margin: 0; }
   .form-label { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .03em; margin-bottom: 6px; }

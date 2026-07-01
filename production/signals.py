@@ -4,19 +4,23 @@ production/signals.py
 Signals for the production app.
 
 Registered signals:
-  1. post_save on ProduitFini      → auto-create StockProduitFini (one-to-one),
-                                     mirroring the same guarantee provided for
-                                     Intrant → StockIntrant in intrants/signals.py.
+  1. post_save on ProduitFini      → auto-create a StockProduitFini for every
+                                     existing Branche, mirroring the same
+                                     guarantee provided for Intrant →
+                                     StockIntrant in intrants/signals.py.
   2. pre_save  on ProductionRecord → cache old statut for transition detection.
   3. post_save on ProductionRecord → when statut transitions to VALIDE, for
                                      every ProductionLigne:
-                                       a. Increase StockProduitFini.quantite.
+                                       a. Increase StockProduitFini.quantite
+                                          for production.branche.
                                        b. Recalculate StockProduitFini.cout_moyen_production.
-                                       c. Create a StockMouvement (entree / production).
+                                       c. Create a StockMouvement (entree / production),
+                                          scoped to production.branche.
   4. pre_save  on TraitementFertilisant → cache old statut for transition detection.
   5. post_save on TraitementFertilisant → when statut transitions to VALIDE,
                                      increase StockProduitFini for the
-                                     treatment's produit_fini and create a
+                                     treatment's produit_fini (scoped to
+                                     instance.branche) and create a
                                      StockMouvement (entree / production).
 
 Business rules enforced here:
@@ -26,6 +30,11 @@ Business rules enforced here:
   - cout_moyen_production uses a weighted average analogous to the PMP for
     intrants: (old_qty × old_cost + new_qty × new_cost) / total_qty. The same
     formula is reused for TraitementFertilisant.
+  - v1.4 (BR-BRA-07): StockProduitFini is keyed by (branche, produit_fini),
+    not by produit_fini alone. ProductionRecord.branche is denormalized from
+    lot.branche (kept in sync in ProductionRecord.save()); TraitementFertilisant.branche
+    is set explicitly at creation. Every stock lookup below is scoped to the
+    relevant branche accordingly.
 """
 
 import logging
@@ -51,34 +60,49 @@ logger = logging.getLogger(__name__)
 @receiver(post_save, sender=ProduitFini)
 def creer_stock_produit_fini(sender, instance, created, **kwargs):
     """
-    On first save of a ProduitFini, create a matching StockProduitFini with
-    quantite=0 so that quantite_en_stock never raises RelatedObjectDoesNotExist.
+    On first save of a ProduitFini, create a matching StockProduitFini
+    (quantite=0) for every Branche currently in the system, so that
+    quantite_en_stock / quantite_en_stock_branche never raise
+    RelatedObjectDoesNotExist (BR-BRA-07).
     """
     if not created:
         return
 
+    from core.models import Branche
     from stock.models import StockProduitFini
 
-    stock, was_created = StockProduitFini.objects.get_or_create(
-        produit_fini=instance,
-        defaults={
-            "quantite": Decimal("0"),
-            "cout_moyen_production": Decimal("0"),
-            "seuil_alerte": Decimal("0"),
-        },
-    )
-
-    if was_created:
-        logger.debug(
-            "StockProduitFini created for new ProduitFini pk=%s (%s).",
+    branches = list(Branche.objects.all())
+    if not branches:
+        logger.warning(
+            "creer_stock_produit_fini: aucune Branche n'existe encore — "
+            "ProduitFini pk=%s (%s) créé sans StockProduitFini. Une ligne "
+            "sera créée pour chaque branche dès qu'elle existera (BR-BRA-07).",
             instance.pk,
             instance.designation,
         )
-    else:
-        logger.warning(
-            "StockProduitFini already existed for ProduitFini pk=%s on creation signal.",
-            instance.pk,
+        return
+
+    nb_crees = 0
+    for branche in branches:
+        stock, was_created = StockProduitFini.objects.get_or_create(
+            branche=branche,
+            produit_fini=instance,
+            defaults={
+                "quantite": Decimal("0"),
+                "cout_moyen_production": Decimal("0"),
+                "seuil_alerte": Decimal("0"),
+            },
         )
+        if was_created:
+            nb_crees += 1
+
+    logger.debug(
+        "StockProduitFini créé pour le nouveau ProduitFini pk=%s (%s) sur %d/%d branche(s).",
+        instance.pk,
+        instance.designation,
+        nb_crees,
+        len(branches),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +183,8 @@ def production_record_post_save(sender, instance, created, **kwargs):
 def _enregistrer_entree_stock_production(ligne, production):
     """
     Increase StockProduitFini for one ProductionLigne and create a
-    StockMouvement (ENTREE / PRODUCTION).
+    StockMouvement (ENTREE / PRODUCTION), scoped to production.branche
+    (BR-BRA-07 — stock is keyed by (branche, produit_fini)).
 
     Weighted-average cost formula (mirrors PMP for intrants):
         CMP_new = (Q_old × CMP_old + Q_in × cost_in) / (Q_old + Q_in)
@@ -167,8 +192,10 @@ def _enregistrer_entree_stock_production(ligne, production):
     from stock.models import StockProduitFini, StockMouvement
 
     produit_fini = ligne.produit_fini
+    branche = production.branche
 
     stock, _ = StockProduitFini.objects.get_or_create(
+        branche=branche,
         produit_fini=produit_fini,
         defaults={
             "quantite": Decimal("0"),
@@ -196,6 +223,7 @@ def _enregistrer_entree_stock_production(ligne, production):
     )
 
     StockMouvement.objects.create(
+        branche=branche,
         produit_fini=produit_fini,
         type_mouvement=StockMouvement.TYPE_ENTREE,
         source=StockMouvement.SOURCE_PRODUCTION,
@@ -211,11 +239,12 @@ def _enregistrer_entree_stock_production(ligne, production):
     )
 
     logger.debug(
-        "Stock entry (production): produit_fini pk=%s +%s → %s (CMP: %s DZD).",
+        "Stock entry (production): produit_fini pk=%s +%s → %s (CMP: %s DZD, branche=%s).",
         produit_fini.pk,
         ligne.quantite,
         stock.quantite,
         nouveau_cmp,
+        branche.code,
     )
 
 
@@ -278,8 +307,10 @@ def traitement_fertilisant_post_save(sender, instance, created, **kwargs):
     from stock.models import StockProduitFini, StockMouvement
 
     produit_fini = instance.produit_fini
+    branche = instance.branche
 
     stock, _ = StockProduitFini.objects.get_or_create(
+        branche=branche,
         produit_fini=produit_fini,
         defaults={
             "quantite": Decimal("0"),
@@ -307,6 +338,7 @@ def traitement_fertilisant_post_save(sender, instance, created, **kwargs):
     )
 
     StockMouvement.objects.create(
+        branche=branche,
         produit_fini=produit_fini,
         type_mouvement=StockMouvement.TYPE_ENTREE,
         source=StockMouvement.SOURCE_FERTILISANT,
@@ -320,10 +352,12 @@ def traitement_fertilisant_post_save(sender, instance, created, **kwargs):
     )
 
     logger.info(
-        "TraitementFertilisant pk=%s validé: produit_fini pk=%s +%s kg → %s (CMP: %s DZD).",
+        "TraitementFertilisant pk=%s validé: produit_fini pk=%s +%s kg → %s "
+        "(CMP: %s DZD, branche=%s).",
         instance.pk,
         produit_fini.pk,
         quantite_entree,
         stock.quantite,
         nouveau_cmp,
+        branche.code,
     )

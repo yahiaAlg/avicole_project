@@ -64,6 +64,7 @@
         <tr>
           <th>التاريخ</th>
           <th>المورد</th>
+          {% if not active_branche %}<th>الفرع</th>{% endif %}
           <th>مصدر التسوية</th>
           <th style="text-align:right;">المبلغ</th>
           <th>الحالة</th>
@@ -80,6 +81,7 @@
               {{ acompte.fournisseur.nom }}
             </a>
           </td>
+          {% if not active_branche %}<td style="color:var(--text-muted);">{{ acompte.branche.nom }}</td>{% endif %}
           <td>
             {% if acompte.reglement %}
             <a href="{% url 'achats:reglement_fournisseur_detail' acompte.reglement.pk %}" class="ref-link">

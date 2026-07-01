@@ -9,9 +9,19 @@ Import policy:
   Depense          — import supported for bulk historical entry.
                       The facture_liee FK is constrained on import to
                       service-type invoices only (BR-DEP-03 / BR-DEP-01).
+                      v1.4: `branche` is required (BR-BRA-01).
   Associe / RetraitAssocie — import supported for historical withdrawals.
+                      v1.4: intentionally WITHOUT branche — equity
+                      withdrawals stay company-wide (BR-BRA-08).
   Employe / Pointage / AcompteEmploye — import supported for bulk HR data
                       entry (e.g. migrating an existing attendance sheet).
+                      v1.4: each employee's branche is DERIVED from their
+                      assigned bâtiment (BR-BRA-09) — exposed read-only on
+                      export, never set directly on import.
+  CongeEmploye     — no resource: managed via the admin only (paid-leave
+                      blocks interact with Pointage via
+                      depenses.utils.appliquer_conge_aux_pointages(), which
+                      a CSV import would bypass).
   BulletinPaie     — EXPORT ONLY. Payslips must be generated via
                       depenses.utils.calculer_donnees_paie() so the snapshot
                       figures stay consistent with Pointage (BR-RH-05);
@@ -36,6 +46,7 @@ from depenses.models import (
 from elevage.models import LotElevage
 from achats.models import FactureFournisseur
 from intrants.models import Batiment
+from core.models import Branche
 
 # ---------------------------------------------------------------------------
 # CategorieDepense
@@ -75,15 +86,23 @@ class DepenseResource(resources.ModelResource):
     Import / export of operational expense records.
 
     FK columns:
+      - branche      resolved by core.Branche.code (BR-BRA-01, required)
       - categorie    resolved by CategorieDepense.code
-      - lot          resolved by LotElevage.designation (optional)
+      - lot          resolved by LotElevage.designation (optional; must
+                     share the dépense's branche — BR-BRA-01)
       - facture_liee resolved by FactureFournisseur.reference (optional;
-                     must be a Service-type invoice — BR-DEP-03)
+                     must be a Service-type invoice — BR-DEP-03; must
+                     share the dépense's branche — BR-BRA-01)
       - enregistre_par resolved by User.username (readonly on import)
 
     File attachments (piece_jointe) are excluded — managed via admin.
     """
 
+    branche = fields.Field(
+        column_name="branche_code",
+        attribute="branche",
+        widget=ForeignKeyWidget(Branche, field="code"),
+    )
     categorie = fields.Field(
         column_name="categorie_code",
         attribute="categorie",
@@ -121,6 +140,7 @@ class DepenseResource(resources.ModelResource):
         fields = [
             "id",
             "date",
+            "branche",
             "categorie",
             "description",
             "montant",
@@ -138,9 +158,18 @@ class DepenseResource(resources.ModelResource):
 
     def before_import_row(self, row, row_number=None, **kwargs):
         """
+        BR-BRA-01: branche is mandatory, and any linked lot / facture_liee
+        must belong to the same branche.
         BR-DEP-01 / BR-DEP-03: reject rows where facture_liee is a
         Marchandises-type invoice.
         """
+        branche_code = row.get("branche_code", "").strip()
+        if not branche_code:
+            raise ValueError(
+                f"Ligne {row_number}: le champ 'branche_code' est obligatoire "
+                "(BR-BRA-01)."
+            )
+
         ref = row.get("facture_liee_reference", "").strip()
         if ref:
             try:
@@ -152,9 +181,28 @@ class DepenseResource(resources.ModelResource):
                         "Seules les factures de type 'Service' peuvent être liées "
                         "à une dépense (BR-DEP-01 / BR-DEP-03)."
                     )
+                if facture.branche.code != branche_code:
+                    raise ValueError(
+                        f"Ligne {row_number}: la facture '{ref}' appartient à une "
+                        "autre branche que celle de la dépense (BR-BRA-01)."
+                    )
             except FactureFournisseur.DoesNotExist:
                 raise ValueError(
                     f"Ligne {row_number}: facture fournisseur '{ref}' introuvable."
+                )
+
+        lot_designation = row.get("lot_designation", "").strip()
+        if lot_designation:
+            try:
+                lot = LotElevage.objects.get(designation=lot_designation)
+                if lot.branche.code != branche_code:
+                    raise ValueError(
+                        f"Ligne {row_number}: le lot '{lot_designation}' appartient "
+                        "à une autre branche que celle de la dépense (BR-BRA-01)."
+                    )
+            except LotElevage.DoesNotExist:
+                raise ValueError(
+                    f"Ligne {row_number}: lot '{lot_designation}' introuvable."
                 )
 
         # Validate categorie code
@@ -250,6 +298,11 @@ class EmployeResource(resources.ModelResource):
         attribute="binome",
         widget=ForeignKeyWidget(Employe, field="matricule"),
     )
+    # v1.4 — derived from batiment.branche (BR-BRA-09), export only.
+    branche_code = fields.Field(
+        column_name="branche_code",
+        readonly=True,
+    )
 
     class Meta:
         model = Employe
@@ -264,6 +317,7 @@ class EmployeResource(resources.ModelResource):
             "telephone",
             "date_embauche",
             "batiment",
+            "branche_code",
             "jour_repos_habituel",
             "binome",
             "salaire_base_mensuel",
@@ -274,6 +328,10 @@ class EmployeResource(resources.ModelResource):
             "created_at",
         ]
         export_order = fields
+
+    def dehydrate_branche_code(self, obj):
+        branche = obj.branche
+        return branche.code if branche else ""
 
 
 class PointageResource(resources.ModelResource):
@@ -287,6 +345,11 @@ class PointageResource(resources.ModelResource):
         attribute="employe",
         widget=ForeignKeyWidget(Employe, field="matricule"),
     )
+    # v1.4 — derived from employe.branche (BR-BRA-09), export only.
+    branche_code = fields.Field(
+        column_name="branche_code",
+        readonly=True,
+    )
 
     class Meta:
         model = Pointage
@@ -296,6 +359,7 @@ class PointageResource(resources.ModelResource):
         fields = [
             "id",
             "employe",
+            "branche_code",
             "date",
             "statut",
             "heures_supplementaires",
@@ -303,6 +367,10 @@ class PointageResource(resources.ModelResource):
             "created_at",
         ]
         export_order = fields
+
+    def dehydrate_branche_code(self, obj):
+        branche = obj.branche
+        return branche.code if branche else ""
 
     def before_import_row(self, row, row_number=None, **kwargs):
         statut = row.get("statut", "").strip()
@@ -328,6 +396,11 @@ class AcompteEmployeResource(resources.ModelResource):
         widget=ForeignKeyWidget(User, field="username"),
         readonly=True,
     )
+    # v1.4 — derived from employe.branche (BR-BRA-09), export only.
+    branche_code = fields.Field(
+        column_name="branche_code",
+        readonly=True,
+    )
 
     class Meta:
         model = AcompteEmploye
@@ -338,6 +411,7 @@ class AcompteEmployeResource(resources.ModelResource):
             "id",
             "date",
             "employe",
+            "branche_code",
             "montant",
             "mode_paiement",
             "motif",
@@ -346,6 +420,10 @@ class AcompteEmployeResource(resources.ModelResource):
             "created_at",
         ]
         export_order = fields
+
+    def dehydrate_branche_code(self, obj):
+        branche = obj.branche
+        return branche.code if branche else ""
 
 
 class BulletinPaieResource(resources.ModelResource):
@@ -360,6 +438,11 @@ class BulletinPaieResource(resources.ModelResource):
         widget=ForeignKeyWidget(Employe, field="matricule"),
         readonly=True,
     )
+    # v1.4 — derived from employe.branche (BR-BRA-09), export only.
+    branche_code = fields.Field(
+        column_name="branche_code",
+        readonly=True,
+    )
 
     class Meta:
         model = BulletinPaie
@@ -369,6 +452,7 @@ class BulletinPaieResource(resources.ModelResource):
         fields = [
             "id",
             "employe",
+            "branche_code",
             "annee",
             "mois",
             "jours_presence",
@@ -388,6 +472,10 @@ class BulletinPaieResource(resources.ModelResource):
             "created_at",
         ]
         export_order = fields
+
+    def dehydrate_branche_code(self, obj):
+        branche = obj.branche
+        return branche.code if branche else ""
 
     def before_import_row(self, row, row_number=None, **kwargs):
         raise ValueError(

@@ -80,6 +80,7 @@
           <tr>
             <th>المرجع</th>
             <th>العميل</th>
+            {% if not active_branche %}<th>الفرع</th>{% endif %}
             <th>التاريخ</th>
             <th>تاريخ الاستحقاق</th>
             <th>الحالة</th>
@@ -99,6 +100,9 @@
             <td>
               <a href="{% url 'clients:client_detail' facture.client.pk %}" style="color:var(--text-secondary);text-decoration:none;font-weight:500;">{{ facture.client.nom }}</a>
             </td>
+            {% if not active_branche %}
+            <td style="font-size:12px;color:var(--text-muted);">{{ facture.branche.nom }}</td>
+            {% endif %}
             <td style="font-size:12px;color:var(--text-muted);">{{ facture.date_facture|date:"d/m/Y" }}</td>
             <td style="font-size:12px;">
               {% if facture.date_echeance %}

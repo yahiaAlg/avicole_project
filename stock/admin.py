@@ -12,6 +12,7 @@ from django.utils.html import format_html
 
 from import_export.admin import ImportExportModelAdmin
 
+from core.admin import BrancheScopedAdminMixin
 from stock.models import StockIntrant, StockProduitFini, StockMouvement, StockAjustement
 from stock.resources import (
     StockIntrantResource,
@@ -26,11 +27,12 @@ from stock.resources import (
 
 
 @admin.register(StockIntrant)
-class StockIntrantAdmin(ImportExportModelAdmin):
+class StockIntrantAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = StockIntrantResource
 
     list_display = (
         "intrant",
+        "branche",
         "categorie",
         "quantite_display",
         "prix_moyen_pondere",
@@ -39,9 +41,10 @@ class StockIntrantAdmin(ImportExportModelAdmin):
         "alerte_badge",
         "derniere_mise_a_jour",
     )
-    list_filter = ("intrant__categorie", "intrant__actif")
+    list_filter = ("intrant__categorie", "branche", "intrant__actif")
     search_fields = ("intrant__designation",)
     readonly_fields = (
+        "branche",
         "intrant",
         "quantite",
         "prix_moyen_pondere",
@@ -88,11 +91,12 @@ class StockIntrantAdmin(ImportExportModelAdmin):
 
 
 @admin.register(StockProduitFini)
-class StockProduitFiniAdmin(ImportExportModelAdmin):
+class StockProduitFiniAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = StockProduitFiniResource
 
     list_display = (
         "produit_fini",
+        "branche",
         "type_produit",
         "quantite",
         "cout_moyen_production",
@@ -101,9 +105,10 @@ class StockProduitFiniAdmin(ImportExportModelAdmin):
         "alerte_badge",
         "derniere_mise_a_jour",
     )
-    list_filter = ("produit_fini__type_produit",)
+    list_filter = ("produit_fini__type_produit", "branche")
     search_fields = ("produit_fini__designation",)
     readonly_fields = (
+        "branche",
         "produit_fini",
         "quantite",
         "cout_moyen_production",
@@ -140,11 +145,12 @@ class StockProduitFiniAdmin(ImportExportModelAdmin):
 
 
 @admin.register(StockMouvement)
-class StockMouvementAdmin(ImportExportModelAdmin):
+class StockMouvementAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = StockMouvementResource
 
     list_display = (
         "date_mouvement",
+        "branche",
         "item",
         "type_mouvement_badge",
         "source",
@@ -154,7 +160,7 @@ class StockMouvementAdmin(ImportExportModelAdmin):
         "reference_label",
         "created_at",
     )
-    list_filter = ("type_mouvement", "source", "date_mouvement")
+    list_filter = ("type_mouvement", "source", "branche", "date_mouvement")
     search_fields = (
         "intrant__designation",
         "produit_fini__designation",
@@ -163,6 +169,7 @@ class StockMouvementAdmin(ImportExportModelAdmin):
     )
     date_hierarchy = "date_mouvement"
     readonly_fields = (
+        "branche",
         "intrant",
         "produit_fini",
         "type_mouvement",
@@ -212,11 +219,12 @@ class StockMouvementAdmin(ImportExportModelAdmin):
 
 
 @admin.register(StockAjustement)
-class StockAjustementAdmin(ImportExportModelAdmin):
+class StockAjustementAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = StockAjustementResource
 
     list_display = (
         "date_ajustement",
+        "branche",
         "segment",
         "item",
         "quantite_avant",
@@ -225,7 +233,7 @@ class StockAjustementAdmin(ImportExportModelAdmin):
         "effectue_par",
         "raison_courte",
     )
-    list_filter = ("segment", "date_ajustement")
+    list_filter = ("segment", "branche", "date_ajustement")
     search_fields = (
         "intrant__designation",
         "produit_fini__designation",
@@ -233,7 +241,7 @@ class StockAjustementAdmin(ImportExportModelAdmin):
     )
     date_hierarchy = "date_ajustement"
     readonly_fields = ("created_at",)
-    autocomplete_fields = ("intrant", "produit_fini")
+    autocomplete_fields = ("branche", "intrant", "produit_fini")
 
     fieldsets = (
         (
@@ -241,6 +249,7 @@ class StockAjustementAdmin(ImportExportModelAdmin):
             {
                 "fields": (
                     "segment",
+                    "branche",
                     "intrant",
                     "produit_fini",
                     "date_ajustement",
@@ -287,6 +296,7 @@ class StockAjustementAdmin(ImportExportModelAdmin):
         if obj:
             return (
                 "segment",
+                "branche",
                 "intrant",
                 "produit_fini",
                 "date_ajustement",

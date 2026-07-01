@@ -209,6 +209,16 @@
             </tbody>
           </table>
         </div>
+        {% if collectes_page.has_other_pages %}
+        <div class="pagination-bar">
+          <span>Page {{ collectes_page.number }} / {{ collectes_page.paginator.num_pages }}</span>
+          <div class="page-links">
+            {% if collectes_page.has_previous %}<a href="?page_collectes={{ collectes_page.previous_page_number }}{% if batiment_pk %}&batiment={{ batiment_pk }}{% endif %}{% if date_debut %}&date_debut={{ date_debut|date:"Y-m-d" }}{% endif %}{% if date_fin %}&date_fin={{ date_fin|date:"Y-m-d" }}{% endif %}" class="page-link"><i class="bx bx-chevron-left"></i></a>{% endif %}
+            <span class="page-link active">{{ collectes_page.number }}</span>
+            {% if collectes_page.has_next %}<a href="?page_collectes={{ collectes_page.next_page_number }}{% if batiment_pk %}&batiment={{ batiment_pk }}{% endif %}{% if date_debut %}&date_debut={{ date_debut|date:"Y-m-d" }}{% endif %}{% if date_fin %}&date_fin={{ date_fin|date:"Y-m-d" }}{% endif %}" class="page-link"><i class="bx bx-chevron-right"></i></a>{% endif %}
+          </div>
+        </div>
+        {% endif %}
         {% else %}
         <div class="empty-state"><i class="bx bxs-leaf empty-state__icon"></i><div class="empty-state__title">لا عمليات جمع</div></div>
         {% endif %}

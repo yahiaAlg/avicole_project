@@ -8,6 +8,13 @@ Utility / helper functions for the intrants application.
                         .qualite (and transitively by RecolteOeufs.qualite),
                         so this is load-bearing — without it those
                         properties raise ImportError.
+
+v1.4 — Multi-Branch Architecture (§3.5): no change needed here.
+CategorieQualite is user-managed master/reference data (same family as
+CategorieIntrant, ParametrageElevage, etc.) and stays intentionally global
+across branches — a quality bracket means the same thing everywhere, so
+`determiner_qualite` resolves it without any branch filtering, and the
+caller's own branch never needs to be passed in.
 """
 
 from decimal import Decimal

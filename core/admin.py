@@ -3,7 +3,13 @@ core/admin.py
 
 Admin registration for the core app:
   - CompanyInfo  (singleton — add button hidden, only edit pk=1)
+  - Branche      (v1.4 multi-branch architecture, §3.5)
   - UserProfile  (inline on User + standalone)
+
+Also defines BrancheScopedAdminMixin, reused by every other app's admin
+to enforce BR-BRA-02/03/04: a chef_branche/opérateur (and a comptable
+bound to a branche) only ever sees/creates records in their own branche;
+admin and an unbound comptable keep full Vue Globale visibility.
 """
 
 from django.contrib import admin
@@ -13,8 +19,108 @@ from django.utils.html import format_html
 
 from import_export.admin import ImportExportModelAdmin
 
-from core.models import CompanyInfo, UserProfile
+from core.models import CompanyInfo, Branche, UserProfile
 from core.resources import CompanyInfoResource, UserProfileResource
+
+# ---------------------------------------------------------------------------
+# BrancheScopedAdminMixin — shared scoping logic (BR-BRA-01..04)
+# ---------------------------------------------------------------------------
+
+
+class BrancheScopedAdminMixin:
+    """
+    Mixin for ModelAdmins of branch-scoped models.
+
+    - `branche_lookup`: ORM lookup used to filter the queryset to the
+      logged-in user's branche (e.g. "branche" for models with their own
+      FK, or "bl__branche" for a line/child model reached through a
+      parent). Defaults to "branche".
+    - When the lookup IS the model's own "branche" FK, the field's choices
+      are also restricted to that single branche on the add/edit form, and
+      it is auto-filled on creation, so a locked user never has to (and
+      cannot) pick a different one.
+    - Admin and an unbound comptable (a_vue_globale=True) are unaffected.
+    """
+
+    branche_lookup = "branche"
+
+    def _profile(self, request):
+        return getattr(request.user, "profile", None)
+
+    def _is_locked_to_branche(self, request):
+        profile = self._profile(request)
+        return bool(profile) and not profile.a_vue_globale
+
+    def _user_branche(self, request):
+        profile = self._profile(request)
+        return profile.branche if profile else None
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if self._is_locked_to_branche(request):
+            qs = qs.filter(**{self.branche_lookup: self._user_branche(request)})
+        return qs
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if (
+            self.branche_lookup == "branche"
+            and db_field.name == "branche"
+            and self._is_locked_to_branche(request)
+        ):
+            branche = self._user_branche(request)
+            kwargs["queryset"] = Branche.objects.filter(
+                pk=branche.pk if branche else None
+            )
+            kwargs["initial"] = branche
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        if (
+            self.branche_lookup == "branche"
+            and not change
+            and self._is_locked_to_branche(request)
+            and not getattr(obj, "branche_id", None)
+        ):
+            obj.branche = self._user_branche(request)
+        super().save_model(request, obj, form, change)
+
+
+# ---------------------------------------------------------------------------
+# Branche
+# ---------------------------------------------------------------------------
+
+
+@admin.register(Branche)
+class BrancheAdmin(admin.ModelAdmin):
+    list_display = ("nom", "code", "wilaya", "chef_de_branche", "actif", "created_at")
+    list_filter = ("actif", "wilaya")
+    search_fields = ("nom", "code", "wilaya")
+    list_editable = ("actif",)
+    autocomplete_fields = ("chef_de_branche",)
+    readonly_fields = ("created_at",)
+
+    fieldsets = (
+        (
+            "Identification",
+            {"fields": ("nom", "code", "actif")},
+        ),
+        (
+            "Coordonnées",
+            {"fields": ("wilaya", "adresse", "telephone")},
+        ),
+        (
+            "Responsable",
+            {
+                "fields": ("chef_de_branche",),
+                "description": (
+                    "L'utilisateur choisi doit porter le rôle « رئيس فرع » "
+                    "(BR-BRA-02)."
+                ),
+            },
+        ),
+        ("Horodatage", {"fields": ("created_at",), "classes": ("collapse",)}),
+    )
+
 
 # ---------------------------------------------------------------------------
 # UserProfile — inline on User
@@ -25,7 +131,8 @@ class UserProfileInline(admin.StackedInline):
     model = UserProfile
     can_delete = False
     verbose_name_plural = "Profil"
-    fields = ("role", "telephone", "notes")
+    fields = ("role", "branche", "telephone", "notes")
+    autocomplete_fields = ("branche",)
     extra = 1
 
 
@@ -46,8 +153,8 @@ admin.site.register(User, UserAdminWithProfile)
 class UserProfileAdmin(ImportExportModelAdmin):
     resource_class = UserProfileResource
 
-    list_display = ("user", "get_full_name", "role", "telephone", "created_at")
-    list_filter = ("role",)
+    list_display = ("user", "get_full_name", "role", "branche", "telephone", "created_at")
+    list_filter = ("role", "branche")
     search_fields = (
         "user__username",
         "user__first_name",
@@ -55,9 +162,19 @@ class UserProfileAdmin(ImportExportModelAdmin):
         "telephone",
     )
     readonly_fields = ("created_at", "updated_at")
+    autocomplete_fields = ("branche",)
 
     fieldsets = (
-        (None, {"fields": ("user", "role", "telephone")}),
+        (
+            None,
+            {
+                "fields": ("user", "role", "branche", "telephone"),
+                "description": (
+                    "Branche : obligatoire pour رئيس فرع/مشغّل (BR-BRA-02), "
+                    "optionnelle pour محاسب, toujours vide pour مدير (BR-BRA-03)."
+                ),
+            },
+        ),
         ("Notes", {"fields": ("notes",), "classes": ("collapse",)}),
         (
             "Horodatage",

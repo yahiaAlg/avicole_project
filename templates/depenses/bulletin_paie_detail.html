@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block title %}{{ title }} — تربية الدواجن{% endblock %}
-{% block nav_depenses %}active{% endblock %}
+{% block nav_rh %}active{% endblock %}
 {% block page_title %}كشف راتب — {{ bulletin.employe.nom_complet }}{% endblock %}
 {% block page_sub_text %}{{ bulletin.periode_label }}{% endblock %}
 
@@ -37,6 +37,10 @@
 
   <!-- KPI strip -->
   <div class="kpi-strip">
+    <div class="kpi-card">
+      <div class="kpi-label">الفرع</div>
+      <div class="kpi-value kpi-value--sm"><i class="bx bxs-buildings" style="color:var(--accent-text);margin-left:4px;"></i>{{ bulletin.branche.nom|default:"—" }}</div>
+    </div>
     <div class="kpi-card kpi-card--accent">
       <div class="kpi-label">الصافي المستحق</div>
       <div class="kpi-value">{{ bulletin.montant_net|floatformat:2 }} <span class="kpi-unit">دج</span></div>
@@ -137,7 +141,7 @@
   .status-banner--brouillon { background:rgba(0,0,0,.05); color:var(--text-secondary); }
   .status-banner--valide { background:rgba(245,158,11,.1); color:#92400e; }
   .status-banner--paye { background:rgba(34,197,94,.12); color:#15803d; }
-  .kpi-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .kpi-strip { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; }
   @media (max-width:900px) { .kpi-strip { grid-template-columns:1fr 1fr; } }
   .kpi-card { background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px 18px; }
   .kpi-card--accent { border-color:var(--accent); background:var(--accent-dim); }

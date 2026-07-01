@@ -114,6 +114,14 @@ class Depense(models.Model):
 
     date = models.DateField(verbose_name="تاريخ المصروف")
 
+    # v1.4 — every dépense belongs to exactly one branche (BR-BRA-01).
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="depenses",
+        verbose_name="الفرع",
+    )
+
     categorie = models.ForeignKey(
         CategorieDepense,
         on_delete=models.PROTECT,
@@ -203,6 +211,35 @@ class Depense(models.Model):
             f"{self.description[:60]} | {self.montant} DZD"
         )
 
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        # v1.4 — an optional lot attribution (BR-DEP-04) must stay within
+        # the dépense's own branche (BR-BRA-01).
+        if self.lot_id and self.branche_id and self.lot.branche_id != self.branche_id:
+            raise ValidationError(
+                {
+                    "lot": (
+                        "BR-BRA-01 : la dépense et le lot attribué doivent "
+                        "appartenir à la même branche."
+                    )
+                }
+            )
+        # Same guard for the optional linked Service invoice (BR-DEP-03).
+        if (
+            self.facture_liee_id
+            and self.branche_id
+            and self.facture_liee.branche_id != self.branche_id
+        ):
+            raise ValidationError(
+                {
+                    "facture_liee": (
+                        "BR-BRA-01 : la dépense et la facture fournisseur "
+                        "liée doivent appartenir à la même branche."
+                    )
+                }
+            )
+
     @property
     def a_piece_jointe(self):
         return bool(self.piece_jointe)
@@ -210,6 +247,11 @@ class Depense(models.Model):
 
 # ===========================================================================
 # Associés — Stakeholder withdrawals  (BR-ASSOC-01 / BR-ASSOC-02)
+#
+# v1.4 note: Associe and RetraitAssocie are intentionally WITHOUT a
+# `branche` FK. Per BR-BRA-08, equity withdrawals belong to the company as
+# a whole, not to any one branch — they stay global/company-wide exactly
+# like CompanyInfo, alongside the master-data catalogues (§3.5.3).
 # ===========================================================================
 
 
@@ -448,6 +490,16 @@ class Employe(models.Model):
             mois -= 1
         return max(mois, 0)
 
+    @property
+    def branche(self):
+        """
+        v1.4 — an employee's branch is DERIVED from their assigned
+        bâtiment, not stored directly (BR-BRA-09). None when the employee
+        has not yet been assigned to a building — such an employee will
+        not appear in any branch-scoped payroll view until assigned.
+        """
+        return self.batiment.branche if self.batiment_id else None
+
 
 class Pointage(models.Model):
     """
@@ -523,6 +575,11 @@ class Pointage(models.Model):
                 }
             )
 
+    @property
+    def branche(self):
+        """v1.4 — inherited from employe.branche (BR-BRA-09), not stored."""
+        return self.employe.branche if self.employe_id else None
+
 
 class CongeEmploye(models.Model):
     """
@@ -556,6 +613,11 @@ class CongeEmploye(models.Model):
 
     def __str__(self):
         return f"{self.employe.nom_complet} — {self.date_debut} → {self.date_fin}"
+
+    @property
+    def branche(self):
+        """v1.4 — inherited from employe.branche (BR-BRA-09), not stored."""
+        return self.employe.branche if self.employe_id else None
 
     def clean(self):
         if self.date_fin and self.date_debut and self.date_fin < self.date_debut:
@@ -638,6 +700,11 @@ class AcompteEmploye(models.Model):
     @property
     def deduit(self) -> bool:
         return bool(self.bulletin_paie_id)
+
+    @property
+    def branche(self):
+        """v1.4 — inherited from employe.branche (BR-BRA-09), not stored."""
+        return self.employe.branche if self.employe_id else None
 
 
 class BulletinPaie(models.Model):
@@ -763,3 +830,8 @@ class BulletinPaie(models.Model):
     @property
     def periode_label(self) -> str:
         return f"{self.mois:02d}/{self.annee}"
+
+    @property
+    def branche(self):
+        """v1.4 — inherited from employe.branche (BR-BRA-09), not stored."""
+        return self.employe.branche if self.employe_id else None

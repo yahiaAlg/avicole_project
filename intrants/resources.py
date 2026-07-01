@@ -13,8 +13,13 @@ Import notes:
     import uses `id` as the primary key; operators must supply it for updates.
   - Batiment: uses `id` as the import key; `categorie_stockage` is only
     meaningful when `type_batiment` = entrepot (enforced by model.clean()).
+    v1.4: `branche` is required (BR-BRA-01) and resolved via Branche.code.
   - IntrantResource resolves `categorie` via CategorieIntrant.code for
-    human-friendly CSV headers.
+    human-friendly CSV headers. v1.4: StockIntrant is now one row per
+    (branche, intrant) pair (BR-BRA-07), so `quantite_en_stock`/`en_alerte`
+    became methods on the model (optional `branche` arg) instead of
+    properties; exported here via dehydrate as the Vue Globale total
+    (no branche argument = summed across all branches).
 """
 
 from import_export import resources, fields
@@ -28,6 +33,7 @@ from intrants.models import (
     Batiment,
     Intrant,
 )
+from core.models import Branche
 
 # ---------------------------------------------------------------------------
 # CategorieIntrant
@@ -116,7 +122,15 @@ class CategorieQualiteResource(resources.ModelResource):
 class BatimentResource(resources.ModelResource):
     """
     Import / export of physical farm buildings.
+
+    `branche` (v1.4) is required (BR-BRA-01) and resolved by Branche.code.
     """
+
+    branche = fields.Field(
+        column_name="branche_code",
+        attribute="branche",
+        widget=ForeignKeyWidget(Branche, field="code"),
+    )
 
     class Meta:
         model = Batiment
@@ -126,6 +140,7 @@ class BatimentResource(resources.ModelResource):
         fields = [
             "id",
             "nom",
+            "branche",
             "type_batiment",
             "categorie_stockage",
             "capacite",
@@ -133,6 +148,17 @@ class BatimentResource(resources.ModelResource):
             "actif",
         ]
         export_order = fields
+
+    def before_import_row(self, row, row_number=None, **kwargs):
+        """
+        BR-BRA-01: branche is mandatory — every bâtiment belongs to
+        exactly one branche.
+        """
+        if not row.get("branche_code", "").strip():
+            raise ValueError(
+                f"Ligne {row_number}: le champ 'branche_code' est obligatoire "
+                "(BR-BRA-01)."
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -216,15 +242,17 @@ class IntrantResource(resources.ModelResource):
         readonly=True,
     )
 
-    # Computed properties — export only for reporting dashboards
+    # v1.4 — StockIntrant is now one row per (branche, intrant) pair
+    # (BR-BRA-07); quantite_en_stock/en_alerte became METHODS on the model
+    # (optional `branche` arg), not properties, so they're dehydrated below
+    # rather than read via `attribute=`. Calling them with no argument
+    # returns the Vue Globale total across every branche.
     quantite_en_stock = fields.Field(
         column_name="quantite_en_stock",
-        attribute="quantite_en_stock",
         readonly=True,
     )
     en_alerte = fields.Field(
         column_name="en_alerte",
-        attribute="en_alerte",
         widget=BooleanWidget(),
         readonly=True,
     )
@@ -251,6 +279,12 @@ class IntrantResource(resources.ModelResource):
             "updated_at",
         ]
         export_order = fields
+
+    def dehydrate_quantite_en_stock(self, obj):
+        return obj.quantite_en_stock()
+
+    def dehydrate_en_alerte(self, obj):
+        return obj.en_alerte()
 
     def before_import_row(self, row, row_number=None, **kwargs):
         """

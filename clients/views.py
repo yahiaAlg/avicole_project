@@ -22,6 +22,15 @@ Business rules enforced here (complementing model.clean(), forms, and signals):
 All write operations use Post-Redirect-Get.
 State changes (validate BL, toggle active) are POST-only.
 Print views render a dedicated template — no redirect.
+
+v1.4 (§3.5, BR-BRA-01/02/04/07): Client stays global (BR-BRA-06), but
+BLClient, FactureClient, PaiementClient, and AbonnementClient all carry a
+required `branche` FK. Vue par Branche scopes every list/detail to the
+request's active branche; Vue Globale shows every branche combined.
+Creation views require a concrete active branche (@require_branche_context)
+and lock the form's branche field to it. VoyageLivraison and PrixMarche stay
+intentionally global (§3.5.3); LivraisonPartielle has no stored branche of
+its own — it inherits its parent abonnement's.
 """
 
 import logging
@@ -31,7 +40,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db import transaction
 from django.db.models import Q, Sum
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -66,6 +75,12 @@ from clients.utils import (
     generer_reference_facture_client,
     get_client_aging_buckets,
     get_client_solde,
+)
+from core.views import (
+    branche_object_or_404,
+    branche_matches,
+    get_active_branche,
+    require_branche_context,
 )
 
 logger = logging.getLogger(__name__)
@@ -202,17 +217,27 @@ def client_detail(request, pk):
     """
     Full client detail: contact info, financial snapshot (solde, aging),
     recent BLs, open invoices, and payment history.
+
+    v1.4 (§3.5.3 ¶4): Client stays global, but BLClient/FactureClient/
+    PaiementClient are branch-scoped. Vue par Branche shows this branch's
+    figures only (mirrors intrants.fournisseur_detail); Vue Globale sums
+    across every branch this client has ever been served by.
     """
     client = get_object_or_404(Client, pk=pk)
-    solde = get_client_solde(client)
+    branche = get_active_branche(request)
+    solde = get_client_solde(client, branche=branche)
 
-    bls_recents = BLClient.objects.filter(client=client).order_by(
-        "-date_bl", "-created_at"
-    )[:10]
+    bls_recents_qs = BLClient.objects.filter(client=client)
+    paiements_recents_qs = PaiementClient.objects.filter(client=client)
+    if branche is not None:
+        bls_recents_qs = bls_recents_qs.filter(branche=branche)
+        paiements_recents_qs = paiements_recents_qs.filter(branche=branche)
+
+    bls_recents = bls_recents_qs.order_by("-date_bl", "-created_at")[:10]
     factures_ouvertes = solde["factures_ouvertes"].select_related()[:20]
-    paiements_recents = PaiementClient.objects.filter(client=client).order_by(
-        "-date_paiement", "-created_at"
-    )[:10]
+    paiements_recents = paiements_recents_qs.order_by("-date_paiement", "-created_at")[
+        :10
+    ]
 
     return render(
         request,
@@ -223,6 +248,7 @@ def client_detail(request, pk):
             "bls_recents": bls_recents,
             "factures_ouvertes": factures_ouvertes,
             "paiements_recents": paiements_recents,
+            "active_branche": branche,
             "title": f"العميل — {client.nom}",
         },
     )
@@ -308,9 +334,12 @@ def bl_client_list(request):
     """
     from core.utils import date_range_from_params
 
-    qs = BLClient.objects.select_related("client", "created_by").order_by(
+    branche = get_active_branche(request)
+    qs = BLClient.objects.select_related("client", "branche", "created_by").order_by(
         "-date_bl", "-created_at"
     )
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     statut = request.GET.get("statut", "")
     if statut:
@@ -347,6 +376,7 @@ def bl_client_list(request):
             "q": q,
             "date_debut": date_debut,
             "date_fin": date_fin,
+            "active_branche": branche,
             "title": "وصولات تسليم العملاء",
         },
     )
@@ -358,6 +388,7 @@ def bl_client_list(request):
 
 
 @login_required(login_url=LOGIN_URL)
+@require_branche_context
 def bl_client_create(request, client_pk=None):
     """
     Create a new BL Client (BROUILLON) with its product lines.
@@ -365,14 +396,19 @@ def bl_client_create(request, client_pk=None):
     Accepts an optional `client_pk` URL parameter to pre-select the client.
     The inline formset manages BLClientLigne records.
     Auto-generates the BL reference if the form's reference field is empty.
+
+    BR-BRA-01/04: the BL comes out of the request's active branche's
+    StockProduitFini — locked on the form; Vue Globale cannot reach this
+    view (@require_branche_context).
     """
+    branche = get_active_branche(request)
     client = None
     if client_pk:
         client = get_object_or_404(Client, pk=client_pk)
 
     if request.method == "POST":
-        form = BLClientForm(request.POST, client=client)
-        formset = BLClientLigneFormSet(request.POST)
+        form = BLClientForm(request.POST, client=client, branche=branche)
+        formset = BLClientLigneFormSet(request.POST, form_kwargs={"branche": branche})
 
         if form.is_valid() and formset.is_valid():
             try:
@@ -381,7 +417,7 @@ def bl_client_create(request, client_pk=None):
                     bl.created_by = request.user
                     # Auto-generate reference if blank
                     if not bl.reference:
-                        bl.reference = generer_reference_bl_client()
+                        bl.reference = generer_reference_bl_client(branche)
                     # Honour the chosen statut but guard LIVRE with a stock check.
                     # Previously this was hardcoded to BROUILLON, which silently
                     # ignored the user's LIVRE selection and never deducted stock.
@@ -393,10 +429,12 @@ def bl_client_create(request, client_pk=None):
                     formset.save()  # lines must exist before stock check
 
                     if wanted_statut == BLClient.STATUT_LIVRE:
-                        lignes = bl.lignes.select_related("produit_fini__stock").all()
+                        lignes = bl.lignes.select_related("produit_fini").all()
                         insuffisant = []
                         for ligne in lignes:
-                            dispo = ligne.produit_fini.quantite_en_stock
+                            dispo = ligne.produit_fini.quantite_en_stock_branche(
+                                bl.branche
+                            )
                             if ligne.quantite > dispo:
                                 insuffisant.append(
                                     f"« {ligne.produit_fini.designation} » : "
@@ -439,12 +477,14 @@ def bl_client_create(request, client_pk=None):
     else:
         initial = {}
         if not client_pk:
-            initial["reference"] = generer_reference_bl_client()
-        form = BLClientForm(client=client, initial=initial)
+            initial["reference"] = generer_reference_bl_client(branche)
+        form = BLClientForm(client=client, branche=branche, initial=initial)
         tmp_bl = BLClient()
         if client:
             tmp_bl.client = client
-        formset = BLClientLigneFormSet(instance=tmp_bl)
+        formset = BLClientLigneFormSet(
+            instance=tmp_bl, form_kwargs={"branche": branche}
+        )
 
     return render(
         request,
@@ -453,6 +493,7 @@ def bl_client_create(request, client_pk=None):
             "form": form,
             "formset": formset,
             "client": client,
+            "active_branche": branche,
             "title": "وصل تسليم جديد",
             "action_label": "حفظ (مسودة)",
         },
@@ -466,8 +507,9 @@ def bl_client_create(request, client_pk=None):
 
 @login_required(login_url=LOGIN_URL)
 def bl_client_detail(request, pk):
-    bl = get_object_or_404(
-        BLClient.objects.select_related("client", "created_by"),
+    bl = branche_object_or_404(
+        request,
+        BLClient.objects.select_related("client", "branche", "created_by"),
         pk=pk,
     )
     lignes = bl.lignes.select_related("produit_fini").all()
@@ -518,15 +560,22 @@ def bl_client_edit(request, pk):
     """
     Edit a BL Client header and its lines.
     Only BROUILLON and LITIGE BLs are editable (BR-BLC-03).
+    BR-BRA-02: the BL must belong to the request's active branche.
     """
-    bl = get_object_or_404(BLClient.objects.select_related("client"), pk=pk)
+    bl = branche_object_or_404(
+        request, BLClient.objects.select_related("client", "branche"), pk=pk
+    )
 
     if not _assert_bl_editable(bl, request):
         return redirect("clients:bl_client_detail", pk=bl.pk)
 
     if request.method == "POST":
-        form = BLClientForm(request.POST, instance=bl, client=bl.client)
-        formset = BLClientLigneFormSet(request.POST, instance=bl)
+        form = BLClientForm(
+            request.POST, instance=bl, client=bl.client, branche=bl.branche
+        )
+        formset = BLClientLigneFormSet(
+            request.POST, instance=bl, form_kwargs={"branche": bl.branche}
+        )
 
         if form.is_valid() and formset.is_valid():
             try:
@@ -541,10 +590,12 @@ def bl_client_edit(request, pk):
                     # the stale pre-edit DB rows.
                     formset.save()
                     if transitioning_to_livre:
-                        lignes = bl.lignes.select_related("produit_fini__stock").all()
+                        lignes = bl.lignes.select_related("produit_fini").all()
                         insuffisant = []
                         for ligne in lignes:
-                            dispo = ligne.produit_fini.quantite_en_stock
+                            dispo = ligne.produit_fini.quantite_en_stock_branche(
+                                bl.branche
+                            )
                             if ligne.quantite > dispo:
                                 insuffisant.append(
                                     f"« {ligne.produit_fini.designation} » : "
@@ -573,8 +624,8 @@ def bl_client_edit(request, pk):
                 "يرجى تصحيح الأخطاء في رأس النموذج و/أو السطور.",
             )
     else:
-        form = BLClientForm(instance=bl, client=bl.client)
-        formset = BLClientLigneFormSet(instance=bl)
+        form = BLClientForm(instance=bl, client=bl.client, branche=bl.branche)
+        formset = BLClientLigneFormSet(instance=bl, form_kwargs={"branche": bl.branche})
 
     return render(
         request,
@@ -607,8 +658,11 @@ def bl_client_valider(request, pk):
                form already validated at input time.
     BR-BLC-01: the post_save signal on BLClient applies the stock decrease
                and creates StockMouvement records automatically.
+    BR-BRA-02: the BL must belong to the request's active branche.
     """
-    bl = get_object_or_404(BLClient.objects.select_related("client"), pk=pk)
+    bl = branche_object_or_404(
+        request, BLClient.objects.select_related("client", "branche"), pk=pk
+    )
 
     if bl.statut != BLClient.STATUT_BROUILLON:
         messages.warning(
@@ -617,7 +671,7 @@ def bl_client_valider(request, pk):
         )
         return redirect("clients:bl_client_detail", pk=bl.pk)
 
-    lignes = bl.lignes.select_related("produit_fini__stock").all()
+    lignes = bl.lignes.select_related("produit_fini").all()
     if not lignes.exists():
         messages.error(
             request,
@@ -629,7 +683,7 @@ def bl_client_valider(request, pk):
     with transaction.atomic():
         insuffisant = []
         for ligne in lignes:
-            dispo = ligne.produit_fini.quantite_en_stock
+            dispo = ligne.produit_fini.quantite_en_stock_branche(bl.branche)
             if ligne.quantite > dispo:
                 insuffisant.append(
                     f"« {ligne.produit_fini.designation} » : "
@@ -694,7 +748,7 @@ def bl_client_change_statut(request, pk):
         BLClient.STATUT_LITIGE: {BLClient.STATUT_BROUILLON},
     }
 
-    bl = get_object_or_404(BLClient, pk=pk)
+    bl = branche_object_or_404(request, BLClient, pk=pk)
     new_statut = request.POST.get("statut", "").strip()
 
     if bl.statut == BLClient.STATUT_FACTURE:
@@ -747,7 +801,7 @@ def bl_client_delete(request, pk):
     Hard-delete a BL Client that is still in BROUILLON status.
     LIVRE, FACTURE, and LITIGE BLs may not be deleted.
     """
-    bl = get_object_or_404(BLClient, pk=pk)
+    bl = branche_object_or_404(request, BLClient, pk=pk)
 
     if bl.statut != BLClient.STATUT_BROUILLON:
         messages.error(
@@ -782,7 +836,8 @@ def bl_client_print(request, pk):
     Renders a dedicated template with @media print CSS — no PDF library.
     Available for LIVRE and FACTURE BLs only; BROUILLON BLs are excluded.
     """
-    bl = get_object_or_404(
+    bl = branche_object_or_404(
+        request,
         BLClient.objects.select_related("client", "created_by"),
         pk=pk,
     )
@@ -831,9 +886,12 @@ def facture_client_list(request):
     from core.utils import date_range_from_params
     import datetime
 
-    qs = FactureClient.objects.select_related("client", "created_by").order_by(
-        "-date_facture", "-created_at"
-    )
+    branche = get_active_branche(request)
+    qs = FactureClient.objects.select_related(
+        "client", "branche", "created_by"
+    ).order_by("-date_facture", "-created_at")
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     statut = request.GET.get("statut", "")
     if statut:
@@ -879,6 +937,7 @@ def facture_client_list(request):
             "date_debut": date_debut,
             "date_fin": date_fin,
             "totals": totals,
+            "active_branche": branche,
             "title": "فواتير العملاء",
         },
     )
@@ -890,6 +949,7 @@ def facture_client_list(request):
 
 
 @login_required(login_url=LOGIN_URL)
+@require_branche_context
 def facture_client_create(request, client_pk=None):
     """
     Create a client invoice by selecting Livré BL Clients.
@@ -897,15 +957,19 @@ def facture_client_create(request, client_pk=None):
     BR-FAC-01: montant_ht/tva/ttc are computed from BL lines in the
                m2m_changed signal (fires after save_m2m() links the BLs).
     BR-FAC-02: the form filters BLs to Livré BLs for the selected client.
+    BR-BRA-01/04: the invoice belongs to the request's active branche —
+               only that branche's Livré BLs can be selected; Vue Globale
+               cannot reach this view (@require_branche_context).
 
     Accepts an optional `client_pk` URL parameter to pre-select the client.
     """
+    branche = get_active_branche(request)
     client = None
     if client_pk:
         client = get_object_or_404(Client, pk=client_pk)
 
     if request.method == "POST":
-        form = FactureClientForm(request.POST, client=client)
+        form = FactureClientForm(request.POST, client=client, branche=branche)
 
         if form.is_valid():
             try:
@@ -914,7 +978,7 @@ def facture_client_create(request, client_pk=None):
                     facture.created_by = request.user
                     # Auto-generate reference if blank
                     if not facture.reference:
-                        facture.reference = generer_reference_facture_client()
+                        facture.reference = generer_reference_facture_client(branche)
                     # montant_ht/tva/ttc initialised to 0 here;
                     # the m2m_changed signal recalculates and persists them
                     # after form.save_m2m() links the BLs.
@@ -947,8 +1011,8 @@ def facture_client_create(request, client_pk=None):
     else:
         initial = {}
         if not client_pk:
-            initial["reference"] = generer_reference_facture_client()
-        form = FactureClientForm(client=client, initial=initial)
+            initial["reference"] = generer_reference_facture_client(branche)
+        form = FactureClientForm(client=client, branche=branche, initial=initial)
 
     return render(
         request,
@@ -956,6 +1020,7 @@ def facture_client_create(request, client_pk=None):
         {
             "form": form,
             "client": client,
+            "active_branche": branche,
             "title": "فاتورة عميل جديدة",
             "action_label": "إنشاء الفاتورة",
         },
@@ -969,7 +1034,8 @@ def facture_client_create(request, client_pk=None):
 
 @login_required(login_url=LOGIN_URL)
 def facture_client_detail(request, pk):
-    facture = get_object_or_404(
+    facture = branche_object_or_404(
+        request,
         FactureClient.objects.select_related("client", "created_by"),
         pk=pk,
     )
@@ -1001,7 +1067,8 @@ def facture_client_print(request, pk):
     Print-optimised invoice view.
     Renders a dedicated template with @media print CSS.
     """
-    facture = get_object_or_404(
+    facture = branche_object_or_404(
+        request,
         FactureClient.objects.select_related("client", "created_by"),
         pk=pk,
     )
@@ -1039,9 +1106,12 @@ def paiement_client_list(request):
     """
     from core.utils import date_range_from_params
 
-    qs = PaiementClient.objects.select_related("client", "created_by").order_by(
-        "-date_paiement", "-created_at"
-    )
+    branche = get_active_branche(request)
+    qs = PaiementClient.objects.select_related(
+        "client", "branche", "created_by"
+    ).order_by("-date_paiement", "-created_at")
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     client_pk = request.GET.get("client", "")
     if client_pk:
@@ -1076,6 +1146,7 @@ def paiement_client_list(request):
             "date_debut": date_debut,
             "date_fin": date_fin,
             "total": total,
+            "active_branche": branche,
             "title": "مدفوعات العملاء",
         },
     )
@@ -1087,22 +1158,28 @@ def paiement_client_list(request):
 
 
 @login_required(login_url=LOGIN_URL)
+@require_branche_context
 def paiement_client_create(request, client_pk=None):
     """
     Record a client payment with automatic FIFO allocation.
 
     The FIFO engine (clients.utils.appliquer_paiement_client_fifo) runs
-    immediately after the record is saved, applying the payment to the
-    oldest open invoices first.
+    immediately after the record is saved, scoped to this payment's own
+    branche (BR-BRA-01) — it only settles open invoices in the same branche.
+
+    BR-BRA-04: Vue Globale cannot reach this view (@require_branche_context);
+               the active branche is pre-selected and locked on the form.
 
     Optional GET params:
       ?facture=<pk> — pre-fill montant with that invoice's reste_a_payer
     """
+    branche = get_active_branche(request)
     client = None
     if client_pk:
         client = get_object_or_404(Client, pk=client_pk)
 
     # ── Resolve facture pre-population from ?facture=<pk> ────────────────
+    # BR-BRA-01: only a facture in the active branche can be pre-filled.
     facture_obj = None
     facture_reste = None
     facture_pk_param = request.GET.get("facture") or request.POST.get("_facture_pk")
@@ -1111,6 +1188,7 @@ def paiement_client_create(request, client_pk=None):
             fo = FactureClient.objects.get(
                 pk=facture_pk_param,
                 client=client,
+                branche=branche,
                 statut__in=[
                     FactureClient.STATUT_NON_PAYEE,
                     FactureClient.STATUT_PARTIELLEMENT_PAYEE,
@@ -1127,7 +1205,7 @@ def paiement_client_create(request, client_pk=None):
             if client_id:
                 client = get_object_or_404(Client, pk=client_id)
 
-        form = PaiementClientForm(request.POST, client=client)
+        form = PaiementClientForm(request.POST, client=client, branche=branche)
 
         if form.is_valid():
             paiement_client = (
@@ -1135,7 +1213,9 @@ def paiement_client_create(request, client_pk=None):
                 if hasattr(form, "client")
                 else form.cleaned_data.get("client")
             )
-            alloc_forms = get_allocation_forms(paiement_client, data=request.POST)
+            alloc_forms = get_allocation_forms(
+                paiement_client, branche=branche, data=request.POST
+            )
 
             # Validate all allocation forms
             alloc_valid = all(f.is_valid() for f in alloc_forms)
@@ -1198,14 +1278,16 @@ def paiement_client_create(request, client_pk=None):
             # Rebuild allocation forms with POST data for re-display
             alloc_forms = []
             if client:
-                alloc_forms = get_allocation_forms(client, data=request.POST)
+                alloc_forms = get_allocation_forms(
+                    client, branche=branche, data=request.POST
+                )
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
 
     else:
-        form = PaiementClientForm(client=client)
-        alloc_forms = get_allocation_forms(client) if client else []
+        form = PaiementClientForm(client=client, branche=branche)
+        alloc_forms = get_allocation_forms(client, branche=branche) if client else []
 
-    solde = get_client_solde(client) if client else None
+    solde = get_client_solde(client, branche=branche) if client else None
 
     return render(
         request,
@@ -1217,6 +1299,7 @@ def paiement_client_create(request, client_pk=None):
             "facture_obj": facture_obj,
             "facture_reste": facture_reste,
             "solde": solde,
+            "active_branche": branche,
             "title": "تسجيل دفعة عميل",
             "action_label": "حفظ الدفعة",
         },
@@ -1230,7 +1313,8 @@ def paiement_client_create(request, client_pk=None):
 
 @login_required(login_url=LOGIN_URL)
 def paiement_client_detail(request, pk):
-    paiement = get_object_or_404(
+    paiement = branche_object_or_404(
+        request,
         PaiementClient.objects.select_related("client", "created_by"),
         pk=pk,
     )
@@ -1259,7 +1343,8 @@ def paiement_client_print(request, pk):
     """
     Print-optimised payment receipt.
     """
-    paiement = get_object_or_404(
+    paiement = branche_object_or_404(
+        request,
         PaiementClient.objects.select_related("client", "created_by"),
         pk=pk,
     )
@@ -1296,10 +1381,14 @@ def clients_dashboard(request):
       - Recent BL Clients (last 10)
       - Uninvoiced Livré BLs (eligible for invoicing)
       - Aging summary across all clients
+
+    v1.4 (§3.5.5): Vue par Branche shows only the active branche's figures;
+    Vue Globale aggregates across every branche.
     """
     import datetime
 
     today = datetime.date.today()
+    branche = get_active_branche(request)
 
     # Top-level receivable metrics
     factures_ouvertes_qs = FactureClient.objects.filter(
@@ -1308,35 +1397,43 @@ def clients_dashboard(request):
             FactureClient.STATUT_PARTIELLEMENT_PAYEE,
         ]
     )
+    bls_non_factures_qs = BLClient.objects.filter(statut=BLClient.STATUT_LIVRE)
+    bls_recents_qs = BLClient.objects.all()
+    paiements_recents_qs = PaiementClient.objects.all()
+    if branche is not None:
+        factures_ouvertes_qs = factures_ouvertes_qs.filter(branche=branche)
+        bls_non_factures_qs = bls_non_factures_qs.filter(branche=branche)
+        bls_recents_qs = bls_recents_qs.filter(branche=branche)
+        paiements_recents_qs = paiements_recents_qs.filter(branche=branche)
+
     total_creances = (
         factures_ouvertes_qs.aggregate(total=Sum("reste_a_payer"))["total"] or 0
     )
     nb_factures_retard = factures_ouvertes_qs.filter(date_echeance__lt=today).count()
 
-    # Clients exceeding credit ceiling
+    # Clients exceeding credit ceiling — scoped to the active branche's
+    # créance when one is selected (BR-BRA-01), Vue Globale otherwise.
     clients_hors_plafond = [
         c
         for c in Client.objects.filter(actif=True, plafond_credit__gt=0)
-        if c.depasse_plafond
+        if c.creance_globale(branche) > c.plafond_credit
     ]
 
     # Uninvoiced Livré BLs (eligible for invoicing — alert)
-    bls_non_factures = (
-        BLClient.objects.filter(statut=BLClient.STATUT_LIVRE)
-        .select_related("client")
-        .order_by("-date_bl")[:20]
-    )
+    bls_non_factures = bls_non_factures_qs.select_related("client").order_by(
+        "-date_bl"
+    )[:20]
 
     # Recent BLs
-    bls_recents = BLClient.objects.select_related("client").order_by(
+    bls_recents = bls_recents_qs.select_related("client").order_by(
         "-date_bl", "-created_at"
     )[:10]
 
-    # Aged receivables (all clients)
-    aging_buckets = get_client_aging_buckets()
+    # Aged receivables (scoped to the active branche, Vue Globale sums all)
+    aging_buckets = get_client_aging_buckets(branche=branche)
 
     # Recent payments
-    paiements_recents = PaiementClient.objects.select_related("client").order_by(
+    paiements_recents = paiements_recents_qs.select_related("client").order_by(
         "-date_paiement", "-created_at"
     )[:10]
 
@@ -1354,6 +1451,7 @@ def clients_dashboard(request):
             "paiements_recents": paiements_recents,
             "aging_buckets": aging_buckets,
             "nb_clients_actifs": nb_clients_actifs,
+            "active_branche": branche,
             "title": "لوحة تحكم — العملاء",
         },
     )
@@ -1380,7 +1478,8 @@ def client_solde_json(request, pk):
         }
     """
     client = get_object_or_404(Client, pk=pk)
-    solde = get_client_solde(client)
+    branche = get_active_branche(request)
+    solde = get_client_solde(client, branche=branche)
 
     data = {
         "creance_globale": float(solde["creance_globale"]),
@@ -1403,10 +1502,16 @@ def abonnement_list(request):
     Subscription list.
 
     Filters: ?client=<pk>, ?statut=actif|termine|suspendu
+
+    v1.4 (BR-BRA-01/02): Vue par Branche shows only the active branche's
+    subscriptions; Vue Globale shows every branche's combined.
     """
-    qs = AbonnementClient.objects.select_related("client", "produit_fini").order_by(
-        "-date_debut"
-    )
+    branche = get_active_branche(request)
+    qs = AbonnementClient.objects.select_related(
+        "client", "produit_fini", "branche"
+    ).order_by("-date_debut")
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     client_pk = request.GET.get("client", "")
     if client_pk:
@@ -1428,20 +1533,29 @@ def abonnement_list(request):
             "client_pk": client_pk,
             "statut": statut,
             "statut_choices": AbonnementClient.STATUT_CHOICES,
+            "active_branche": branche,
             "title": "اشتراكات العملاء",
         },
     )
 
 
 @login_required(login_url=LOGIN_URL)
+@require_branche_context
 def abonnement_create(request, client_pk=None):
-    """Create a new client subscription."""
+    """
+    Create a new client subscription.
+
+    BR-BRA-01/04: the agreement is fulfilled out of the request's active
+    branche's stock — locked on the form; Vue Globale cannot reach this
+    view (@require_branche_context).
+    """
+    branche = get_active_branche(request)
     client = None
     if client_pk:
         client = get_object_or_404(Client, pk=client_pk)
 
     if request.method == "POST":
-        form = AbonnementClientForm(request.POST)
+        form = AbonnementClientForm(request.POST, client=client, branche=branche)
         if form.is_valid():
             try:
                 abo = form.save(commit=False)
@@ -1465,7 +1579,7 @@ def abonnement_create(request, client_pk=None):
         initial = {}
         if client:
             initial["client"] = client
-        form = AbonnementClientForm(initial=initial)
+        form = AbonnementClientForm(initial=initial, client=client, branche=branche)
 
     return render(
         request,
@@ -1473,6 +1587,7 @@ def abonnement_create(request, client_pk=None):
         {
             "form": form,
             "client": client,
+            "active_branche": branche,
             "title": "اشتراك جديد",
             "action_label": "إنشاء",
         },
@@ -1482,8 +1597,9 @@ def abonnement_create(request, client_pk=None):
 @login_required(login_url=LOGIN_URL)
 def abonnement_detail(request, pk):
     """Detail view for one subscription, with its partial deliveries."""
-    abo = get_object_or_404(
-        AbonnementClient.objects.select_related("client", "produit_fini"),
+    abo = branche_object_or_404(
+        request,
+        AbonnementClient.objects.select_related("client", "produit_fini", "branche"),
         pk=pk,
     )
     livraisons = abo.livraisons.select_related("voyage").order_by("-date")
@@ -1501,11 +1617,13 @@ def abonnement_detail(request, pk):
 
 @login_required(login_url=LOGIN_URL)
 def abonnement_edit(request, pk):
-    """Edit a subscription (status, dates, quantity)."""
-    abo = get_object_or_404(AbonnementClient, pk=pk)
+    """Edit a subscription (status, dates, quantity). BR-BRA-02 scoped."""
+    abo = branche_object_or_404(request, AbonnementClient, pk=pk)
 
     if request.method == "POST":
-        form = AbonnementClientForm(request.POST, instance=abo)
+        form = AbonnementClientForm(
+            request.POST, instance=abo, client=abo.client, branche=abo.branche
+        )
         if form.is_valid():
             try:
                 form.save()
@@ -1517,7 +1635,9 @@ def abonnement_edit(request, pk):
         else:
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
-        form = AbonnementClientForm(instance=abo)
+        form = AbonnementClientForm(
+            instance=abo, client=abo.client, branche=abo.branche
+        )
 
     return render(
         request,
@@ -1535,7 +1655,7 @@ def abonnement_edit(request, pk):
 @require_POST
 def abonnement_toggle_statut(request, pk):
     """Cycle subscription statut: ACTIF → SUSPENDU → TERMINE (POST-only)."""
-    abo = get_object_or_404(AbonnementClient, pk=pk)
+    abo = branche_object_or_404(request, AbonnementClient, pk=pk)
     transitions = {
         AbonnementClient.STATUT_ACTIF: AbonnementClient.STATUT_SUSPENDU,
         AbonnementClient.STATUT_SUSPENDU: AbonnementClient.STATUT_ACTIF,
@@ -1672,9 +1792,10 @@ def livraison_partielle_create(request, abonnement_pk):
     Record one partial delivery against a subscription.
 
     On save the post_save signal decrements StockProduitFini and creates a
-    StockMouvement (SORTIE / LIVRAISON_ABONNEMENT).
+    StockMouvement (SORTIE / LIVRAISON_ABONNEMENT). BR-BRA-02: the
+    subscription must belong to the request's active branche.
     """
-    abo = get_object_or_404(AbonnementClient, pk=abonnement_pk)
+    abo = branche_object_or_404(request, AbonnementClient, pk=abonnement_pk)
 
     if abo.statut != AbonnementClient.STATUT_ACTIF:
         messages.error(
@@ -1684,7 +1805,7 @@ def livraison_partielle_create(request, abonnement_pk):
         return redirect("clients:abonnement_detail", pk=abo.pk)
 
     if request.method == "POST":
-        form = LivraisonPartielleForm(request.POST, abonnement=abo)
+        form = LivraisonPartielleForm(request.POST, abonnement=abo, branche=abo.branche)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -1714,7 +1835,7 @@ def livraison_partielle_create(request, abonnement_pk):
         import datetime
 
         form = LivraisonPartielleForm(
-            abonnement=abo, initial={"date": datetime.date.today()}
+            abonnement=abo, branche=abo.branche, initial={"date": datetime.date.today()}
         )
 
     return render(
@@ -1736,11 +1857,16 @@ def livraison_partielle_delete(request, pk):
     Delete a partial delivery (POST-only).
 
     The pre_delete signal restores the StockProduitFini balance.
+    BR-BRA-02: LivraisonPartielle.branche is derived from its parent
+    abonnement (no stored FK), so the guard reads `.branche` via
+    `branche_matches` instead of `branche_object_or_404`.
     """
     livraison = get_object_or_404(
         LivraisonPartielle.objects.select_related("abonnement"), pk=pk
     )
     abo = livraison.abonnement
+    if not branche_matches(request, livraison):
+        raise Http404("Cette livraison appartient à une autre branche.")
 
     try:
         date_ref = livraison.date
@@ -1770,6 +1896,9 @@ def fiche_dettes_client(request, pk):
     with the prevailing market price on each delivery date, the unit margin,
     and a running cumulative balance.
 
+    v1.4 (§3.5.5): reports default to the request's active branche; Vue
+    Globale shows this client's deliveries across every branche combined.
+
     Query params:
       ?date_debut=YYYY-MM-DD
       ?date_fin=YYYY-MM-DD
@@ -1779,6 +1908,7 @@ def fiche_dettes_client(request, pk):
     from decimal import Decimal
 
     client = get_object_or_404(Client, pk=pk)
+    branche = get_active_branche(request)
 
     # ── filters ──────────────────────────────────────────────────────────
     date_debut_str = request.GET.get("date_debut", "")
@@ -1805,6 +1935,8 @@ def fiche_dettes_client(request, pk):
         .select_related("bl", "produit_fini")
         .order_by("bl__date_bl", "bl__pk", "pk")
     )
+    if branche is not None:
+        qs = qs.filter(bl__branche=branche)
 
     if date_debut:
         qs = qs.filter(bl__date_bl__gte=date_debut)
@@ -1876,6 +2008,7 @@ def fiche_dettes_client(request, pk):
             "date_fin": date_fin,
             "produit_fini_pk": produit_fini_pk,
             "produits_disponibles": produits_disponibles,
+            "active_branche": branche,
             "title": f"فيشة الديون — {client.nom}",
         },
     )

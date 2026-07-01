@@ -9,6 +9,15 @@ Business-logic helpers for the supplier procurement cycle.
   generer_reference_facture_fournisseur — Sequential FRN reference
   get_supplier_aging_buckets — Aged debt analysis for reporting
   get_fournisseur_solde      — Full financial summary for one supplier
+
+v1.4 — Multi-Branch Architecture (§3.5): Fournisseur stays global (BR-BRA-06),
+but BLFournisseur / FactureFournisseur / ReglementFournisseur / AcompteFournisseur
+are branch-scoped (BR-BRA-01). The FIFO engine now only allocates a règlement
+across factures in its OWN branche — a payment recorded in one branch can
+never silently settle another branch's debt, even for the same supplier
+(BR-BRA-01, mirrored by AllocationReglement.clean()). Reporting helpers below
+take an optional `branche` (Vue par Branche when given, Vue Globale — summed
+across all branches — when omitted, per §3.5.5).
 """
 
 from decimal import Decimal
@@ -27,16 +36,23 @@ logger = logging.getLogger(__name__)
 def appliquer_reglement_fifo(reglement):
     """
     Distribute *reglement.montant* across open factures fournisseur for the
-    same supplier using FIFO (oldest invoice date first).
+    same supplier **within the same branche** (BR-BRA-01) using FIFO
+    (oldest invoice date first).
 
     Steps:
-      1. Fetch all Non-Payé / Partiellement-Payé invoices ordered by
-         date_facture ASC, then pk ASC (tie-break — BR-REG-02).
+      1. Fetch all Non-Payé / Partiellement-Payé invoices for this supplier
+         AND this règlement's branche, ordered by date_facture ASC, then pk
+         ASC (tie-break — BR-REG-02). A supplier owed by two branches has
+         two fully independent FIFO queues, even though it is the same
+         Fournisseur record (§3.5.3 ¶4) — a règlement recorded in one
+         branch must never reach another branch's open invoices.
       2. Allocate the payment amount invoice by invoice until exhausted.
       3. For each allocation, create an AllocationReglement record and call
          facture.recalculer_solde() to update the invoice balance + status.
-      4. If surplus remains after all invoices are cleared, create an
-         AcompteFournisseur (BR-REG-04).
+      4. If surplus remains after all of THIS branche's invoices are
+         cleared, create an AcompteFournisseur (BR-REG-04) — it auto-syncs
+         its own `branche` from `reglement.branche` in its save() override,
+         so it never needs to be passed explicitly here.
 
     Called inside a post_save signal; assumes the surrounding DB transaction.
 
@@ -61,9 +77,11 @@ def appliquer_reglement_fifo(reglement):
         )
         return
 
-    # 1. Open invoices — oldest first (FIFO); exclude En Litige (BR-FAF-05)
+    # 1. Open invoices for this supplier, scoped to the règlement's OWN
+    #    branche (BR-BRA-01) — oldest first (FIFO); exclude En Litige (BR-FAF-05)
     factures_ouvertes = FactureFournisseur.objects.filter(
         fournisseur=fournisseur,
+        branche=reglement.branche,
         statut__in=[
             FactureFournisseur.STATUT_NON_PAYE,
             FactureFournisseur.STATUT_PARTIELLEMENT_PAYE,
@@ -112,9 +130,10 @@ def appliquer_reglement_fifo(reglement):
             ),
         )
         logger.info(
-            "FIFO: surplus of %s DZD stored as AcompteFournisseur for %s.",
+            "FIFO: surplus of %s DZD stored as AcompteFournisseur for %s (branche=%s).",
             montant_restant,
             fournisseur.nom,
+            reglement.branche.code,
         )
 
 
@@ -163,28 +182,38 @@ def calculer_pmp(
 # ---------------------------------------------------------------------------
 
 
-def generer_reference_bl_fournisseur() -> str:
+def generer_reference_bl_fournisseur(branche) -> str:
     """
-    Generate the next BL Fournisseur reference.
-    Format: <prefixe_bl_fournisseur>-<YYYY>-<NNNN>   e.g. BLF-2025-0001
+    Generate the next BL Fournisseur reference, scoped to *branche*.
+    Format: <prefixe_bl_fournisseur>-<code_branche>-<YYYY>-<NNNN>
+            e.g. BLF-EST-2026-0001 (BR-BRA-05).
+
+    Args:
+        branche (Branche): The branch this BL belongs to (BLFournisseur.branche
+            is a required FK — BR-BRA-01).
     """
     from achats.models import BLFournisseur
     from core.utils import generer_reference, get_company_prefix
 
     prefix = get_company_prefix("prefixe_bl_fournisseur")
-    return generer_reference(BLFournisseur, prefix)
+    return generer_reference(BLFournisseur, prefix, branche=branche)
 
 
-def generer_reference_facture_fournisseur() -> str:
+def generer_reference_facture_fournisseur(branche) -> str:
     """
-    Generate the next Facture Fournisseur reference.
-    Format: <prefixe_facture_fournisseur>-<YYYY>-<NNNN>   e.g. FRN-2025-0001
+    Generate the next Facture Fournisseur reference, scoped to *branche*.
+    Format: <prefixe_facture_fournisseur>-<code_branche>-<YYYY>-<NNNN>
+            e.g. FRN-EST-2026-0001 (BR-BRA-05).
+
+    Args:
+        branche (Branche): The branch this invoice belongs to
+            (FactureFournisseur.branche is a required FK — BR-BRA-01).
     """
     from achats.models import FactureFournisseur
     from core.utils import generer_reference, get_company_prefix
 
     prefix = get_company_prefix("prefixe_facture_fournisseur")
-    return generer_reference(FactureFournisseur, prefix)
+    return generer_reference(FactureFournisseur, prefix, branche=branche)
 
 
 # ---------------------------------------------------------------------------
@@ -192,9 +221,15 @@ def generer_reference_facture_fournisseur() -> str:
 # ---------------------------------------------------------------------------
 
 
-def get_fournisseur_solde(fournisseur) -> dict:
+def get_fournisseur_solde(fournisseur, branche=None) -> dict:
     """
     Return a complete financial snapshot for one supplier.
+
+    v1.4 (§3.5.3 ¶4): BLFournisseur/FactureFournisseur/ReglementFournisseur/
+    AcompteFournisseur are branch-scoped, while Fournisseur itself stays
+    global. Pass `branche` to get the figures exactly as that branch's chef
+    de branche sees them; omit it for the Vue Globale figures, summed across
+    every branch the supplier has ever transacted with.
 
     Keys returned:
         dette_globale       — sum of reste_a_payer on open invoices
@@ -205,6 +240,7 @@ def get_fournisseur_solde(fournisseur) -> dict:
 
     Args:
         fournisseur (Fournisseur): The supplier instance.
+        branche (Branche | None): Scope to one branch; omit for Vue Globale.
     """
     from achats.models import (
         FactureFournisseur,
@@ -221,17 +257,28 @@ def get_fournisseur_solde(fournisseur) -> dict:
         ],
     ).order_by("date_facture", "pk")
 
+    acomptes_qs = AcompteFournisseur.objects.filter(
+        fournisseur=fournisseur, utilise=False
+    )
+
+    reglements_qs = ReglementFournisseur.objects.filter(fournisseur=fournisseur)
+
+    if branche is not None:
+        factures_ouvertes = factures_ouvertes.filter(branche=branche)
+        acomptes_qs = acomptes_qs.filter(branche=branche)
+        reglements_qs = reglements_qs.filter(branche=branche)
+
     dette_globale = factures_ouvertes.aggregate(total=Sum("reste_a_payer"))[
         "total"
     ] or Decimal("0")
 
-    acompte_disponible = AcompteFournisseur.objects.filter(
-        fournisseur=fournisseur, utilise=False
-    ).aggregate(total=Sum("montant"))["total"] or Decimal("0")
+    acompte_disponible = acomptes_qs.aggregate(total=Sum("montant"))[
+        "total"
+    ] or Decimal("0")
 
-    total_reglements = ReglementFournisseur.objects.filter(
-        fournisseur=fournisseur
-    ).aggregate(total=Sum("montant"))["total"] or Decimal("0")
+    total_reglements = reglements_qs.aggregate(total=Sum("montant"))[
+        "total"
+    ] or Decimal("0")
 
     today = datetime.date.today()
     nb_factures_retard = (
@@ -256,12 +303,18 @@ def get_fournisseur_solde(fournisseur) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def get_autorisations_expirees() -> list:
+def get_autorisations_expirees(branche=None) -> list:
     """
     Return all autorisation_acces BLs that are past their expiry date and
     still in STATUT_AUTORISE (goods not yet picked up).
 
     Useful for dashboard alerts and nightly monitoring tasks.
+
+    Args:
+        branche (Branche | None): Scope to one branch (Vue par Branche);
+            omit for Vue Globale — every branch's overdue authorizations,
+            with the originating branch readable via `.branche` on each
+            result (§3.5.5).
 
     Returns:
         list[BLFournisseur]: Ordered by expiry date ascending (oldest first).
@@ -269,24 +322,26 @@ def get_autorisations_expirees() -> list:
     from achats.models import BLFournisseur
 
     today = datetime.date.today()
-    return list(
-        BLFournisseur.objects.filter(
-            type_document=BLFournisseur.TYPE_AUTORISATION_ACCES,
-            statut=BLFournisseur.STATUT_AUTORISE,
-            date_expiration_autorisation__lt=today,
-        )
-        .select_related("fournisseur")
-        .order_by("date_expiration_autorisation")
-    )
+    qs = BLFournisseur.objects.filter(
+        type_document=BLFournisseur.TYPE_AUTORISATION_ACCES,
+        statut=BLFournisseur.STATUT_AUTORISE,
+        date_expiration_autorisation__lt=today,
+    ).select_related("fournisseur", "branche")
+
+    if branche is not None:
+        qs = qs.filter(branche=branche)
+
+    return list(qs.order_by("date_expiration_autorisation"))
 
 
-def get_autorisations_en_attente(fournisseur=None) -> list:
+def get_autorisations_en_attente(fournisseur=None, branche=None) -> list:
     """
     Return all autorisation_acces BLs in STATUT_AUTORISE that have not
     yet expired — i.e. active authorizations awaiting truck dispatch.
 
     Args:
         fournisseur (Fournisseur | None): Filter to one supplier; None = all.
+        branche (Branche | None): Scope to one branch; omit for Vue Globale.
 
     Returns:
         list[BLFournisseur]: Ordered by expiry date ascending (soonest first).
@@ -303,11 +358,13 @@ def get_autorisations_en_attente(fournisseur=None) -> list:
             django_models.Q(date_expiration_autorisation__gte=today)
             | django_models.Q(date_expiration_autorisation__isnull=True)
         )
-        .select_related("fournisseur")
+        .select_related("fournisseur", "branche")
     )
 
     if fournisseur:
         qs = qs.filter(fournisseur=fournisseur)
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     return list(qs.order_by("date_expiration_autorisation"))
 
@@ -317,7 +374,7 @@ def get_autorisations_en_attente(fournisseur=None) -> list:
 # ---------------------------------------------------------------------------
 
 
-def get_supplier_aging_buckets(fournisseur=None) -> list[dict]:
+def get_supplier_aging_buckets(fournisseur=None, branche=None) -> list[dict]:
     """
     Compute an aged-debt breakdown for one supplier or all suppliers.
 
@@ -328,8 +385,13 @@ def get_supplier_aging_buckets(fournisseur=None) -> list[dict]:
         61_90         — 61–90 days overdue
         over_90       — > 90 days overdue
 
+    v1.4 (§3.5.5): pass `branche` for the Vue par Branche figures (exactly
+    what that branch's chef de branche sees); omit for Vue Globale, which
+    sums a supplier's debt across every branch it has invoices in.
+
     Args:
         fournisseur (Fournisseur | None): Filter to one supplier; None = all.
+        branche (Branche | None): Scope to one branch; omit for Vue Globale.
 
     Returns:
         list[dict]: One dict per supplier with bucket totals.
@@ -348,6 +410,8 @@ def get_supplier_aging_buckets(fournisseur=None) -> list[dict]:
 
     if fournisseur:
         qs = qs.filter(fournisseur=fournisseur)
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     # Group by supplier
     buckets_by_supplier: dict[int, dict] = {}

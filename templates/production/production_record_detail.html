@@ -6,7 +6,7 @@
 {% block nav_production %}active{% endblock %}
 
 {% block page_title %}الإنتاج — {{ record.lot.designation }}{% endblock %}
-{% block page_sub_text %}{{ record.date_production|date:"d/m/Y" }} · {{ record.nombre_oiseaux_abattus|floatformat:0 }} طيور{% endblock %}
+{% block page_sub_text %}{{ record.date_production|date:"d/m/Y" }} · {{ record.nombre_oiseaux_abattus|floatformat:0 }} طيور{% if not active_branche %} · {{ record.branche.nom }}{% endif %}{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'production:production_record_list' %}" class="btn-ghost">
@@ -210,6 +210,12 @@
             <span class="aside-info-label">المبنى</span>
             <span class="aside-info-val">{{ record.lot.batiment }}</span>
           </div>
+          {% if not active_branche %}
+          <div class="aside-info-row">
+            <span class="aside-info-label">الفرع</span>
+            <span class="aside-info-val"><span class="pill-neutral">{{ record.branche.nom }}</span></span>
+          </div>
+          {% endif %}
           <div class="aside-info-row">
             <span class="aside-info-label">تاريخ الإنتاج</span>
             <span class="aside-info-val">{{ record.date_production|date:"d/m/Y" }}</span>

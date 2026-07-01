@@ -13,6 +13,7 @@ from django.utils.html import format_html
 
 from import_export.admin import ImportExportModelAdmin
 
+from core.admin import BrancheScopedAdminMixin
 from depenses.models import (
     CategorieDepense,
     Depense,
@@ -52,11 +53,12 @@ class CategorieDepenseAdmin(ImportExportModelAdmin):
 
 
 @admin.register(Depense)
-class DepenseAdmin(ImportExportModelAdmin):
+class DepenseAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = DepenseResource
 
     list_display = (
         "date",
+        "branche",
         "categorie",
         "description_courte",
         "montant_dzd",
@@ -65,11 +67,11 @@ class DepenseAdmin(ImportExportModelAdmin):
         "facture_liee",
         "a_pj",
     )
-    list_filter = ("categorie", "mode_paiement", "date", "lot")
+    list_filter = ("categorie", "mode_paiement", "branche", "date", "lot")
     search_fields = ("description", "reference_document", "notes", "lot__designation")
     date_hierarchy = "date"
     readonly_fields = ("a_pj", "created_at", "updated_at")
-    autocomplete_fields = ("categorie", "lot", "facture_liee")
+    autocomplete_fields = ("branche", "categorie", "lot", "facture_liee")
 
     fieldsets = (
         (
@@ -77,6 +79,7 @@ class DepenseAdmin(ImportExportModelAdmin):
             {
                 "fields": (
                     "date",
+                    "branche",
                     "categorie",
                     "description",
                     "montant",
@@ -160,23 +163,30 @@ class RetraitAssocieAdmin(ImportExportModelAdmin):
 
 
 @admin.register(Employe)
-class EmployeAdmin(ImportExportModelAdmin):
+class EmployeAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = EmployeResource
+    branche_lookup = "batiment__branche"
+
     list_display = (
         "matricule",
         "nom_complet",
         "fonction",
+        "branche_display",
         "batiment",
         "jour_repos_habituel",
         "binome",
         "salaire_base_mensuel",
         "actif",
     )
-    list_filter = ("actif", "batiment", "jour_repos_habituel")
+    list_filter = ("actif", "batiment__branche", "batiment", "jour_repos_habituel")
     search_fields = ("matricule", "nom_complet", "fonction", "telephone")
     list_editable = ("actif",)
     autocomplete_fields = ("batiment", "binome")
     ordering = ("nom_complet",)
+
+    @admin.display(description="الفرع")
+    def branche_display(self, obj):
+        return obj.branche
 
     fieldsets = (
         (
@@ -207,29 +217,35 @@ class EmployeAdmin(ImportExportModelAdmin):
 
 
 @admin.register(Pointage)
-class PointageAdmin(ImportExportModelAdmin):
+class PointageAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = PointageResource
+    branche_lookup = "employe__batiment__branche"
+
     list_display = ("date", "employe", "statut", "heures_supplementaires")
-    list_filter = ("statut", "date", "employe")
+    list_filter = ("statut", "date", "employe__batiment__branche", "employe")
     search_fields = ("employe__nom_complet", "employe__matricule", "notes")
     date_hierarchy = "date"
     autocomplete_fields = ("employe",)
 
 
 @admin.register(CongeEmploye)
-class CongeEmployeAdmin(admin.ModelAdmin):
+class CongeEmployeAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
+    branche_lookup = "employe__batiment__branche"
+
     list_display = ("employe", "date_debut", "date_fin", "nb_jours", "motif")
-    list_filter = ("employe",)
+    list_filter = ("employe__batiment__branche", "employe")
     search_fields = ("employe__nom_complet", "motif", "notes")
     autocomplete_fields = ("employe",)
     readonly_fields = ("nb_jours", "created_at")
 
 
 @admin.register(AcompteEmploye)
-class AcompteEmployeAdmin(ImportExportModelAdmin):
+class AcompteEmployeAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = AcompteEmployeResource
+    branche_lookup = "employe__batiment__branche"
+
     list_display = ("date", "employe", "montant_dzd", "mode_paiement", "deduit_badge")
-    list_filter = ("employe", "mode_paiement", "date")
+    list_filter = ("employe__batiment__branche", "employe", "mode_paiement", "date")
     search_fields = ("employe__nom_complet", "motif", "notes")
     date_hierarchy = "date"
     autocomplete_fields = ("employe", "bulletin_paie")
@@ -245,8 +261,10 @@ class AcompteEmployeAdmin(ImportExportModelAdmin):
 
 
 @admin.register(BulletinPaie)
-class BulletinPaieAdmin(ImportExportModelAdmin):
+class BulletinPaieAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = BulletinPaieResource
+    branche_lookup = "employe__batiment__branche"
+
     list_display = (
         "employe",
         "periode_label",
@@ -257,7 +275,7 @@ class BulletinPaieAdmin(ImportExportModelAdmin):
         "montant_net",
         "statut",
     )
-    list_filter = ("statut", "annee", "mois", "employe")
+    list_filter = ("statut", "annee", "mois", "employe__batiment__branche", "employe")
     search_fields = ("employe__nom_complet", "employe__matricule")
     autocomplete_fields = ("employe",)
     readonly_fields = (

@@ -27,6 +27,24 @@ Access levels (spec §9.12):
   Manager      → all reports
   Comptable    → financial reports (aging, cash flow, créances)
   Opérateur    → stock status, consommation, BL client history
+
+v1.4 — Multi-Branch Architecture (§3.5.5): every report gains an implicit
+Vue par Branche / Vue Globale toggle. `core.views.get_active_branche`
+resolves the request's active branche exactly as every other app does
+(`None` == Vue Globale). Vue par Branche shows the same figures a chef de
+branche already sees for their own branche; Vue Globale aggregates across
+every branche, with `active_branche`/`vue_globale` passed to every template
+so the report header can render the toggle/breadcrumb. Reporting utility
+functions that already accept an optional `branche` kwarg (achats.utils,
+clients.utils, depenses.utils, production.utils) are called with it
+directly; manual querysets are filtered with `.filter(branche=branche)` for
+models carrying a real `branche` FK, or via the appropriate join
+(`lot__branche`, `employe__batiment__branche`, …) for the handful of models
+where `branche` is a derived property rather than a stored column
+(BR-BRA-09 for RH, the elevage event models). Per BR-BRA-08, the Retraits
+Associés report (`rapport_retraits_associes`) is the one deliberate
+exception — it stays company-wide regardless of the active branche, since
+Associés/RetraitAssocie are never branch-scoped.
 """
 
 import csv
@@ -42,6 +60,8 @@ from django.db.models import Count, F, Max, Min, Q, Sum
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+
+from core.views import branche_object_or_404, get_active_branche
 
 logger = logging.getLogger(__name__)
 
@@ -156,55 +176,64 @@ def reporting_dashboard(request):
     """
     Central hub linking all available reports.
     Filters the visible report cards by the user's role.
+
+    v1.4 (§3.5.5): the header KPIs are scoped to the request's active
+    branche (Vue par Branche); admin/comptable in Vue Globale
+    (`branche is None`) see every branche's figures combined.
     """
     role = _get_role(request.user)
     today = datetime.date.today()
+    branche = get_active_branche(request)
+    vue_globale = branche is None
 
     # Quick KPIs for the dashboard header
     from achats.models import FactureFournisseur
     from clients.models import FactureClient
     from stock.models import StockIntrant
 
-    nb_factures_retard_fournisseur = FactureFournisseur.objects.filter(
+    factures_fournisseur_qs = FactureFournisseur.objects.filter(
         statut__in=[
             FactureFournisseur.STATUT_NON_PAYE,
             FactureFournisseur.STATUT_PARTIELLEMENT_PAYE,
         ],
-        date_echeance__lt=today,
-    ).count()
-
-    nb_factures_retard_client = FactureClient.objects.filter(
+    )
+    factures_client_qs = FactureClient.objects.filter(
         statut__in=[
             FactureClient.STATUT_NON_PAYEE,
             FactureClient.STATUT_PARTIELLEMENT_PAYEE,
         ],
-        date_echeance__lt=today,
-    ).count()
-
-    nb_stocks_alerte = StockIntrant.objects.filter(
+    )
+    stock_intrant_qs = StockIntrant.objects.filter(
         quantite__lte=F("intrant__seuil_alerte"),
         quantite__gt=0,
+    )
+    if branche is not None:
+        factures_fournisseur_qs = factures_fournisseur_qs.filter(branche=branche)
+        factures_client_qs = factures_client_qs.filter(branche=branche)
+        stock_intrant_qs = stock_intrant_qs.filter(branche=branche)
+
+    nb_factures_retard_fournisseur = factures_fournisseur_qs.filter(
+        date_echeance__lt=today
     ).count()
+    nb_factures_retard_client = factures_client_qs.filter(
+        date_echeance__lt=today
+    ).count()
+    nb_stocks_alerte = stock_intrant_qs.count()
 
     from elevage.models import LotElevage
-    from achats.models import FactureFournisseur as FF2
-    from clients.models import FactureClient as FC2
     from django.db.models import Sum as _Sum
 
-    nb_lots_ouverts = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT).count()
+    lots_qs = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT)
+    if branche is not None:
+        lots_qs = lots_qs.filter(branche=branche)
+    nb_lots_ouverts = lots_qs.count()
 
     dette_totale = (
-        FF2.objects.filter(
-            statut__in=[FF2.STATUT_NON_PAYE, FF2.STATUT_PARTIELLEMENT_PAYE]
-        ).aggregate(total=_Sum("reste_a_payer"))["total"]
-        or 0
+        factures_fournisseur_qs.aggregate(total=_Sum("reste_a_payer"))["total"] or 0
     )
 
     creances_totale = (
-        FC2.objects.filter(
-            statut__in=[FC2.STATUT_NON_PAYEE, FC2.STATUT_PARTIELLEMENT_PAYEE]
-        ).aggregate(total=_Sum("reste_a_payer"))["total"]
-        or 0
+        factures_client_qs.aggregate(total=_Sum("reste_a_payer"))["total"] or 0
     )
 
     # Respect GET params so the period picker persists after Actualiser
@@ -229,6 +258,8 @@ def reporting_dashboard(request):
             "date_debut_default": date_debut_default,
             "date_fin_default": date_fin_default,
             "today": today,
+            "active_branche": branche,
+            "vue_globale": vue_globale,
         },
     )
 
@@ -255,12 +286,13 @@ def rapport_supplier_aging(request):
     from achats.utils import get_supplier_aging_buckets
     from intrants.models import Fournisseur
 
+    branche = get_active_branche(request)
     fournisseur_pk = request.GET.get("fournisseur", "").strip()
     fournisseur_obj = None
     if fournisseur_pk:
         fournisseur_obj = get_object_or_404(Fournisseur, pk=fournisseur_pk)
 
-    buckets = get_supplier_aging_buckets(fournisseur=fournisseur_obj)
+    buckets = get_supplier_aging_buckets(fournisseur=fournisseur_obj, branche=branche)
 
     # Column totals
     totaux = {
@@ -339,6 +371,8 @@ def rapport_supplier_aging(request):
             "fournisseur_pk": fournisseur_pk,
             "fournisseur_obj": fournisseur_obj,
             "chart_json": chart_json,
+            "active_branche": branche,
+            "vue_globale": branche is None,
         },
     )
 
@@ -364,9 +398,12 @@ def rapport_historique_reglements(request):
     from achats.models import AllocationReglement, ReglementFournisseur
     from intrants.models import Fournisseur
 
+    branche = get_active_branche(request)
     qs = ReglementFournisseur.objects.select_related(
         "fournisseur", "created_by"
     ).order_by("-date_reglement", "-created_at")
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     fournisseur_pk = request.GET.get("fournisseur", "").strip()
     if fournisseur_pk:
@@ -451,6 +488,8 @@ def rapport_historique_reglements(request):
             "date_debut": date_debut,
             "date_fin": date_fin,
             "alloc_json": alloc_json,
+            "active_branche": branche,
+            "vue_globale": branche is None,
         },
     )
 
@@ -477,6 +516,7 @@ def rapport_repartition_reglements(request):
     from achats.models import AllocationReglement, ReglementFournisseur
     from intrants.models import Fournisseur
 
+    branche = get_active_branche(request)
     date_debut, date_fin = _parse_dates(request)
     fournisseur_pk = request.GET.get("fournisseur", "").strip()
 
@@ -485,6 +525,8 @@ def rapport_repartition_reglements(request):
         "reglement__fournisseur",
         "facture",
     )
+    if branche is not None:
+        qs = qs.filter(reglement__branche=branche)
     if date_debut:
         qs = qs.filter(reglement__date_reglement__gte=date_debut)
     if date_fin:
@@ -582,6 +624,8 @@ def rapport_repartition_reglements(request):
             "date_debut": date_debut,
             "date_fin": date_fin,
             "chart_json": chart_json,
+            "active_branche": branche,
+            "vue_globale": branche is None,
         },
     )
 
@@ -610,6 +654,7 @@ def rapport_dettes_fournisseurs(request):
     from intrants.models import Fournisseur
 
     today = datetime.date.today()
+    branche = get_active_branche(request)
 
     fournisseurs_qs = Fournisseur.objects.order_by("nom")
     if request.GET.get("actif_seulement", "1") != "0":
@@ -629,6 +674,10 @@ def rapport_dettes_fournisseurs(request):
                 FactureFournisseur.STATUT_PARTIELLEMENT_PAYE,
             ],
         )
+        last_reg_qs = ReglementFournisseur.objects.filter(fournisseur=fournisseur)
+        if branche is not None:
+            factures_ouvertes = factures_ouvertes.filter(branche=branche)
+            last_reg_qs = last_reg_qs.filter(branche=branche)
         agg = factures_ouvertes.aggregate(
             dette=Sum("reste_a_payer"),
             nb=Count("pk"),
@@ -641,8 +690,7 @@ def rapport_dettes_fournisseurs(request):
 
         # Last settlement date
         last_reg = (
-            ReglementFournisseur.objects.filter(fournisseur=fournisseur)
-            .order_by("-date_reglement")
+            last_reg_qs.order_by("-date_reglement")
             .values_list("date_reglement", flat=True)
             .first()
         )
@@ -719,6 +767,8 @@ def rapport_dettes_fournisseurs(request):
             "today": today,
             "q": q,
             "chart_json": chart_json,
+            "active_branche": branche,
+            "vue_globale": branche is None,
         },
     )
 
@@ -747,9 +797,12 @@ def rapport_rentabilite_lot(request):
     from elevage.models import LotElevage
     from elevage.utils import get_lot_summary
 
+    branche = get_active_branche(request)
     qs = LotElevage.objects.select_related(
         "fournisseur_poussins", "batiment", "created_by"
     ).order_by("-date_ouverture")
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     # Statut filter
     statut = request.GET.get("statut", "").strip()
@@ -768,7 +821,7 @@ def rapport_rentabilite_lot(request):
     lot_obj = None
     lot_summary = None
     if lot_pk:
-        lot_obj = get_object_or_404(LotElevage, pk=lot_pk)
+        lot_obj = branche_object_or_404(request, LotElevage, pk=lot_pk)
         lot_summary = get_lot_summary(lot_obj)
 
     # Cross-lot summary table
@@ -847,6 +900,8 @@ def rapport_rentabilite_lot(request):
         return _csv_response("rentabilite_lots", headers, rows)
 
     lots_all = LotElevage.objects.order_by("-date_ouverture")
+    if branche is not None:
+        lots_all = lots_all.filter(branche=branche)
 
     chart_json = json.dumps(
         {
@@ -875,6 +930,8 @@ def rapport_rentabilite_lot(request):
             "date_debut": date_debut,
             "date_fin": date_fin,
             "chart_json": chart_json,
+            "active_branche": branche,
+            "vue_globale": branche is None,
         },
     )
 
@@ -897,12 +954,21 @@ def rapport_cash_flow(request):
     Export:   ?export=csv (six separate sections)
 
     Access: FINANCIAL_ROLES
+
+    v1.4 (§3.5.5): Vue par Branche shows this branche's own cash flow
+    (PaiementClient/ReglementFournisseur/Depense filtered on `branche`,
+    payroll cash filtered via `employe__batiment__branche` — BR-BRA-09);
+    Vue Globale sums every branche. Per BR-BRA-08, stakeholder withdrawals
+    (RetraitAssocie) are never branch-scoped — `total_retraits_associes`
+    always reflects the full company-wide figure regardless of the active
+    branche.
     """
     if not _require_role(request, FINANCIAL_ROLES):
         return redirect("reporting:dashboard")
 
     from depenses.utils import get_cash_flow_summary
 
+    branche = get_active_branche(request)
     date_debut, date_fin = _parse_dates(request)
 
     # Default to last 12 months if no range provided
@@ -911,7 +977,9 @@ def rapport_cash_flow(request):
         date_debut = today - datetime.timedelta(days=365)
         date_fin = today
 
-    summary = get_cash_flow_summary(date_debut=date_debut, date_fin=date_fin)
+    summary = get_cash_flow_summary(
+        date_debut=date_debut, date_fin=date_fin, branche=branche
+    )
 
     if request.GET.get("export") == "csv":
         headers = ["Catégorie", "Détail", "Date", "Montant (DZD)", "Mode de paiement"]
@@ -1015,6 +1083,8 @@ def rapport_cash_flow(request):
             "date_fin": date_fin,
             "today": today,
             "chart_json": chart_json,
+            "active_branche": branche,
+            "vue_globale": branche is None,
         },
     )
 
@@ -1037,10 +1107,18 @@ def rapport_etat_stocks(request):
     Export: ?export=csv
 
     Access: ALL_ROLES
+
+    v1.4 (§3.5.3 ¶3, BR-BRA-07): StockIntrant/StockProduitFini are now one
+    row per (branche, item). Vue par Branche shows only the active branche's
+    balances — exactly what a chef de branche sees and depletes; Vue Globale
+    shows every branche's rows side by side (the branche is annotated on
+    each row so the same catalogue item's several branch balances are
+    distinguishable), with valuation totals summed across all of them.
     """
     from intrants.models import CategorieIntrant
     from stock.models import StockIntrant, StockProduitFini
 
+    branche = get_active_branche(request)
     segment = request.GET.get("segment", "").strip()
     categorie_pk = request.GET.get("categorie", "").strip()
     alerte_only = request.GET.get("alerte", "") == "1"
@@ -1049,9 +1127,11 @@ def rapport_etat_stocks(request):
     # ── Intrants ──────────────────────────────────────────────────────────
     stocks_intrants = []
     if segment in ("", "intrants"):
-        si_qs = StockIntrant.objects.select_related("intrant__categorie").order_by(
-            "intrant__categorie__libelle", "intrant__designation"
-        )
+        si_qs = StockIntrant.objects.select_related(
+            "intrant__categorie", "branche"
+        ).order_by("intrant__categorie__libelle", "intrant__designation")
+        if branche is not None:
+            si_qs = si_qs.filter(branche=branche)
         if categorie_pk:
             si_qs = si_qs.filter(intrant__categorie_id=categorie_pk)
         if alerte_only:
@@ -1066,9 +1146,11 @@ def rapport_etat_stocks(request):
     # ── Produits finis ────────────────────────────────────────────────────
     stocks_produits = []
     if segment in ("", "produits_finis"):
-        spf_qs = StockProduitFini.objects.select_related("produit_fini").order_by(
-            "produit_fini__type_produit", "produit_fini__designation"
-        )
+        spf_qs = StockProduitFini.objects.select_related(
+            "produit_fini", "branche"
+        ).order_by("produit_fini__type_produit", "produit_fini__designation")
+        if branche is not None:
+            spf_qs = spf_qs.filter(branche=branche)
         if alerte_only:
             spf_qs = spf_qs.filter(quantite__lte=F("seuil_alerte"))
         if q:
@@ -1081,6 +1163,7 @@ def rapport_etat_stocks(request):
 
     if request.GET.get("export") == "csv":
         headers = [
+            "Branche",
             "Segment",
             "Catégorie",
             "Désignation",
@@ -1099,6 +1182,7 @@ def rapport_etat_stocks(request):
             )
             rows.append(
                 [
+                    s.branche.nom,
                     "Intrant",
                     s.intrant.categorie.libelle,
                     s.intrant.designation,
@@ -1117,6 +1201,7 @@ def rapport_etat_stocks(request):
             )
             rows.append(
                 [
+                    s.branche.nom,
                     "Produit fini",
                     s.produit_fini.get_type_produit_display(),
                     s.produit_fini.designation,
@@ -1169,6 +1254,8 @@ def rapport_etat_stocks(request):
                 1 for s in stocks_produits if s.en_alerte and s.quantite > 0
             ),
             "chart_json": chart_json,
+            "active_branche": branche,
+            "vue_globale": branche is None,
         },
     )
 
@@ -1188,13 +1275,22 @@ def rapport_consommation_lot(request):
     Export:   ?export=csv
 
     Access: ALL_ROLES (operateurs can view consumption data)
+
+    v1.4 (§3.5.5, BR-BRA-01): Consommation has no stored `branche` column —
+    it is derived from `lot.branche`. Vue par Branche filters on the
+    `lot__branche` join (and scopes the lot picker the same way); Vue
+    Globale shows every branche's consumption combined.
     """
     from elevage.models import Consommation, LotElevage
     from intrants.models import CategorieIntrant, Intrant
 
+    branche = get_active_branche(request)
+
     qs = Consommation.objects.select_related(
         "lot", "intrant__categorie", "created_by"
     ).order_by("-date", "lot__designation")
+    if branche is not None:
+        qs = qs.filter(lot__branche=branche)
 
     lot_pk = request.GET.get("lot", "").strip()
     if lot_pk:
@@ -1252,7 +1348,10 @@ def rapport_consommation_lot(request):
         return _csv_response("consommation_lot", headers, rows)
 
     page = _paginate(qs, request.GET.get("page"))
-    lots = LotElevage.objects.order_by("-date_ouverture")
+    lots_qs = LotElevage.objects.order_by("-date_ouverture")
+    if branche is not None:
+        lots_qs = lots_qs.filter(branche=branche)
+    lots = lots_qs
     intrants = Intrant.objects.filter(
         actif=True, categorie__consommable_en_lot=True
     ).select_related("categorie")
@@ -1285,6 +1384,8 @@ def rapport_consommation_lot(request):
             "date_debut": date_debut,
             "date_fin": date_fin,
             "chart_json": chart_json,
+            "active_branche": branche,
+            "vue_globale": branche is None,
         },
     )
 
@@ -1305,6 +1406,10 @@ def rapport_creances_clients(request):
     Export:   ?export=csv
 
     Access: FINANCIAL_ROLES
+
+    v1.4 (§3.5.5): Vue par Branche shows this branche's own receivables
+    (BLClient/FactureClient are branch-scoped, Client stays global); Vue
+    Globale sums every branche the client has been served by.
     """
     if not _require_role(request, FINANCIAL_ROLES):
         return redirect("reporting:dashboard")
@@ -1312,12 +1417,13 @@ def rapport_creances_clients(request):
     from clients.models import Client
     from clients.utils import get_client_aging_buckets
 
+    branche = get_active_branche(request)
     client_pk = request.GET.get("client", "").strip()
     client_obj = None
     if client_pk:
         client_obj = get_object_or_404(Client, pk=client_pk)
 
-    buckets = get_client_aging_buckets(client=client_obj)
+    buckets = get_client_aging_buckets(client=client_obj, branche=branche)
 
     totaux = {
         "current": sum(b["current"] for b in buckets),
@@ -1395,6 +1501,8 @@ def rapport_creances_clients(request):
             "client_pk": client_pk,
             "client_obj": client_obj,
             "chart_json": chart_json,
+            "active_branche": branche,
+            "vue_globale": branche is None,
         },
     )
 
@@ -1413,14 +1521,22 @@ def rapport_historique_bl_clients(request):
     Export:   ?export=csv
 
     Access: ALL_ROLES
+
+    v1.4 (§3.5.5, BR-BRA-01): BLClient carries a required `branche` FK. Vue
+    par Branche shows only the active branche's delivery notes; Vue Globale
+    shows every branche combined.
     """
     from clients.models import BLClient, Client
 
+    branche = get_active_branche(request)
+
     qs = (
-        BLClient.objects.select_related("client", "created_by")
+        BLClient.objects.select_related("client", "branche", "created_by")
         .prefetch_related("lignes__produit_fini")
         .order_by("-date_bl")
     )
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     client_pk = request.GET.get("client", "").strip()
     if client_pk:
@@ -1497,6 +1613,8 @@ def rapport_historique_bl_clients(request):
             "date_fin": date_fin,
             "q": q,
             "chart_json": chart_json,
+            "active_branche": branche,
+            "vue_globale": branche is None,
         },
     )
 
@@ -1516,19 +1634,26 @@ def rapport_production_dashboard(request):
     Export:   ?export=csv
 
     Access: FINANCIAL_ROLES
+
+    v1.4 (§3.5.5): ProductionRecord.branche is denormalized from the lot.
+    Vue par Branche shows only the active branche's production; Vue Globale
+    sums every branche.
     """
     if not _require_role(request, FINANCIAL_ROLES):
         return redirect("reporting:dashboard")
 
     from production.utils import get_production_dashboard
 
+    branche = get_active_branche(request)
     date_debut, date_fin = _parse_dates(request)
     today = datetime.date.today()
     if not date_debut and not date_fin:
         date_debut = today.replace(month=1, day=1)
         date_fin = today
 
-    rows = get_production_dashboard(date_debut=date_debut, date_fin=date_fin)
+    rows = get_production_dashboard(
+        date_debut=date_debut, date_fin=date_fin, branche=branche
+    )
 
     totaux = {
         "nb_oiseaux_abattus": sum(r["nb_oiseaux_abattus"] for r in rows),
@@ -1580,6 +1705,8 @@ def rapport_production_dashboard(request):
             "date_fin": date_fin,
             "today": today,
             "chart_json": chart_json,
+            "active_branche": branche,
+            "vue_globale": branche is None,
         },
     )
 
@@ -1599,6 +1726,10 @@ def rapport_depenses(request):
     Export:   ?export=csv
 
     Access: FINANCIAL_ROLES
+
+    v1.4 (§3.5.5, BR-BRA-01): Depense carries a required `branche` FK. Vue
+    par Branche shows only the active branche's expenses (and scopes the
+    lot picker the same way); Vue Globale sums every branche.
     """
     if not _require_role(request, FINANCIAL_ROLES):
         return redirect("reporting:dashboard")
@@ -1607,6 +1738,7 @@ def rapport_depenses(request):
     from depenses.utils import get_depenses_summary
     from elevage.models import LotElevage
 
+    branche = get_active_branche(request)
     date_debut, date_fin = _parse_dates(request)
     today = datetime.date.today()
     if not date_debut and not date_fin:
@@ -1616,12 +1748,16 @@ def rapport_depenses(request):
     categorie_pk = request.GET.get("categorie", "").strip()
     lot_pk = request.GET.get("lot", "").strip()
 
-    summary = get_depenses_summary(date_debut=date_debut, date_fin=date_fin)
+    summary = get_depenses_summary(
+        date_debut=date_debut, date_fin=date_fin, branche=branche
+    )
 
     # Filtered expense queryset for the detail table
     depenses_qs = Depense.objects.select_related(
-        "categorie", "lot", "enregistre_par"
+        "categorie", "lot", "branche", "enregistre_par"
     ).order_by("-date")
+    if branche is not None:
+        depenses_qs = depenses_qs.filter(branche=branche)
     if date_debut:
         depenses_qs = depenses_qs.filter(date__gte=date_debut)
     if date_fin:
@@ -1657,7 +1793,10 @@ def rapport_depenses(request):
 
     page = _paginate(depenses_qs, request.GET.get("page"))
     categories = CategorieDepense.objects.filter(actif=True).order_by("libelle")
-    lots = LotElevage.objects.order_by("-date_ouverture")
+    lots_qs = LotElevage.objects.order_by("-date_ouverture")
+    if branche is not None:
+        lots_qs = lots_qs.filter(branche=branche)
+    lots = lots_qs
 
     chart_json = json.dumps(
         {
@@ -1688,6 +1827,8 @@ def rapport_depenses(request):
             "date_debut": date_debut,
             "date_fin": date_fin,
             "chart_json": chart_json,
+            "active_branche": branche,
+            "vue_globale": branche is None,
         },
     )
 
@@ -1704,11 +1845,13 @@ def rapport_consommation_lot_detail(request, lot_pk):
     Wraps elevage.utils.get_lot_summary but focuses on the consumption slice.
 
     Access: ALL_ROLES
+
+    BR-BRA-02: the lot must belong to the request's active branche.
     """
     from elevage.models import LotElevage
     from elevage.utils import get_lot_summary
 
-    lot = get_object_or_404(LotElevage, pk=lot_pk)
+    lot = branche_object_or_404(request, LotElevage, pk=lot_pk)
     summary = get_lot_summary(lot)
 
     if request.GET.get("export") == "csv":
@@ -1750,6 +1893,7 @@ def rapport_consommation_lot_detail(request, lot_pk):
             "lot": lot,
             "summary": summary,
             "conso_json": conso_json,
+            "active_branche": get_active_branche(request),
         },
     )
 
@@ -1764,11 +1908,15 @@ def stock_mouvement_print(request, pk):
     """
     Printable bon de mouvement de stock (spec §9.11).
     Accessible to all roles.
+
+    BR-BRA-02: the movement must belong to the request's active branche.
     """
     from core.models import CompanyInfo
     from stock.models import StockMouvement
 
-    mouvement = get_object_or_404(StockMouvement, pk=pk)
+    mouvement = branche_object_or_404(
+        request, StockMouvement.objects.select_related("branche"), pk=pk
+    )
     company = CompanyInfo.get_instance()
 
     return render(
@@ -1797,12 +1945,20 @@ def rapport_retraits_associes(request):
     Export:   ?export=csv
 
     Access: FINANCIAL_ROLES (equity draw data)
+
+    v1.4 / BR-BRA-08: deliberate exception to the Vue par Branche / Vue
+    Globale toggle — Associé/RetraitAssocie are never branch-scoped, so
+    this report always shows the full company-wide figures regardless of
+    the request's active branche. `active_branche` is still passed to the
+    template for the header/breadcrumb, but no queryset below is filtered
+    by it.
     """
     if not _require_role(request, FINANCIAL_ROLES):
         return redirect("reporting:dashboard")
 
     from depenses.models import Associe, RetraitAssocie
 
+    branche = get_active_branche(request)
     date_debut, date_fin = _parse_dates(request)
     today = datetime.date.today()
     if not date_debut and not date_fin:
@@ -1897,6 +2053,8 @@ def rapport_retraits_associes(request):
             "date_debut": date_debut,
             "date_fin": date_fin,
             "chart_json": chart_json,
+            "active_branche": branche,
+            "vue_globale": branche is None,
         },
     )
 
@@ -1918,12 +2076,19 @@ def rapport_synthese_rh(request):
     Export:   ?export=csv
 
     Access: FINANCIAL_ROLES (payroll data is sensitive)
+
+    v1.4 (§3.5.5, BR-BRA-09): Employe.branche is derived from the assigned
+    batiment, not a stored column. Vue par Branche filters every queryset
+    below via the `employe__batiment__branche` (or `batiment__branche`)
+    join; Vue Globale shows the company-wide payroll summary, exactly as
+    spec'd for admin/comptable.
     """
     if not _require_role(request, FINANCIAL_ROLES):
         return redirect("reporting:dashboard")
 
     from depenses.models import AcompteEmploye, BulletinPaie, Employe
 
+    branche = get_active_branche(request)
     date_debut, date_fin = _parse_dates(request)
     today = datetime.date.today()
     if not date_debut and not date_fin:
@@ -1937,6 +2102,8 @@ def rapport_synthese_rh(request):
     bulletins_qs = BulletinPaie.objects.select_related(
         "employe", "genere_par"
     ).order_by("-annee", "-mois")
+    if branche is not None:
+        bulletins_qs = bulletins_qs.filter(employe__batiment__branche=branche)
 
     if date_debut:
         bulletins_qs = bulletins_qs.filter(annee__gte=date_debut.year).filter(
@@ -1967,6 +2134,8 @@ def rapport_synthese_rh(request):
         date__gte=date_debut or today.replace(year=today.year - 1),
         date__lte=date_fin or today,
     )
+    if branche is not None:
+        acomptes_qs = acomptes_qs.filter(employe__batiment__branche=branche)
     if employe_pk:
         acomptes_qs = acomptes_qs.filter(employe_id=employe_pk)
     total_acomptes_payes = acomptes_qs.aggregate(total=Sum("montant"))[
@@ -1976,7 +2145,10 @@ def rapport_synthese_rh(request):
     # Leave balances for active employees
     from depenses.models import CongeEmploye
 
-    employes_actifs = Employe.objects.filter(actif=True).order_by("nom_complet")
+    employes_actifs_qs = Employe.objects.filter(actif=True).order_by("nom_complet")
+    if branche is not None:
+        employes_actifs_qs = employes_actifs_qs.filter(batiment__branche=branche)
+    employes_actifs = employes_actifs_qs
     soldes_conge = {}
     for emp in employes_actifs:
         accrued = Decimal(str(emp.anciennete_mois())) * Decimal("2.5")
@@ -2016,7 +2188,10 @@ def rapport_synthese_rh(request):
         return _csv_response("synthese_rh", headers, rows)
 
     page = _paginate(bulletins_qs, request.GET.get("page"))
-    employes = Employe.objects.filter(actif=True).order_by("nom_complet")
+    employes_qs = Employe.objects.filter(actif=True).order_by("nom_complet")
+    if branche is not None:
+        employes_qs = employes_qs.filter(batiment__branche=branche)
+    employes = employes_qs
 
     chart_json = json.dumps(
         {
@@ -2048,6 +2223,8 @@ def rapport_synthese_rh(request):
             "date_debut": date_debut,
             "date_fin": date_fin,
             "chart_json": chart_json,
+            "active_branche": branche,
+            "vue_globale": branche is None,
         },
     )
 
@@ -2071,11 +2248,19 @@ def rapport_oeufs_fertilisant(request):
     Export:   ?export=csv
 
     Access: ALL_ROLES
+
+    v1.4 (§3.5.5, BR-BRA-01): RecolteOeufs has no stored `branche` — it is
+    derived from `lot.branche`, so it's filtered via the `lot__branche`
+    join. CollecteFertilisant/TraitementFertilisant carry their own
+    `branche` FK (denormalized from batiment, resp. explicit). Vue par
+    Branche scopes all three to the active branche (and the lot/bâtiment
+    pickers the same way); Vue Globale shows every branche combined.
     """
     from elevage.models import LotElevage, RecolteOeufs
     from intrants.models import Batiment
     from production.models import CollecteFertilisant, TraitementFertilisant
 
+    branche = get_active_branche(request)
     date_debut, date_fin = _parse_dates(request)
     lot_pk = request.GET.get("lot", "").strip()
     batiment_pk = request.GET.get("batiment", "").strip()
@@ -2084,6 +2269,8 @@ def rapport_oeufs_fertilisant(request):
     oeufs_qs = RecolteOeufs.objects.select_related(
         "lot", "lot__batiment", "pesee"
     ).order_by("-date")
+    if branche is not None:
+        oeufs_qs = oeufs_qs.filter(lot__branche=branche)
     if date_debut:
         oeufs_qs = oeufs_qs.filter(date__gte=date_debut)
     if date_fin:
@@ -2110,6 +2297,8 @@ def rapport_oeufs_fertilisant(request):
     collectes_qs = CollecteFertilisant.objects.select_related(
         "batiment", "traitement"
     ).order_by("-date_collecte")
+    if branche is not None:
+        collectes_qs = collectes_qs.filter(branche=branche)
     if date_debut:
         collectes_qs = collectes_qs.filter(date_collecte__gte=date_debut)
     if date_fin:
@@ -2124,6 +2313,8 @@ def rapport_oeufs_fertilisant(request):
     traitements_qs = TraitementFertilisant.objects.select_related(
         "produit_fini"
     ).filter(statut=TraitementFertilisant.STATUT_VALIDE)
+    if branche is not None:
+        traitements_qs = traitements_qs.filter(branche=branche)
     if date_debut:
         traitements_qs = traitements_qs.filter(date_traitement__gte=date_debut)
     if date_fin:
@@ -2183,8 +2374,13 @@ def rapport_oeufs_fertilisant(request):
             )
         return _csv_response("oeufs_fertilisant", headers, rows)
 
-    lots = LotElevage.objects.order_by("-date_ouverture")
-    batiments = Batiment.objects.filter(actif=True).order_by("nom")
+    lots_qs = LotElevage.objects.order_by("-date_ouverture")
+    batiments_qs = Batiment.objects.filter(actif=True).order_by("nom")
+    if branche is not None:
+        lots_qs = lots_qs.filter(branche=branche)
+        batiments_qs = batiments_qs.filter(branche=branche)
+    lots = lots_qs
+    batiments = batiments_qs
     oeufs_page = _paginate(oeufs_qs, request.GET.get("page_oeufs", 1))
     collectes_page = _paginate(collectes_qs, request.GET.get("page_collectes", 1))
 
@@ -2224,6 +2420,8 @@ def rapport_oeufs_fertilisant(request):
             "date_debut": date_debut,
             "date_fin": date_fin,
             "chart_json": chart_json,
+            "active_branche": branche,
+            "vue_globale": branche is None,
         },
     )
 
@@ -2261,6 +2459,12 @@ def kpi_summary_json(request):
                                             retraits_associes, paie, sorties, solde_net}
       date_debut                        — str ISO
       date_fin                          — str ISO
+
+    v1.4 (§3.5.5): every KPI below is scoped to the request's active
+    branche (Vue par Branche) — supplier/client invoices, lots, stock,
+    production, BL clients, and cash flow are all filtered consistently
+    with the rest of the reporting suite; Vue Globale (`branche is None`)
+    combines every branche, exactly as `reporting_dashboard` does.
     """
     from achats.models import FactureFournisseur
     from clients.models import BLClient, FactureClient
@@ -2270,6 +2474,7 @@ def kpi_summary_json(request):
     from stock.models import StockIntrant
 
     today = datetime.date.today()
+    branche = get_active_branche(request)
 
     # ── Date range (default: last 12 months) ──────────────────────────────
     date_debut, date_fin = _parse_dates(request)
@@ -2279,58 +2484,45 @@ def kpi_summary_json(request):
         date_fin = today
 
     # ── Basic scalar KPIs ─────────────────────────────────────────────────
-    dette = (
-        FactureFournisseur.objects.filter(
-            statut__in=[
-                FactureFournisseur.STATUT_NON_PAYE,
-                FactureFournisseur.STATUT_PARTIELLEMENT_PAYE,
-            ]
-        ).aggregate(total=Sum("reste_a_payer"))["total"]
-        or 0
-    )
-
-    creances = (
-        FactureClient.objects.filter(
-            statut__in=[
-                FactureClient.STATUT_NON_PAYEE,
-                FactureClient.STATUT_PARTIELLEMENT_PAYEE,
-            ]
-        ).aggregate(total=Sum("reste_a_payer"))["total"]
-        or 0
-    )
-
-    nb_lots_ouverts = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT).count()
-
-    nb_stocks_alerte = StockIntrant.objects.filter(
-        quantite__lte=F("intrant__seuil_alerte"),
-        quantite__gt=0,
-    ).count()
-
-    nb_ruptures = StockIntrant.objects.filter(quantite__lte=0).count()
-
-    nb_ff_retard = FactureFournisseur.objects.filter(
-        statut__in=[
-            FactureFournisseur.STATUT_NON_PAYE,
-            FactureFournisseur.STATUT_PARTIELLEMENT_PAYE,
-        ],
-        date_echeance__lt=today,
-    ).count()
-
-    nb_fc_retard = FactureClient.objects.filter(
-        statut__in=[
-            FactureClient.STATUT_NON_PAYEE,
-            FactureClient.STATUT_PARTIELLEMENT_PAYEE,
-        ],
-        date_echeance__lt=today,
-    ).count()
-
-    # ── Supplier aging buckets ────────────────────────────────────────────
-    open_ff = FactureFournisseur.objects.filter(
+    dette_qs = FactureFournisseur.objects.filter(
         statut__in=[
             FactureFournisseur.STATUT_NON_PAYE,
             FactureFournisseur.STATUT_PARTIELLEMENT_PAYE,
         ]
-    ).values("date_echeance", "reste_a_payer")
+    )
+    creances_qs = FactureClient.objects.filter(
+        statut__in=[
+            FactureClient.STATUT_NON_PAYEE,
+            FactureClient.STATUT_PARTIELLEMENT_PAYEE,
+        ]
+    )
+    if branche is not None:
+        dette_qs = dette_qs.filter(branche=branche)
+        creances_qs = creances_qs.filter(branche=branche)
+
+    dette = dette_qs.aggregate(total=Sum("reste_a_payer"))["total"] or 0
+    creances = creances_qs.aggregate(total=Sum("reste_a_payer"))["total"] or 0
+
+    lots_ouverts_qs = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT)
+    stock_intrant_qs = StockIntrant.objects.all()
+    if branche is not None:
+        lots_ouverts_qs = lots_ouverts_qs.filter(branche=branche)
+        stock_intrant_qs = stock_intrant_qs.filter(branche=branche)
+    nb_lots_ouverts = lots_ouverts_qs.count()
+
+    nb_stocks_alerte = stock_intrant_qs.filter(
+        quantite__lte=F("intrant__seuil_alerte"),
+        quantite__gt=0,
+    ).count()
+
+    nb_ruptures = stock_intrant_qs.filter(quantite__lte=0).count()
+
+    nb_ff_retard = dette_qs.filter(date_echeance__lt=today).count()
+
+    nb_fc_retard = creances_qs.filter(date_echeance__lt=today).count()
+
+    # ── Supplier aging buckets ────────────────────────────────────────────
+    open_ff = dette_qs.values("date_echeance", "reste_a_payer")
 
     sup_aging = {
         "current": 0.0,
@@ -2356,12 +2548,7 @@ def kpi_summary_json(request):
     supplier_aging_out = sup_aging if sum(sup_aging.values()) > 0 else None
 
     # ── Client aging buckets ──────────────────────────────────────────────
-    open_fc = FactureClient.objects.filter(
-        statut__in=[
-            FactureClient.STATUT_NON_PAYEE,
-            FactureClient.STATUT_PARTIELLEMENT_PAYEE,
-        ]
-    ).values("date_echeance", "reste_a_payer")
+    open_fc = creances_qs.values("date_echeance", "reste_a_payer")
 
     cli_aging = {
         "current": 0.0,
@@ -2387,11 +2574,9 @@ def kpi_summary_json(request):
     client_aging_out = cli_aging if sum(cli_aging.values()) > 0 else None
 
     # ── Open lots summary ─────────────────────────────────────────────────
-    lots_qs = (
-        LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT)
-        .select_related("batiment")
-        .order_by("-date_ouverture")[:10]
-    )
+    lots_qs = lots_ouverts_qs.select_related("batiment").order_by("-date_ouverture")[
+        :10
+    ]
     lots_data = []
     for lot in lots_qs:
         lots_data.append(
@@ -2405,15 +2590,14 @@ def kpi_summary_json(request):
         )
 
     # ── Recent production (within period) ────────────────────────────────
-    prod_qs = (
-        ProductionRecord.objects.filter(
-            statut=ProductionRecord.STATUT_VALIDE,
-            date_production__gte=date_debut,
-            date_production__lte=date_fin,
-        )
-        .select_related("lot")
-        .order_by("-date_production")[:6]
+    prod_qs = ProductionRecord.objects.filter(
+        statut=ProductionRecord.STATUT_VALIDE,
+        date_production__gte=date_debut,
+        date_production__lte=date_fin,
     )
+    if branche is not None:
+        prod_qs = prod_qs.filter(branche=branche)
+    prod_qs = prod_qs.select_related("lot").order_by("-date_production")[:6]
     prod_data = [
         {
             "lot": r.lot.designation[:22],
@@ -2424,7 +2608,7 @@ def kpi_summary_json(request):
     ]
 
     # ── Stock status ──────────────────────────────────────────────────────
-    all_si = StockIntrant.objects.select_related("intrant").all()
+    all_si = stock_intrant_qs.select_related("intrant")
     nb_normal_s = nb_alerte_s = 0
     valeur_totale = 0.0
     for si in all_si:
@@ -2440,7 +2624,10 @@ def kpi_summary_json(request):
     }
 
     # ── BL Clients status distribution ───────────────────────────────────
-    bl_counts = BLClient.objects.values("statut").annotate(nb=Count("pk"))
+    bl_clients_qs = BLClient.objects.all()
+    if branche is not None:
+        bl_clients_qs = bl_clients_qs.filter(branche=branche)
+    bl_counts = bl_clients_qs.values("statut").annotate(nb=Count("pk"))
     bl_map = {r["statut"]: r["nb"] for r in bl_counts}
     bl_clients = {
         "brouillon": bl_map.get("brouillon", 0),
@@ -2451,7 +2638,9 @@ def kpi_summary_json(request):
     }
 
     # ── Cash flow summary (for period) ────────────────────────────────────
-    cf = get_cash_flow_summary(date_debut=date_debut, date_fin=date_fin)
+    cf = get_cash_flow_summary(
+        date_debut=date_debut, date_fin=date_fin, branche=branche
+    )
     cash_flow = {
         "encaissements": round(float(cf["total_encaissements"]), 2),
         "reglements": round(float(cf["total_reglements_fournisseurs"]), 2),
@@ -2480,5 +2669,6 @@ def kpi_summary_json(request):
             "cash_flow": cash_flow,
             "date_debut": str(date_debut),
             "date_fin": str(date_fin),
+            "vue_globale": branche is None,
         }
     )

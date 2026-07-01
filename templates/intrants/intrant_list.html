@@ -86,11 +86,11 @@
             </td>
             <td>
               <div style="display:flex;align-items:center;gap:7px;">
-                {% if intrant.en_alerte %}
+                {% if intrant.alerte_affichee %}
                   <span class="alert-dot"></span>
                 {% endif %}
-                <span style="font-family:'Nunito',sans-serif;font-weight:700;color:{% if intrant.en_alerte %}#dc2626{% else %}var(--text-primary){% endif %};">
-                  {{ intrant.quantite_en_stock|floatformat:3 }}
+                <span style="font-family:'Nunito',sans-serif;font-weight:700;color:{% if intrant.alerte_affichee %}#dc2626{% else %}var(--text-primary){% endif %};">
+                  {{ intrant.qte_affichee|floatformat:3 }}
                 </span>
               </div>
             </td>

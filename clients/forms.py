@@ -72,6 +72,11 @@ class BLClientForm(forms.ModelForm):
 
     STATUT_FACTURE is system-controlled (BR-BLC-03) and excluded from
     user-selectable choices.
+
+    BR-BRA-01: the delivery comes out of one branche's StockProduitFini.
+    Pass `branche=<Branche instance>` from the view when the current user
+    is locked to one branch (chef de branche / opérateur, BR-BRA-02) to
+    pre-select and lock the field.
     """
 
     STATUT_USER_CHOICES = [
@@ -84,6 +89,7 @@ class BLClientForm(forms.ModelForm):
         model = BLClient
         fields = [
             "reference",
+            "branche",
             "client",
             "date_bl",
             "adresse_livraison",
@@ -97,9 +103,14 @@ class BLClientForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 2}),
         }
 
-    def __init__(self, *args, client=None, **kwargs):
+    def __init__(self, *args, client=None, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
+        from core.models import Branche
+
         self.fields["client"].queryset = Client.objects.filter(actif=True).order_by(
+            "nom"
+        )
+        self.fields["branche"].queryset = Branche.objects.filter(actif=True).order_by(
             "nom"
         )
         self.fields["statut"].choices = self.STATUT_USER_CHOICES
@@ -109,6 +120,9 @@ class BLClientForm(forms.ModelForm):
         if client:
             self.fields["client"].initial = client
             self.fields["client"].widget = forms.HiddenInput()
+        if branche:
+            self.fields["branche"].initial = branche
+            self.fields["branche"].widget = forms.HiddenInput()
 
         # BR-BLC-03: lock all fields on a Facturé BL.
         if self.instance and self.instance.est_verrouille:
@@ -138,6 +152,11 @@ class BLClientLigneForm(forms.ModelForm):
     BR-BLC-02: requested quantity cannot exceed available stock produits finis.
     This check runs per-line at form validation time; the view must also
     re-check atomically before committing to prevent race conditions.
+
+    BR-BRA-07: stock is now keyed by (branche, produit_fini). Pass
+    `branche=<Branche instance>` from the view (via the formset's
+    `form_kwargs`) so the availability check reads that branche's balance
+    instead of the Vue Globale total across every branch.
     """
 
     class Meta:
@@ -149,10 +168,11 @@ class BLClientLigneForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 1}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["produit_fini"].queryset = ProduitFini.objects.filter(actif=True)
         self.fields["notes"].required = False
+        self._branche = branche
 
     def clean(self):
         cleaned = super().clean()
@@ -160,7 +180,10 @@ class BLClientLigneForm(forms.ModelForm):
         quantite = cleaned.get("quantite")
 
         if produit_fini and quantite:
-            stock_dispo = produit_fini.quantite_en_stock
+            if self._branche is not None:
+                stock_dispo = produit_fini.quantite_en_stock_branche(self._branche)
+            else:
+                stock_dispo = produit_fini.quantite_en_stock
             # On update, add back the current line's recorded quantity.
             if self.instance and self.instance.pk:
                 stock_dispo += self.instance.quantite
@@ -214,6 +237,12 @@ class FactureClientForm(forms.ModelForm):
 
     BR-FAC-01: montant_ht is excluded — computed from BL lines in the view/signal.
     BR-FAC-02: bls queryset filtered to Livré BLs for the selected client.
+    BR-BRA-01: must match the branche of every selected BL (mirrors
+               FactureFournisseur — enforced here in clean()). Pass
+               `branche=<Branche instance>` from the view when the user is
+               locked to one branch (chef de branche / opérateur,
+               BR-BRA-02) to pre-select, lock the field, and scope the
+               bls queryset.
     """
 
     # User-selectable statut values (Payée is driven by payments, not manually set).
@@ -226,6 +255,7 @@ class FactureClientForm(forms.ModelForm):
         model = FactureClient
         fields = [
             "reference",
+            "branche",
             "client",
             "bls",
             "date_facture",
@@ -244,28 +274,35 @@ class FactureClientForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 2}),
         }
 
-    def __init__(self, *args, client=None, **kwargs):
+    def __init__(self, *args, client=None, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
+        from core.models import Branche
+
         self.fields["statut"].choices = self.STATUT_USER_CHOICES
         self.fields["date_echeance"].required = False
         self.fields["notes"].required = False
+        self.fields["branche"].queryset = Branche.objects.filter(actif=True).order_by(
+            "nom"
+        )
+        self._branche = branche
 
+        bls_qs = BLClient.objects.filter(statut=BLClient.STATUT_LIVRE)
         if client:
             # BR-FAC-02: only Livré BLs for this client.
-            self.fields["bls"].queryset = BLClient.objects.filter(
-                client=client,
-                statut=BLClient.STATUT_LIVRE,
-            ).order_by("date_bl")
+            bls_qs = bls_qs.filter(client=client)
             self.fields["client"].initial = client
             self.fields["client"].widget = forms.HiddenInput()
-        else:
-            self.fields["bls"].queryset = BLClient.objects.filter(
-                statut=BLClient.STATUT_LIVRE
-            ).order_by("client__nom", "date_bl")
+        if branche:
+            # BR-BRA-01: only BLs from the same branche as this invoice.
+            bls_qs = bls_qs.filter(branche=branche)
+            self.fields["branche"].initial = branche
+            self.fields["branche"].widget = forms.HiddenInput()
+        self.fields["bls"].queryset = bls_qs.order_by("client__nom", "date_bl")
 
     def clean(self):
         cleaned = super().clean()
         client = cleaned.get("client")
+        branche = cleaned.get("branche") or self._branche
         bls = cleaned.get("bls")
         date_facture = cleaned.get("date_facture")
         date_echeance = cleaned.get("date_echeance")
@@ -285,6 +322,15 @@ class FactureClientForm(forms.ModelForm):
                 raise ValidationError(
                     f"BR-FAC-02 : les BLs suivants ne sont pas au statut 'Livré' : "
                     f"{', '.join(non_livre)}."
+                )
+
+        # BR-BRA-01: every selected BL must belong to this invoice's branche.
+        if branche and bls:
+            bad_branche = [bl.reference for bl in bls if bl.branche_id != branche.pk]
+            if bad_branche:
+                raise ValidationError(
+                    f"BR-BRA-01 : les BLs suivants n'appartiennent pas à la branche "
+                    f"sélectionnée : {', '.join(bad_branche)}."
                 )
 
         if date_facture and date_echeance and date_echeance < date_facture:
@@ -309,12 +355,20 @@ class PaiementClientForm(forms.ModelForm):
     BR-FAC-03: the user manually selects which invoice(s) to apply the
     payment to via PaiementClientAllocationForm(s) rendered on the same page.
     Records are immutable after creation — no edit form provided.
+
+    BR-BRA-01: the invoices selected via allocation must belong to this
+    same branche (mirrors ReglementFournisseur — see
+    PaiementClientAllocation.clean() and get_allocation_forms() below).
+    Pass `branche=<Branche instance>` from the view when the current user
+    is locked to one branch (chef de branche / opérateur, BR-BRA-02) to
+    pre-select and lock the field.
     """
 
     class Meta:
         model = PaiementClient
         fields = [
             "client",
+            "branche",
             "date_paiement",
             "montant",
             "mode_paiement",
@@ -327,9 +381,14 @@ class PaiementClientForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 2}),
         }
 
-    def __init__(self, *args, client=None, **kwargs):
+    def __init__(self, *args, client=None, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
+        from core.models import Branche
+
         self.fields["client"].queryset = Client.objects.filter(actif=True).order_by(
+            "nom"
+        )
+        self.fields["branche"].queryset = Branche.objects.filter(actif=True).order_by(
             "nom"
         )
         self.fields["reference_paiement"].required = False
@@ -337,6 +396,9 @@ class PaiementClientForm(forms.ModelForm):
         if client:
             self.fields["client"].initial = client
             self.fields["client"].widget = forms.HiddenInput()
+        if branche:
+            self.fields["branche"].initial = branche
+            self.fields["branche"].widget = forms.HiddenInput()
         self.future_date_warning = False
 
     def clean_montant(self):
@@ -366,6 +428,11 @@ class PaiementClientAllocationForm(forms.ModelForm):
 
     montant_alloue must not exceed the invoice's reste_a_payer, and the sum
     of all allocations must not exceed the payment total (validated in the view).
+
+    BR-BRA-01: cross-branch allocation is prevented upstream — the invoice
+    list these forms are built from is already scoped to the payment's
+    branche by get_allocation_forms() below, and PaiementClientAllocation.
+    clean() is the final, authoritative guard at save time.
     """
 
     # Override to allow 0 — model has MinValueValidator(0.01) for DB integrity,
@@ -421,7 +488,7 @@ class PaiementClientAllocationForm(forms.ModelForm):
 # ---------------------------------------------------------------------------
 
 
-def get_allocation_forms(client, paiement=None, data=None):
+def get_allocation_forms(client, paiement=None, branche=None, data=None):
     """
     Return a list of PaiementClientAllocationForm instances, one per open
     invoice for the given client.  Used by the payment creation view to
@@ -430,7 +497,13 @@ def get_allocation_forms(client, paiement=None, data=None):
     Args:
         client (Client): The client whose open invoices should be listed.
         paiement (PaiementClient | None): If provided, the paiement FK is
-            pre-set (for rendering after initial POST).
+            pre-set (for rendering after initial POST), and its branche
+            takes precedence for scoping below (BR-BRA-01).
+        branche (Branche | None): Scopes the open invoices to this branche
+            only — required when `paiement` doesn't exist yet (the
+            creation flow); a payment can only ever be allocated to
+            invoices in its own branche, mirroring
+            PaiementClientAllocation.clean().
         data (QueryDict | None): POST data to bind the forms.
 
     Returns:
@@ -442,7 +515,11 @@ def get_allocation_forms(client, paiement=None, data=None):
             FactureClient.STATUT_NON_PAYEE,
             FactureClient.STATUT_PARTIELLEMENT_PAYEE,
         ],
-    ).order_by("date_facture", "pk")
+    )
+    scoping_branche = (paiement.branche if paiement else None) or branche
+    if scoping_branche:
+        open_factures = open_factures.filter(branche=scoping_branche)
+    open_factures = open_factures.order_by("date_facture", "pk")
 
     forms_list = []
     for idx, facture in enumerate(open_factures):
@@ -467,12 +544,21 @@ def get_allocation_forms(client, paiement=None, data=None):
 
 
 class AbonnementClientForm(forms.ModelForm):
-    """Open or edit a client's recurring delivery agreement."""
+    """
+    Open or edit a client's recurring delivery agreement.
+
+    BR-BRA-01: the agreement is fulfilled out of one branche's stock;
+    LivraisonPartielle inherits it from here. Pass `branche=<Branche
+    instance>` from the view when the current user is locked to one
+    branch (chef de branche / opérateur, BR-BRA-02) to pre-select and
+    lock the field.
+    """
 
     class Meta:
         model = AbonnementClient
         fields = [
             "client",
+            "branche",
             "produit_fini",
             "date_debut",
             "date_fin",
@@ -492,17 +578,25 @@ class AbonnementClientForm(forms.ModelForm):
             "prix_unitaire": forms.NumberInput(attrs={"step": "0.0001", "min": "0"}),
         }
 
-    def __init__(self, *args, client=None, **kwargs):
+    def __init__(self, *args, client=None, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
+        from core.models import Branche
+
         self.fields["client"].queryset = Client.objects.filter(actif=True).order_by(
             "nom"
         )
         self.fields["produit_fini"].queryset = ProduitFini.objects.filter(actif=True)
+        self.fields["branche"].queryset = Branche.objects.filter(actif=True).order_by(
+            "nom"
+        )
         self.fields["date_fin"].required = False
         self.fields["notes"].required = False
         if client:
             self.fields["client"].initial = client
             self.fields["client"].widget = forms.HiddenInput()
+        if branche:
+            self.fields["branche"].initial = branche
+            self.fields["branche"].widget = forms.HiddenInput()
 
     def clean(self):
         cleaned = super().clean()
@@ -556,16 +650,25 @@ class LivraisonPartielleForm(forms.ModelForm):
             ),
         }
 
-    def __init__(self, *args, abonnement=None, **kwargs):
+    def __init__(self, *args, abonnement=None, branche=None, **kwargs):
         """
         Pass ``abonnement=<AbonnementClient instance>`` from the view to
         pre-select and lock the abonnement field, mirroring the
         lot=<LotElevage> kwarg pattern used throughout elevage/forms.py.
+
+        Pass ``branche=<Branche instance>`` instead (or in addition) when
+        the current user is locked to one branch (chef de branche /
+        opérateur, BR-BRA-02), to scope the abonnement choices to that
+        branche — LivraisonPartielle.branche is inherited from
+        abonnement.branche, not stored directly.
         """
         super().__init__(*args, **kwargs)
-        self.fields["abonnement"].queryset = AbonnementClient.objects.filter(
+        abonnement_qs = AbonnementClient.objects.filter(
             statut=AbonnementClient.STATUT_ACTIF
         ).select_related("client", "produit_fini")
+        if branche:
+            abonnement_qs = abonnement_qs.filter(branche=branche)
+        self.fields["abonnement"].queryset = abonnement_qs
         self.fields["voyage"].queryset = VoyageLivraison.objects.order_by(
             "-date_voyage"
         )
@@ -646,6 +749,7 @@ class PrixMarcheForm(forms.ModelForm):
         except Exception:
             # Fallback: show all active products if the constant isn't available.
             from production.models import ProduitFini as PF
+
             self.fields["produit_fini"].queryset = PF.objects.filter(
                 actif=True
             ).order_by("designation")

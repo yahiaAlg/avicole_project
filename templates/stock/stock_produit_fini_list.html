@@ -63,6 +63,7 @@
         <thead>
           <tr>
             <th>التسمية</th>
+            {% if not active_branche %}<th>الفرع</th>{% endif %}
             <th>النوع</th>
             <th>المخزون الحالي</th>
             <th>حد التنبيه</th>
@@ -81,6 +82,9 @@
                 <span style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ s.produit_fini.designation }}</span>
               </a>
             </td>
+            {% if not active_branche %}
+            <td><span class="pill-branche"><i class="bx bxs-buildings"></i> {{ s.branche.nom }}</span></td>
+            {% endif %}
             <td>
               <span class="pill-type">{{ s.produit_fini.get_type_produit_display }}</span>
             </td>
@@ -208,6 +212,7 @@
   .row-link:hover span { color:var(--accent-text) !important; }
 
   .pill-type   { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(56,189,248,.12);color:#0284c7; }
+  .pill-branche{ display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(15,118,110,.12);color:#0f766e; }
   .pill-success{ display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(34,197,94,.14);color:#15803d; }
   .pill-danger { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:rgba(239,68,68,.10);color:#dc2626; }
   .alert-dot { display:inline-block;width:7px;height:7px;border-radius:50%;background:#dc2626;flex-shrink:0;box-shadow:0 0 0 2px rgba(239,68,68,.2); }

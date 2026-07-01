@@ -102,6 +102,7 @@
           <tr>
             <th>التاريخ</th>
             <th>القطيع</th>
+            {% if not active_branche %}<th>الفرع</th>{% endif %}
             <th>المدخل</th>
             <th>الفئة</th>
             <th style="text-align:right;">الكمية</th>
@@ -124,6 +125,7 @@
               <span class="pill-neutral" style="margin-right:4px;font-size:10px;"><i class="bx bxs-lock"></i> مغلق</span>
               {% endif %}
             </td>
+            {% if not active_branche %}<td>{{ conso.lot.branche.nom }}</td>{% endif %}
             <td>
               <div style="font-weight:500;color:var(--text-primary);font-size:13px;">{{ conso.intrant.designation }}</div>
             </td>

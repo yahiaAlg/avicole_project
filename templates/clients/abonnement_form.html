@@ -39,6 +39,10 @@
             </div>
             {% else %}{{ form.client }}{% endif %}
 
+            <!-- Branche (BR-BRA-01/02 — locked to the active branche, hidden) -->
+            {{ form.branche }}
+            {% for err in form.branche.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+
             <div class="form-group">
               <label class="form-label" for="{{ form.produit_fini.id_for_label }}">المنتج النهائي <span class="form-required">*</span></label>
               <div class="input-wrapper"><i class="bx bxs-cube-alt input-icon"></i>{{ form.produit_fini }}</div>

@@ -75,6 +75,10 @@
           <div class="info-cell__val">{{ acompte.date|date:"d/m/Y" }}</div>
         </div>
         <div class="info-cell">
+          <div class="info-cell__label">الفرع</div>
+          <div class="info-cell__val">{{ acompte.branche.nom }}</div>
+        </div>
+        <div class="info-cell">
           <div class="info-cell__label">الحالة</div>
           <div class="info-cell__val">
             {% if acompte.utilise %}

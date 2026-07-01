@@ -49,6 +49,10 @@
             <span class="info-value"><a href="{% url 'clients:client_detail' facture.client.pk %}" style="color:var(--accent-text);text-decoration:none;font-weight:500;">{{ facture.client.nom }}</a></span>
           </div>
           <div class="info-row">
+            <span class="info-label">الفرع</span>
+            <span class="info-value">{{ facture.branche.nom }}</span>
+          </div>
+          <div class="info-row">
             <span class="info-label">تاريخ الفاتورة</span>
             <span class="info-value">{{ facture.date_facture|date:"d/m/Y" }}</span>
           </div>

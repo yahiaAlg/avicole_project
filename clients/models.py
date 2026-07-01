@@ -80,11 +80,21 @@ class Client(models.Model):
     # Financial helpers
     # ------------------------------------------------------------------
 
-    @property
-    def creance_globale(self):
+    # ------------------------------------------------------------------
+    # Financial helpers
+    #
+    # v1.4 — Client stays global (§3.5.3: a client can transact with
+    # several branches), but FactureClient is branch-scoped. So this is
+    # the Vue Globale figure (sum across all branches); pass `branche` to
+    # get the figure for one branch only, exactly as a chef de branche
+    # sees it (§3.5.3 ¶4).
+    # ------------------------------------------------------------------
+
+    def creance_globale(self, branche=None):
         """
         Sum of *reste_a_payer* across all non_payee and partiellement_payee
         client invoices.  Computed on-demand; cache at view layer.
+        Pass `branche` to scope to one branch; omit for Vue Globale.
         """
         qs = self.factures_client.filter(
             statut__in=[
@@ -92,14 +102,20 @@ class Client(models.Model):
                 FactureClient.STATUT_PARTIELLEMENT_PAYEE,
             ]
         )
+        if branche is not None:
+            qs = qs.filter(branche=branche)
         total = qs.aggregate(total=models.Sum("reste_a_payer"))["total"]
         return total or 0
+
+    @property
+    def creance_globale_toutes_branches(self):
+        return self.creance_globale()
 
     @property
     def depasse_plafond(self):
         """True when a credit ceiling is configured and is exceeded."""
         if self.plafond_credit and self.plafond_credit > 0:
-            return self.creance_globale > self.plafond_credit
+            return self.creance_globale() > self.plafond_credit
         return False
 
 
@@ -134,6 +150,15 @@ class BLClient(models.Model):
 
     reference = models.CharField(
         max_length=50, unique=True, verbose_name="مرجع وصل التسليم"
+    )
+    # v1.4 — Client stays global (§3.5.3), but the delivery itself comes
+    # out of one branche's StockProduitFini (BR-BRA-01). Set explicitly
+    # at creation — the chef de branche's own branche, or chosen by an admin.
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="bls_client",
+        verbose_name="الفرع",
     )
     client = models.ForeignKey(
         Client,
@@ -266,6 +291,15 @@ class FactureClient(models.Model):
 
     reference = models.CharField(
         max_length=50, unique=True, verbose_name="مرجع الفاتورة"
+    )
+    # v1.4 — must match the branche of every BL included in `bls` below
+    # (enforced at the view/M2M-assignment layer — mirrors
+    # FactureFournisseur.branche, BR-BRA-01).
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="factures_client",
+        verbose_name="الفرع",
     )
     client = models.ForeignKey(
         Client,
@@ -411,6 +445,15 @@ class PaiementClient(models.Model):
         related_name="paiements",
         verbose_name="العميل",
     )
+    # v1.4 — the user manually selects which invoice(s) this payment
+    # applies to (BR-FAC-03); those invoices must belong to this same
+    # branche (BR-BRA-01), mirroring ReglementFournisseur.branche.
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="paiements_client",
+        verbose_name="الفرع",
+    )
     date_paiement = models.DateField(verbose_name="تاريخ الدفع")
     montant = models.DecimalField(
         max_digits=14,
@@ -495,6 +538,22 @@ class PaiementClientAllocation(models.Model):
             f"{self.montant_alloue} DZD"
         )
 
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        # v1.4 — a payment can only be allocated to invoices in its own
+        # branche (BR-BRA-01); cross-branch allocation would silently move
+        # AR balance from one branch's books into another's.
+        if (
+            self.paiement_id
+            and self.facture_id
+            and self.paiement.branche_id != self.facture.branche_id
+        ):
+            raise ValidationError(
+                "BR-BRA-01 : le paiement et la facture doivent appartenir à "
+                "la même branche."
+            )
+
 
 # ---------------------------------------------------------------------------
 # Abonnement Client — recurring/metered deliveries (mainly fertilizer, but
@@ -531,6 +590,14 @@ class AbonnementClient(models.Model):
         on_delete=models.PROTECT,
         related_name="abonnements",
         verbose_name="العميل",
+    )
+    # v1.4 — the recurring agreement is fulfilled out of one branche's
+    # stock (BR-BRA-01); LivraisonPartielle below inherits it.
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="abonnements_client",
+        verbose_name="الفرع",
     )
     produit_fini = models.ForeignKey(
         "production.ProduitFini",
@@ -620,6 +687,12 @@ class VoyageLivraison(models.Model):
     One truck trip that may serve several clients/subscriptions in a single
     run (e.g. a fertilizer delivery round). Purely organisational — the
     stock effect lives on LivraisonPartielle, not here.
+
+    v1.4 note: intentionally left WITHOUT a `branche` FK. A single trip can
+    in principle serve subscriptions from more than one branche (it is
+    logistics, not a stock-impacting document); each LivraisonPartielle it
+    covers carries its own branche (inherited from its abonnement) and
+    that is what scopes the actual stock movement (BR-BRA-01).
     """
 
     date_voyage = models.DateField(verbose_name="تاريخ الرحلة")
@@ -699,6 +772,11 @@ class LivraisonPartielle(models.Model):
     def __str__(self):
         return f"{self.abonnement} — {self.quantite_livree} ({self.date})"
 
+    @property
+    def branche(self):
+        """v1.4 — inherited from the parent abonnement (BR-BRA-01), not stored."""
+        return self.abonnement.branche if self.abonnement_id else None
+
     def clean(self):
         from django.core.exceptions import ValidationError
 
@@ -750,6 +828,12 @@ class PrixMarche(models.Model):
 
     One record per (produit_fini, date) pair; later entries for the same
     pair overwrite in-app via update (enforce unique_together).
+
+    v1.4 note: intentionally left WITHOUT a `branche` FK. The market price
+    is an external reference value (what the wider market is charging),
+    not a transaction the farm itself books — it stays global like
+    CompanyInfo and the master-data catalogues (§3.5.3), so every branche
+    compares its BL prices against the same market reference.
     """
 
     produit_fini = models.ForeignKey(

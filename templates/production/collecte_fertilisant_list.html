@@ -6,7 +6,7 @@
 {% block nav_collecte_fertilisant %}active{% endblock %}
 
 {% block page_title %}جمع السماد الخام{% endblock %}
-{% block page_sub_text %}{{ page.paginator.count }} سجل جمع{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} سجل جمع{% if not active_branche %} · Vue Globale — كل الفروع{% endif %}{% endblock %}
 
 {% block topbar_actions %}
   {% if request.user.profile.role in 'admin,manager' %}
@@ -58,6 +58,7 @@
           <tr>
             <th>التاريخ</th>
             <th>المبنى</th>
+            {% if not active_branche %}<th>الفرع</th>{% endif %}
             <th style="text-align:right;">الكمية الخام (كغ)</th>
             <th>التخصيص</th>
             <th>ملاحظات</th>
@@ -71,6 +72,7 @@
             <td style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
               {{ collecte.batiment.nom }}
             </td>
+            {% if not active_branche %}<td><span class="pill-neutral">{{ collecte.branche.code }}</span></td>{% endif %}
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">
               {{ collecte.quantite_brute_kg|floatformat:3 }}
             </td>

@@ -6,9 +6,10 @@ Signals for the elevage (poultry raising) app.
 Registered signals:
   1. pre_save  on Consommation → cache the pre-save state (quantite, intrant)
                                  to allow diff computation on updates.
-  2. post_save on Consommation → decrease StockIntrant and create a
-                                  StockMouvement (sortie) when a consumption
-                                  event is created or its quantity changes.
+  2. post_save on Consommation → decrease StockIntrant (scoped to the lot's
+                                  branche) and create a StockMouvement
+                                  (sortie) when a consumption event is
+                                  created or its quantity changes.
   3. pre_delete on Consommation → reverse the stock decrease when a
                                    consumption record is deleted (restore
                                    stock balance and log a corrective mouvement).
@@ -18,6 +19,10 @@ Business rules enforced here:
   - Stock is decreased immediately on save — no deferred validation.
   - If a Consommation is deleted, the stock is restored to maintain
     consistency between StockIntrant.quantite and StockMouvement history.
+  - v1.4 (BR-BRA-01/07): every Mortalite/Consommation/RecolteOeufs inherits
+    its branche from its lot (lot.branche, via the model's `branche`
+    property). StockIntrant/StockProduitFini are keyed by (branche, item),
+    so every stock lookup below is scoped to that branche.
 """
 
 import logging
@@ -135,7 +140,8 @@ def mortalite_pre_save(sender, instance, **kwargs):
 @receiver(post_save, sender=Mortalite)
 def mortalite_post_save(sender, instance, created, **kwargs):
     """
-    Decrease poussin StockIntrant by the number of dead birds.
+    Decrease poussin StockIntrant by the number of dead birds, scoped to the
+    lot's branche (BR-BRA-07).
 
     Create: decrease by instance.nombre.
     Update (same lot): apply net delta (new - old).
@@ -157,6 +163,7 @@ def mortalite_post_save(sender, instance, created, **kwargs):
             nombre=instance.nombre,
             date=instance.date,
             lot=lot,
+            branche=lot.branche,
             reference_id=instance.pk,
         )
 
@@ -175,6 +182,7 @@ def mortalite_post_save(sender, instance, created, **kwargs):
                         intrant=old_intrant,
                         nombre=old_nombre,
                         date=instance.date,
+                        branche=old_lot.branche,
                         reference_id=instance.pk,
                         notes=f"Correction: lot modifié sur mortalite pk={instance.pk}.",
                     )
@@ -186,6 +194,7 @@ def mortalite_post_save(sender, instance, created, **kwargs):
                 nombre=instance.nombre,
                 date=instance.date,
                 lot=lot,
+                branche=lot.branche,
                 reference_id=instance.pk,
             )
 
@@ -197,6 +206,7 @@ def mortalite_post_save(sender, instance, created, **kwargs):
                     nombre=delta,
                     date=instance.date,
                     lot=lot,
+                    branche=lot.branche,
                     reference_id=instance.pk,
                     notes=f"Delta update (+{delta}) sur mortalite pk={instance.pk}.",
                 )
@@ -205,6 +215,7 @@ def mortalite_post_save(sender, instance, created, **kwargs):
                     intrant=intrant,
                     nombre=abs(delta),
                     date=instance.date,
+                    branche=lot.branche,
                     reference_id=instance.pk,
                     notes=f"Delta update ({delta}) sur mortalite pk={instance.pk}.",
                 )
@@ -226,15 +237,17 @@ def mortalite_pre_delete(sender, instance, **kwargs):
         intrant=intrant,
         nombre=instance.nombre,
         date=instance.date,
+        branche=instance.lot.branche,
         reference_id=instance.pk,
         notes=f"Annulation de la mortalite pk={instance.pk} (suppression).",
     )
 
 
-def _appliquer_sortie_mortalite(intrant, nombre, date, lot, reference_id, notes=""):
+def _appliquer_sortie_mortalite(intrant, nombre, date, lot, branche, reference_id, notes=""):
     from stock.models import StockIntrant, StockMouvement
 
     stock, _ = StockIntrant.objects.get_or_create(
+        branche=branche,
         intrant=intrant,
         defaults={"quantite": Decimal("0"), "prix_moyen_pondere": Decimal("0")},
     )
@@ -244,12 +257,14 @@ def _appliquer_sortie_mortalite(intrant, nombre, date, lot, reference_id, notes=
 
     if stock.quantite < 0:
         logger.warning(
-            "Stock poussin négatif après mortalite: intrant pk=%s quantite=%s.",
+            "Stock poussin négatif après mortalite: intrant pk=%s quantite=%s (branche=%s).",
             intrant.pk,
             stock.quantite,
+            branche.code,
         )
 
     StockMouvement.objects.create(
+        branche=branche,
         intrant=intrant,
         type_mouvement=StockMouvement.TYPE_SORTIE,
         source=StockMouvement.SOURCE_MORTALITE,
@@ -263,18 +278,20 @@ def _appliquer_sortie_mortalite(intrant, nombre, date, lot, reference_id, notes=
         created_by=None,
     )
     logger.debug(
-        "Sortie mortalite: intrant pk=%s -%s → %s (lot: %s).",
+        "Sortie mortalite: intrant pk=%s -%s → %s (lot: %s, branche=%s).",
         intrant.pk,
         nombre,
         stock.quantite,
         lot.pk,
+        branche.code,
     )
 
 
-def _appliquer_entree_mortalite_correction(intrant, nombre, date, reference_id, notes):
+def _appliquer_entree_mortalite_correction(intrant, nombre, date, branche, reference_id, notes):
     from stock.models import StockIntrant, StockMouvement
 
     stock, _ = StockIntrant.objects.get_or_create(
+        branche=branche,
         intrant=intrant,
         defaults={"quantite": Decimal("0"), "prix_moyen_pondere": Decimal("0")},
     )
@@ -283,6 +300,7 @@ def _appliquer_entree_mortalite_correction(intrant, nombre, date, reference_id, 
     stock.save(update_fields=["quantite", "derniere_mise_a_jour"])
 
     StockMouvement.objects.create(
+        branche=branche,
         intrant=intrant,
         type_mouvement=StockMouvement.TYPE_ENTREE,
         source=StockMouvement.SOURCE_MORTALITE,
@@ -296,10 +314,11 @@ def _appliquer_entree_mortalite_correction(intrant, nombre, date, reference_id, 
         created_by=None,
     )
     logger.debug(
-        "Correction entrée mortalite: intrant pk=%s +%s → %s.",
+        "Correction entrée mortalite: intrant pk=%s +%s → %s (branche=%s).",
         intrant.pk,
         nombre,
         stock.quantite,
+        branche.code,
     )
 
 
@@ -335,7 +354,8 @@ def consommation_pre_save(sender, instance, **kwargs):
 def consommation_post_save(sender, instance, created, **kwargs):
     """
     Decrease StockIntrant.quantite by the consumed quantity and log a
-    StockMouvement of type SORTIE / source CONSOMMATION.
+    StockMouvement of type SORTIE / source CONSOMMATION, scoped to the
+    lot's branche (BR-BRA-07).
 
     Create scenario (created=True):
       delta = instance.quantite  (full consumption)
@@ -352,6 +372,7 @@ def consommation_post_save(sender, instance, created, **kwargs):
     from stock.models import StockIntrant, StockMouvement
 
     intrant = instance.intrant
+    branche = instance.lot.branche
     old_quantite = getattr(instance, "_old_quantite", None)
     old_intrant_id = getattr(instance, "_old_intrant_id", None)
 
@@ -362,6 +383,7 @@ def consommation_post_save(sender, instance, created, **kwargs):
             quantite=instance.quantite,
             date=instance.date,
             lot=instance.lot,
+            branche=branche,
             reference_id=instance.pk,
             created_by=instance.created_by,
         )
@@ -379,6 +401,7 @@ def consommation_post_save(sender, instance, created, **kwargs):
                     intrant=old_intrant,
                     quantite=old_quantite,
                     date=instance.date,
+                    branche=branche,
                     reference_id=instance.pk,
                     notes=(
                         f"Correction: intrant modifié sur consommation pk={instance.pk}. "
@@ -399,6 +422,7 @@ def consommation_post_save(sender, instance, created, **kwargs):
                 quantite=instance.quantite,
                 date=instance.date,
                 lot=instance.lot,
+                branche=branche,
                 reference_id=instance.pk,
                 created_by=instance.created_by,
             )
@@ -414,6 +438,7 @@ def consommation_post_save(sender, instance, created, **kwargs):
                     quantite=delta,
                     date=instance.date,
                     lot=instance.lot,
+                    branche=branche,
                     reference_id=instance.pk,
                     created_by=instance.created_by,
                     notes=f"Delta update (+{delta}) sur consommation pk={instance.pk}.",
@@ -424,6 +449,7 @@ def consommation_post_save(sender, instance, created, **kwargs):
                     intrant=intrant,
                     quantite=abs(delta),
                     date=instance.date,
+                    branche=branche,
                     reference_id=instance.pk,
                     notes=f"Delta update ({delta}) sur consommation pk={instance.pk}.",
                     created_by=instance.created_by,
@@ -453,6 +479,7 @@ def consommation_pre_delete(sender, instance, **kwargs):
         intrant=instance.intrant,
         quantite=instance.quantite,
         date=instance.date,
+        branche=instance.lot.branche,
         reference_id=instance.pk,
         notes=f"Annulation de la consommation pk={instance.pk} (suppression).",
         created_by=None,
@@ -465,15 +492,16 @@ def consommation_pre_delete(sender, instance, **kwargs):
 
 
 def _appliquer_sortie_stock(
-    intrant, quantite, date, lot, reference_id, created_by, notes=""
+    intrant, quantite, date, lot, branche, reference_id, created_by, notes=""
 ):
     """
     Decrease StockIntrant.quantite by *quantite* and record a StockMouvement
-    (SORTIE / CONSOMMATION).
+    (SORTIE / CONSOMMATION), scoped to `branche` (BR-BRA-07).
     """
     from stock.models import StockIntrant, StockMouvement
 
     stock, _ = StockIntrant.objects.get_or_create(
+        branche=branche,
         intrant=intrant,
         defaults={"quantite": Decimal("0"), "prix_moyen_pondere": Decimal("0")},
     )
@@ -484,10 +512,11 @@ def _appliquer_sortie_stock(
 
     if stock.quantite < 0:
         logger.warning(
-            "Stock négatif après consommation: intrant pk=%s quantite=%s. "
+            "Stock négatif après consommation: intrant pk=%s quantite=%s (branche=%s). "
             "Vérifiez les entrées ou créez un ajustement.",
             intrant.pk,
             stock.quantite,
+            branche.code,
         )
 
     ref_label = (
@@ -497,6 +526,7 @@ def _appliquer_sortie_stock(
     )
 
     StockMouvement.objects.create(
+        branche=branche,
         intrant=intrant,
         type_mouvement=StockMouvement.TYPE_SORTIE,
         source=StockMouvement.SOURCE_CONSOMMATION,
@@ -511,25 +541,28 @@ def _appliquer_sortie_stock(
     )
 
     logger.debug(
-        "Sortie stock: intrant pk=%s -%s → %s (lot: %s).",
+        "Sortie stock: intrant pk=%s -%s → %s (lot: %s, branche=%s).",
         intrant.pk,
         quantite,
         stock.quantite,
         lot.pk if lot else "—",
+        branche.code,
     )
 
 
 def _appliquer_entree_stock_correction(
-    intrant, quantite, date, reference_id, notes, created_by
+    intrant, quantite, date, branche, reference_id, notes, created_by
 ):
     """
     Increase StockIntrant.quantite by *quantite* as a corrective ENTREE
-    (used for update-diff reversals and deletions).
+    (used for update-diff reversals and deletions), scoped to `branche`
+    (BR-BRA-07).
     PMP is not recalculated on corrections — the existing PMP is preserved.
     """
     from stock.models import StockIntrant, StockMouvement
 
     stock, _ = StockIntrant.objects.get_or_create(
+        branche=branche,
         intrant=intrant,
         defaults={"quantite": Decimal("0"), "prix_moyen_pondere": Decimal("0")},
     )
@@ -539,6 +572,7 @@ def _appliquer_entree_stock_correction(
     stock.save(update_fields=["quantite", "derniere_mise_a_jour"])
 
     StockMouvement.objects.create(
+        branche=branche,
         intrant=intrant,
         type_mouvement=StockMouvement.TYPE_ENTREE,
         source=StockMouvement.SOURCE_CONSOMMATION,
@@ -553,10 +587,11 @@ def _appliquer_entree_stock_correction(
     )
 
     logger.debug(
-        "Correction entrée stock: intrant pk=%s +%s → %s.",
+        "Correction entrée stock: intrant pk=%s +%s → %s (branche=%s).",
         intrant.pk,
         quantite,
         stock.quantite,
+        branche.code,
     )
 
 
@@ -736,7 +771,7 @@ def recolte_oeufs_pre_save(sender, instance, **kwargs):
 def recolte_oeufs_post_save(sender, instance, created, **kwargs):
     """
     Increase StockProduitFini (œufs) and log a StockMouvement (ENTREE,
-    source=PONTE).
+    source=PONTE), scoped to the lot's branche (BR-BRA-07).
     """
     from stock.models import StockProduitFini, StockMouvement
 
@@ -744,6 +779,7 @@ def recolte_oeufs_post_save(sender, instance, created, **kwargs):
     if not produit:
         return
 
+    branche = instance.lot.branche
     old_nombre = getattr(instance, "_old_nombre_oeufs", None)
     delta = (
         instance.nombre_oeufs
@@ -754,6 +790,7 @@ def recolte_oeufs_post_save(sender, instance, created, **kwargs):
         return
 
     stock, _ = StockProduitFini.objects.get_or_create(
+        branche=branche,
         produit_fini=produit,
         defaults={
             "quantite": Decimal("0"),
@@ -767,6 +804,7 @@ def recolte_oeufs_post_save(sender, instance, created, **kwargs):
     stock.save(update_fields=["quantite", "derniere_mise_a_jour"])
 
     StockMouvement.objects.create(
+        branche=branche,
         produit_fini=produit,
         type_mouvement=StockMouvement.TYPE_ENTREE,
         source=StockMouvement.SOURCE_PONTE,
@@ -780,11 +818,12 @@ def recolte_oeufs_post_save(sender, instance, created, **kwargs):
     )
 
     logger.debug(
-        "Récolte œufs: produit_fini pk=%s %+d → %s (lot pk=%s).",
+        "Récolte œufs: produit_fini pk=%s %+d → %s (lot pk=%s, branche=%s).",
         produit.pk,
         delta,
         stock.quantite,
         instance.lot_id,
+        branche.code,
     )
 
 
@@ -797,7 +836,10 @@ def recolte_oeufs_pre_delete(sender, instance, **kwargs):
     if not produit:
         return
 
+    branche = instance.lot.branche
+
     stock, _ = StockProduitFini.objects.get_or_create(
+        branche=branche,
         produit_fini=produit,
         defaults={
             "quantite": Decimal("0"),
@@ -810,6 +852,7 @@ def recolte_oeufs_pre_delete(sender, instance, **kwargs):
     stock.save(update_fields=["quantite", "derniere_mise_a_jour"])
 
     StockMouvement.objects.create(
+        branche=branche,
         produit_fini=produit,
         type_mouvement=StockMouvement.TYPE_SORTIE,
         source=StockMouvement.SOURCE_PONTE,

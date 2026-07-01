@@ -30,17 +30,17 @@
 
   <!-- KPI row -->
   <div class="kpi-row">
-    <div class="kpi-card {% if intrant.en_alerte %}kpi-card--danger{% endif %}">
-      <div class="kpi-card__label">المخزون الحالي</div>
+    <div class="kpi-card {% if en_alerte %}kpi-card--danger{% endif %}">
+      <div class="kpi-card__label">المخزون الحالي{% if active_branche %} — {{ active_branche.nom }}{% endif %}</div>
       <div class="kpi-card__value">
-        {{ intrant.quantite_en_stock|floatformat:3 }}
+        {{ quantite_en_stock|floatformat:3 }}
         <span class="kpi-currency">{{ intrant.unite_mesure }}</span>
       </div>
       <div class="kpi-card__sub">
-        {% if intrant.en_alerte %}
+        {% if en_alerte %}
           <span style="color:#dc2626;"><i class="bx bxs-bell" style="font-size:11px;"></i> أقل من حد التنبيه</span>
         {% else %}
-          رصيد المخزون
+          {% if active_branche %}رصيد الفرع{% else %}رصيد المخزون — كل الفروع{% endif %}
         {% endif %}
       </div>
     </div>
@@ -205,30 +205,28 @@
     <div class="detail-aside">
 
       <!-- Stock card -->
-      <div class="card {% if intrant.en_alerte %}card--alert{% endif %}">
+      <div class="card {% if en_alerte %}card--alert{% endif %}">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-store"></i> المخزون</div>
-          {% if intrant.en_alerte %}
+          <div class="section-eyebrow"><i class="bx bxs-store"></i> المخزون{% if active_branche %} — {{ active_branche.nom }}{% else %} — كل الفروع{% endif %}</div>
+          {% if en_alerte %}
           <span class="pill-danger"><i class="bx bxs-bell"></i> تنبيه</span>
           {% endif %}
         </div>
         <div class="card-body">
           <div class="stock-gauge">
-            <div class="stock-gauge__value {% if intrant.en_alerte %}text-danger{% endif %}">
-              {{ intrant.quantite_en_stock|floatformat:3 }}
+            <div class="stock-gauge__value {% if en_alerte %}text-danger{% endif %}">
+              {{ quantite_en_stock|floatformat:3 }}
             </div>
             <div class="stock-gauge__unit">{{ intrant.get_unite_mesure_display }}</div>
             <div class="stock-gauge__bar-wrap">
-              {% with pct=intrant.quantite_en_stock|floatformat:0 %}
               <div class="stock-gauge__bar">
-                <div class="stock-gauge__fill {% if intrant.en_alerte %}fill--danger{% endif %}"
-                  style="width: {% if intrant.seuil_alerte > 0 %}{% widthratio intrant.quantite_en_stock intrant.seuil_alerte|default:1 100 %}{% else %}100{% endif %}%;max-width:100%;">
+                <div class="stock-gauge__fill {% if en_alerte %}fill--danger{% endif %}"
+                  style="width: {% if intrant.seuil_alerte > 0 %}{% widthratio quantite_en_stock intrant.seuil_alerte|default:1 100 %}{% else %}100{% endif %}%;max-width:100%;">
                 </div>
                 {% if intrant.seuil_alerte > 0 %}
                 <div class="stock-gauge__threshold" title="حد التنبيه : {{ intrant.seuil_alerte }}"></div>
                 {% endif %}
               </div>
-              {% endwith %}
             </div>
             {% if intrant.seuil_alerte > 0 %}
             <div class="stock-gauge__legend">
@@ -240,6 +238,20 @@
           <div class="pmp-row">
             <span class="info-label">م.س.م</span>
             <span style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ stock.prix_moyen_pondere|floatformat:2 }} DZD</span>
+          </div>
+          {% endif %}
+
+          {% if not active_branche and stocks_par_branche %}
+          <div class="branche-breakdown">
+            <div class="info-label" style="margin-bottom:8px;">التوزيع حسب الفرع</div>
+            {% for s in stocks_par_branche %}
+            <div class="branche-breakdown__row">
+              <span>{{ s.branche.nom }}</span>
+              <span style="font-family:'Nunito',sans-serif;font-weight:700;color:{% if s.en_alerte %}#dc2626{% else %}var(--text-primary){% endif %};">
+                {{ s.quantite|floatformat:3 }} {{ intrant.unite_mesure }}
+              </span>
+            </div>
+            {% endfor %}
           </div>
           {% endif %}
         </div>
@@ -329,6 +341,7 @@
   .info-grid, .info-item, .info-label, .info-value,
   .notes-block, .stock-gauge__legend,
   .fournisseur-item, .pmp-row,
+  .branche-breakdown, .branche-breakdown__row,
   .confirm-panel__inner, .confirm-panel__title, .confirm-panel__body,
   .confirm-panel__actions { direction: rtl; text-align: right; }
   .data-table thead th { text-align: right; }
@@ -388,6 +401,8 @@
   .stock-gauge__fill.fill--danger { background:#dc2626; }
   .stock-gauge__legend { font-size:11px;color:var(--text-muted);margin-top:6px; }
   .pmp-row { display:flex;align-items:center;justify-content:space-between;padding-top:14px;margin-top:14px;border-top:1px solid var(--border); }
+  .branche-breakdown { padding-top:14px;margin-top:14px;border-top:1px solid var(--border); }
+  .branche-breakdown__row { display:flex;align-items:center;justify-content:space-between;padding:5px 0;font-size:12.5px;color:var(--text-secondary); }
 
   .fournisseurs-list { padding:4px 0; }
   .fournisseur-item { display:flex;align-items:center;justify-content:space-between;padding:11px 20px;text-decoration:none;border-bottom:1px solid var(--border);transition:background .12s; }

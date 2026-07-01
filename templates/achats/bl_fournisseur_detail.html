@@ -85,6 +85,10 @@
           <div class="info-val">{{ bl.date_bl|date:"d/m/Y" }}</div>
         </div>
         <div class="info-item">
+          <div class="info-label">الفرع</div>
+          <div class="info-val">{{ bl.branche.nom }}</div>
+        </div>
+        <div class="info-item">
           <div class="info-label">مرجع المورد</div>
           <div class="info-val">{{ bl.reference_fournisseur|default:"—" }}</div>
         </div>

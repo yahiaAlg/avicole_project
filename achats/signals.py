@@ -7,12 +7,15 @@ Registered signals:
   1. pre_save  on BLFournisseur   → cache old statut on instance before save.
   2. post_save on BLFournisseur   → when statut transitions to RECU, create
                                      stock entries (StockIntrant ↑, PMP update,
-                                     StockMouvement created) for every BL line.
+                                     StockMouvement created) for every BL line,
+                                     scoped to bl.branche.
   3. pre_save  on FactureFournisseur → mark BL lines as FACTURE and lock them
                                        (BR-BLF-02 / BR-FAF-03) when the invoice
                                        transitions to a saved state.
   4. post_save on ReglementFournisseur → run FIFO allocation engine
-                                         (achats.utils.appliquer_reglement_fifo).
+                                         (achats.utils.appliquer_reglement_fifo),
+                                         which only allocates across factures
+                                         in the same branche (BR-BRA-01).
 
 Business rules enforced here:
   BR-BLF-02 : A BL whose statut is FACTURE is locked (est_verrouille = True).
@@ -20,6 +23,10 @@ Business rules enforced here:
   BR-REG-03 : FIFO payment allocation across open invoices.
   BR-REG-04 : Surplus beyond total debt → AcompteFournisseur.
   BR-REG-06 : Règlements and their allocations are immutable after creation.
+  BR-BRA-01 (v1.4) : every BLFournisseur/FactureFournisseur/ReglementFournisseur
+             belongs to exactly one Branche, and the StockIntrant row credited
+             on RECU is the one for THAT branche (BR-BRA-07: stock is keyed
+             by (branche, intrant), not by intrant alone).
 """
 
 import logging
@@ -40,11 +47,12 @@ logger = logging.getLogger(__name__)
 
 
 def _enregistrer_entree_stock_ligne(
-    ligne, date_bl, created_by, reference_label, reference_id
+    ligne, date_bl, created_by, reference_label, reference_id, branche
 ):
     """
-    Increase StockIntrant balance and recompute PMP for a single BL line.
-    Create a StockMouvement (entree) for audit.
+    Increase StockIntrant balance and recompute PMP for a single BL line,
+    scoped to `branche` (BR-BRA-07 — stock is keyed by (branche, intrant)).
+    Create a StockMouvement (entree) for audit, also scoped to `branche`.
 
     Called exclusively when a BL transitions to STATUT_RECU.
     """
@@ -53,9 +61,10 @@ def _enregistrer_entree_stock_ligne(
 
     intrant = ligne.intrant
 
-    # Ensure a stock record exists (should always exist via intrants signal,
-    # but guard defensively).
+    # Ensure a stock record exists for this branche (should always exist via
+    # the intrants/core bootstrap signals, but guard defensively).
     stock, _ = StockIntrant.objects.get_or_create(
+        branche=branche,
         intrant=intrant,
         defaults={"quantite": Decimal("0"), "prix_moyen_pondere": Decimal("0")},
     )
@@ -75,6 +84,7 @@ def _enregistrer_entree_stock_ligne(
     stock.save(update_fields=["quantite", "prix_moyen_pondere", "derniere_mise_a_jour"])
 
     StockMouvement.objects.create(
+        branche=branche,
         intrant=intrant,
         type_mouvement=StockMouvement.TYPE_ENTREE,
         source=StockMouvement.SOURCE_BL_FOURNISSEUR,
@@ -88,11 +98,12 @@ def _enregistrer_entree_stock_ligne(
     )
 
     logger.debug(
-        "Stock entry: intrant pk=%s +%s → %s (PMP: %s DZD). BL %s.",
+        "Stock entry: intrant pk=%s +%s → %s (PMP: %s DZD, branche=%s). BL %s.",
         intrant.pk,
         ligne.quantite,
         stock.quantite,
         nouveau_pmp,
+        branche.code,
         reference_label,
     )
 
@@ -189,6 +200,7 @@ def traiter_entrees_stock_bl(instance):
             created_by=instance.created_by,
             reference_label=instance.reference,
             reference_id=instance.pk,
+            branche=instance.branche,
         )
 
     # Mark so the post_save signal skips duplicate processing in the same cycle.
@@ -294,6 +306,22 @@ def facture_fournisseur_bls_changed(sender, instance, action, pk_set, **kwargs):
     )
     if not db_row or db_row["montant_total"] != Decimal("0"):
         return  # Already computed — skip.
+
+    # BR-BRA-01 (defensive): every linked BL must belong to the same branche
+    # as the facture. Primary enforcement is at the view/form layer (the BL
+    # queryset offered to the user is filtered to the facture's branche);
+    # this is a last-resort audit log, not a block, since the M2M rows are
+    # already written by the time this signal fires.
+    bls_branche_differente = instance.bls.exclude(branche_id=instance.branche_id)
+    if bls_branche_differente.exists():
+        logger.error(
+            "BR-BRA-01 VIOLATION: FactureFournisseur pk=%s (branche=%s) a été "
+            "liée à %d BL(s) d'une autre branche : %s.",
+            instance.pk,
+            instance.branche_id,
+            bls_branche_differente.count(),
+            list(bls_branche_differente.values_list("reference", flat=True)),
+        )
 
     # BR-FAF-01: derive montant_total from BL lines.
     montant_total = Decimal("0")

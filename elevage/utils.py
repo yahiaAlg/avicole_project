@@ -9,6 +9,16 @@ Business-logic helpers for the lot d'élevage domain.
   verifier_mortalite_anormale — Detect abnormal daily mortality (alert trigger)
   lots_a_transferer      — Lots in Poussinière past the transfer-age threshold
                            (alert trigger, same spirit as verifier_mortalite_anormale)
+
+v1.4 — Multi-Branch Architecture (§3.5): a LotElevage's `branche` is
+denormalized from its bâtiment (BR-BRA-01) and every function below that
+takes a `lot` is therefore already correctly scoped — no extra filtering
+needed. The one exception was `_calculer_revenus_lot`, which crossed back
+out to the global BLClientLigne table by `produit_fini` alone; since
+StockProduitFini (and therefore sales) is now keyed by (branche, produit
+fini) — BR-BRA-07 — that lookup is tightened to the lot's own branche below
+so revenue from another branch selling the same catalogue product is never
+misattributed to this lot.
 """
 
 from decimal import Decimal
@@ -151,6 +161,13 @@ def _calculer_revenus_lot(lot) -> Decimal:
     multiple lots, so revenue is not perfectly isolated without a direct
     lot → BLClientLigne FK.  The spec notes this as "Revenus lot (ventes)"
     and accepts this level of traceability.
+
+    v1.4 (BR-BRA-01 / BR-BRA-07): the produit_fini catalogue stays global,
+    but its stock — and therefore every BL Client sale of it — is now keyed
+    by (branche, produit_fini). A unit this lot produced only ever entered
+    its OWN branche's StockProduitFini, so sales are restricted to BLs from
+    that same branche; otherwise a sale of the same catalogue product by an
+    entirely different branche/lot would be wrongly counted here.
     """
     from production.models import ProductionRecord, ProductionLigne
     from clients.models import BLClientLigne, BLClient
@@ -169,11 +186,13 @@ def _calculer_revenus_lot(lot) -> Decimal:
     if not produit_fini_ids:
         return Decimal("0")
 
-    # Sum BLClientLigne totals for those produits on validated (Livré/Facturé) BLs.
+    # Sum BLClientLigne totals for those produits on validated (Livré/Facturé)
+    # BLs FROM THIS LOT'S OWN BRANCHE only (BR-BRA-07).
     from django.db.models import F, ExpressionWrapper, DecimalField
 
     total = BLClientLigne.objects.filter(
         produit_fini_id__in=produit_fini_ids,
+        bl__branche=lot.branche,
         bl__statut__in=[BLClient.STATUT_LIVRE, BLClient.STATUT_FACTURE],
     ).aggregate(
         total=Sum(
@@ -226,7 +245,7 @@ def verifier_mortalite_anormale(
 # ---------------------------------------------------------------------------
 
 
-def lots_a_transferer() -> list:
+def lots_a_transferer(branche=None) -> list:
     """
     Return open lots currently housed in a Poussinière that have reached
     (or passed) the configured transfer-age threshold
@@ -237,10 +256,18 @@ def lots_a_transferer() -> list:
     never moves a lot itself (that stays an explicit, auditable action via
     TransfertLot — see elevage.signals.transfert_lot_post_save).
 
-    The DB-level filter narrows to open lots in a Poussinière; the actual
-    age/threshold comparison is delegated to LotElevage.doit_etre_transfere
-    (single source of truth) since age_jours is a Python property, not a
-    queryable field.
+    v1.4 (§3.5.5): every alert is computed per branch and surfaced to that
+    branch's chef de branche. Pass `branche` to scope to one branch (what a
+    chef de branche sees); omit for Vue Globale — every branch's due lots,
+    with the originating branch readable via `lot.branche` on each result.
+
+    The DB-level filter narrows to open lots in a Poussinière (and,
+    optionally, one branche); the actual age/threshold comparison is
+    delegated to LotElevage.doit_etre_transfere (single source of truth)
+    since age_jours is a Python property, not a queryable field.
+
+    Args:
+        branche (Branche | None): Scope to one branch; omit for Vue Globale.
     """
     from elevage.models import LotElevage
     from intrants.models import Batiment
@@ -248,6 +275,9 @@ def lots_a_transferer() -> list:
     candidats = LotElevage.objects.filter(
         statut=LotElevage.STATUT_OUVERT,
         batiment__type_batiment=Batiment.TYPE_POUSSINIERE,
-    ).select_related("batiment")
+    ).select_related("batiment", "branche")
+
+    if branche is not None:
+        candidats = candidats.filter(branche=branche)
 
     return [lot for lot in candidats if lot.doit_etre_transfere]

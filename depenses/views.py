@@ -30,6 +30,15 @@ All write operations use Post-Redirect-Get.
 The print views render dedicated templates (vouchers) — no PDF library.
 No signals are required for this module: business logic is orchestrated
 explicitly here, calling into depenses.utils — see depenses/signals.py.
+
+v1.4 (§3.5, BR-BRA-01/08/09): Depense.branche is a required FK — Vue par
+Branche scopes the list/dashboard/create to the request's active branche
+(BR-BRA-02); Vue Globale shows every branche combined. Associé and
+RetraitAssocié stay company-wide and are NEVER branche-scoped (BR-BRA-08).
+Employe.branche is a derived property read from `employe.batiment.branche`
+(BR-BRA-09) — Pointage/CongeEmploye/AcompteEmploye/BulletinPaie inherit it
+the same way, so every RH queryset below filters via the
+`employe__batiment__branche` join rather than a stored field.
 """
 
 import datetime
@@ -41,10 +50,17 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db import transaction
 from django.db.models import Q, Sum
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
+from core.views import (
+    branche_matches,
+    branche_object_or_404,
+    get_active_branche,
+    require_branche_context,
+)
 from depenses.forms import (
     CategorieDepenseForm,
     DashboardFilterForm,
@@ -105,6 +121,21 @@ def _paginate(qs, page_number, per_page=PER_PAGE):
         return paginator.page(paginator.num_pages)
 
 
+def _ensure_employe_branche_access(request, obj):
+    """
+    404 when *obj* (an Employe, or any record whose `.branche` resolves
+    through one — Pointage, CongeEmploye, AcompteEmploye, BulletinPaie)
+    belongs to a branche other than the request's active one (BR-BRA-02).
+
+    BR-BRA-09: Employe.branche is a derived property read from
+    `employe.batiment.branche`, not a stored FK, so this uses
+    `branche_matches` (reads `.branche`) rather than `branche_object_or_404`
+    (which relies on a `branche_id` column). Vue Globale always passes.
+    """
+    if not branche_matches(request, obj):
+        raise Http404("Cet enregistrement appartient à une autre branche.")
+
+
 # ===========================================================================
 # Dashboard
 # ===========================================================================
@@ -122,10 +153,17 @@ def depenses_dashboard(request):
 
     Quick-preset buttons (Ce mois / Mois préc. / 3 mois / YTD) are handled
     purely in the template via JS that fills the date inputs and submits.
+
+    v1.4 (§3.5.5): Vue par Branche shows only the active branche's expense
+    and payroll figures (BR-BRA-01/09); Vue Globale aggregates across every
+    branche. Retraits associés (BR-BRA-08) are always company-wide and never
+    scoped, regardless of the active branche.
     """
     import datetime
     from django.db.models import Sum, Count
     from decimal import Decimal
+
+    branche = get_active_branche(request)
 
     today = datetime.date.today()
     premier_du_mois = today.replace(day=1)
@@ -152,13 +190,19 @@ def depenses_dashboard(request):
     prev_debut = prev_fin - datetime.timedelta(days=duree)
 
     # ── Summaries ─────────────────────────────────────────────────────────
-    summary_periode = get_depenses_summary(date_debut=date_debut, date_fin=date_fin)
-    summary_annee = get_depenses_summary(date_debut=premier_de_lannee, date_fin=today)
-    summary_precedent = get_depenses_summary(date_debut=prev_debut, date_fin=prev_fin)
+    summary_periode = get_depenses_summary(
+        date_debut=date_debut, date_fin=date_fin, branche=branche
+    )
+    summary_annee = get_depenses_summary(
+        date_debut=premier_de_lannee, date_fin=today, branche=branche
+    )
+    summary_precedent = get_depenses_summary(
+        date_debut=prev_debut, date_fin=prev_fin, branche=branche
+    )
 
     # ── Period-aware category breakdown (used in bottom table + donut) ────
     par_categorie_periode = get_depenses_par_categorie(
-        date_debut=date_debut, date_fin=date_fin
+        date_debut=date_debut, date_fin=date_fin, branche=branche
     )
 
     # ── 6-month monthly trend (always absolute — not filtered) ────────────
@@ -175,6 +219,8 @@ def depenses_dashboard(request):
             )
             mois_fin = next_m - datetime.timedelta(days=1)
         qs = Depense.objects.filter(date__gte=target, date__lte=mois_fin)
+        if branche is not None:
+            qs = qs.filter(branche=branche)
         agg = qs.aggregate(total=Sum("montant"), nb=Count("pk"))
         tendance_6_mois.append(
             {
@@ -186,27 +232,34 @@ def depenses_dashboard(request):
         )
 
     # ── Recent expenses (always the 10 most recent, unfiltered) ──────────
-    depenses_recentes = Depense.objects.select_related("categorie", "lot").order_by(
-        "-date", "-created_at"
-    )[:10]
+    depenses_recentes_qs = Depense.objects.select_related("categorie", "lot")
+    if branche is not None:
+        depenses_recentes_qs = depenses_recentes_qs.filter(branche=branche)
+    depenses_recentes = depenses_recentes_qs.order_by("-date", "-created_at")[:10]
 
     nb_categories_actives = CategorieDepense.objects.filter(actif=True).count()
 
     # ── RH + Retraits summaries (for dashboard KPIs) ──────────────────────
-    rh_summary = get_rh_summary(date_debut=date_debut, date_fin=date_fin)
+    rh_summary = get_rh_summary(
+        date_debut=date_debut, date_fin=date_fin, branche=branche
+    )
+    # BR-BRA-08: never scoped to branche — always company-wide.
     retraits_summary = get_retraits_associes_summary(
         date_debut=date_debut, date_fin=date_fin
     )
 
-    # ── Bulletin status breakdown (global, for status donut) ──────────────
+    # ── Bulletin status breakdown (BR-BRA-09, via employe__batiment__branche) ─
+    bulletins_statut_qs = BulletinPaie.objects.all()
+    if branche is not None:
+        bulletins_statut_qs = bulletins_statut_qs.filter(
+            employe__batiment__branche=branche
+        )
     bulletins_statuts = {
-        "brouillon": BulletinPaie.objects.filter(
+        "brouillon": bulletins_statut_qs.filter(
             statut=BulletinPaie.STATUT_BROUILLON
         ).count(),
-        "valide": BulletinPaie.objects.filter(
-            statut=BulletinPaie.STATUT_VALIDE
-        ).count(),
-        "paye": BulletinPaie.objects.filter(statut=BulletinPaie.STATUT_PAYE).count(),
+        "valide": bulletins_statut_qs.filter(statut=BulletinPaie.STATUT_VALIDE).count(),
+        "paye": bulletins_statut_qs.filter(statut=BulletinPaie.STATUT_PAYE).count(),
     }
 
     # ── 6-month payroll + retraits trend (mirrors expense trend) ──────────
@@ -224,20 +277,18 @@ def depenses_dashboard(request):
                 day=1
             )
             mois_fin = next_m - datetime.timedelta(days=1)
-        sal = (
-            BulletinPaie.objects.filter(
-                statut=BulletinPaie.STATUT_PAYE,
-                date_paiement__gte=target,
-                date_paiement__lte=mois_fin,
-            ).aggregate(total=_Sum("montant_net"))["total"]
-            or 0
+        sal_qs = BulletinPaie.objects.filter(
+            statut=BulletinPaie.STATUT_PAYE,
+            date_paiement__gte=target,
+            date_paiement__lte=mois_fin,
         )
-        acomp = (
-            AcompteEmploye.objects.filter(
-                date__gte=target, date__lte=mois_fin
-            ).aggregate(total=_Sum("montant"))["total"]
-            or 0
-        )
+        acomp_qs = AcompteEmploye.objects.filter(date__gte=target, date__lte=mois_fin)
+        if branche is not None:
+            sal_qs = sal_qs.filter(employe__batiment__branche=branche)
+            acomp_qs = acomp_qs.filter(employe__batiment__branche=branche)
+        sal = sal_qs.aggregate(total=_Sum("montant_net"))["total"] or 0
+        acomp = acomp_qs.aggregate(total=_Sum("montant"))["total"] or 0
+        # BR-BRA-08: stakeholder withdrawals are never branche-scoped.
         retr = (
             RetraitAssocie.objects.filter(
                 date__gte=target, date__lte=mois_fin
@@ -302,6 +353,7 @@ def depenses_dashboard(request):
             "retraits_summary": retraits_summary,
             "bulletins_statuts": bulletins_statuts,
             "tendance_paie_retraits_6_mois": tendance_paie_retraits_6_mois,
+            "active_branche": branche,
             "title": "لوحة تحكم — المصروفات",
         },
     )
@@ -468,12 +520,19 @@ def depense_list(request):
     Spec §9.10 columns: Date | Category | Description | Amount | Method |
                         Lot (if attributed)
     Filters (spec §9.10): Category, date range, lot, method
-    """
-    qs = Depense.objects.select_related("categorie", "lot", "enregistre_par").order_by(
-        "-date", "-created_at"
-    )
 
-    filter_form = DepenseFilterForm(request.GET or None)
+    v1.4 (BR-BRA-01/02): Vue par Branche shows only the active branche's
+    dépenses; Vue Globale shows every branche combined.
+    """
+    branche = get_active_branche(request)
+
+    qs = Depense.objects.select_related(
+        "categorie", "lot", "branche", "enregistre_par"
+    ).order_by("-date", "-created_at")
+    if branche is not None:
+        qs = qs.filter(branche=branche)
+
+    filter_form = DepenseFilterForm(request.GET or None, branche=branche)
     if filter_form.is_valid():
         cd = filter_form.cleaned_data
 
@@ -514,6 +573,7 @@ def depense_list(request):
             "filter_form": filter_form,
             "q": q,
             "total": total,
+            "active_branche": branche,
             "title": "المصروفات التشغيلية",
         },
     )
@@ -525,6 +585,7 @@ def depense_list(request):
 
 
 @login_required(login_url=LOGIN_URL)
+@require_branche_context
 def depense_create(request):
     """
     Record a new operational expense.
@@ -532,9 +593,13 @@ def depense_create(request):
     BR-DEP-03: the form already restricts facture_liee to Service-type
     invoices.  The view double-checks via model.clean() inside full_clean().
     BR-DEP-04: lot attribution is optional and purely informational here.
+    BR-BRA-01/04: branche is a required, explicit field — pre-selected and
+    locked to the request's active branche.
     """
+    branche = get_active_branche(request)
+
     if request.method == "POST":
-        form = DepenseForm(request.POST, request.FILES)
+        form = DepenseForm(request.POST, request.FILES, branche=branche)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -567,13 +632,14 @@ def depense_create(request):
     else:
         import datetime
 
-        form = DepenseForm(initial={"date": datetime.date.today()})
+        form = DepenseForm(initial={"date": datetime.date.today()}, branche=branche)
 
     return render(
         request,
         "depenses/depense_form.html",
         {
             "form": form,
+            "active_branche": branche,
             "title": "تسجيل مصروف",
             "action_label": "حفظ المصروف",
         },
@@ -587,9 +653,11 @@ def depense_create(request):
 
 @login_required(login_url=LOGIN_URL)
 def depense_detail(request, pk):
-    depense = get_object_or_404(
+    """v1.4 (BR-BRA-02): scoped to the request's active branche."""
+    depense = branche_object_or_404(
+        request,
         Depense.objects.select_related(
-            "categorie", "lot", "facture_liee__fournisseur", "enregistre_par"
+            "categorie", "lot", "branche", "facture_liee__fournisseur", "enregistre_par"
         ),
         pk=pk,
     )
@@ -614,11 +682,15 @@ def depense_edit(request, pk):
     Edit an existing dépense.
 
     BR-DEP-03 is re-enforced via DepenseForm and model.clean() on save.
+    BR-BRA-02: the dépense must belong to the request's active branche;
+    its branche field stays locked to that same branche on edit.
     """
-    depense = get_object_or_404(Depense, pk=pk)
+    depense = branche_object_or_404(request, Depense, pk=pk)
 
     if request.method == "POST":
-        form = DepenseForm(request.POST, request.FILES, instance=depense)
+        form = DepenseForm(
+            request.POST, request.FILES, instance=depense, branche=depense.branche
+        )
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -640,7 +712,7 @@ def depense_edit(request, pk):
         else:
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
-        form = DepenseForm(instance=depense)
+        form = DepenseForm(instance=depense, branche=depense.branche)
 
     return render(
         request,
@@ -668,8 +740,9 @@ def depense_delete(request, pk):
     Per spec: incorrect entries should normally be corrected via a
     counter-entry; hard-delete is available within the same business day
     before any period close.  No soft-delete is implemented (spec §14.2).
+    BR-BRA-02: scoped to the request's active branche.
     """
-    depense = get_object_or_404(Depense, pk=pk)
+    depense = branche_object_or_404(request, Depense, pk=pk)
     description = depense.description[:60]
     date = depense.date
     try:
@@ -709,10 +782,12 @@ def depense_print(request, pk):
       - Approved-by / signature field, notes
 
     Renders a dedicated template with @media print CSS — no PDF library.
+    BR-BRA-02: scoped to the request's active branche.
     """
-    depense = get_object_or_404(
+    depense = branche_object_or_404(
+        request,
         Depense.objects.select_related(
-            "categorie", "lot", "facture_liee__fournisseur", "enregistre_par"
+            "categorie", "lot", "branche", "facture_liee__fournisseur", "enregistre_par"
         ),
         pk=pk,
     )
@@ -968,7 +1043,15 @@ def retrait_delete(request, pk):
 
 @login_required(login_url=LOGIN_URL)
 def rh_dashboard(request):
-    """Payroll/advances summary for a period (defaults to current month)."""
+    """
+    Payroll/advances summary for a period (defaults to current month).
+
+    v1.4 (§3.5.5 / BR-BRA-09): Vue par Branche shows only the active
+    branche's employees and payroll figures (employee branche is derived
+    from `employe.batiment.branche`); Vue Globale aggregates across every
+    branche.
+    """
+    branche = get_active_branche(request)
     today = datetime.date.today()
     premier_du_mois = today.replace(day=1)
 
@@ -979,14 +1062,21 @@ def rh_dashboard(request):
     else:
         date_debut, date_fin = premier_du_mois, today
 
-    summary = get_rh_summary(date_debut=date_debut, date_fin=date_fin)
+    summary = get_rh_summary(date_debut=date_debut, date_fin=date_fin, branche=branche)
 
-    bulletins_recents = BulletinPaie.objects.select_related("employe").order_by(
-        "-annee", "-mois", "-updated_at"
-    )[:10]
-    acomptes_recents = AcompteEmploye.objects.select_related("employe").order_by(
-        "-date"
-    )[:10]
+    bulletins_recents_qs = BulletinPaie.objects.select_related("employe")
+    acomptes_recents_qs = AcompteEmploye.objects.select_related("employe")
+    if branche is not None:
+        bulletins_recents_qs = bulletins_recents_qs.filter(
+            employe__batiment__branche=branche
+        )
+        acomptes_recents_qs = acomptes_recents_qs.filter(
+            employe__batiment__branche=branche
+        )
+    bulletins_recents = bulletins_recents_qs.order_by("-annee", "-mois", "-updated_at")[
+        :10
+    ]
+    acomptes_recents = acomptes_recents_qs.order_by("-date")[:10]
 
     return render(
         request,
@@ -998,6 +1088,7 @@ def rh_dashboard(request):
             "summary": summary,
             "bulletins_recents": bulletins_recents,
             "acomptes_recents": acomptes_recents,
+            "active_branche": branche,
             "title": "لوحة تحكم — الموارد البشرية",
         },
     )
@@ -1010,7 +1101,15 @@ def rh_dashboard(request):
 
 @login_required(login_url=LOGIN_URL)
 def employe_list(request):
+    """
+    v1.4 (§3.5.5 / BR-BRA-09): Vue par Branche shows only the active
+    branche's employees (derived from `batiment__branche`); Vue Globale
+    shows every branche combined.
+    """
+    branche = get_active_branche(request)
     qs = Employe.objects.select_related("batiment", "binome").order_by("nom_complet")
+    if branche is not None:
+        qs = qs.filter(batiment__branche=branche)
     actif_param = request.GET.get("actif", "")
     if actif_param == "1":
         qs = qs.filter(actif=True)
@@ -1028,14 +1127,27 @@ def employe_list(request):
     return render(
         request,
         "depenses/employe_list.html",
-        {"employes": qs, "actif_param": actif_param, "q": q, "title": "العمال"},
+        {
+            "employes": qs,
+            "actif_param": actif_param,
+            "q": q,
+            "active_branche": branche,
+            "title": "العمال",
+        },
     )
 
 
 @login_required(login_url=LOGIN_URL)
 def employe_create(request):
+    """
+    BR-BRA-09: Employe.branche is derived from `batiment`; pass the active
+    branche to EmployeForm so the batiment/binome pickers stay within it
+    for a locked chef de branche/opérateur. Vue Globale leaves them
+    unrestricted, so an admin may assign any branche's batiment.
+    """
+    branche = get_active_branche(request)
     if request.method == "POST":
-        form = EmployeForm(request.POST)
+        form = EmployeForm(request.POST, branche=branche)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -1051,20 +1163,28 @@ def employe_create(request):
         else:
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
-        form = EmployeForm()
+        form = EmployeForm(branche=branche)
 
     return render(
         request,
         "depenses/employe_form.html",
-        {"form": form, "title": "عامل جديد", "action_label": "تسجيل العامل"},
+        {
+            "form": form,
+            "active_branche": branche,
+            "title": "عامل جديد",
+            "action_label": "تسجيل العامل",
+        },
     )
 
 
 @login_required(login_url=LOGIN_URL)
 def employe_edit(request, pk):
+    """BR-BRA-02/09: scoped to the request's active branche (derived)."""
     employe = get_object_or_404(Employe, pk=pk)
+    _ensure_employe_branche_access(request, employe)
+    branche = get_active_branche(request)
     if request.method == "POST":
-        form = EmployeForm(request.POST, instance=employe)
+        form = EmployeForm(request.POST, instance=employe, branche=branche)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -1080,7 +1200,7 @@ def employe_edit(request, pk):
         else:
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
-        form = EmployeForm(instance=employe)
+        form = EmployeForm(instance=employe, branche=branche)
 
     return render(
         request,
@@ -1096,10 +1216,14 @@ def employe_edit(request, pk):
 
 @login_required(login_url=LOGIN_URL)
 def employe_detail(request, pk):
-    """Employee profile: leave balance, recent attendance, advances, payslips."""
+    """
+    Employee profile: leave balance, recent attendance, advances, payslips.
+    BR-BRA-02/09: scoped to the request's active branche (derived).
+    """
     employe = get_object_or_404(
         Employe.objects.select_related("batiment", "binome"), pk=pk
     )
+    _ensure_employe_branche_access(request, employe)
     solde_conge = get_solde_conge(employe)
     pointages_recents = employe.pointages.order_by("-date")[:31]
     acomptes_en_attente = employe.acomptes.filter(bulletin_paie__isnull=True).order_by(
@@ -1128,11 +1252,19 @@ def employe_detail(request, pk):
 
 @login_required(login_url=LOGIN_URL)
 def pointage_list(request):
+    """
+    v1.4 (§3.5.5 / BR-BRA-09): Vue par Branche shows only the active
+    branche's attendance (derived via `employe__batiment__branche`); Vue
+    Globale shows every branche combined.
+    """
+    branche = get_active_branche(request)
     qs = Pointage.objects.select_related("employe").order_by(
         "-date", "employe__nom_complet"
     )
+    if branche is not None:
+        qs = qs.filter(employe__batiment__branche=branche)
 
-    filter_form = PointageFilterForm(request.GET or None)
+    filter_form = PointageFilterForm(request.GET or None, branche=branche)
     if filter_form.is_valid():
         cd = filter_form.cleaned_data
         if cd.get("employe"):
@@ -1145,7 +1277,7 @@ def pointage_list(request):
             qs = qs.filter(statut=cd["statut"])
 
     page = _paginate(qs, request.GET.get("page"))
-    generer_form = GenererPointagesMoisForm()
+    generer_form = GenererPointagesMoisForm(branche=branche)
 
     return render(
         request,
@@ -1154,6 +1286,7 @@ def pointage_list(request):
             "page": page,
             "filter_form": filter_form,
             "generer_form": generer_form,
+            "active_branche": branche,
             "title": "تسجيلات الحضور",
         },
     )
@@ -1161,8 +1294,10 @@ def pointage_list(request):
 
 @login_required(login_url=LOGIN_URL)
 def pointage_create(request):
+    """BR-BRA-09: scope the employe picker to the request's active branche."""
+    branche = get_active_branche(request)
     if request.method == "POST":
-        form = PointageForm(request.POST)
+        form = PointageForm(request.POST, branche=branche)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -1183,20 +1318,28 @@ def pointage_create(request):
         else:
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
-        form = PointageForm(initial={"date": datetime.date.today()})
+        form = PointageForm(initial={"date": datetime.date.today()}, branche=branche)
 
     return render(
         request,
         "depenses/pointage_form.html",
-        {"form": form, "title": "تسجيل حضور", "action_label": "حفظ"},
+        {
+            "form": form,
+            "active_branche": branche,
+            "title": "تسجيل حضور",
+            "action_label": "حفظ",
+        },
     )
 
 
 @login_required(login_url=LOGIN_URL)
 def pointage_edit(request, pk):
-    pointage = get_object_or_404(Pointage, pk=pk)
+    """BR-BRA-02/09: scoped to the request's active branche (derived)."""
+    pointage = get_object_or_404(Pointage.objects.select_related("employe"), pk=pk)
+    _ensure_employe_branche_access(request, pointage)
+    branche = get_active_branche(request)
     if request.method == "POST":
-        form = PointageForm(request.POST, instance=pointage)
+        form = PointageForm(request.POST, instance=pointage, branche=branche)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -1214,7 +1357,7 @@ def pointage_edit(request, pk):
         else:
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
-        form = PointageForm(instance=pointage)
+        form = PointageForm(instance=pointage, branche=branche)
 
     return render(
         request,
@@ -1222,6 +1365,7 @@ def pointage_edit(request, pk):
         {
             "form": form,
             "pointage": pointage,
+            "active_branche": branche,
             "title": "تعديل تسجيل الحضور",
             "action_label": "حفظ التعديلات",
         },
@@ -1236,7 +1380,7 @@ def pointage_generer_mois(request):
     REPOS on jour_repos_habituel. Existing rows for that employe+date are
     NEVER overwritten — only missing days are created (BR-RH-01).
     """
-    form = GenererPointagesMoisForm(request.POST)
+    form = GenererPointagesMoisForm(request.POST, branche=get_active_branche(request))
     if not form.is_valid():
         messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
         return redirect("depenses:pointage_list")
@@ -1292,7 +1436,15 @@ def pointage_generer_mois(request):
 
 @login_required(login_url=LOGIN_URL)
 def conge_list(request):
+    """
+    v1.4 (§3.5.5 / BR-BRA-09): Vue par Branche shows only the active
+    branche's leave records (derived via `employe__batiment__branche`);
+    Vue Globale shows every branche combined.
+    """
+    branche = get_active_branche(request)
     qs = CongeEmploye.objects.select_related("employe").order_by("-date_debut")
+    if branche is not None:
+        qs = qs.filter(employe__batiment__branche=branche)
     employe_id = request.GET.get("employe")
     if employe_id:
         qs = qs.filter(employe_id=employe_id)
@@ -1301,7 +1453,7 @@ def conge_list(request):
     return render(
         request,
         "depenses/conge_list.html",
-        {"page": page, "title": "عطل العمال"},
+        {"page": page, "active_branche": branche, "title": "عطل العمال"},
     )
 
 
@@ -1310,9 +1462,12 @@ def conge_create(request):
     """
     Record a paid-leave block (BR-RH-03) and immediately materialize it
     into Pointage rows (BR-RH-05) so payroll calculation sees it.
+
+    BR-BRA-09: scope the employe picker to the request's active branche.
     """
+    branche = get_active_branche(request)
     if request.method == "POST":
-        form = CongeEmployeForm(request.POST)
+        form = CongeEmployeForm(request.POST, branche=branche)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -1340,12 +1495,17 @@ def conge_create(request):
         else:
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
-        form = CongeEmployeForm()
+        form = CongeEmployeForm(branche=branche)
 
     return render(
         request,
         "depenses/conge_form.html",
-        {"form": form, "title": "عطلة جديدة", "action_label": "حفظ"},
+        {
+            "form": form,
+            "active_branche": branche,
+            "title": "عطلة جديدة",
+            "action_label": "حفظ",
+        },
     )
 
 
@@ -1356,9 +1516,16 @@ def conge_create(request):
 
 @login_required(login_url=LOGIN_URL)
 def acompte_employe_list(request):
+    """
+    v1.4 (§3.5.5 / BR-BRA-09): Vue par Branche shows only the active
+    branche's salary advances; Vue Globale shows every branche combined.
+    """
+    branche = get_active_branche(request)
     qs = AcompteEmploye.objects.select_related("employe", "bulletin_paie").order_by(
         "-date"
     )
+    if branche is not None:
+        qs = qs.filter(employe__batiment__branche=branche)
     employe_id = request.GET.get("employe")
     if employe_id:
         qs = qs.filter(employe_id=employe_id)
@@ -1369,14 +1536,21 @@ def acompte_employe_list(request):
     return render(
         request,
         "depenses/acompte_employe_list.html",
-        {"page": page, "total": total, "title": "تسبيقات على الرواتب"},
+        {
+            "page": page,
+            "total": total,
+            "active_branche": branche,
+            "title": "تسبيقات على الرواتب",
+        },
     )
 
 
 @login_required(login_url=LOGIN_URL)
 def acompte_employe_create(request):
+    """BR-BRA-09: scope the employe picker to the request's active branche."""
+    branche = get_active_branche(request)
     if request.method == "POST":
-        form = AcompteEmployeForm(request.POST)
+        form = AcompteEmployeForm(request.POST, branche=branche)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -1398,12 +1572,19 @@ def acompte_employe_create(request):
         else:
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
-        form = AcompteEmployeForm(initial={"date": datetime.date.today()})
+        form = AcompteEmployeForm(
+            initial={"date": datetime.date.today()}, branche=branche
+        )
 
     return render(
         request,
         "depenses/acompte_employe_form.html",
-        {"form": form, "title": "تسبيق جديد", "action_label": "حفظ"},
+        {
+            "form": form,
+            "active_branche": branche,
+            "title": "تسبيق جديد",
+            "action_label": "حفظ",
+        },
     )
 
 
@@ -1414,9 +1595,16 @@ def acompte_employe_create(request):
 
 @login_required(login_url=LOGIN_URL)
 def bulletin_paie_list(request):
+    """
+    v1.4 (§3.5.5 / BR-BRA-09): Vue par Branche shows only the active
+    branche's payslips; Vue Globale shows every branche combined.
+    """
+    branche = get_active_branche(request)
     qs = BulletinPaie.objects.select_related("employe").order_by("-annee", "-mois")
+    if branche is not None:
+        qs = qs.filter(employe__batiment__branche=branche)
 
-    filter_form = RHFilterForm(request.GET or None)
+    filter_form = RHFilterForm(request.GET or None, branche=branche)
     if filter_form.is_valid():
         cd = filter_form.cleaned_data
         if cd.get("employe"):
@@ -1430,7 +1618,12 @@ def bulletin_paie_list(request):
     return render(
         request,
         "depenses/bulletin_paie_list.html",
-        {"page": page, "filter_form": filter_form, "title": "كشوف الرواتب"},
+        {
+            "page": page,
+            "filter_form": filter_form,
+            "active_branche": branche,
+            "title": "كشوف الرواتب",
+        },
     )
 
 
@@ -1440,9 +1633,12 @@ def bulletin_paie_generer(request):
     (Re)compute a payslip from Pointage for employe+annee+mois and persist
     the snapshot. Only allowed while the payslip is still 'brouillon' (or
     does not exist yet) — once 'valide' or 'paye' it is locked (BR-RH-05).
+
+    BR-BRA-09: scope the employe picker to the request's active branche.
     """
+    branche = get_active_branche(request)
     if request.method == "POST":
-        form = GenererBulletinPaieForm(request.POST)
+        form = GenererBulletinPaieForm(request.POST, branche=branche)
         if form.is_valid():
             employe = form.cleaned_data["employe"]
             annee = form.cleaned_data["annee"]
@@ -1505,21 +1701,29 @@ def bulletin_paie_generer(request):
             initial={
                 "annee": datetime.date.today().year,
                 "mois": datetime.date.today().month,
-            }
+            },
+            branche=branche,
         )
 
     return render(
         request,
         "depenses/bulletin_paie_generer.html",
-        {"form": form, "title": "حساب كشف راتب", "action_label": "حساب"},
+        {
+            "form": form,
+            "active_branche": branche,
+            "title": "حساب كشف راتب",
+            "action_label": "حساب",
+        },
     )
 
 
 @login_required(login_url=LOGIN_URL)
 def bulletin_paie_detail(request, pk):
+    """BR-BRA-02/09: scoped to the request's active branche (derived)."""
     bulletin = get_object_or_404(
         BulletinPaie.objects.select_related("employe", "genere_par"), pk=pk
     )
+    _ensure_employe_branche_access(request, bulletin)
     acomptes = bulletin.acomptes_deduits.order_by("-date")
     return render(
         request,
@@ -1535,8 +1739,9 @@ def bulletin_paie_detail(request, pk):
 @login_required(login_url=LOGIN_URL)
 @require_POST
 def bulletin_paie_valider(request, pk):
-    """Lock a draft payslip's figures (brouillon → valide)."""
-    bulletin = get_object_or_404(BulletinPaie, pk=pk)
+    """Lock a draft payslip's figures (brouillon → valide). BR-BRA-02/09 scoped."""
+    bulletin = get_object_or_404(BulletinPaie.objects.select_related("employe"), pk=pk)
+    _ensure_employe_branche_access(request, bulletin)
     if bulletin.statut != BulletinPaie.STATUT_BROUILLON:
         messages.error(request, "هذا الكشف ليس في حالة مسودة.")
         return redirect("depenses:bulletin_paie_detail", pk=pk)
@@ -1550,8 +1755,9 @@ def bulletin_paie_valider(request, pk):
 
 @login_required(login_url=LOGIN_URL)
 def bulletin_paie_payer(request, pk):
-    """Mark a validated payslip as paid (valide → paye)."""
-    bulletin = get_object_or_404(BulletinPaie, pk=pk)
+    """Mark a validated payslip as paid (valide → paye). BR-BRA-02/09 scoped."""
+    bulletin = get_object_or_404(BulletinPaie.objects.select_related("employe"), pk=pk)
+    _ensure_employe_branche_access(request, bulletin)
     if bulletin.statut != BulletinPaie.STATUT_VALIDE:
         messages.error(request, "يجب تأكيد الكشف أولاً قبل تسجيل الدفع.")
         return redirect("depenses:bulletin_paie_detail", pk=pk)
@@ -1583,10 +1789,12 @@ def bulletin_paie_payer(request, pk):
 
 @login_required(login_url=LOGIN_URL)
 def bulletin_paie_print(request, pk):
-    """Print-optimised payslip voucher — no PDF library, @media print CSS."""
+    """Print-optimised payslip voucher — no PDF library, @media print CSS.
+    BR-BRA-02/09: scoped to the request's active branche (derived)."""
     bulletin = get_object_or_404(
         BulletinPaie.objects.select_related("employe", "employe__batiment"), pk=pk
     )
+    _ensure_employe_branche_access(request, bulletin)
     acomptes = bulletin.acomptes_deduits.order_by("date")
 
     from core.models import CompanyInfo

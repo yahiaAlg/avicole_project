@@ -145,6 +145,7 @@
             <thead>
               <tr>
                 <th>المرجع</th>
+                {% if not active_branche %}<th>الفرع</th>{% endif %}
                 <th>التاريخ</th>
                 <th>الاستحقاق</th>
                 <th>الحالة</th>
@@ -155,6 +156,7 @@
               {% for f in factures_ouvertes %}
               <tr class="table-row{% if f.est_en_retard %} row-retard{% endif %}" style="--row-i:{{ forloop.counter0 }};">
                 <td><a href="{% url 'clients:facture_client_detail' f.pk %}" class="row-link" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ f.reference }}</a></td>
+                {% if not active_branche %}<td style="font-size:12px;color:var(--text-muted);">{{ f.branche.nom }}</td>{% endif %}
                 <td style="font-size:12px;color:var(--text-muted);">{{ f.date_facture|date:"d/m/Y" }}</td>
                 <td style="font-size:12px;{% if f.est_en_retard %}color:#dc2626;font-weight:600;{% else %}color:var(--text-muted);{% endif %}">
                   {{ f.date_echeance|date:"d/m/Y"|default:"—" }}
@@ -197,6 +199,7 @@
             <thead>
               <tr>
                 <th>المرجع</th>
+                {% if not active_branche %}<th>الفرع</th>{% endif %}
                 <th>التاريخ</th>
                 <th>الحالة</th>
                 <th style="text-align:left;">المجموع</th>
@@ -206,6 +209,7 @@
               {% for bl in bls_recents %}
               <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
                 <td><a href="{% url 'clients:bl_client_detail' bl.pk %}" class="row-link" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ bl.reference }}</a></td>
+                {% if not active_branche %}<td style="font-size:12px;color:var(--text-muted);">{{ bl.branche.nom }}</td>{% endif %}
                 <td style="font-size:12px;color:var(--text-muted);">{{ bl.date_bl|date:"d/m/Y" }}</td>
                 <td>
                   {% if bl.statut == 'brouillon' %}<span class="pill-warning">مسودة</span>
@@ -237,6 +241,7 @@
             <thead>
               <tr>
                 <th>التاريخ</th>
+                {% if not active_branche %}<th>الفرع</th>{% endif %}
                 <th>طريقة الدفع</th>
                 <th>المرجع</th>
                 <th style="text-align:left;">المبلغ</th>
@@ -246,6 +251,7 @@
               {% for p in paiements_recents %}
               <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
                 <td><a href="{% url 'clients:paiement_client_detail' p.pk %}" class="row-link" style="font-size:12px;color:var(--text-secondary);">{{ p.date_paiement|date:"d/m/Y" }}</a></td>
+                {% if not active_branche %}<td style="font-size:12px;color:var(--text-muted);">{{ p.branche.nom }}</td>{% endif %}
                 <td style="font-size:12px;color:var(--text-muted);">{{ p.get_mode_paiement_display }}</td>
                 <td style="font-size:12px;color:var(--text-muted);">{{ p.reference_paiement|default:"—" }}</td>
                 <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">+{{ p.montant|floatformat:0 }} دج</td>

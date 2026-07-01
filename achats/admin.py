@@ -12,6 +12,7 @@ from django.utils.translation import gettext_lazy as _
 
 from import_export.admin import ImportExportModelAdmin
 
+from core.admin import BrancheScopedAdminMixin
 from achats.models import (
     BLFournisseur,
     BLFournisseurLigne,
@@ -92,12 +93,13 @@ class FactureAllocationInline(admin.TabularInline):
 
 
 @admin.register(BLFournisseur)
-class BLFournisseurAdmin(ImportExportModelAdmin):
+class BLFournisseurAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = BLFournisseurResource
 
     list_display = (
         "reference",
         "type_document",
+        "branche",
         "fournisseur",
         "date_bl",
         "statut_badge",
@@ -106,7 +108,7 @@ class BLFournisseurAdmin(ImportExportModelAdmin):
         "a_piece_jointe",
         "created_at",
     )
-    list_filter = ("statut", "type_document", "fournisseur", "date_bl")
+    list_filter = ("statut", "type_document", "branche", "fournisseur", "date_bl")
     search_fields = (
         "reference",
         "fournisseur__nom",
@@ -122,7 +124,7 @@ class BLFournisseurAdmin(ImportExportModelAdmin):
         "est_expire",
     )
     inlines = (BLFournisseurLigneInline,)
-    autocomplete_fields = ("fournisseur",)
+    autocomplete_fields = ("branche", "fournisseur")
 
     fieldsets = (
         (
@@ -131,6 +133,7 @@ class BLFournisseurAdmin(ImportExportModelAdmin):
                 "fields": (
                     "reference",
                     "type_document",
+                    "branche",
                     "fournisseur",
                     "date_bl",
                     "reference_fournisseur",
@@ -208,6 +211,7 @@ class BLFournisseurAdmin(ImportExportModelAdmin):
             # Lock the whole header when BL is invoiced
             base += [
                 "reference",
+                "branche",
                 "fournisseur",
                 "date_bl",
                 "reference_fournisseur",
@@ -217,11 +221,12 @@ class BLFournisseurAdmin(ImportExportModelAdmin):
 
 
 @admin.register(BLFournisseurLigne)
-class BLFournisseurLigneAdmin(ImportExportModelAdmin):
+class BLFournisseurLigneAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = BLFournisseurLigneResource
+    branche_lookup = "bl__branche"
 
     list_display = ("bl", "intrant", "quantite", "prix_unitaire", "montant_total_dzd")
-    list_filter = ("bl__statut", "intrant__categorie")
+    list_filter = ("bl__statut", "bl__branche", "intrant__categorie")
     search_fields = ("bl__reference", "intrant__designation")
     readonly_fields = ("montant_total_dzd",)
     autocomplete_fields = ("bl", "intrant")
@@ -237,11 +242,12 @@ class BLFournisseurLigneAdmin(ImportExportModelAdmin):
 
 
 @admin.register(FactureFournisseur)
-class FactureFournisseurAdmin(ImportExportModelAdmin):
+class FactureFournisseurAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = FactureFournisseurResource
 
     list_display = (
         "reference",
+        "branche",
         "fournisseur",
         "date_facture",
         "type_facture",
@@ -251,7 +257,7 @@ class FactureFournisseurAdmin(ImportExportModelAdmin):
         "statut_badge",
         "en_retard",
     )
-    list_filter = ("statut", "type_facture", "fournisseur", "date_facture")
+    list_filter = ("statut", "type_facture", "branche", "fournisseur", "date_facture")
     search_fields = ("reference", "fournisseur__nom")
     date_hierarchy = "date_facture"
     filter_horizontal = ("bls",)
@@ -264,7 +270,7 @@ class FactureFournisseurAdmin(ImportExportModelAdmin):
         "updated_at",
     )
     inlines = (FactureAllocationInline,)
-    autocomplete_fields = ("fournisseur",)
+    autocomplete_fields = ("branche", "fournisseur")
 
     fieldsets = (
         (
@@ -272,6 +278,7 @@ class FactureFournisseurAdmin(ImportExportModelAdmin):
             {
                 "fields": (
                     "reference",
+                    "branche",
                     "fournisseur",
                     "date_facture",
                     "date_echeance",
@@ -340,7 +347,7 @@ class FactureFournisseurAdmin(ImportExportModelAdmin):
         base = list(self.readonly_fields)
         # After creation the BL set and computed fields are fully locked
         if obj:
-            base += ["reference", "fournisseur", "bls", "type_facture"]
+            base += ["reference", "branche", "fournisseur", "bls", "type_facture"]
         return base
 
 
@@ -350,10 +357,11 @@ class FactureFournisseurAdmin(ImportExportModelAdmin):
 
 
 @admin.register(ReglementFournisseur)
-class ReglementFournisseurAdmin(ImportExportModelAdmin):
+class ReglementFournisseurAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = ReglementFournisseurResource
 
     list_display = (
+        "branche",
         "fournisseur",
         "date_reglement",
         "montant_dzd",
@@ -361,18 +369,19 @@ class ReglementFournisseurAdmin(ImportExportModelAdmin):
         "reference_paiement",
         "created_at",
     )
-    list_filter = ("mode_paiement", "fournisseur", "date_reglement")
+    list_filter = ("mode_paiement", "branche", "fournisseur", "date_reglement")
     search_fields = ("fournisseur__nom", "reference_paiement", "notes")
     date_hierarchy = "date_reglement"
     readonly_fields = ("created_at",)
     inlines = (AllocationReglementInline,)
-    autocomplete_fields = ("fournisseur",)
+    autocomplete_fields = ("branche", "fournisseur")
 
     fieldsets = (
         (
             "Règlement",
             {
                 "fields": (
+                    "branche",
                     "fournisseur",
                     "date_reglement",
                     "montant",
@@ -399,6 +408,7 @@ class ReglementFournisseurAdmin(ImportExportModelAdmin):
         # BR-REG-06: immutable after creation
         if obj:
             return (
+                "branche",
                 "fournisseur",
                 "date_reglement",
                 "montant",
@@ -415,11 +425,12 @@ class ReglementFournisseurAdmin(ImportExportModelAdmin):
 
 
 @admin.register(AllocationReglement)
-class AllocationReglementAdmin(ImportExportModelAdmin):
+class AllocationReglementAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = AllocationReglementResource
+    branche_lookup = "reglement__branche"
 
     list_display = ("reglement", "facture", "montant_alloue_dzd")
-    list_filter = ("reglement__fournisseur",)
+    list_filter = ("reglement__fournisseur", "reglement__branche")
     search_fields = (
         "reglement__fournisseur__nom",
         "facture__reference",
@@ -441,26 +452,27 @@ class AllocationReglementAdmin(ImportExportModelAdmin):
 
 
 @admin.register(AcompteFournisseur)
-class AcompteFournisseurAdmin(ImportExportModelAdmin):
+class AcompteFournisseurAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = AcompteFournisseurResource
 
     list_display = (
+        "branche",
         "fournisseur",
         "montant_dzd",
         "date",
         "utilise",
         "created_at",
     )
-    list_filter = ("utilise", "fournisseur")
+    list_filter = ("utilise", "branche", "fournisseur")
     search_fields = ("fournisseur__nom", "notes")
     date_hierarchy = "date"
-    readonly_fields = ("fournisseur", "reglement", "montant", "date", "created_at")
+    readonly_fields = ("branche", "fournisseur", "reglement", "montant", "date", "created_at")
 
     fieldsets = (
         (
             None,
             {
-                "fields": ("fournisseur", "reglement", "montant", "date", "utilise"),
+                "fields": ("branche", "fournisseur", "reglement", "montant", "date", "utilise"),
             },
         ),
         ("Notes", {"fields": ("notes",), "classes": ("collapse",)}),

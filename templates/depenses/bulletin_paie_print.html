@@ -109,6 +109,7 @@
       <div class="info-row"><span class="lbl">الرقم التعريفي</span><span class="val">{{ bulletin.employe.matricule }}</span></div>
       <div class="info-row"><span class="lbl">الوظيفة</span><span class="val">{{ bulletin.employe.fonction|default:"—" }}</span></div>
       <div class="info-row"><span class="lbl">المبنى</span><span class="val">{{ bulletin.employe.batiment.nom|default:"—" }}</span></div>
+      <div class="info-row"><span class="lbl">الفرع</span><span class="val">{{ bulletin.branche.nom|default:"—" }}</span></div>
       <div class="info-row"><span class="lbl">الحالة</span><span class="val">{{ bulletin.get_statut_display }}</span></div>
       <div class="info-row"><span class="lbl">تاريخ الدفع</span><span class="val">{{ bulletin.date_paiement|date:"d/m/Y"|default:"—" }}</span></div>
     </div>

@@ -68,6 +68,7 @@
         <thead>
           <tr>
             <th>الاسم</th>
+            {% if not active_branche %}<th>الفرع</th>{% endif %}
             <th>المبنى</th>
             <th>تاريخ الفتح</th>
             <th>الكتاكيت الأولية</th>
@@ -90,6 +91,7 @@
               </a>
               {% if lot.souche %}<div style="font-size:11px;color:var(--text-muted);padding-left:38px;">{{ lot.souche }}</div>{% endif %}
             </td>
+            {% if not active_branche %}<td>{{ lot.branche.nom }}</td>{% endif %}
             <td>{{ lot.batiment.nom }}</td>
             <td style="color:var(--text-muted);">{{ lot.date_ouverture|date:"d/m/Y" }}</td>
             <td style="font-family:'Nunito',sans-serif;font-weight:700;">{{ lot.nombre_poussins_initial|floatformat:0 }}</td>

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static reporting_extras %}
 {% block title %}ملخص الموارد البشرية — تربية الدواجن{% endblock %}
 {% block nav_rapports %}active{% endblock %}
 {% block page_title %}ملخص الموارد البشرية والرواتب{% endblock %}
@@ -207,7 +207,7 @@
             <td style="font-size:12.5px;color:var(--text-secondary);">{{ emp.fonction|default:"—" }}</td>
             <td style="text-align:right;font-size:12.5px;">{{ emp.date_embauche|date:"d/m/Y" }}</td>
             <td style="text-align:center;font-weight:600;">{{ emp.anciennete_mois }}</td>
-            <td style="text-align:center;">{{ emp.anciennete_mois|floatformat:0 }} × 2.5 = <strong>{{ emp.anciennete_mois|add:0|floatformat:0 }}</strong> <span style="font-size:11px;color:var(--text-muted);">يوم متراكم</span></td>
+            <td style="text-align:center;">{{ emp.anciennete_mois|floatformat:0 }} × 2.5 = <strong>{{ emp.anciennete_mois|mul:2.5|floatformat:0 }}</strong> <span style="font-size:11px;color:var(--text-muted);">يوم متراكم</span></td>
             <td style="text-align:center;">
               {% with bal=soldes_conge|default:0 %}
               {% if soldes_conge %}

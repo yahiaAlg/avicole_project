@@ -8,9 +8,11 @@ management/commands/seed_db_minimal.py
     python manage.py seed_db_minimal --clear  # مسح التصنيفات ثم إعادة التعبئة
 
 ما يتم إنشاؤه:
-    • CompanyInfo           — بيانات الشركة (pk=1)
-    • ParametrageElevage    — إعدادات التربية الافتراضية (pk=1)
-    • Users (4)             — admin / gerant / operateur1 / comptable
+    • Branche (1)            — الفرع الرئيسي الافتراضي (v1.4, BR-BRA-01/02)
+    • CompanyInfo            — بيانات الشركة (pk=1)
+    • ParametrageElevage     — إعدادات التربية الافتراضية (pk=1)
+    • Users (4)              — admin / gerant / operateur1 / comptable
+                               (operateur1 مرتبط إلزامياً بالفرع — BR-BRA-02)
     • CategorieIntrant      — ALIMENT / POUSSIN / MEDICAMENT / AUTRE
     • TypeFournisseur       — ALIMENTS / POUSSINS / MEDICAMENTS / SERVICES / AUTRE
     • CategorieDepense      — SALAIRES / ENERGIE / MAINTENANCE / TRANSPORT /
@@ -69,8 +71,9 @@ class Command(BaseCommand):
         )
 
         self._seed_company()
+        branches = self._seed_branches()
         self._seed_parametrage_elevage()
-        self._seed_users()
+        self._seed_users(branches)
         self._seed_categories_intrant()
         self._seed_types_fournisseur()
         self._seed_categories_depense()
@@ -101,7 +104,7 @@ class Command(BaseCommand):
         from intrants.models import CategorieIntrant, CategorieQualite, TypeFournisseur
         from depenses.models import CategorieDepense
         from production.models import ProduitFini
-        from core.models import CompanyInfo, UserProfile
+        from core.models import CompanyInfo, UserProfile, Branche
         from elevage.models import ParametrageElevage
         from clients.models import PrixMarche
 
@@ -115,11 +118,41 @@ class Command(BaseCommand):
         User.objects.filter(is_superuser=False).delete()
         CompanyInfo.objects.all().delete()
         ParametrageElevage.objects.all().delete()
+        # Branche last — UserProfile (PROTECT) references it and is already
+        # cleared above (v1.4, BR-BRA-01/02).
+        Branche.objects.all().delete()
         self.stdout.write("  Terminé.\n")
 
     # ------------------------------------------------------------------
     # Seeders
     # ------------------------------------------------------------------
+
+    def _seed_branches(self):
+        """
+        Bootstrap the single default operational branch (v1.4, BR-BRA-01).
+
+        A minimal/production install starts with exactly one branch — the
+        company's own main site, matching CompanyInfo's address/wilaya
+        below. Additional branches (if the farm later opens a second site)
+        are created afterwards via CORE › Branches › Nouveau; nothing here
+        prevents that. `chef_de_branche` is intentionally left unset — it's
+        optional on the model and is normally assigned once a user with the
+        'chef_branche' role exists (see CORE › Branches once such a user is
+        created via the admin interface).
+        """
+        from core.models import Branche
+
+        obj, created = Branche.objects.get_or_create(
+            code="STF",
+            defaults=dict(
+                nom="الفرع الرئيسي — سطيف",
+                wilaya="Setifien",
+                adresse="Zone Industrielle, Route Nationale 12",
+                telephone="0555 123 456",
+            ),
+        )
+        self._log("Branche (1 — الفرع الرئيسي)", created)
+        return {"STF": obj}
 
     def _seed_company(self):
         from core.models import CompanyInfo
@@ -168,9 +201,14 @@ class Command(BaseCommand):
         )
         self._log("ParametrageElevage", created)
 
-    def _seed_users(self):
+    def _seed_users(self, branches):
         from core.models import UserProfile
 
+        stf = branches["STF"]
+
+        # role/branche per BR-BRA-02/03: chef_branche and operateur are
+        # REQUIRED to carry a branche; admin is forbidden from carrying one;
+        # comptable is left unbound here (= Vue Globale, BR-BRA-04).
         specs = [
             dict(
                 username="admin",
@@ -180,6 +218,7 @@ class Command(BaseCommand):
                 is_superuser=True,
                 is_staff=True,
                 role="admin",
+                branche=None,
                 password="admin1234",
             ),
             dict(
@@ -190,6 +229,7 @@ class Command(BaseCommand):
                 is_superuser=False,
                 is_staff=True,
                 role="manager",
+                branche=None,
                 password="gerant1234",
             ),
             dict(
@@ -200,6 +240,7 @@ class Command(BaseCommand):
                 is_superuser=False,
                 is_staff=False,
                 role="operateur",
+                branche=stf,
                 password="op1_1234",
             ),
             dict(
@@ -210,13 +251,16 @@ class Command(BaseCommand):
                 is_superuser=False,
                 is_staff=False,
                 role="comptable",
+                branche=None,
                 password="compta1234",
             ),
         ]
         created_count = 0
         for spec in specs:
+            spec = dict(spec)
             role = spec.pop("role")
             password = spec.pop("password")
+            branche = spec.pop("branche")
             user, created = User.objects.get_or_create(
                 username=spec["username"], defaults=spec
             )
@@ -224,7 +268,9 @@ class Command(BaseCommand):
                 user.set_password(password)
                 user.save()
                 created_count += 1
-            UserProfile.objects.get_or_create(user=user, defaults={"role": role})
+            UserProfile.objects.get_or_create(
+                user=user, defaults={"role": role, "branche": branche}
+            )
         self._log(f"Users ({len(specs)})", created_count > 0)
 
     def _seed_categories_intrant(self):

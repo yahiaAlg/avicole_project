@@ -27,6 +27,21 @@ including the two special expense families: associés withdrawals and RH
                                (BR-RH-02 / BR-RH-05).
   get_rh_summary              — Aggregate payroll + advances figures for a
                                period (used in the RH dashboard).
+
+v1.4 — Multi-Branch Architecture (§3.5): `Depense.branche` is now a required
+FK (BR-BRA-01), so every Depense-based reporting helper below gains an
+optional `branche` (Vue par Branche when given, Vue Globale — summed across
+all branches — when omitted, per §3.5.5). `Employe.branche` is instead a
+*derived* property read from `employe.batiment.branche` (BR-BRA-09) — it has
+no column of its own — so every Employe-linked queryset below (Pointage,
+CongeEmploye, AcompteEmploye, BulletinPaie) is filtered via the join
+`employe__batiment__branche` rather than a stored field. `Associe` and
+`RetraitAssocie` are the one family left untouched: per BR-BRA-08 they are
+intentionally NOT branch-scoped — equity withdrawals belong to the company
+as a whole and are always shown at their full, company-wide total regardless
+of which branch is selected (§3.5.6) — so `get_retraits_associes_summary`
+takes no `branche` parameter, and `total_retraits_associes` in
+`get_cash_flow_summary` is never filtered by it either.
 """
 
 from decimal import Decimal, ROUND_HALF_UP
@@ -41,7 +56,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def get_cash_flow_summary(date_debut=None, date_fin=None) -> dict:
+def get_cash_flow_summary(date_debut=None, date_fin=None, branche=None) -> dict:
     """
     Compute a period-based cash-flow statement:
 
@@ -61,9 +76,24 @@ def get_cash_flow_summary(date_debut=None, date_fin=None) -> dict:
     an outflow on the day it is handed out, and the payslip's montant_net
     already excludes whatever acomptes were deducted from it (BR-RH-04).
 
+    v1.4 (§3.5.5): pass `branche` for the Vue par Branche cash-flow exactly
+    as that branch's chef de branche sees it — client payments, supplier
+    settlements, and dépenses are filtered on their own `branche` FK
+    (BR-BRA-01); payroll cash (acomptes/bulletins) is filtered via the
+    derived `employe__batiment__branche` join (BR-BRA-09). Omit `branche`
+    for the Vue Globale figures, summed across every branch.
+
+    `RetraitAssocie` is the one exception (BR-BRA-08): stakeholder
+    withdrawals are never branch-scoped, so `total_retraits_associes` /
+    `detail_retraits` always reflect the full company-wide total regardless
+    of `branche` — a chef de branche's cash-flow report still shows the
+    real equity draw rather than a fictional per-branch share of it.
+
     Args:
         date_debut (date | None): Start of period (inclusive).
         date_fin   (date | None): End of period (inclusive).
+        branche (Branche | None): Scope to one branch; omit for Vue Globale.
+            Has no effect on stakeholder withdrawals (BR-BRA-08).
 
     Returns dict with keys:
         date_debut           (date | None)
@@ -97,6 +127,8 @@ def get_cash_flow_summary(date_debut=None, date_fin=None) -> dict:
         paiements_qs = paiements_qs.filter(date_paiement__gte=date_debut)
     if date_fin:
         paiements_qs = paiements_qs.filter(date_paiement__lte=date_fin)
+    if branche is not None:
+        paiements_qs = paiements_qs.filter(branche=branche)
 
     total_encaissements = paiements_qs.aggregate(total=Sum("montant"))[
         "total"
@@ -108,6 +140,8 @@ def get_cash_flow_summary(date_debut=None, date_fin=None) -> dict:
         reglements_qs = reglements_qs.filter(date_reglement__gte=date_debut)
     if date_fin:
         reglements_qs = reglements_qs.filter(date_reglement__lte=date_fin)
+    if branche is not None:
+        reglements_qs = reglements_qs.filter(branche=branche)
 
     total_reglements = reglements_qs.aggregate(total=Sum("montant"))[
         "total"
@@ -119,12 +153,17 @@ def get_cash_flow_summary(date_debut=None, date_fin=None) -> dict:
         depenses_qs = depenses_qs.filter(date__gte=date_debut)
     if date_fin:
         depenses_qs = depenses_qs.filter(date__lte=date_fin)
+    if branche is not None:
+        depenses_qs = depenses_qs.filter(branche=branche)
 
     total_depenses = depenses_qs.aggregate(total=Sum("montant"))["total"] or Decimal(
         "0"
     )
 
     # ── Stakeholder withdrawals (outflows) — BR-ASSOC-01 ──────────────────
+    # v1.4 / BR-BRA-08: never filtered by `branche` — withdrawals are
+    # company-wide equity draws, always shown at their full total regardless
+    # of which branch's cash-flow report is being viewed.
     retraits_qs = RetraitAssocie.objects.select_related("associe")
     if date_debut:
         retraits_qs = retraits_qs.filter(date__gte=date_debut)
@@ -136,11 +175,16 @@ def get_cash_flow_summary(date_debut=None, date_fin=None) -> dict:
     )
 
     # ── Payroll cash out (outflows) — BR-RH-04 ────────────────────────────
+    # v1.4 / BR-BRA-09: Employe.branche is derived from employe.batiment, so
+    # scoping goes through the employe__batiment__branche join rather than a
+    # stored field on AcompteEmploye/BulletinPaie themselves.
     acomptes_qs = AcompteEmploye.objects.select_related("employe")
     if date_debut:
         acomptes_qs = acomptes_qs.filter(date__gte=date_debut)
     if date_fin:
         acomptes_qs = acomptes_qs.filter(date__lte=date_fin)
+    if branche is not None:
+        acomptes_qs = acomptes_qs.filter(employe__batiment__branche=branche)
 
     total_acomptes_employes = acomptes_qs.aggregate(total=Sum("montant"))[
         "total"
@@ -153,6 +197,10 @@ def get_cash_flow_summary(date_debut=None, date_fin=None) -> dict:
         bulletins_payes_qs = bulletins_payes_qs.filter(date_paiement__gte=date_debut)
     if date_fin:
         bulletins_payes_qs = bulletins_payes_qs.filter(date_paiement__lte=date_fin)
+    if branche is not None:
+        bulletins_payes_qs = bulletins_payes_qs.filter(
+            employe__batiment__branche=branche
+        )
 
     total_salaires_payes = bulletins_payes_qs.aggregate(total=Sum("montant_net"))[
         "total"
@@ -214,7 +262,9 @@ def get_cash_flow_summary(date_debut=None, date_fin=None) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def get_depenses_par_categorie(date_debut=None, date_fin=None) -> list[dict]:
+def get_depenses_par_categorie(
+    date_debut=None, date_fin=None, branche=None
+) -> list[dict]:
     """
     Aggregate expenses by CategorieDepense for a given period.
 
@@ -224,9 +274,14 @@ def get_depenses_par_categorie(date_debut=None, date_fin=None) -> list[dict]:
         nb           — count of individual expense records
         pct          — percentage of grand total (0–100, rounded to 1 dp)
 
+    v1.4 (§3.5.5): pass `branche` for the Vue par Branche breakdown — a chef
+    de branche's own expenses only (BR-BRA-01, `Depense.branche` is a
+    required FK); omit for Vue Globale, summed across every branch.
+
     Args:
         date_debut (date | None): Period start (inclusive).
         date_fin   (date | None): Period end (inclusive).
+        branche (Branche | None): Scope to one branch; omit for Vue Globale.
     """
     from depenses.models import Depense, CategorieDepense
     from django.db.models import Sum, Count
@@ -236,6 +291,8 @@ def get_depenses_par_categorie(date_debut=None, date_fin=None) -> list[dict]:
         qs = qs.filter(date__gte=date_debut)
     if date_fin:
         qs = qs.filter(date__lte=date_fin)
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     aggregated = (
         qs.values("categorie_id")
@@ -283,6 +340,11 @@ def get_depenses_par_lot(lot) -> dict:
     kept here so the view layer always goes through utils, and so the logic
     can be extended (e.g. filtering by category) without touching view code.
 
+    v1.4 (BR-BRA-01): no `branche` parameter is needed here — a lot belongs
+    to exactly one branche, and `Depense.clean()` already guards that any
+    dépense attributed to it shares that same branche, so `lot.depenses` is
+    inherently single-branch.
+
     Args:
         lot (LotElevage): The lot whose expenses should be retrieved.
 
@@ -325,15 +387,19 @@ def get_depenses_par_lot(lot) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def get_depenses_summary(date_debut=None, date_fin=None) -> dict:
+def get_depenses_summary(date_debut=None, date_fin=None, branche=None) -> dict:
     """
     Return high-level expense statistics for a period.
 
     Useful for the management dashboard and for the expense list header.
 
+    v1.4 (§3.5.5): pass `branche` for the Vue par Branche figures (BR-BRA-01);
+    omit for Vue Globale, summed across every branch.
+
     Args:
         date_debut (date | None): Period start (inclusive).
         date_fin   (date | None): Period end (inclusive).
+        branche (Branche | None): Scope to one branch; omit for Vue Globale.
 
     Returns dict with keys:
         total              — Decimal total DZD in period
@@ -351,6 +417,8 @@ def get_depenses_summary(date_debut=None, date_fin=None) -> dict:
         qs = qs.filter(date__gte=date_debut)
     if date_fin:
         qs = qs.filter(date__lte=date_fin)
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     agg = qs.aggregate(total=Sum("montant"), nb=Count("pk"), max_m=Max("montant"))
     total = agg["total"] or Decimal("0")
@@ -371,7 +439,7 @@ def get_depenses_summary(date_debut=None, date_fin=None) -> dict:
     if agg["max_m"] is not None:
         max_depense = qs.filter(montant=agg["max_m"]).first()
 
-    par_categorie = get_depenses_par_categorie(date_debut, date_fin)
+    par_categorie = get_depenses_par_categorie(date_debut, date_fin, branche)
 
     return {
         "total": total,
@@ -500,6 +568,12 @@ def get_retraits_associes_summary(date_debut=None, date_fin=None) -> dict:
     Aggregate stakeholder withdrawals for a period, with a per-stakeholder
     breakdown (history of withdrawals, per BR-ASSOC-01).
 
+    v1.4 / BR-BRA-08: unlike every other reporting helper in this module,
+    this one takes NO `branche` parameter — Associé/RetraitAssocie are
+    intentionally not branch-scoped (equity belongs to the company as a
+    whole, §3.5.6), so this summary is always company-wide and is shown
+    identically regardless of which branch is currently selected.
+
     Returns dict with keys:
         total          — Decimal total DZD withdrawn in period
         nb             — int count of withdrawal records
@@ -566,6 +640,10 @@ def get_solde_conge(employe, as_of=None) -> Decimal:
       accrued = anciennete_mois × 2.5  (CONGE_JOURS_PAR_MOIS)
       taken   = sum(CongeEmploye.nb_jours) for blocks starting on/before as_of
       balance = accrued − taken   (never negative)
+
+    v1.4 (BR-BRA-09): no `branche` parameter is needed — this operates on a
+    single `employe`, whose branch is already pinned via `employe.branche`
+    (derived from their assigned bâtiment).
 
     Args:
         employe (Employe)
@@ -722,9 +800,22 @@ def calculer_donnees_paie(employe, annee: int, mois: int) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def get_rh_summary(date_debut=None, date_fin=None) -> dict:
+def get_rh_summary(date_debut=None, date_fin=None, branche=None) -> dict:
     """
     High-level payroll statistics for a period — RH dashboard.
+
+    v1.4 (§3.5.5 / BR-BRA-09): an employee's branch is derived from their
+    assigned bâtiment, not stored on Employe itself, so every queryset below
+    is scoped via the `employe__batiment__branche` join (or `batiment__branche`
+    directly on Employe) rather than a stored `branche` field. Pass `branche`
+    for the Vue par Branche payroll summary — what a chef de branche sees for
+    their own employees only; omit for Vue Globale, the company-wide summary
+    available to admin/comptable per BR-BRA-09.
+
+    Args:
+        date_debut (date | None): Period start (inclusive).
+        date_fin   (date | None): Period end (inclusive).
+        branche (Branche | None): Scope to one branch; omit for Vue Globale.
 
     Returns dict with keys:
         total_salaires_payes   — Decimal, sum of BulletinPaie.montant_net (statut=paye)
@@ -742,6 +833,8 @@ def get_rh_summary(date_debut=None, date_fin=None) -> dict:
         bulletins_qs = bulletins_qs.filter(date_paiement__gte=date_debut)
     if date_fin:
         bulletins_qs = bulletins_qs.filter(date_paiement__lte=date_fin)
+    if branche is not None:
+        bulletins_qs = bulletins_qs.filter(employe__batiment__branche=branche)
 
     agg_bulletins = bulletins_qs.aggregate(total=Sum("montant_net"), nb=Count("pk"))
 
@@ -750,16 +843,26 @@ def get_rh_summary(date_debut=None, date_fin=None) -> dict:
         acomptes_qs = acomptes_qs.filter(date__gte=date_debut)
     if date_fin:
         acomptes_qs = acomptes_qs.filter(date__lte=date_fin)
+    if branche is not None:
+        acomptes_qs = acomptes_qs.filter(employe__batiment__branche=branche)
 
     agg_acomptes = acomptes_qs.aggregate(total=Sum("montant"), nb=Count("pk"))
+
+    employes_actifs_qs = Employe.objects.filter(actif=True)
+    bulletins_en_attente_qs = BulletinPaie.objects.exclude(
+        statut=BulletinPaie.STATUT_PAYE
+    )
+    if branche is not None:
+        employes_actifs_qs = employes_actifs_qs.filter(batiment__branche=branche)
+        bulletins_en_attente_qs = bulletins_en_attente_qs.filter(
+            employe__batiment__branche=branche
+        )
 
     return {
         "total_salaires_payes": agg_bulletins["total"] or Decimal("0"),
         "nb_bulletins_payes": agg_bulletins["nb"] or 0,
         "total_acomptes": agg_acomptes["total"] or Decimal("0"),
         "nb_acomptes": agg_acomptes["nb"] or 0,
-        "nb_employes_actifs": Employe.objects.filter(actif=True).count(),
-        "bulletins_en_attente": BulletinPaie.objects.exclude(
-            statut=BulletinPaie.STATUT_PAYE
-        ).count(),
+        "nb_employes_actifs": employes_actifs_qs.count(),
+        "bulletins_en_attente": bulletins_en_attente_qs.count(),
     }

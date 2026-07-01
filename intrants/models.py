@@ -167,12 +167,19 @@ class Fournisseur(models.Model):
 
     # ------------------------------------------------------------------
     # Financial helpers (delegated to achats app via reverse relations)
+    #
+    # v1.4 — Fournisseur itself stays global (§3.5.3: a supplier can
+    # transact with several branches), but BLFournisseur/FactureFournisseur/
+    # ReglementFournisseur/AcompteFournisseur are branch-scoped. So
+    # `dette_globale` / `acompte_disponible` below are the Vue Globale
+    # figures (sum across all branches, §3.5.3 ¶4); pass `branche` to get
+    # the figure for one branch only, exactly as a chef de branche sees it.
     # ------------------------------------------------------------------
-    @property
-    def dette_globale(self):
+    def dette_globale(self, branche=None):
         """
         Sum of *reste_a_payer* across all Non Payé and Partiellement Payé
         factures fournisseurs.  Computed on-demand; cache at view layer.
+        Pass `branche` to scope to one branch; omit for Vue Globale.
         """
         from achats.models import FactureFournisseur
 
@@ -182,17 +189,26 @@ class Fournisseur(models.Model):
                 FactureFournisseur.STATUT_PARTIELLEMENT_PAYE,
             ]
         )
+        if branche is not None:
+            qs = qs.filter(branche=branche)
         total = qs.aggregate(total=models.Sum("reste_a_payer"))["total"]
         return total or 0
 
-    @property
-    def acompte_disponible(self):
-        from achats.models import AcompteFournisseur
-
-        result = self.acomptes.filter(utilise=False).aggregate(
-            total=models.Sum("montant")
-        )["total"]
+    def acompte_disponible(self, branche=None):
+        qs = self.acomptes.filter(utilise=False)
+        if branche is not None:
+            qs = qs.filter(branche=branche)
+        result = qs.aggregate(total=models.Sum("montant"))["total"]
         return result or 0
+
+    # Backwards-compatible properties — Vue Globale (all branches summed).
+    @property
+    def dette_globale_toutes_branches(self):
+        return self.dette_globale()
+
+    @property
+    def acompte_disponible_toutes_branches(self):
+        return self.acompte_disponible()
 
 
 # ---------------------------------------------------------------------------
@@ -234,6 +250,13 @@ class Batiment(models.Model):
     ]
 
     nom = models.CharField(max_length=100, verbose_name="الاسم / الرقم")
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="batiments",
+        verbose_name="الفرع",
+        help_text="الفرع الذي ينتمي إليه هذا المبنى (BR-BRA-01) — لا يتغير بعد الإنشاء عملياً.",
+    )
     type_batiment = models.CharField(
         max_length=20,
         choices=TYPE_CHOICES,
@@ -256,10 +279,11 @@ class Batiment(models.Model):
     class Meta:
         verbose_name = "مبنى"
         verbose_name_plural = "المباني"
-        ordering = ["nom"]
+        ordering = ["branche", "nom"]
+        unique_together = [("branche", "nom")]
 
     def __str__(self):
-        return f"{self.nom} ({self.get_type_batiment_display()})"
+        return f"{self.nom} ({self.get_type_batiment_display()}) — {self.branche.code}"
 
     def clean(self):
         from django.core.exceptions import ValidationError
@@ -362,17 +386,26 @@ class Intrant(models.Model):
     def __str__(self):
         return f"{self.categorie.libelle} — {self.designation}"
 
-    @property
-    def quantite_en_stock(self):
-        """Shortcut to current stock balance."""
-        try:
-            return self.stock.quantite
-        except Exception:
-            return 0
+    # ------------------------------------------------------------------
+    # v1.4 — StockIntrant is now one row per (branche, intrant) (BR-BRA-07),
+    # not one row per intrant. `quantite_en_stock`/`en_alerte` below take an
+    # optional `branche` to read one branch's balance (chef de branche view);
+    # omit it for the Vue Globale total across every branch.
+    # ------------------------------------------------------------------
+    def quantite_en_stock(self, branche=None):
+        if branche is not None:
+            try:
+                return self.stocks.get(branche=branche).quantite
+            except Exception:
+                return 0
+        result = self.stocks.aggregate(total=models.Sum("quantite"))["total"]
+        return result or 0
 
-    @property
-    def en_alerte(self):
-        return self.quantite_en_stock <= self.seuil_alerte
+    def en_alerte(self, branche=None):
+        if branche is not None:
+            row = self.stocks.filter(branche=branche).first()
+            return row.en_alerte if row else False
+        return self.quantite_en_stock() <= self.seuil_alerte
 
     @property
     def est_consommable_en_lot(self):

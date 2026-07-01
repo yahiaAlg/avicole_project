@@ -5,7 +5,7 @@
 {% block nav_depenses_dashboard %}active{% endblock %}
 
 {% block page_title %}المصاريف{% endblock %}
-{% block page_sub_text %}لوحة التحكم · {{ periode_label }} · تحليل حسب الفئة{% endblock %}
+{% block page_sub_text %}لوحة التحكم · {{ periode_label }} · تحليل حسب الفئة · {{ active_branche.nom|default:"كل الفروع (رؤية شاملة)" }}{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'depenses:depense_create' %}" class="btn-primary">
@@ -327,7 +327,7 @@
             <div class="list-name">{{ dep.description|truncatechars:40 }}</div>
             <div class="list-sub">
               {{ dep.date|date:"d/m/Y" }} ·
-              <span class="cat-tag">{{ dep.categorie.libelle }}</span>{% if dep.lot %} · {{ dep.lot.designation|truncatechars:20 }}{% endif %}
+              <span class="cat-tag">{{ dep.categorie.libelle }}</span>{% if not active_branche %} · {{ dep.branche.nom }}{% endif %}{% if dep.lot %} · {{ dep.lot.designation|truncatechars:20 }}{% endif %}
             </div>
           </div>
           <span class="amount-badge">{{ dep.montant|floatformat:0 }} DZD</span>

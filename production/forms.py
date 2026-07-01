@@ -4,6 +4,22 @@ production/forms.py
 Forms for harvest recording and finished-product catalogue management:
   ProduitFini, ProductionRecord, ProductionLigne.
   CollecteFertilisant, TraitementFertilisant (fertilizer by-product flow).
+
+v1.4 multi-branch notes (§3.5):
+  BR-BRA-01  ProductionRecord.branche and CollecteFertilisant.branche are
+             DENORMALIZED (auto-synced from `lot.branche` / `batiment.branche`
+             in model.save(), `editable=False`) — neither appears as a form
+             field. Instead, ProductionRecordForm / CollecteFertilisantForm
+             accept an optional `branche=<Branche instance>` kwarg to scope
+             their `lot` / `batiment` pickers to that branche.
+             TraitementFertilisant.branche is EXPLICIT (a treatment batch is
+             created before its raw collectes are necessarily assigned), so
+             TraitementFertilisantForm gets a real `branche` field, following
+             the same pre-select/lock pattern used throughout achats/clients
+             forms, plus a `collectes` queryset scoped to that branche and a
+             clean() guard mirroring CollecteFertilisant.clean().
+  ProduitFini stays global catalogue data (like Intrant) — no branche
+  anywhere on ProduitFiniForm.
 """
 
 import datetime
@@ -47,6 +63,13 @@ class ProductionRecordForm(forms.ModelForm):
 
     nombre_oiseaux_abattus cannot exceed the lot's current effectif vivant.
     poids_moyen_kg is auto-computed from poids_total_kg at model.save().
+
+    BR-BRA-01: ProductionRecord.branche mirrors `lot.branche` and is not a
+    form field (editable=False on the model). Pass `branche=<Branche
+    instance>` from the view when the current user is locked to one branch
+    (chef de branche / opérateur, BR-BRA-02) to scope the `lot` choices to
+    that branche — mirrors the `lot=<LotElevage>` kwarg used to lock a
+    single, already-known lot.
     """
 
     class Meta:
@@ -64,12 +87,14 @@ class ProductionRecordForm(forms.ModelForm):
             "poids_total_kg": forms.NumberInput(attrs={"step": "0.001", "min": "0"}),
         }
 
-    def __init__(self, *args, lot=None, **kwargs):
+    def __init__(self, *args, lot=None, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
         # Restrict to open lots only; a closed lot cannot produce.
-        self.fields["lot"].queryset = LotElevage.objects.filter(
-            statut=LotElevage.STATUT_OUVERT
-        ).order_by("-date_ouverture")
+        lot_qs = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT)
+        if branche:
+            # BR-BRA-01: ProductionRecord.branche mirrors lot.branche.
+            lot_qs = lot_qs.filter(branche=branche)
+        self.fields["lot"].queryset = lot_qs.order_by("-date_ouverture")
         if lot:
             self.fields["lot"].initial = lot
             self.fields["lot"].widget = forms.HiddenInput()
@@ -162,7 +187,15 @@ ProductionLigneFormSet = inlineformset_factory(
 
 
 class CollecteFertilisantForm(forms.ModelForm):
-    """Record one raw manure/fertilizer collection from a building."""
+    """
+    Record one raw manure/fertilizer collection from a building.
+
+    BR-BRA-01: CollecteFertilisant.branche mirrors `batiment.branche` and is
+    not a form field (editable=False on the model). Pass `branche=<Branche
+    instance>` from the view when the current user is locked to one branch
+    (chef de branche / opérateur, BR-BRA-02) to scope the `batiment` choices
+    to that branche.
+    """
 
     class Meta:
         model = CollecteFertilisant
@@ -175,15 +208,19 @@ class CollecteFertilisantForm(forms.ModelForm):
             ),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
         from intrants.models import Batiment
 
         # Manure originates from rearing buildings, not from storage entrepôts.
-        self.fields["batiment"].queryset = Batiment.objects.filter(
+        batiment_qs = Batiment.objects.filter(
             actif=True,
             type_batiment__in=[Batiment.TYPE_POUSSINIERE, Batiment.TYPE_POULAILLER],
         )
+        if branche:
+            # BR-BRA-01: CollecteFertilisant.branche mirrors batiment.branche.
+            batiment_qs = batiment_qs.filter(branche=branche)
+        self.fields["batiment"].queryset = batiment_qs
         self.fields["notes"].required = False
 
     def clean_date_collecte(self):
@@ -206,6 +243,15 @@ class TraitementFertilisantForm(forms.ModelForm):
     Editing is blocked once the batch is VALIDE (stock has already been
     credited by production/signals.py — reopening it would desync stock
     from the recorded inputs).
+
+    BR-BRA-01: branche is EXPLICIT here (a treatment batch is created
+    before its raw collectes are necessarily assigned, unlike
+    CollecteFertilisant/ProductionRecord which derive it). Pass
+    `branche=<Branche instance>` from the view when the current user is
+    locked to one branch (chef de branche / opérateur, BR-BRA-02) to
+    pre-select and lock the field, and to scope the `collectes` choices —
+    only untreated collectes whose bâtiment is in that same branche are
+    offered, mirroring CollecteFertilisant.clean()'s guard.
     """
 
     collectes = forms.ModelMultipleChoiceField(
@@ -219,6 +265,7 @@ class TraitementFertilisantForm(forms.ModelForm):
         model = TraitementFertilisant
         fields = [
             "date_traitement",
+            "branche",
             "methode",
             "produit_fini",
             "quantite_obtenue_kg",
@@ -236,11 +283,20 @@ class TraitementFertilisantForm(forms.ModelForm):
             ),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
+        from core.models import Branche
+
         self.fields["produit_fini"].queryset = ProduitFini.objects.filter(
             actif=True, type_produit=ProduitFini.TYPE_FERTILISANT
         )
+        self.fields["branche"].queryset = Branche.objects.filter(actif=True).order_by(
+            "nom"
+        )
+        self._branche = branche
+        if branche:
+            self.fields["branche"].initial = branche
+            self.fields["branche"].widget = forms.HiddenInput()
         self.fields["methode"].required = False
         self.fields["notes"].required = False
 
@@ -250,6 +306,15 @@ class TraitementFertilisantForm(forms.ModelForm):
         if self.instance and self.instance.pk:
             qs = qs | CollecteFertilisant.objects.filter(traitement=self.instance)
             self.fields["collectes"].initial = self.instance.collectes.all()
+
+        # BR-BRA-01: only offer collectes whose bâtiment is in this batch's
+        # branche — falls back to the instance's own branche on edit when
+        # no explicit `branche` kwarg was passed.
+        scoping_branche = branche or (
+            self.instance.branche if self.instance and self.instance.pk else None
+        )
+        if scoping_branche:
+            qs = qs.filter(batiment__branche=scoping_branche)
         self.fields["collectes"].queryset = qs.order_by("-date_collecte")
 
     def clean(self):
@@ -260,6 +325,18 @@ class TraitementFertilisantForm(forms.ModelForm):
             and self.instance.statut == TraitementFertilisant.STATUT_VALIDE
         ):
             raise ValidationError("Impossible de modifier un traitement déjà validé.")
+
+        branche = cleaned.get("branche") or self._branche
+        collectes = cleaned.get("collectes")
+        # BR-BRA-01: defense in depth — mirrors CollecteFertilisant.clean();
+        # the queryset above already excludes these in the normal case.
+        if branche and collectes:
+            bad = [str(c) for c in collectes if c.batiment.branche_id != branche.pk]
+            if bad:
+                raise ValidationError(
+                    f"BR-BRA-01 : les collectes suivantes n'appartiennent pas à "
+                    f"la branche sélectionnée : {', '.join(bad)}."
+                )
         return cleaned
 
     def save(self, commit=True):

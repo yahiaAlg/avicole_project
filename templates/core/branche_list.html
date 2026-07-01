@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}الفروع — تربية الدواجن{% endblock %}
+
+{% block nav_branches %}active{% endblock %}
+
+{% block page_title %}إدارة الفروع{% endblock %}
+{% block page_sub_text %}{{ branches|length }} فرع{{ branches|length|pluralize:"," }} مسجل{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'core:branche_create' %}" class="btn-primary">
+    <i class="bx bx-plus"></i> فرع جديد
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+
+  <div class="card">
+    <div class="card-header-row">
+      <div class="section-eyebrow">الفروع التشغيلية (BR-BRA-06)</div>
+    </div>
+
+    {% if branches %}
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>الفرع</th>
+            <th>الرمز</th>
+            <th>الولاية</th>
+            <th>الهاتف</th>
+            <th>رئيس الفرع</th>
+            <th>الحالة</th>
+            <th>تاريخ الإنشاء</th>
+            <th style="text-align:left;">الإجراءات</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in branches %}
+          <tr class="table-row{% if not b.actif %} row-inactive{% endif %}" style="--row-i:{{ forloop.counter0 }};">
+            <td>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div class="branche-avatar-sm">
+                  <i class="bx bxs-buildings"></i>
+                </div>
+                <span style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
+                  {{ b.nom }}
+                </span>
+              </div>
+            </td>
+            <td><span class="pill-neutral">{{ b.code }}</span></td>
+            <td style="color:var(--text-muted);">{{ b.wilaya|default:"—" }}</td>
+            <td style="color:var(--text-muted);">{{ b.telephone|default:"—" }}</td>
+            <td>
+              {% if b.chef_de_branche %}
+                {{ b.chef_de_branche.get_full_name|default:b.chef_de_branche.username }}
+              {% else %}
+                <span class="pill-warning">بدون رئيس فرع</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if b.actif %}
+                <span class="pill-success"><i class="bx bxs-check-circle"></i> نشط</span>
+              {% else %}
+                <span class="pill-neutral"><i class="bx bx-block"></i> غير نشط</span>
+              {% endif %}
+            </td>
+            <td style="color:var(--text-muted);">{{ b.created_at|date:"d/m/Y" }}</td>
+            <td>
+              <div class="actions-cell">
+                <a href="{% url 'core:branche_edit' b.pk %}" class="action-btn" title="تعديل">
+                  <i class="bx bxs-pencil"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
+      <i class="bx bxs-buildings" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
+      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
+        لا يوجد فروع
+      </div>
+      <div style="font-size:13px;">أنشئ أول فرع لبدء العمل به (BR-BRA-06).</div>
+      <a href="{% url 'core:branche_create' %}" class="btn-primary" style="margin-top:16px;display:inline-flex;">
+        <i class="bx bx-plus"></i> إنشاء
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .card-header-row {
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-eyebrow {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .table-wrapper { overflow-x: auto; }
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .data-table thead th {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    background: var(--bg-surface);
+  }
+  .data-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn .3s ease both;
+    animation-delay: calc(var(--row-i, 0) * 35ms);
+    transition: background .12s;
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: var(--bg-hover); }
+  .data-table tbody tr.row-inactive { opacity: .55; }
+  .data-table td {
+    padding: 13px 14px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    vertical-align: middle;
+  }
+
+  .branche-avatar-sm {
+    width: 32px; height: 32px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-dim);
+    color: var(--accent-text);
+    font-size: 15px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .actions-cell {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+  .action-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 14px;
+    cursor: pointer;
+    transition: background .12s, color .12s, border-color .12s;
+    text-decoration: none;
+  }
+  .action-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+  }
+</style>
+{% endblock %}
+
+{% block extra_js %}{% endblock %}

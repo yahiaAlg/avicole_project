@@ -55,8 +55,9 @@
     <form method="post" id="facture-form">
       {% csrf_token %}
 
-      <!-- Hidden fournisseur field -->
+      <!-- Hidden fournisseur / branche fields -->
       {{ form.fournisseur }}
+      {{ form.branche }}
 
       <!-- Section: Identification -->
       <div class="form-card">

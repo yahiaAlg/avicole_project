@@ -6,6 +6,8 @@ Import-export resources for the supplier procurement cycle.
 Import policy per model:
   BLFournisseur        — import supported (brouillon rows only; no overwrite
                           of RECU/FACTURE rows to protect stock integrity).
+                          v1.4: `branche` is required (BR-BRA-01) — the
+                          delivery note's goods land in that branche's stock.
   BLFournisseurLigne   — import supported (bulk line entry alongside BL).
   FactureFournisseur   — EXPORT ONLY (montant_total auto-derived from BL lines;
                           manual import could bypass BR-FAF-01).
@@ -13,6 +15,11 @@ Import policy per model:
                           bypass FIFO allocation engine — BR-REG-03 / BR-REG-06).
   AllocationReglement  — EXPORT ONLY (created exclusively by FIFO engine).
   AcompteFournisseur   — EXPORT ONLY (created exclusively by FIFO engine).
+
+v1.4 — multi-branch architecture (§3.5): BLFournisseur, FactureFournisseur,
+ReglementFournisseur, and AcompteFournisseur each carry a `branche` FK
+(BR-BRA-01). It is import-editable on BLFournisseur (set explicitly at
+creation); on the export-only models it is exposed read-only for reporting.
 """
 
 from import_export import resources, fields
@@ -29,6 +36,7 @@ from achats.models import (
     AcompteFournisseur,
 )
 from intrants.models import Fournisseur, Intrant
+from core.models import Branche
 
 # ---------------------------------------------------------------------------
 # BLFournisseur
@@ -47,6 +55,11 @@ class BLFournisseurResource(resources.ModelResource):
         column_name="fournisseur_nom",
         attribute="fournisseur",
         widget=ForeignKeyWidget(Fournisseur, field="nom"),
+    )
+    branche = fields.Field(
+        column_name="branche_code",
+        attribute="branche",
+        widget=ForeignKeyWidget(Branche, field="code"),
     )
     created_by = fields.Field(
         column_name="created_by_username",
@@ -77,6 +90,7 @@ class BLFournisseurResource(resources.ModelResource):
             "id",
             "reference",
             "type_document",
+            "branche",
             "fournisseur",
             "date_bl",
             "reference_fournisseur",
@@ -100,6 +114,8 @@ class BLFournisseurResource(resources.ModelResource):
     def before_import_row(self, row, row_number=None, **kwargs):
         """
         Reject import of rows that would overwrite a locked BL (RECU/FACTURE).
+        BR-BRA-01: branche is mandatory — the delivery's goods land in that
+        branche's StockIntrant.
         """
         ref = row.get("reference", "").strip()
         if ref:
@@ -115,6 +131,12 @@ class BLFournisseurResource(resources.ModelResource):
                     )
             except BLFournisseur.DoesNotExist:
                 pass  # New row — allow creation
+
+        if not row.get("branche_code", "").strip():
+            raise ValueError(
+                f"Ligne {row_number}: le champ 'branche_code' est obligatoire "
+                "(BR-BRA-01)."
+            )
 
 
 class BLFournisseurLigneResource(resources.ModelResource):
@@ -195,6 +217,12 @@ class FactureFournisseurResource(resources.ModelResource):
         widget=ForeignKeyWidget(Fournisseur, field="nom"),
         readonly=True,
     )
+    branche = fields.Field(
+        column_name="branche_code",
+        attribute="branche",
+        widget=ForeignKeyWidget(Branche, field="code"),
+        readonly=True,
+    )
     created_by = fields.Field(
         column_name="created_by_username",
         attribute="created_by",
@@ -216,6 +244,7 @@ class FactureFournisseurResource(resources.ModelResource):
         fields = [
             "id",
             "reference",
+            "branche",
             "fournisseur",
             "date_facture",
             "date_echeance",
@@ -258,6 +287,12 @@ class ReglementFournisseurResource(resources.ModelResource):
         widget=ForeignKeyWidget(Fournisseur, field="nom"),
         readonly=True,
     )
+    branche = fields.Field(
+        column_name="branche_code",
+        attribute="branche",
+        widget=ForeignKeyWidget(Branche, field="code"),
+        readonly=True,
+    )
     created_by = fields.Field(
         column_name="created_by_username",
         attribute="created_by",
@@ -272,6 +307,7 @@ class ReglementFournisseurResource(resources.ModelResource):
         import_id_fields = ["id"]
         fields = [
             "id",
+            "branche",
             "fournisseur",
             "date_reglement",
             "montant",
@@ -316,6 +352,11 @@ class AllocationReglementResource(resources.ModelResource):
         attribute="reglement__fournisseur__nom",
         readonly=True,
     )
+    branche_code = fields.Field(
+        column_name="branche_code",
+        attribute="reglement__branche__code",
+        readonly=True,
+    )
 
     class Meta:
         model = AllocationReglement
@@ -325,6 +366,7 @@ class AllocationReglementResource(resources.ModelResource):
         fields = [
             "id",
             "reglement_id",
+            "branche_code",
             "fournisseur_nom",
             "facture_reference",
             "montant_alloue",
@@ -354,6 +396,12 @@ class AcompteFournisseurResource(resources.ModelResource):
         widget=ForeignKeyWidget(Fournisseur, field="nom"),
         readonly=True,
     )
+    branche = fields.Field(
+        column_name="branche_code",
+        attribute="branche",
+        widget=ForeignKeyWidget(Branche, field="code"),
+        readonly=True,
+    )
     reglement_id = fields.Field(
         column_name="reglement_source_id",
         attribute="reglement__id",
@@ -373,6 +421,7 @@ class AcompteFournisseurResource(resources.ModelResource):
         import_id_fields = ["id"]
         fields = [
             "id",
+            "branche",
             "fournisseur",
             "reglement_id",
             "montant",

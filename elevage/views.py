@@ -26,10 +26,16 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db import transaction
 from django.db.models import Q, Sum
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from core.views import (
+    branche_matches,
+    branche_object_or_404,
+    get_active_branche,
+    require_branche_context,
+)
 from elevage.forms import (
     ConsommationForm,
     LotElevageForm,
@@ -89,6 +95,17 @@ def _assert_lot_ouvert(lot, request):
     return True
 
 
+def _ensure_branche_access(request, lot):
+    """
+    404 when *lot* (or a sub-record's parent lot) belongs to a branche other
+    than the request's active one (BR-BRA-02) — a chef de branche/opérateur
+    must never reach another branch's lot, even via a sub-record's pk.
+    Vue Globale always passes.
+    """
+    if not branche_matches(request, lot):
+        raise Http404("Ce lot appartient à une autre branche.")
+
+
 # ===========================================================================
 # LotElevage — List
 # ===========================================================================
@@ -99,6 +116,9 @@ def lot_list(request):
     """
     List all lots d'élevage.
 
+    Vue par Branche (BR-BRA-01/02): only the active branche's lots — exactly
+    what a chef de branche sees. Vue Globale: every lot across all branches.
+
     Filters:
       ?statut=ouvert|ferme  — filter by lot status
       ?batiment=<pk>        — filter by building
@@ -106,9 +126,13 @@ def lot_list(request):
     """
     from intrants.models import Batiment
 
+    branche = get_active_branche(request)
+
     qs = LotElevage.objects.select_related(
-        "batiment", "fournisseur_poussins", "created_by"
+        "batiment", "fournisseur_poussins", "created_by", "branche"
     ).order_by("-date_ouverture")
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     statut = request.GET.get("statut", "")
     if statut in (LotElevage.STATUT_OUVERT, LotElevage.STATUT_FERME):
@@ -123,11 +147,17 @@ def lot_list(request):
         qs = qs.filter(Q(designation__icontains=q) | Q(souche__icontains=q))
 
     page = _paginate(qs, request.GET.get("page"))
-    batiments = Batiment.objects.filter(actif=True).order_by("nom")
+    batiments = Batiment.objects.filter(actif=True)
+    if branche is not None:
+        batiments = batiments.filter(branche=branche)
+    batiments = batiments.order_by("nom")
 
-    # Count summaries for dashboard context
-    nb_ouverts = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT).count()
-    nb_fermes = LotElevage.objects.filter(statut=LotElevage.STATUT_FERME).count()
+    # Count summaries for dashboard context (scoped the same way as the list)
+    counts_qs = LotElevage.objects.all()
+    if branche is not None:
+        counts_qs = counts_qs.filter(branche=branche)
+    nb_ouverts = counts_qs.filter(statut=LotElevage.STATUT_OUVERT).count()
+    nb_fermes = counts_qs.filter(statut=LotElevage.STATUT_FERME).count()
 
     return render(
         request,
@@ -141,6 +171,7 @@ def lot_list(request):
             "nb_ouverts": nb_ouverts,
             "nb_fermes": nb_fermes,
             "statut_choices": LotElevage.STATUT_CHOICES,
+            "active_branche": branche,
             "title": "دفعات التربية",
         },
     )
@@ -152,6 +183,7 @@ def lot_list(request):
 
 
 @login_required(login_url=LOGIN_URL)
+@require_branche_context
 def lot_create(request):
     """
     Open a new lot d'élevage.
@@ -159,9 +191,15 @@ def lot_create(request):
     BR-LOT-01: designation, date_ouverture, nombre_poussins_initial,
     fournisseur_poussins, and batiment are required.
     The BL fournisseur (poussins) is optional but recommended.
+
+    BR-BRA-01: the lot's branche is derived from its `batiment` (denormalized
+    in LotElevage.save()); the `batiment`/`bl_fournisseur_poussins` choices
+    are scoped to the active branche so the derived branche is correct.
     """
+    branche = get_active_branche(request)
+
     if request.method == "POST":
-        form = LotElevageForm(request.POST)
+        form = LotElevageForm(request.POST, branche=branche)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -190,7 +228,7 @@ def lot_create(request):
         else:
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
-        form = LotElevageForm()
+        form = LotElevageForm(branche=branche)
 
     return render(
         request,
@@ -220,7 +258,8 @@ def lot_detail(request, pk):
       - Production records linked to this lot
       - Abnormal mortality warning flag
     """
-    lot = get_object_or_404(
+    lot = branche_object_or_404(
+        request,
         LotElevage.objects.select_related(
             "batiment", "fournisseur_poussins", "bl_fournisseur_poussins", "created_by"
         ),
@@ -290,7 +329,7 @@ def lot_edit(request, pk):
     template to disable the form).  Core operational data (effectif vivant,
     total mortalité) is computed — not editable through this view.
     """
-    lot = get_object_or_404(LotElevage, pk=pk)
+    lot = branche_object_or_404(request, LotElevage, pk=pk)
 
     if lot.statut == LotElevage.STATUT_FERME:
         messages.error(
@@ -344,7 +383,7 @@ def lot_fermer(request, pk):
     GET  — renders the closure confirmation form.
     POST — validates, then calls lot.fermer(date_fermeture).
     """
-    lot = get_object_or_404(LotElevage, pk=pk)
+    lot = branche_object_or_404(request, LotElevage, pk=pk)
 
     if lot.statut == LotElevage.STATUT_FERME:
         messages.warning(request, f"الدفعة « {lot.designation} » مغلقة مسبقًا.")
@@ -439,7 +478,7 @@ def mortalite_create(request, lot_pk):
     The cumulative mortality cannot exceed the initial bird count (enforced
     in MortaliteForm.clean()).
     """
-    lot = get_object_or_404(LotElevage, pk=lot_pk)
+    lot = branche_object_or_404(request, LotElevage, pk=lot_pk)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -513,6 +552,7 @@ def mortalite_edit(request, pk):
     """
     mortalite = get_object_or_404(Mortalite.objects.select_related("lot"), pk=pk)
     lot = mortalite.lot
+    _ensure_branche_access(request, lot)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -567,6 +607,7 @@ def mortalite_delete(request, pk):
     """
     mortalite = get_object_or_404(Mortalite.objects.select_related("lot"), pk=pk)
     lot = mortalite.lot
+    _ensure_branche_access(request, lot)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -606,11 +647,10 @@ def consommation_create(request, lot_pk):
     BR-INT-03: quantity cannot exceed available stock — enforced in
                ConsommationForm.clean() and double-checked here atomically.
 
-    On success the post_save signal (elevage/signals.py) automatically:
-      - Decreases StockIntrant.quantite
-      - Creates a StockMouvement (sortie / consommation)
+    BR-BRA-07: StockIntrant is now one row per (branche, intrant), so the
+    in-view availability check below is scoped to `lot.branche`.
     """
-    lot = get_object_or_404(LotElevage, pk=lot_pk)
+    lot = branche_object_or_404(request, LotElevage, pk=lot_pk)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -629,7 +669,7 @@ def consommation_create(request, lot_pk):
 
                     try:
                         stock = StockIntrant.objects.select_for_update().get(
-                            intrant=intrant
+                            branche=lot.branche, intrant=intrant
                         )
                         if quantite > stock.quantite:
                             messages.error(
@@ -730,6 +770,7 @@ def consommation_edit(request, pk):
         Consommation.objects.select_related("lot", "intrant"), pk=pk
     )
     lot = conso.lot
+    _ensure_branche_access(request, lot)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -758,7 +799,7 @@ def consommation_edit(request, pk):
                     if stock_check_qty > 0:
                         try:
                             stock = StockIntrant.objects.select_for_update().get(
-                                intrant=stock_check_intrant
+                                branche=lot.branche, intrant=stock_check_intrant
                             )
                             if stock_check_qty > stock.quantite:
                                 messages.error(
@@ -851,6 +892,7 @@ def consommation_delete(request, pk):
         Consommation.objects.select_related("lot", "intrant"), pk=pk
     )
     lot = conso.lot
+    _ensure_branche_access(request, lot)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -900,9 +942,13 @@ def consommation_list(request):
     """
     from intrants.models import Intrant
 
+    branche = get_active_branche(request)
+
     qs = Consommation.objects.select_related(
         "lot", "intrant__categorie", "created_by"
     ).order_by("-date", "-created_at")
+    if branche is not None:
+        qs = qs.filter(lot__branche=branche)
 
     lot_pk = request.GET.get("lot", "")
     if lot_pk:
@@ -933,7 +979,10 @@ def consommation_list(request):
     )
 
     page = _paginate(qs, request.GET.get("page"))
-    lots = LotElevage.objects.order_by("-date_ouverture")
+    lots = LotElevage.objects.all()
+    if branche is not None:
+        lots = lots.filter(branche=branche)
+    lots = lots.order_by("-date_ouverture")
     intrants = (
         Intrant.objects.filter(categorie__consommable_en_lot=True, actif=True)
         .select_related("categorie")
@@ -953,6 +1002,7 @@ def consommation_list(request):
             "lots": lots,
             "intrants": intrants,
             "total_par_intrant": total_par_intrant,
+            "active_branche": branche,
             "title": "الاستهلاكات",
         },
     )
@@ -973,7 +1023,11 @@ def mortalite_list(request):
       ?date_debut, ?date_fin
       ?q=<search>         — lot designation or cause
     """
+    branche = get_active_branche(request)
+
     qs = Mortalite.objects.select_related("lot").order_by("-date", "-created_at")
+    if branche is not None:
+        qs = qs.filter(lot__branche=branche)
 
     lot_pk = request.GET.get("lot", "")
     if lot_pk:
@@ -994,7 +1048,10 @@ def mortalite_list(request):
     total_mortalite = qs.aggregate(total=Sum("nombre"))["total"] or 0
 
     page = _paginate(qs, request.GET.get("page"))
-    lots = LotElevage.objects.order_by("-date_ouverture")
+    lots = LotElevage.objects.all()
+    if branche is not None:
+        lots = lots.filter(branche=branche)
+    lots = lots.order_by("-date_ouverture")
 
     return render(
         request,
@@ -1007,6 +1064,7 @@ def mortalite_list(request):
             "date_fin": date_fin,
             "lots": lots,
             "total_mortalite": total_mortalite,
+            "active_branche": branche,
             "title": "النفوق",
         },
     )
@@ -1034,14 +1092,16 @@ def transfert_create(request, lot_pk):
     import datetime
     import json
 
-    lot = get_object_or_404(LotElevage, pk=lot_pk)
+    lot = branche_object_or_404(request, LotElevage, pk=lot_pk)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
 
-    # Build {batiment_pk → [{pk, designation}]} for JS lot_destination filtering.
+    # Build {batiment_pk → [{pk, designation}]} for JS lot_destination
+    # filtering. BR-BRA-01: a transfer never crosses branches, so this is
+    # scoped to the source lot's own branche (mirrors TransfertLotForm).
     open_lots = (
-        LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT)
+        LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT, branche=lot.branche)
         .exclude(pk=lot.pk)
         .values("pk", "designation", "batiment_id")
     )
@@ -1124,7 +1184,7 @@ def transfert_create(request, lot_pk):
 @login_required(login_url=LOGIN_URL)
 def pesee_create(request, lot_pk):
     """Record a sample weighing (birds or eggs) for a lot."""
-    lot = get_object_or_404(LotElevage, pk=lot_pk)
+    lot = branche_object_or_404(request, LotElevage, pk=lot_pk)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -1188,6 +1248,7 @@ def pesee_delete(request, pk):
     """
     pesee = get_object_or_404(PeseeEchantillon.objects.select_related("lot"), pk=pk)
     lot = pesee.lot
+    _ensure_branche_access(request, lot)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -1217,8 +1278,10 @@ def recolte_oeufs_create(request, lot_pk):
     On success the post_save signal (elevage/signals.py) automatically
     credits StockProduitFini for the farm's egg product and logs a
     StockMouvement (entree / ponte).
+
+    BR-BRA-02: the lot must belong to the request's active branche.
     """
-    lot = get_object_or_404(LotElevage, pk=lot_pk)
+    lot = branche_object_or_404(request, LotElevage, pk=lot_pk)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -1276,6 +1339,7 @@ def recolte_oeufs_edit(request, pk):
     """Edit an existing egg-collection record (blocked on closed lots)."""
     recolte = get_object_or_404(RecolteOeufs.objects.select_related("lot"), pk=pk)
     lot = recolte.lot
+    _ensure_branche_access(request, lot)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -1322,6 +1386,7 @@ def recolte_oeufs_delete(request, pk):
     """
     recolte = get_object_or_404(RecolteOeufs.objects.select_related("lot"), pk=pk)
     lot = recolte.lot
+    _ensure_branche_access(request, lot)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -1350,10 +1415,16 @@ def recolte_oeufs_list(request):
     Filters:
       ?lot=<pk>           — filter by lot
       ?date_debut, ?date_fin
+
+    Vue par Branche (BR-BRA-01): only the active branche's collections;
+    Vue Globale: every branche, combined.
     """
+    branche = get_active_branche(request)
     qs = RecolteOeufs.objects.select_related("lot", "pesee").order_by(
         "-date", "-created_at"
     )
+    if branche is not None:
+        qs = qs.filter(lot__branche=branche)
 
     lot_pk = request.GET.get("lot", "")
     if lot_pk:
@@ -1370,6 +1441,8 @@ def recolte_oeufs_list(request):
 
     page = _paginate(qs, request.GET.get("page"))
     lots = LotElevage.objects.order_by("-date_ouverture")
+    if branche is not None:
+        lots = lots.filter(branche=branche)
 
     return render(
         request,
@@ -1381,6 +1454,7 @@ def recolte_oeufs_list(request):
             "date_fin": date_fin,
             "lots": lots,
             "total_oeufs": total_oeufs,
+            "active_branche": branche,
             "title": "جمع البيض",
         },
     )
@@ -1399,29 +1473,42 @@ def elevage_dashboard(request):
       - Recent mortality events (last 7 days)
       - Recent consumption events (last 7 days)
       - Lots with abnormal mortality flags
+
+    v1.4 (§3.5.5): Vue par Branche shows the active branche's data only
+    (BR-BRA-01/02); Vue Globale (admin/comptable) aggregates across every
+    branche, with no per-branche filter applied.
     """
     import datetime
+
+    branche = get_active_branche(request)
+    vue_globale = branche is None
 
     lots_ouverts = (
         LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT)
         .select_related("batiment", "fournisseur_poussins")
         .order_by("-date_ouverture")
     )
+    if branche is not None:
+        lots_ouverts = lots_ouverts.filter(branche=branche)
 
     today = datetime.date.today()
     sept_jours = today - datetime.timedelta(days=7)
 
-    mortalites_recentes = (
-        Mortalite.objects.filter(date__gte=sept_jours)
-        .select_related("lot")
-        .order_by("-date")[:20]
-    )
+    mortalites_recentes_qs = Mortalite.objects.filter(
+        date__gte=sept_jours
+    ).select_related("lot")
+    if branche is not None:
+        mortalites_recentes_qs = mortalites_recentes_qs.filter(lot__branche=branche)
+    mortalites_recentes = mortalites_recentes_qs.order_by("-date")[:20]
 
-    consommations_recentes = (
-        Consommation.objects.filter(date__gte=sept_jours)
-        .select_related("lot", "intrant")
-        .order_by("-date")[:20]
-    )
+    consommations_recentes_qs = Consommation.objects.filter(
+        date__gte=sept_jours
+    ).select_related("lot", "intrant")
+    if branche is not None:
+        consommations_recentes_qs = consommations_recentes_qs.filter(
+            lot__branche=branche
+        )
+    consommations_recentes = consommations_recentes_qs.order_by("-date")[:20]
 
     # Lots with abnormal mortality
     lots_alerte_mortalite = [
@@ -1429,12 +1516,15 @@ def elevage_dashboard(request):
     ]
 
     # Lots in Poussinière past the configured transfer-age threshold
-    lots_alerte_transfert = lots_a_transferer()
+    lots_alerte_transfert = lots_a_transferer(branche=branche)
 
     # Summary stats
     total_effectif_vivant = sum(lot.effectif_vivant for lot in lots_ouverts)
     nb_lots_ouverts = lots_ouverts.count()
-    nb_lots_fermes = LotElevage.objects.filter(statut=LotElevage.STATUT_FERME).count()
+    nb_lots_fermes_qs = LotElevage.objects.filter(statut=LotElevage.STATUT_FERME)
+    if branche is not None:
+        nb_lots_fermes_qs = nb_lots_fermes_qs.filter(branche=branche)
+    nb_lots_fermes = nb_lots_fermes_qs.count()
 
     return render(
         request,
@@ -1448,6 +1538,8 @@ def elevage_dashboard(request):
             "total_effectif_vivant": total_effectif_vivant,
             "nb_lots_ouverts": nb_lots_ouverts,
             "nb_lots_fermes": nb_lots_fermes,
+            "active_branche": branche,
+            "vue_globale": vue_globale,
             "title": "لوحة تحكم — التربية",
         },
     )
@@ -1475,7 +1567,7 @@ def lot_kpi_json(request, pk):
           "statut": str,
         }
     """
-    lot = get_object_or_404(LotElevage, pk=pk)
+    lot = branche_object_or_404(request, LotElevage, pk=pk)
 
     data = {
         "effectif_vivant": lot.effectif_vivant,

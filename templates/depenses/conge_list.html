@@ -2,9 +2,9 @@
 {% load static %}
 
 {% block title %}عطل العمال — تربية الدواجن{% endblock %}
-{% block nav_depenses %}active{% endblock %}
+{% block nav_rh %}active{% endblock %}
 {% block page_title %}عطل العمال{% endblock %}
-{% block page_sub_text %}{{ page.paginator.count }} عطلة{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} عطلة{% if not active_branche %} — كل الفروع (رؤية شاملة){% endif %}{% endblock %}
 
 {% block topbar_actions %}
   {% if not request.user.userprofile.role == 'viewer' %}
@@ -25,6 +25,7 @@
         <thead>
           <tr>
             <th>العامل</th>
+            {% if not active_branche %}<th>الفرع</th>{% endif %}
             <th>من</th>
             <th>إلى</th>
             <th style="text-align:center;">أيام</th>
@@ -36,6 +37,9 @@
           {% for c in page.object_list %}
           <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
             <td><a href="{% url 'depenses:employe_detail' c.employe.pk %}" class="row-link">{{ c.employe.nom_complet }}</a></td>
+            {% if not active_branche %}
+            <td><span class="pill-branche"><i class="bx bxs-buildings"></i> {{ c.branche.nom|default:"—" }}</span></td>
+            {% endif %}
             <td>{{ c.date_debut|date:"d/m/Y" }}</td>
             <td>{{ c.date_fin|date:"d/m/Y" }}</td>
             <td style="text-align:center;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ c.nb_jours }}</td>
@@ -80,6 +84,7 @@
   .data-table td { padding:12px 14px; font-size:13px; color:var(--text-secondary); vertical-align:middle; }
   .row-link { color:var(--text-primary); font-weight:700; }
   .row-link:hover { color:var(--accent-text); }
+  .pill-branche { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:500; background:rgba(34,197,94,.12); color:var(--accent-text); white-space:nowrap; }
   .pagination-bar { display:flex; align-items:center; justify-content:center; gap:12px; padding:14px; border-top:1px solid var(--border); }
   .page-btn { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:var(--radius-sm); border:1px solid var(--border); color:var(--text-secondary); font-size:18px; text-decoration:none; transition:background .12s; }
   .page-btn:hover { background:var(--bg-hover); }

@@ -7,6 +7,14 @@ Business-logic helpers for the production module.
                                records (sets cout_unitaire_estime).
   get_production_dashboard  — Cross-lot production KPI table (for reporting).
   get_rendement_abattage    — Slaughter yield % for a ProductionRecord.
+
+v1.4 — Multi-Branch Architecture (§3.5): `allouer_cout_production` and
+`get_rendement_abattage` operate on one ProductionRecord at a time and stay
+correctly scoped automatically — its `lot` (and the lot's depenses/
+consommation) all denormalize to the same branche (BR-BRA-01), and
+Depense.clean() already guards that a lot's attributed expenses can't cross
+branches. `get_production_dashboard` is the one cross-lot aggregate here, so
+it gains an optional `branche` (Vue par Branche vs Vue Globale, §3.5.5).
 """
 
 from decimal import Decimal
@@ -201,7 +209,9 @@ def get_rendement_abattage(production_record) -> Optional[Decimal]:
 # ---------------------------------------------------------------------------
 
 
-def get_production_dashboard(date_debut=None, date_fin=None) -> list[dict]:
+def get_production_dashboard(
+    date_debut=None, date_fin=None, branche=None
+) -> list[dict]:
     """
     Return a per-lot production summary table for the dashboard or the
     lot-profitability report (spec §20.5).
@@ -215,9 +225,16 @@ def get_production_dashboard(date_debut=None, date_fin=None) -> list[dict]:
         cout_total_dzd       (Decimal)
         rendement_pct        (Decimal | None)
 
+    v1.4 (§3.5.5): pass `branche` for the Vue par Branche table (only that
+    branch's lots, exactly what its chef de branche sees); omit for Vue
+    Globale — every branch's lots in one table, with the originating branch
+    readable via `row["lot"].branche` for an admin who wants a per-branch
+    breakdown.
+
     Args:
         date_debut (date | None): Filter production records from this date.
         date_fin   (date | None): Filter production records up to this date.
+        branche (Branche | None): Scope to one branch; omit for Vue Globale.
 
     Returns:
         list[dict]: One dict per lot, sorted by date_production descending.
@@ -227,12 +244,14 @@ def get_production_dashboard(date_debut=None, date_fin=None) -> list[dict]:
 
     qs = ProductionRecord.objects.filter(
         statut=ProductionRecord.STATUT_VALIDE
-    ).select_related("lot")
+    ).select_related("lot", "branche")
 
     if date_debut:
         qs = qs.filter(date_production__gte=date_debut)
     if date_fin:
         qs = qs.filter(date_production__lte=date_fin)
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     # Group by lot
     from collections import defaultdict

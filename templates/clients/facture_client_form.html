@@ -62,6 +62,10 @@
             </div>
             {% endif %}
 
+            <!-- Branche (BR-BRA-01/02 — locked to the active branche, hidden) -->
+            {{ form.branche }}
+            {% for err in form.branche.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+
             <div class="form-row-2">
               <div class="form-group">
                 <label class="form-label" for="{{ form.date_facture.id_for_label }}">تاريخ الفاتورة <span class="form-required">*</span></label>

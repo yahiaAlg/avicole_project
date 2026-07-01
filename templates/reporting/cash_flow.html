@@ -93,7 +93,7 @@
     <div class="metric-card">
       <div class="metric-icon ic-purple"><i class="bx bxs-user-minus"></i></div>
       <div class="metric-label">سحوبات الشركاء</div>
-      <div class="metric-value sm" style="color:#7c3aed;">{{ summary.total_retraits|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
+      <div class="metric-value sm" style="color:#7c3aed;">{{ summary.total_retraits_associes|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
     </div>
   </div>
   <div class="col-xl-2 col-md-4 col-sm-6">
@@ -149,7 +149,7 @@
             </div>
             <div class="mode-row" style="justify-content:space-between;">
               <span style="font-size:12px;color:#7c3aed;"><i class="bx bxs-user-minus" style="vertical-align:middle;margin-left:4px;"></i> سحوبات الشركاء</span>
-              <span style="font-weight:600;font-family:'Nunito',sans-serif;font-size:12.5px;">{{ summary.total_retraits|floatformat:0 }} DZD</span>
+              <span style="font-weight:600;font-family:'Nunito',sans-serif;font-size:12.5px;">{{ summary.total_retraits_associes|floatformat:0 }} DZD</span>
             </div>
             <div class="mode-row" style="justify-content:space-between;">
               <span style="font-size:12px;color:#0d9488;"><i class="bx bxs-id-card" style="vertical-align:middle;margin-left:4px;"></i> رواتب وتسبيقات (RH)</span>
@@ -315,7 +315,7 @@
 <div class="section-card mb-3">
   <div class="section-card__head">
     <span class="section-card__title"><i class="bx bxs-user-minus" style="color:#7c3aed;margin-right:6px;"></i>سحوبات الشركاء (Retraits Associés)</span>
-    <span class="pill-base" style="background:rgba(124,58,237,.1);color:#7c3aed;">{{ summary.total_retraits|floatformat:0 }} DZD</span>
+    <span class="pill-base" style="background:rgba(124,58,237,.1);color:#7c3aed;">{{ summary.total_retraits_associes|floatformat:0 }} DZD</span>
   </div>
   <div class="section-card__body no-pad">
     {% if summary.detail_retraits %}
@@ -423,7 +423,7 @@ document.addEventListener('DOMContentLoaded', function () {
         labels: ['تحصيلات', 'مدفوعات موردين', 'مصاريف', 'سحوبات شركاء', 'رواتب (RH)', 'صافي الرصيد'],
         datasets: [{
           label: 'المبلغ (دج)',
-          data: [d.encaissements, d.reglements, d.depenses, d.retraits, d.paie, d.solde],
+          data: [d.encaissements, d.reglements, d.depenses, d.retraits_associes, d.paie, d.solde],
           backgroundColor: [
             'rgba(34,197,94,.7)',
             'rgba(239,68,68,.7)',

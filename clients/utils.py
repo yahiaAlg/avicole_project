@@ -8,6 +8,15 @@ Business-logic helpers for the client AR cycle.
   generer_reference_facture_client — Sequential FAC reference
   get_client_solde                 — Full financial snapshot for one client
   get_client_aging_buckets         — Aged-receivable analysis for reporting
+
+v1.4 — Multi-Branch Architecture (§3.5): Client stays global (BR-BRA-06), but
+BLClient / FactureClient / PaiementClient / AbonnementClient are branch-scoped
+(BR-BRA-01). Both FIFO and manual allocation below now refuse to cross branch
+boundaries — a payment recorded in one branch can never settle another
+branch's invoices, even for the same client (mirrors
+PaiementClientAllocation.clean()). Reporting helpers take an optional
+`branche` (Vue par Branche when given, Vue Globale — summed across all
+branches — when omitted, per §3.5.5).
 """
 
 from decimal import Decimal
@@ -24,10 +33,15 @@ logger = logging.getLogger(__name__)
 
 def appliquer_paiement_client_fifo(paiement) -> dict:
     """
-    Apply a PaiementClient to open invoices using FIFO ordering (oldest first).
+    Apply a PaiementClient to open invoices using FIFO ordering (oldest first),
+    scoped to the payment's OWN branche (BR-BRA-01).
 
-    Mirrors appliquer_reglement_fifo on the supplier side.
-    Any surplus beyond all open invoices is logged (no client acompte model).
+    Mirrors appliquer_reglement_fifo on the supplier side: a client served by
+    two branches has two fully independent FIFO queues, even though it is
+    the same Client record (§3.5.3 ¶4) — a payment recorded in one branch
+    must never reach another branch's open invoices.
+    Any surplus beyond all open invoices in this branche is logged (no
+    client acompte model).
 
     Args:
         paiement (PaiementClient): Freshly saved payment record.
@@ -43,6 +57,7 @@ def appliquer_paiement_client_fifo(paiement) -> dict:
 
     factures_ouvertes = FactureClient.objects.filter(
         client=paiement.client,
+        branche=paiement.branche,
         statut__in=[
             FactureClient.STATUT_NON_PAYEE,
             FactureClient.STATUT_PARTIELLEMENT_PAYEE,
@@ -78,9 +93,10 @@ def appliquer_paiement_client_fifo(paiement) -> dict:
     if montant_restant > 0:
         logger.info(
             "appliquer_paiement_client_fifo: paiement pk=%s surplus %s DZD "
-            "(aucune facture ouverte restante).",
+            "(aucune facture ouverte restante dans la branche %s).",
             paiement.pk,
             montant_restant,
+            paiement.branche.code,
         )
 
     logger.info(
@@ -111,6 +127,9 @@ def appliquer_paiement_client(paiement, allocations: list[dict]) -> dict:
       - Sum of allocations must not exceed paiement.montant.
       - Each individual montant_alloue must not exceed facture.reste_a_payer.
       - All factures must belong to paiement.client.
+      - All factures must belong to paiement.branche (BR-BRA-01) — a payment
+        recorded in one branch can never settle another branch's invoice,
+        even for the same client (mirrors PaiementClientAllocation.clean()).
 
     On success:
       - Creates PaiementClientAllocation records.
@@ -142,6 +161,14 @@ def appliquer_paiement_client(paiement, allocations: list[dict]) -> dict:
             raise ValueError(
                 f"La facture {facture.reference} n'appartient pas au client "
                 f"{paiement.client.nom}."
+            )
+
+        # Guard: invoice must belong to the same branche (BR-BRA-01) — a
+        # payment cannot be silently routed to settle another branch's debt.
+        if facture.branche_id != paiement.branche_id:
+            raise ValueError(
+                f"BR-BRA-01 : la facture {facture.reference} appartient à "
+                f"une branche différente de celle du paiement."
             )
 
         # Guard: do not over-allocate a single invoice.
@@ -194,28 +221,38 @@ def appliquer_paiement_client(paiement, allocations: list[dict]) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def generer_reference_bl_client() -> str:
+def generer_reference_bl_client(branche) -> str:
     """
-    Generate the next BL Client reference.
-    Format: <prefixe_bl_client>-<YYYY>-<NNNN>   e.g. BLC-2025-0001
+    Generate the next BL Client reference, scoped to *branche*.
+    Format: <prefixe_bl_client>-<code_branche>-<YYYY>-<NNNN>
+            e.g. BLC-EST-2026-0001 (BR-BRA-05).
+
+    Args:
+        branche (Branche): The branch this BL belongs to (BLClient.branche
+            is a required FK — BR-BRA-01).
     """
     from clients.models import BLClient
     from core.utils import generer_reference, get_company_prefix
 
     prefix = get_company_prefix("prefixe_bl_client")
-    return generer_reference(BLClient, prefix)
+    return generer_reference(BLClient, prefix, branche=branche)
 
 
-def generer_reference_facture_client() -> str:
+def generer_reference_facture_client(branche) -> str:
     """
-    Generate the next Facture Client reference.
-    Format: <prefixe_facture_client>-<YYYY>-<NNNN>   e.g. FAC-2025-0001
+    Generate the next Facture Client reference, scoped to *branche*.
+    Format: <prefixe_facture_client>-<code_branche>-<YYYY>-<NNNN>
+            e.g. FAC-EST-2026-0001 (BR-BRA-05).
+
+    Args:
+        branche (Branche): The branch this invoice belongs to
+            (FactureClient.branche is a required FK — BR-BRA-01).
     """
     from clients.models import FactureClient
     from core.utils import generer_reference, get_company_prefix
 
     prefix = get_company_prefix("prefixe_facture_client")
-    return generer_reference(FactureClient, prefix)
+    return generer_reference(FactureClient, prefix, branche=branche)
 
 
 # ---------------------------------------------------------------------------
@@ -223,9 +260,15 @@ def generer_reference_facture_client() -> str:
 # ---------------------------------------------------------------------------
 
 
-def get_client_solde(client) -> dict:
+def get_client_solde(client, branche=None) -> dict:
     """
     Return a complete financial snapshot for one client.
+
+    v1.4 (§3.5.3 ¶4): BLClient/FactureClient/PaiementClient are
+    branch-scoped, while Client itself stays global. Pass `branche` for the
+    figures exactly as that branch's chef de branche sees them; omit it for
+    the Vue Globale figures, summed across every branch this client has
+    ever been served by.
 
     Keys:
         creance_globale      — sum of reste_a_payer on open invoices
@@ -236,6 +279,7 @@ def get_client_solde(client) -> dict:
 
     Args:
         client (Client): The client instance.
+        branche (Branche | None): Scope to one branch; omit for Vue Globale.
     """
     from clients.models import FactureClient, PaiementClient
     from django.db.models import Sum
@@ -248,13 +292,19 @@ def get_client_solde(client) -> dict:
         ],
     ).order_by("date_facture", "pk")
 
-    creance_globale = factures_ouvertes.aggregate(total=Sum("reste_a_payer"))[
-        "total"
-    ] or Decimal("0")
+    paiements_qs = PaiementClient.objects.filter(client=client)
 
-    total_paiements = PaiementClient.objects.filter(client=client).aggregate(
-        total=Sum("montant")
-    )["total"] or Decimal("0")
+    if branche is not None:
+        factures_ouvertes = factures_ouvertes.filter(branche=branche)
+        paiements_qs = paiements_qs.filter(branche=branche)
+
+    # creance_globale is now a method on Client (takes an optional branche)
+    # since it has to aggregate across branch-scoped FactureClient rows.
+    creance_globale = client.creance_globale(branche)
+
+    total_paiements = paiements_qs.aggregate(total=Sum("montant"))["total"] or Decimal(
+        "0"
+    )
 
     today = datetime.date.today()
     nb_factures_retard = factures_ouvertes.filter(date_echeance__lt=today).count()
@@ -279,7 +329,7 @@ def get_client_solde(client) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def get_client_aging_buckets(client=None) -> list[dict]:
+def get_client_aging_buckets(client=None, branche=None) -> list[dict]:
     """
     Compute an aged-receivable breakdown for one client or all clients.
 
@@ -290,8 +340,13 @@ def get_client_aging_buckets(client=None) -> list[dict]:
         61_90     — 61–90 days overdue
         over_90   — > 90 days overdue
 
+    v1.4 (§3.5.5): pass `branche` for the Vue par Branche figures (exactly
+    what that branch's chef de branche sees); omit for Vue Globale, which
+    sums a client's receivables across every branch that has served them.
+
     Args:
         client (Client | None): Filter to one client; None = all.
+        branche (Branche | None): Scope to one branch; omit for Vue Globale.
 
     Returns:
         list[dict]: One dict per client with bucket totals.
@@ -309,6 +364,8 @@ def get_client_aging_buckets(client=None) -> list[dict]:
 
     if client:
         qs = qs.filter(client=client)
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     buckets_by_client: dict[int, dict] = {}
 

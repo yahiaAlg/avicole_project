@@ -11,6 +11,7 @@ from django.utils import timezone
 
 from import_export.admin import ImportExportModelAdmin
 
+from core.admin import BrancheScopedAdminMixin
 from elevage.models import (
     ParametrageElevage,
     LotElevage,
@@ -72,12 +73,13 @@ def fermer_lots(modeladmin, request, queryset):
 
 
 @admin.register(LotElevage)
-class LotElevageAdmin(ImportExportModelAdmin):
+class LotElevageAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = LotElevageResource
     actions = (fermer_lots,)
 
     list_display = (
         "designation",
+        "branche",
         "batiment",
         "statut_badge",
         "date_ouverture",
@@ -87,10 +89,11 @@ class LotElevageAdmin(ImportExportModelAdmin):
         "taux_mortalite_display",
         "duree_jours",
     )
-    list_filter = ("statut", "batiment", "fournisseur_poussins", "date_ouverture")
+    list_filter = ("statut", "branche", "batiment", "fournisseur_poussins", "date_ouverture")
     search_fields = ("designation", "souche", "notes")
     date_hierarchy = "date_ouverture"
     readonly_fields = (
+        "branche",
         "created_at",
         "updated_at",
         "total_mortalite",
@@ -109,6 +112,7 @@ class LotElevageAdmin(ImportExportModelAdmin):
             {
                 "fields": (
                     "designation",
+                    "branche",
                     "statut",
                     "date_ouverture",
                     "date_fermeture",
@@ -196,11 +200,12 @@ class LotElevageAdmin(ImportExportModelAdmin):
 
 
 @admin.register(Mortalite)
-class MortaliteAdmin(ImportExportModelAdmin):
+class MortaliteAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = MortaliteResource
+    branche_lookup = "lot__branche"
 
     list_display = ("lot", "date", "nombre", "cause", "created_at")
-    list_filter = ("lot__statut", "lot", "date")
+    list_filter = ("lot__statut", "lot__branche", "lot", "date")
     search_fields = ("lot__designation", "cause")
     date_hierarchy = "date"
     autocomplete_fields = ("lot",)
@@ -219,11 +224,12 @@ class MortaliteAdmin(ImportExportModelAdmin):
 
 
 @admin.register(Consommation)
-class ConsommationAdmin(ImportExportModelAdmin):
+class ConsommationAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = ConsommationResource
+    branche_lookup = "lot__branche"
 
     list_display = ("lot", "date", "intrant", "quantite", "created_at")
-    list_filter = ("lot__statut", "intrant__categorie", "date")
+    list_filter = ("lot__statut", "lot__branche", "intrant__categorie", "date")
     search_fields = ("lot__designation", "intrant__designation")
     date_hierarchy = "date"
     autocomplete_fields = ("lot", "intrant")
@@ -268,7 +274,9 @@ class ParametrageElevageAdmin(admin.ModelAdmin):
 
 
 @admin.register(TransfertLot)
-class TransfertLotAdmin(admin.ModelAdmin):
+class TransfertLotAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
+    branche_lookup = "lot__branche"
+
     list_display = (
         "lot",
         "batiment_origine",
@@ -278,7 +286,7 @@ class TransfertLotAdmin(admin.ModelAdmin):
         "effectif_transfere",
         "motif",
     )
-    list_filter = ("batiment_origine", "batiment_destination", "date_transfert")
+    list_filter = ("lot__branche", "batiment_origine", "batiment_destination", "date_transfert")
     search_fields = ("lot__designation", "motif")
     date_hierarchy = "date_transfert"
     autocomplete_fields = ("lot", "batiment_origine", "batiment_destination")
@@ -316,7 +324,9 @@ class TransfertLotAdmin(admin.ModelAdmin):
 
 
 @admin.register(PeseeEchantillon)
-class PeseeEchantillonAdmin(admin.ModelAdmin):
+class PeseeEchantillonAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
+    branche_lookup = "lot__branche"
+
     list_display = (
         "lot",
         "date",
@@ -326,7 +336,7 @@ class PeseeEchantillonAdmin(admin.ModelAdmin):
         "poids_moyen_g_display",
         "qualite_display",
     )
-    list_filter = ("type_pesee", "lot", "date")
+    list_filter = ("type_pesee", "lot__branche", "lot", "date")
     search_fields = ("lot__designation",)
     date_hierarchy = "date"
     autocomplete_fields = ("lot",)
@@ -373,7 +383,9 @@ class PeseeEchantillonAdmin(admin.ModelAdmin):
 
 
 @admin.register(RecolteOeufs)
-class RecolteOeufsAdmin(admin.ModelAdmin):
+class RecolteOeufsAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
+    branche_lookup = "lot__branche"
+
     list_display = (
         "lot",
         "date",
@@ -383,7 +395,7 @@ class RecolteOeufsAdmin(admin.ModelAdmin):
         "pesee",
         "qualite_display",
     )
-    list_filter = ("lot", "date")
+    list_filter = ("lot__branche", "lot", "date")
     search_fields = ("lot__designation",)
     date_hierarchy = "date"
     autocomplete_fields = ("lot", "pesee")

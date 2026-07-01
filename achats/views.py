@@ -15,6 +15,13 @@ AJAX endpoints:
   bl_lignes_total_json  — return line totals for selected BLs (used on invoice
                           creation form to display the computed montant_total
                           before the user submits).
+
+v1.4 (§3.5, BR-BRA-01/05): every BL/Facture/Règlement/Acompte carries a
+required `branche` FK; Vue par Branche scopes every list/detail to the
+request's active branche (BR-BRA-02), Vue Globale shows every branche
+combined. Creation views require a concrete active branche
+(@require_branche_context — BR-BRA-04) and lock the form's branche field
+to it.
 """
 
 import logging
@@ -44,6 +51,11 @@ from achats.models import (
     FactureFournisseur,
     ReglementFournisseur,
 )
+from core.views import (
+    branche_object_or_404,
+    get_active_branche,
+    require_branche_context,
+)
 from intrants.models import Fournisseur
 
 logger = logging.getLogger(__name__)
@@ -67,18 +79,18 @@ def _paginate(qs, page_number, per_page=PER_PAGE):
         return paginator.page(paginator.num_pages)
 
 
-def _auto_reference_bl():
-    """Return the next BLF reference without committing."""
+def _auto_reference_bl(branche):
+    """Return the next BLF reference for *branche* without committing."""
     from achats.utils import generer_reference_bl_fournisseur
 
-    return generer_reference_bl_fournisseur()
+    return generer_reference_bl_fournisseur(branche)
 
 
-def _auto_reference_facture():
-    """Return the next FRN reference without committing."""
+def _auto_reference_facture(branche):
+    """Return the next FRN reference for *branche* without committing."""
     from achats.utils import generer_reference_facture_fournisseur
 
-    return generer_reference_facture_fournisseur()
+    return generer_reference_facture_fournisseur(branche)
 
 
 # ===========================================================================
@@ -91,10 +103,16 @@ def bl_fournisseur_list(request):
     """
     BL list with search (reference, supplier name), statut filter, and
     optional supplier filter passed as ?fournisseur=<pk>.
+
+    v1.4 (BR-BRA-01/02): Vue par Branche shows only the active branche's
+    BLs; Vue Globale shows every branche's BLs combined.
     """
-    qs = BLFournisseur.objects.select_related("fournisseur", "created_by").order_by(
-        "-date_bl", "-created_at"
-    )
+    branche = get_active_branche(request)
+    qs = BLFournisseur.objects.select_related(
+        "fournisseur", "branche", "created_by"
+    ).order_by("-date_bl", "-created_at")
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     # Statut filter
     statut = request.GET.get("statut", "")
@@ -127,11 +145,14 @@ def bl_fournisseur_list(request):
     # Count expired authorizations for dashboard alert
     import datetime as _dt
 
-    nb_expires = BLFournisseur.objects.filter(
+    nb_expires_qs = BLFournisseur.objects.filter(
         type_document=BLFournisseur.TYPE_AUTORISATION_ACCES,
         statut=BLFournisseur.STATUT_AUTORISE,
         date_expiration_autorisation__lt=_dt.date.today(),
-    ).count()
+    )
+    if branche is not None:
+        nb_expires_qs = nb_expires_qs.filter(branche=branche)
+    nb_expires = nb_expires_qs.count()
 
     return render(
         request,
@@ -146,6 +167,7 @@ def bl_fournisseur_list(request):
             "statut_choices": BLFournisseur.STATUT_CHOICES,
             "type_document_choices": BLFournisseur.TYPE_DOCUMENT_CHOICES,
             "nb_expires": nb_expires,
+            "active_branche": branche,
             "title": "وصولات استلام الموردين",
         },
     )
@@ -157,6 +179,7 @@ def bl_fournisseur_list(request):
 
 
 @login_required(login_url=LOGIN_URL)
+@require_branche_context
 def bl_fournisseur_create(request, fournisseur_pk=None):
     """
     Create a new BL Fournisseur with its lines (inline formset).
@@ -165,8 +188,14 @@ def bl_fournisseur_create(request, fournisseur_pk=None):
     field is pre-filled and hidden, mirroring bl_client_create_for_client.
     Reference is auto-generated and pre-filled; the user may override it.
     Saving the form + formset is wrapped in a DB transaction.
+
+    BR-BRA-01/04: the BL belongs to the request's active branche — locked
+    on the form; Vue Globale cannot reach this view
+    (@require_branche_context).
     """
     from intrants.models import Fournisseur as FournisseurModel
+
+    branche = get_active_branche(request)
 
     fournisseur = (
         get_object_or_404(FournisseurModel, pk=fournisseur_pk)
@@ -175,7 +204,7 @@ def bl_fournisseur_create(request, fournisseur_pk=None):
     )
 
     if request.method == "POST":
-        form = BLFournisseurForm(request.POST, request.FILES)
+        form = BLFournisseurForm(request.POST, request.FILES, branche=branche)
         formset = BLFournisseurLigneFormSet(request.POST, prefix="lignes")
 
         if form.is_valid() and formset.is_valid():
@@ -215,11 +244,11 @@ def bl_fournisseur_create(request, fournisseur_pk=None):
             messages.error(request, "يرجى تصحيح الأخطاء في النموذج.")
 
     else:
-        initial_ref = _auto_reference_bl()
+        initial_ref = _auto_reference_bl(branche)
         initial = {"reference": initial_ref}
         if fournisseur:
             initial["fournisseur"] = fournisseur
-        form = BLFournisseurForm(initial=initial)
+        form = BLFournisseurForm(initial=initial, branche=branche)
         if fournisseur:
             form.fields["fournisseur"].widget = forms.HiddenInput()
             form.fields["fournisseur"].initial = fournisseur
@@ -234,6 +263,7 @@ def bl_fournisseur_create(request, fournisseur_pk=None):
             "title": "وصل استلام جديد",
             "action_label": "إنشاء",
             "fournisseur": fournisseur,
+            "active_branche": branche,
             "categories_intrant": __import__(
                 "intrants.models", fromlist=["CategorieIntrant"]
             )
@@ -255,8 +285,10 @@ def bl_fournisseur_edit(request, pk):
 
     BR-BLF-02: locked (Facturé) BLs are redirected back with an error.
     The form itself also disables all fields on locked instances.
+    BR-BRA-02: the BL must belong to the request's active branche.
     """
-    bl = get_object_or_404(
+    bl = branche_object_or_404(
+        request,
         BLFournisseur.objects.select_related("fournisseur"),
         pk=pk,
     )
@@ -269,7 +301,9 @@ def bl_fournisseur_edit(request, pk):
         return redirect("achats:bl_fournisseur_detail", pk=pk)
 
     if request.method == "POST":
-        form = BLFournisseurForm(request.POST, request.FILES, instance=bl)
+        form = BLFournisseurForm(
+            request.POST, request.FILES, instance=bl, branche=bl.branche
+        )
         formset = BLFournisseurLigneFormSet(request.POST, instance=bl, prefix="lignes")
 
         if form.is_valid() and formset.is_valid():
@@ -290,7 +324,7 @@ def bl_fournisseur_edit(request, pk):
             messages.error(request, "يرجى تصحيح الأخطاء.")
 
     else:
-        form = BLFournisseurForm(instance=bl)
+        form = BLFournisseurForm(instance=bl, branche=bl.branche)
         formset = BLFournisseurLigneFormSet(instance=bl, prefix="lignes")
 
     return render(
@@ -320,12 +354,15 @@ def bl_fournisseur_edit(request, pk):
 def bl_fournisseur_detail(request, pk):
     """
     BL detail: header + lines + linked invoices.
+
+    BR-BRA-02: the BL must belong to the request's active branche.
     """
-    bl = get_object_or_404(
-        BLFournisseur.objects.select_related("fournisseur", "created_by"),
+    bl = branche_object_or_404(
+        request,
+        BLFournisseur.objects.select_related("fournisseur", "branche", "created_by"),
         pk=pk,
     )
-    lignes = bl.lignes.select_related("intrant__stock").all()
+    lignes = bl.lignes.select_related("intrant").all()
     factures = bl.factures.order_by("-date_facture")
 
     # Determine admin status: staff OR profile role == "admin"
@@ -411,7 +448,7 @@ def bl_fournisseur_change_statut(request, pk):
     via the 'statut' POST field.  Regular users send a fixed 'next_statut'
     field pre-filled by the template button.
     """
-    bl = get_object_or_404(BLFournisseur, pk=pk)
+    bl = branche_object_or_404(request, BLFournisseur, pk=pk)
 
     if bl.est_verrouille:
         messages.error(
@@ -499,7 +536,8 @@ def bl_fournisseur_print(request, pk):
     """
     from core.models import CompanyInfo
 
-    bl = get_object_or_404(
+    bl = branche_object_or_404(
+        request,
         BLFournisseur.objects.select_related("fournisseur"),
         pk=pk,
     )
@@ -530,7 +568,7 @@ def bl_fournisseur_delete(request, pk):
     Delete a BL only when it is in BROUILLON status.
     RECU / FACTURE / LITIGE BLs cannot be deleted (stock impact or locked).
     """
-    bl = get_object_or_404(BLFournisseur, pk=pk)
+    bl = branche_object_or_404(request, BLFournisseur, pk=pk)
 
     DELETABLE_STATUTS = {BLFournisseur.STATUT_BROUILLON, BLFournisseur.STATUT_AUTORISE}
     if bl.statut not in DELETABLE_STATUTS:
@@ -557,10 +595,16 @@ def facture_fournisseur_list(request):
     """
     Invoice list with search (reference, supplier), statut filter,
     overdue filter, and optional supplier deep-link via ?fournisseur=<pk>.
+
+    v1.4 (BR-BRA-01/02): Vue par Branche shows only the active branche's
+    invoices; Vue Globale shows every branche's invoices combined.
     """
-    qs = FactureFournisseur.objects.select_related("fournisseur").order_by(
+    branche = get_active_branche(request)
+    qs = FactureFournisseur.objects.select_related("fournisseur", "branche").order_by(
         "-date_facture", "-created_at"
     )
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     statut = request.GET.get("statut", "")
     if statut:
@@ -596,6 +640,7 @@ def facture_fournisseur_list(request):
             "retard": request.GET.get("retard", ""),
             "fournisseurs": fournisseurs,
             "statut_choices": FactureFournisseur.STATUT_CHOICES,
+            "active_branche": branche,
             "title": "فواتير الموردين",
         },
     )
@@ -607,6 +652,7 @@ def facture_fournisseur_list(request):
 
 
 @login_required(login_url=LOGIN_URL)
+@require_branche_context
 def facture_fournisseur_create(request):
     """
     Create a supplier invoice by selecting a supplier and their Reçu BLs.
@@ -619,7 +665,12 @@ def facture_fournisseur_create(request):
     BR-FAF-01: montant_total is computed from BL lines by the post_save signal —
                the form excludes that field.
     BR-FAF-02: bls queryset is restricted to Reçu BLs for the selected supplier.
+    BR-BRA-01/04: the invoice belongs to the request's active branche — only
+               that branche's Reçu BLs can be selected; Vue Globale cannot
+               reach this view (@require_branche_context).
     """
+    branche = get_active_branche(request)
+
     # Resolve fournisseur from POST body or GET param
     fournisseur = None
     fournisseur_pk = request.POST.get("fournisseur") or request.GET.get(
@@ -636,6 +687,7 @@ def facture_fournisseur_create(request):
             "achats/facture_fournisseur_select_fournisseur.html",
             {
                 "fournisseurs": fournisseurs,
+                "active_branche": branche,
                 "title": "فاتورة جديدة — اختر موردًا",
             },
         )
@@ -644,6 +696,7 @@ def facture_fournisseur_create(request):
         form = FactureFournisseurForm(
             request.POST,
             fournisseur=fournisseur,
+            branche=branche,
         )
         if form.is_valid():
             try:
@@ -676,18 +729,22 @@ def facture_fournisseur_create(request):
 
     else:
         # Step 2: supplier selected, show form pre-filtered
-        initial_ref = _auto_reference_facture()
+        initial_ref = _auto_reference_facture(branche)
         form = FactureFournisseurForm(
             fournisseur=fournisseur,
+            branche=branche,
             initial={"reference": initial_ref},
         )
 
-    # Expose available BL amounts for the template's running total widget
+    # Expose available BL amounts for the template's running total widget —
+    # scoped to the active branche (BR-BRA-01), mirroring the form's own
+    # bls queryset.
     bls_recu = []
     if fournisseur:
         bls_recu = (
             BLFournisseur.objects.filter(
                 fournisseur=fournisseur,
+                branche=branche,
                 statut=BLFournisseur.STATUT_RECU,
             )
             .prefetch_related("lignes")
@@ -701,6 +758,7 @@ def facture_fournisseur_create(request):
             "form": form,
             "fournisseur": fournisseur,
             "bls_recu": bls_recu,
+            "active_branche": branche,
             "title": "فاتورة مورد جديدة",
             "action_label": "إنشاء الفاتورة",
         },
@@ -717,7 +775,8 @@ def facture_fournisseur_detail(request, pk):
     """
     Invoice detail: header, linked BLs/lines, payment allocations, balance.
     """
-    facture = get_object_or_404(
+    facture = branche_object_or_404(
+        request,
         FactureFournisseur.objects.select_related("fournisseur", "created_by"),
         pk=pk,
     )
@@ -748,7 +807,8 @@ def facture_fournisseur_print(request, pk):
     """Printable invoice — @media print CSS handled in template."""
     from core.models import CompanyInfo
 
-    facture = get_object_or_404(
+    facture = branche_object_or_404(
+        request,
         FactureFournisseur.objects.select_related("fournisseur"),
         pk=pk,
     )
@@ -782,7 +842,7 @@ def facture_fournisseur_toggle_litige(request, pk):
     Toggle an invoice between EN_LITIGE and its previous payment status.
     POST-only.  Cannot be applied to fully paid invoices.
     """
-    facture = get_object_or_404(FactureFournisseur, pk=pk)
+    facture = branche_object_or_404(request, FactureFournisseur, pk=pk)
 
     if facture.statut == FactureFournisseur.STATUT_PAYE:
         messages.error(request, "لا يمكن وضع فاتورة مدفوعة بالكامل في حالة نزاع.")
@@ -818,10 +878,16 @@ def facture_fournisseur_toggle_litige(request, pk):
 def reglement_fournisseur_list(request):
     """
     Payment list with search (supplier name, reference) and date filter.
+
+    v1.4 (BR-BRA-01/02): Vue par Branche shows only the active branche's
+    payments; Vue Globale shows every branche's payments combined.
     """
+    branche = get_active_branche(request)
     qs = ReglementFournisseur.objects.select_related(
-        "fournisseur", "created_by"
+        "fournisseur", "branche", "created_by"
     ).order_by("-date_reglement", "-created_at")
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     fournisseur_pk = request.GET.get("fournisseur", "")
     if fournisseur_pk:
@@ -853,6 +919,7 @@ def reglement_fournisseur_list(request):
             "date_debut": date_debut,
             "date_fin": date_fin,
             "fournisseurs": fournisseurs,
+            "active_branche": branche,
             "title": "تسويات الموردين",
         },
     )
@@ -864,32 +931,40 @@ def reglement_fournisseur_list(request):
 
 
 @login_required(login_url=LOGIN_URL)
+@require_branche_context
 def reglement_fournisseur_create(request):
     """
     Record a supplier payment.
 
     The FIFO allocation engine (achats.utils.appliquer_reglement_fifo) runs
-    automatically via the post_save signal after the record is committed.
+    automatically via the post_save signal after the record is committed,
+    scoped to this règlement's branche (BR-BRA-01) — it only settles open
+    invoices in the same branche.
 
     BR-REG-06: règlements are immutable — no edit view is provided.
+    BR-BRA-04: Vue Globale cannot reach this view (@require_branche_context);
+               the active branche is pre-selected and locked on the form.
 
     Optional GET params:
       ?fournisseur=<pk>  — pre-select supplier
       ?facture=<pk>      — pre-fill montant with facture.reste_a_payer
     """
+    branche = get_active_branche(request)
+
     # Pre-select supplier via ?fournisseur=<pk>
     fournisseur_pk = request.GET.get("fournisseur", "")
     fournisseur = None
     if fournisseur_pk:
         fournisseur = get_object_or_404(Fournisseur, pk=fournisseur_pk, actif=True)
 
-    # Optional facture context — pre-fill montant with reste_a_payer
+    # Optional facture context — pre-fill montant with reste_a_payer.
+    # BR-BRA-01: only a facture in the active branche can be pre-filled.
     facture_pk = request.GET.get("facture", "")
     facture_obj = None
     facture_reste = None
     if facture_pk:
         try:
-            facture_obj = FactureFournisseur.objects.get(pk=facture_pk)
+            facture_obj = FactureFournisseur.objects.get(pk=facture_pk, branche=branche)
             facture_reste = facture_obj.reste_a_payer
             # Auto-resolve fournisseur from facture if not already set
             if not fournisseur and facture_obj.fournisseur.actif:
@@ -898,7 +973,9 @@ def reglement_fournisseur_create(request):
             pass
 
     if request.method == "POST":
-        form = ReglementFournisseurForm(request.POST, fournisseur=fournisseur)
+        form = ReglementFournisseurForm(
+            request.POST, fournisseur=fournisseur, branche=branche
+        )
         if form.is_valid():
             try:
                 reglement = form.save(commit=False)
@@ -930,15 +1007,16 @@ def reglement_fournisseur_create(request):
 
     else:
         # Show the supplier's current debt for reference
-        form = ReglementFournisseurForm(fournisseur=fournisseur)
+        form = ReglementFournisseurForm(fournisseur=fournisseur, branche=branche)
 
-    # Debt summary for the sidebar
+    # Debt summary for the sidebar — scoped to the active branche, mirroring
+    # the FIFO engine's own scope (BR-BRA-01).
     solde = None
     if fournisseur:
         try:
             from achats.utils import get_fournisseur_solde
 
-            solde = get_fournisseur_solde(fournisseur)
+            solde = get_fournisseur_solde(fournisseur, branche=branche)
         except Exception:
             pass
 
@@ -951,6 +1029,7 @@ def reglement_fournisseur_create(request):
             "solde": solde,
             "facture_obj": facture_obj,
             "facture_reste": facture_reste,
+            "active_branche": branche,
             "title": "تسوية مورد جديدة",
             "action_label": "حفظ التسوية",
         },
@@ -968,7 +1047,8 @@ def reglement_fournisseur_detail(request, pk):
     Payment detail: amount, mode, and all allocation lines created by the
     FIFO engine, plus any overpayment acompte.
     """
-    reglement = get_object_or_404(
+    reglement = branche_object_or_404(
+        request,
         ReglementFournisseur.objects.select_related("fournisseur", "created_by"),
         pk=pk,
     )
@@ -1002,10 +1082,16 @@ def acompte_fournisseur_list(request):
     """
     List of overpayment credits created by the FIFO engine.
     Filterable by supplier and utilise status.
+
+    v1.4 (BR-BRA-01/02): Vue par Branche shows only the active branche's
+    credits; Vue Globale shows every branche's credits combined.
     """
-    qs = AcompteFournisseur.objects.select_related("fournisseur", "reglement").order_by(
-        "-date"
-    )
+    branche = get_active_branche(request)
+    qs = AcompteFournisseur.objects.select_related(
+        "fournisseur", "branche", "reglement"
+    ).order_by("-date")
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     fournisseur_pk = request.GET.get("fournisseur", "")
     if fournisseur_pk:
@@ -1028,6 +1114,7 @@ def acompte_fournisseur_list(request):
             "fournisseur_pk": fournisseur_pk,
             "utilise": utilise,
             "fournisseurs": fournisseurs,
+            "active_branche": branche,
             "title": "السلف المسبقة للموردين",
         },
     )
@@ -1040,8 +1127,12 @@ def acompte_fournisseur_list(request):
 
 @login_required(login_url=LOGIN_URL)
 def acompte_fournisseur_detail(request, pk):
-    acompte = get_object_or_404(
-        AcompteFournisseur.objects.select_related("fournisseur", "reglement"),
+    """BR-BRA-02: the acompte must belong to the request's active branche."""
+    acompte = branche_object_or_404(
+        request,
+        AcompteFournisseur.objects.select_related(
+            "fournisseur", "reglement", "branche"
+        ),
         pk=pk,
     )
     return render(
@@ -1049,6 +1140,7 @@ def acompte_fournisseur_detail(request, pk):
         "achats/acompte_fournisseur_detail.html",
         {
             "acompte": acompte,
+            "active_branche": get_active_branche(request),
             "title": f"دفعة مسبقة — {acompte.fournisseur.nom}",
         },
     )
@@ -1063,9 +1155,14 @@ def acompte_fournisseur_detail(request, pk):
 def fournisseur_tableau_de_bord(request, pk):
     """
     Financial dashboard for one supplier:
-      - global debt, available credit, overdue invoices
+      - debt, available credit, overdue invoices
       - aged-debt breakdown (buckets)
       - recent payments
+
+    v1.4 (§3.5.3 ¶4, §3.5.5): Fournisseur stays global but its BL/Facture/
+    Règlement/Acompte are branch-scoped, so this dashboard reflects Vue par
+    Branche by default (exactly what that branch's chef de branche sees) and
+    sums every branche in Vue Globale.
     """
     from achats.utils import (
         get_fournisseur_solde,
@@ -1074,21 +1171,31 @@ def fournisseur_tableau_de_bord(request, pk):
         get_autorisations_expirees,
     )
 
+    branche = get_active_branche(request)
+
     fournisseur = get_object_or_404(Fournisseur, pk=pk)
-    solde = get_fournisseur_solde(fournisseur)
-    aging = get_supplier_aging_buckets(fournisseur=fournisseur)
+    solde = get_fournisseur_solde(fournisseur, branche=branche)
+    aging = get_supplier_aging_buckets(fournisseur=fournisseur, branche=branche)
 
     reglements_recents = ReglementFournisseur.objects.filter(
         fournisseur=fournisseur
-    ).order_by("-date_reglement")[:10]
+    ).order_by("-date_reglement")
     bls_ouverts = BLFournisseur.objects.filter(
         fournisseur=fournisseur,
         statut=BLFournisseur.STATUT_RECU,
     ).order_by("-date_bl")
+    if branche is not None:
+        reglements_recents = reglements_recents.filter(branche=branche)
+        bls_ouverts = bls_ouverts.filter(branche=branche)
+    reglements_recents = reglements_recents[:10]
 
-    autorisations_en_attente = get_autorisations_en_attente(fournisseur)
+    autorisations_en_attente = get_autorisations_en_attente(
+        fournisseur=fournisseur, branche=branche
+    )
     autorisations_expirees = [
-        a for a in get_autorisations_expirees() if a.fournisseur_id == fournisseur.pk
+        a
+        for a in get_autorisations_expirees(branche=branche)
+        if a.fournisseur_id == fournisseur.pk
     ]
 
     return render(
@@ -1102,6 +1209,7 @@ def fournisseur_tableau_de_bord(request, pk):
             "bls_ouverts": bls_ouverts,
             "autorisations_en_attente": autorisations_en_attente,
             "autorisations_expirees": autorisations_expirees,
+            "active_branche": branche,
             "title": f"لوحة تحكم — {fournisseur.nom}",
         },
     )
@@ -1123,6 +1231,10 @@ def bl_lignes_total_json(request):
 
     Returns:
         {"montant_total": "12345.67", "lignes": [...]}
+
+    BR-BRA-02: BLs outside the request's active branche are silently
+    excluded — a chef de branche/opérateur must never total another
+    branche's deliveries even by guessing PKs in the request.
     """
     pks_raw = request.GET.get("bls", "")
     if not pks_raw:
@@ -1134,6 +1246,9 @@ def bl_lignes_total_json(request):
         return JsonResponse({"error": "Paramètre 'bls' invalide."}, status=400)
 
     bls = BLFournisseur.objects.filter(pk__in=pks).prefetch_related("lignes__intrant")
+    branche = get_active_branche(request)
+    if branche is not None:
+        bls = bls.filter(branche=branche)
 
     total = Decimal("0")
     lignes_data = []
@@ -1165,15 +1280,20 @@ def fournisseur_dette_json(request, pk):
     Return current debt summary for a supplier as JSON.
     Used on the règlement creation form to display live balance.
 
+    v1.4 (§3.5.3 ¶4): a règlement is created within one branche, so the
+    balance shown here is that branche's own debt to the supplier (or the
+    Vue Globale total when no branche is active).
+
     Returns:
         {"dette_globale": "...", "acompte_disponible": "...",
          "nb_factures_ouvertes": N}
     """
     fournisseur = get_object_or_404(Fournisseur, pk=pk)
+    branche = get_active_branche(request)
     try:
         from achats.utils import get_fournisseur_solde
 
-        solde = get_fournisseur_solde(fournisseur)
+        solde = get_fournisseur_solde(fournisseur, branche=branche)
         factures_list = [
             {
                 "pk": f.pk,

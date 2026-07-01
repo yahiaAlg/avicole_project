@@ -22,15 +22,24 @@ class StockAjustementForm(forms.ModelForm):
     BR-INT-04: a mandatory reason is required; the record is flagged in the
     audit trail automatically (via post_save signal).
 
+    BR-BRA-07: a stock balance is keyed by (branche, item), so the branche
+    being corrected is now an explicit, required field — `quantite_avant`
+    must be read from that branche's StockIntrant/StockProduitFini row.
+
     Exactly one of (intrant / produit_fini) must be filled, consistent with
     the chosen segment.  quantite_avant is read-only — populated from the
-    current stock balance by the view before rendering.
+    current (branche, item) stock balance by the view before rendering.
+
+    Pass `branche=<Branche instance>` from the view when the current user
+    is locked to one branch (chef de branche / opérateur, BR-BRA-02) to
+    pre-select and lock the field.
     """
 
     class Meta:
         model = StockAjustement
         fields = [
             "segment",
+            "branche",
             "intrant",
             "produit_fini",
             "date_ajustement",
@@ -47,8 +56,16 @@ class StockAjustementForm(forms.ModelForm):
             "raison": forms.Textarea(attrs={"rows": 3}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
+        from core.models import Branche
+
+        self.fields["branche"].queryset = Branche.objects.filter(actif=True).order_by(
+            "nom"
+        )
+        if branche:
+            self.fields["branche"].initial = branche
+            self.fields["branche"].widget = forms.HiddenInput()
         self.fields["intrant"].queryset = Intrant.objects.filter(actif=True).order_by(
             "categorie__libelle", "designation"
         )

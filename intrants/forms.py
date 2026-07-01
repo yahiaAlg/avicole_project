@@ -85,10 +85,22 @@ class FournisseurForm(forms.ModelForm):
 
 
 class BatimentForm(forms.ModelForm):
+    """
+    BR-BRA-01: every bâtiment belongs to exactly one Branche (required FK).
+    `unique_together` on (branche, nom) is enforced automatically since
+    `branche` is included in the form fields.
+
+    Pass `branche=<Branche instance>` from the view when the current user
+    is locked to one branch (chef de branche / opérateur, BR-BRA-02) to
+    pre-select and lock the field; admins building/selecting in a
+    multi-branch context see the full selectable list.
+    """
+
     class Meta:
         model = Batiment
         fields = [
             "nom",
+            "branche",
             "type_batiment",
             "categorie_stockage",
             "capacite",
@@ -99,9 +111,17 @@ class BatimentForm(forms.ModelForm):
             "description": forms.Textarea(attrs={"rows": 2}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["categorie_stockage"].required = False
+        from core.models import Branche
+
+        self.fields["branche"].queryset = Branche.objects.filter(actif=True).order_by(
+            "nom"
+        )
+        if branche:
+            self.fields["branche"].initial = branche
+            self.fields["branche"].widget = forms.HiddenInput()
 
     def clean(self):
         cleaned = super().clean()

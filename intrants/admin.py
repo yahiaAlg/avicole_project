@@ -10,6 +10,7 @@ from django.utils.html import format_html
 
 from import_export.admin import ImportExportModelAdmin
 
+from core.admin import BrancheScopedAdminMixin
 from intrants.models import (
     CategorieIntrant,
     TypeFournisseur,
@@ -94,23 +95,25 @@ class CategorieQualiteAdmin(admin.ModelAdmin):
 
 
 @admin.register(Batiment)
-class BatimentAdmin(ImportExportModelAdmin):
+class BatimentAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = BatimentResource
 
     list_display = (
         "nom",
+        "branche",
         "type_batiment",
         "categorie_stockage",
         "capacite",
         "actif",
         "description_courte",
     )
-    list_filter = ("type_batiment", "categorie_stockage", "actif")
+    list_filter = ("type_batiment", "categorie_stockage", "branche", "actif")
     search_fields = ("nom",)
     list_editable = ("actif",)
+    autocomplete_fields = ("branche",)
 
     fieldsets = (
-        (None, {"fields": ("nom", "type_batiment", "categorie_stockage", "capacite", "actif")}),
+        (None, {"fields": ("nom", "branche", "type_batiment", "categorie_stockage", "capacite", "actif")}),
         ("Description", {"fields": ("description",), "classes": ("collapse",)}),
     )
 

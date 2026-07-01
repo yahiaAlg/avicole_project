@@ -5,7 +5,7 @@
 {% block nav_production %}active{% endblock %}
 
 {% block page_title %}Production{% endblock %}
-{% block page_sub_text %}نظرة عامة · الذبح · مخزون المنتجات النهائية{% endblock %}
+{% block page_sub_text %}نظرة عامة · الذبح · مخزون المنتجات النهائية{% if not active_branche %} · Vue Globale — كل الفروع{% endif %}{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'production:production_record_create' %}" class="btn-primary">
@@ -185,6 +185,7 @@
             <tr>
               <th>الدفعة</th>
               <th>المبنى</th>
+              {% if not active_branche %}<th>الفرع</th>{% endif %}
               <th>آخر إنتاج</th>
               <th class="num">الطيور</th>
               <th class="num">الوزن (كجم)</th>
@@ -201,6 +202,7 @@
                 </a>
               </td>
               <td class="muted">{{ row.lot.batiment }}</td>
+              {% if not active_branche %}<td><span class="pill pill-neutral">{{ row.lot.branche.code }}</span></td>{% endif %}
               <td class="muted">{{ row.date_production|date:"d/m/Y" }}</td>
               <td class="num bold">{{ row.nb_oiseaux_abattus|floatformat:0 }}</td>
               <td class="num">{{ row.poids_total_kg|floatformat:2 }}</td>
@@ -231,6 +233,7 @@
             <tr>
               <th>المنتج</th>
               <th>النوع</th>
+              {% if not active_branche %}<th>الفرع</th>{% endif %}
               <th class="num">الكمية</th>
               <th class="num">متوسط التكلفة (د.ج)</th>
               <th class="num">قيمة المخزون</th>
@@ -246,6 +249,7 @@
                 </a>
               </td>
               <td class="muted">{{ s.produit_fini.get_type_produit_display }}</td>
+              {% if not active_branche %}<td><span class="pill pill-neutral">{{ s.branche.code }}</span></td>{% endif %}
               <td class="num bold {% if s.en_alerte %}alert-col{% endif %}">
                 {{ s.quantite|floatformat:2 }} <span class="unit-tag">{{ s.produit_fini.unite_mesure }}</span>
               </td>
@@ -462,6 +466,7 @@
 .pill-success{background:rgba(34,197,94,.14); color:#15803d;}
 .pill-danger {background:rgba(239,68,68,.10); color:#dc2626;}
 .pill-ok     {background:rgba(34,197,94,.10); color:#15803d;}
+.pill-neutral{background:rgba(0,0,0,.06); color:var(--text-secondary);}
 
 .btn-primary{background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;border:none;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .15s;text-decoration:none;}
 .btn-primary:hover{opacity:.85;color:#fff;}

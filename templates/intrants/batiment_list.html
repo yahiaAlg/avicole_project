@@ -30,6 +30,7 @@
         <thead>
           <tr>
             <th>الاسم / الرقم</th>
+            {% if not active_branche %}<th>الفرع</th>{% endif %}
             <th>النوع</th>
             <th>الطاقة الاستيعابية (رأس)</th>
             <th>الوصف</th>
@@ -46,6 +47,9 @@
                 {{ bat.nom }}
               </span>
             </td>
+            {% if not active_branche %}
+            <td style="color:var(--text-secondary);">{{ bat.branche.nom }}</td>
+            {% endif %}
             <td>
               <span class="pill-cat" style="font-size:11px;">{{ bat.get_type_batiment_display }}</span>
               {% if bat.categorie_stockage %}
@@ -128,7 +132,7 @@
         <button type="button" id="confirm-cancel-btn" class="btn-ghost">إلغاء</button>
         <form id="confirm-toggle-form" method="post" action="">
           {% csrf_token %}
-          <button type="submit" id="confirm-submit-btn" class="btn-danger">Confirmer</button>
+          <button type="submit" id="confirm-submit-btn" class="btn-danger">تأكيد</button>
         </form>
       </div>
     </div>
@@ -207,7 +211,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const libelle  = btn.dataset.libelle;
       const isActive = btn.dataset.active === 'true';
       libelleSpan.textContent = libelle;
-      form.action = '/api/intrants/batiments/' + pk + '/activer/';
+      form.action = '/parametres/intrants/batiments/' + pk + '/activer/';
       if (isActive) {
         panelIcon.className = 'confirm-panel__icon';
         panelIcon.innerHTML = '<i class="bx bx-block"></i>';

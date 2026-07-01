@@ -10,6 +10,7 @@ from django.utils.html import format_html
 
 from import_export.admin import ImportExportModelAdmin
 
+from core.admin import BrancheScopedAdminMixin
 from production.models import (
     ProduitFini,
     ProductionRecord,
@@ -134,22 +135,23 @@ class ProduitFiniAdmin(ImportExportModelAdmin):
 
 
 @admin.register(ProductionRecord)
-class ProductionRecordAdmin(ImportExportModelAdmin):
+class ProductionRecordAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = ProductionRecordResource
     actions = (valider_productions,)
 
     list_display = (
         "lot",
+        "branche",
         "date_production",
         "nombre_oiseaux_abattus",
         "poids_total_kg",
         "poids_moyen_kg",
         "statut_badge",
     )
-    list_filter = ("statut", "lot", "date_production")
+    list_filter = ("statut", "branche", "lot", "date_production")
     search_fields = ("lot__designation", "notes")
     date_hierarchy = "date_production"
-    readonly_fields = ("poids_moyen_kg", "created_at", "updated_at")
+    readonly_fields = ("branche", "poids_moyen_kg", "created_at", "updated_at")
     inlines = (ProductionLigneInline,)
     autocomplete_fields = ("lot",)
 
@@ -159,6 +161,7 @@ class ProductionRecordAdmin(ImportExportModelAdmin):
             {
                 "fields": (
                     "lot",
+                    "branche",
                     "date_production",
                     "nombre_oiseaux_abattus",
                     "poids_total_kg",
@@ -206,8 +209,9 @@ class ProductionRecordAdmin(ImportExportModelAdmin):
 
 
 @admin.register(ProductionLigne)
-class ProductionLigneAdmin(ImportExportModelAdmin):
+class ProductionLigneAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = ProductionLigneResource
+    branche_lookup = "production__branche"
 
     list_display = (
         "production",
@@ -217,7 +221,7 @@ class ProductionLigneAdmin(ImportExportModelAdmin):
         "cout_unitaire_estime",
         "valeur_totale_display",
     )
-    list_filter = ("produit_fini__type_produit", "production__statut")
+    list_filter = ("produit_fini__type_produit", "production__branche", "production__statut")
     search_fields = ("production__lot__designation", "produit_fini__designation")
     readonly_fields = ("valeur_totale_display",)
     autocomplete_fields = ("production", "produit_fini")
@@ -255,19 +259,20 @@ def valider_traitements(modeladmin, request, queryset):
 
 
 @admin.register(CollecteFertilisant)
-class CollecteFertilisantAdmin(admin.ModelAdmin):
+class CollecteFertilisantAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
     list_display = (
         "batiment",
+        "branche",
         "date_collecte",
         "quantite_brute_kg",
         "traitement",
         "est_traitee_badge",
     )
-    list_filter = ("batiment", "date_collecte")
+    list_filter = ("batiment", "branche", "date_collecte")
     search_fields = ("batiment__nom",)
     date_hierarchy = "date_collecte"
     autocomplete_fields = ("batiment", "traitement")
-    readonly_fields = ("created_at",)
+    readonly_fields = ("branche", "created_at")
 
     fieldsets = (
         (
@@ -275,6 +280,7 @@ class CollecteFertilisantAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "batiment",
+                    "branche",
                     "date_collecte",
                     "quantite_brute_kg",
                     "traitement",
@@ -297,11 +303,12 @@ class CollecteFertilisantAdmin(admin.ModelAdmin):
 
 
 @admin.register(TraitementFertilisant)
-class TraitementFertilisantAdmin(admin.ModelAdmin):
+class TraitementFertilisantAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
     actions = (valider_traitements,)
 
     list_display = (
         "date_traitement",
+        "branche",
         "methode",
         "produit_fini",
         "quantite_brute_totale_display",
@@ -309,10 +316,10 @@ class TraitementFertilisantAdmin(admin.ModelAdmin):
         "rendement_display",
         "statut_badge",
     )
-    list_filter = ("statut", "produit_fini", "date_traitement")
+    list_filter = ("statut", "branche", "produit_fini", "date_traitement")
     search_fields = ("methode", "notes")
     date_hierarchy = "date_traitement"
-    autocomplete_fields = ("produit_fini",)
+    autocomplete_fields = ("branche", "produit_fini")
     readonly_fields = (
         "created_at",
         "updated_at",
@@ -327,6 +334,7 @@ class TraitementFertilisantAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "date_traitement",
+                    "branche",
                     "methode",
                     "produit_fini",
                     "quantite_obtenue_kg",
@@ -376,6 +384,7 @@ class TraitementFertilisantAdmin(admin.ModelAdmin):
         if obj and obj.statut == TraitementFertilisant.STATUT_VALIDE:
             base += [
                 "date_traitement",
+                "branche",
                 "methode",
                 "produit_fini",
                 "quantite_obtenue_kg",

@@ -37,3 +37,12 @@ def div(value, arg):
         return float(value) / float(arg)
     except (ValueError, ZeroDivisionError, TypeError):
         return 0
+
+
+@register.filter
+def mul(value, arg):
+    """Safe multiplication filter."""
+    try:
+        return float(value) * float(arg)
+    except (ValueError, TypeError):
+        return 0

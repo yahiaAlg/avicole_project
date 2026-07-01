@@ -65,6 +65,7 @@
     <div>
       <strong>نفوق غير طبيعي — {{ lot.designation }}</strong>
       <span> · النفوق اليومي يتجاوز 5% من العدد الأولي. تحقق من حالة القطيع.</span>
+      {% if vue_globale %}<span style="color:var(--text-muted);"> · {{ lot.branche.nom }}</span>{% endif %}
     </div>
     <a href="{% url 'elevage:lot_detail' lot.pk %}" class="btn-ghost" style="margin-right:auto;flex-shrink:0;">
       عرض القطيع
@@ -79,6 +80,7 @@
     <div>
       <strong>دفعة جاهزة للنقل — {{ lot.designation }}</strong>
       <span> · بلغ عمر الدفعة حد النقل من الحضانة. انقلها إلى حظيرة التربية.</span>
+      {% if vue_globale %}<span style="color:var(--text-muted);"> · {{ lot.branche.nom }}</span>{% endif %}
     </div>
     <a href="{% url 'elevage:transfert_create' lot.pk %}" class="btn-ghost" style="margin-right:auto;flex-shrink:0;">
       نقل الدفعة
@@ -103,6 +105,7 @@
                   <span class="lot-card__name">{{ lot.designation }}</span>
                   <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
                     <i class="bx bxs-buildings" style="font-size:11px;"></i> {{ lot.batiment.nom }}
+                    {% if vue_globale %}· {{ lot.branche.nom }}{% endif %}
                     {% if lot.souche %}· {{ lot.souche }}{% endif %}
                     · مفتوح بتاريخ {{ lot.date_ouverture|date:"d/m/Y" }}
                   </div>
@@ -164,7 +167,7 @@
             </div>
             <div style="flex:1;min-width:0;">
               <div style="font-size:13px;color:var(--text-primary);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ mort.lot.designation }}</div>
-              <div style="font-size:11px;color:var(--text-muted);">{{ mort.date|date:"d/m/Y" }} · {{ mort.cause|default:"سبب غير معروف" }}</div>
+              <div style="font-size:11px;color:var(--text-muted);">{{ mort.date|date:"d/m/Y" }} · {{ mort.cause|default:"سبب غير معروف" }}{% if vue_globale %} · {{ mort.lot.branche.nom }}{% endif %}</div>
             </div>
             <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:#dc2626;flex-shrink:0;">–{{ mort.nombre }}</div>
           </div>
@@ -195,7 +198,7 @@
             </div>
             <div style="flex:1;min-width:0;">
               <div style="font-size:13px;color:var(--text-primary);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ conso.intrant.designation }}</div>
-              <div style="font-size:11px;color:var(--text-muted);">{{ conso.lot.designation }} · {{ conso.date|date:"d/m/Y" }}</div>
+              <div style="font-size:11px;color:var(--text-muted);">{{ conso.lot.designation }} · {{ conso.date|date:"d/m/Y" }}{% if vue_globale %} · {{ conso.lot.branche.nom }}{% endif %}</div>
             </div>
             <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:var(--text-primary);flex-shrink:0;">
               {{ conso.quantite|floatformat:2 }} <span style="font-size:11px;color:var(--text-muted);">{{ conso.intrant.unite_mesure }}</span>

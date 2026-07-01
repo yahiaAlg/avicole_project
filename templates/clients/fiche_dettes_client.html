@@ -42,6 +42,10 @@
       <span class="summary-val">{{ client.nom }}</span>
     </div>
     <div class="summary-item">
+      <span class="summary-label">الفرع</span>
+      <span class="summary-val">{% if active_branche %}{{ active_branche.nom }}{% else %}كل الفروع (رؤية شاملة){% endif %}</span>
+    </div>
+    <div class="summary-item">
       <span class="summary-label">الفترة</span>
       <span class="summary-val">
         {% if date_debut %}{{ date_debut|date:"d/m/Y" }}{% else %}—{% endif %}
@@ -77,6 +81,7 @@
           <tr>
             <th>التاريخ</th>
             <th>المرجع</th>
+            {% if not active_branche %}<th>الفرع</th>{% endif %}
             <th>المنتج</th>
             <th class="text-num">الكمية</th>
             <th class="text-num">سعر الفاتورة (دج)</th>
@@ -95,6 +100,9 @@
                 {{ row.reference }}
               </a>
             </td>
+            {% if not active_branche %}
+            <td style="font-size:12px;color:var(--text-muted);">{{ row.bl.branche.nom }}</td>
+            {% endif %}
             <td>
               <span class="product-name">{{ row.produit.designation }}</span>
               <span class="product-unit">{{ row.produit.unite_mesure }}</span>
@@ -127,7 +135,7 @@
         </tbody>
         <tfoot>
           <tr class="totals-row">
-            <td colspan="7" class="text-num" style="font-size:12px;color:var(--text-muted);">المجموع</td>
+            <td colspan="{% if not active_branche %}8{% else %}7{% endif %}" class="text-num" style="font-size:12px;color:var(--text-muted);">المجموع</td>
             <td class="text-num fw-bold" style="font-size:14px;">{{ total_montant|floatformat:0 }} دج</td>
             <td class="text-num solde-cumul fw-bold" style="font-size:14px;">{{ total_montant|floatformat:0 }} دج</td>
           </tr>

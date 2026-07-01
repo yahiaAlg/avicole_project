@@ -61,6 +61,10 @@
             <span class="info-value"><a href="{% url 'clients:client_detail' bl.client.pk %}" style="color:var(--accent-text);text-decoration:none;font-weight:500;">{{ bl.client.nom }}</a></span>
           </div>
           <div class="info-row">
+            <span class="info-label">الفرع</span>
+            <span class="info-value">{{ bl.branche.nom }}</span>
+          </div>
+          <div class="info-row">
             <span class="info-label">تاريخ الوصل</span>
             <span class="info-value">{{ bl.date_bl|date:"d/m/Y" }}</span>
           </div>

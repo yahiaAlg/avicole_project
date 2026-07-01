@@ -48,6 +48,10 @@
             <span class="info-value"><a href="{% url 'clients:client_detail' abo.client.pk %}" style="color:var(--accent-text);text-decoration:none;font-weight:500;">{{ abo.client.nom }}</a></span>
           </div>
           <div class="info-row">
+            <span class="info-label">الفرع</span>
+            <span class="info-value">{{ abo.branche.nom }}</span>
+          </div>
+          <div class="info-row">
             <span class="info-label">المنتج</span>
             <span class="info-value" style="font-weight:500;">{{ abo.produit_fini.designation }}</span>
           </div>

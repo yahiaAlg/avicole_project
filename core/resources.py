@@ -6,13 +6,17 @@ Import-export resources for the core app.
 CompanyInfo is a singleton — import is restricted to update-only (skip create).
 UserProfile export is provided for HR/audit purposes; import is intentionally
 disabled (user creation goes through Django's auth system).
+
+v1.4 — UserProfile.branche (multi-branch architecture, BR-BRA-02/03) is
+exposed read-only on export: required for chef_branche/operateur, optional
+for comptable, always empty for admin.
 """
 
 from import_export import resources, fields
 from import_export.widgets import ForeignKeyWidget, BooleanWidget
 
 from django.contrib.auth.models import User
-from core.models import CompanyInfo, UserProfile
+from core.models import CompanyInfo, UserProfile, Branche
 
 
 class CompanyInfoResource(resources.ModelResource):
@@ -94,6 +98,12 @@ class UserProfileResource(resources.ModelResource):
         widget=BooleanWidget(),
         readonly=True,
     )
+    branche = fields.Field(
+        column_name="branche_code",
+        attribute="branche",
+        widget=ForeignKeyWidget(Branche, field="code"),
+        readonly=True,
+    )
 
     class Meta:
         model = UserProfile
@@ -108,6 +118,7 @@ class UserProfileResource(resources.ModelResource):
             "email",
             "is_active",
             "role",
+            "branche",
             "telephone",
             "notes",
             "created_at",

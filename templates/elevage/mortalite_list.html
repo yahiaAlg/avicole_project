@@ -89,6 +89,7 @@
           <tr>
             <th>التاريخ</th>
             <th>الفوج</th>
+            {% if not active_branche %}<th>الفرع</th>{% endif %}
             <th style="text-align:right;">عدد النافقين</th>
             <th>السبب</th>
             <th>ملاحظات</th>
@@ -110,6 +111,7 @@
               <span class="pill-neutral" style="margin-left:6px;font-size:10px;"><i class="bx bxs-lock"></i> مغلق</span>
               {% endif %}
             </td>
+            {% if not active_branche %}<td>{{ mort.lot.branche.nom }}</td>{% endif %}
             <td style="text-align:right;">
               <span style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:#dc2626;">{{ mort.nombre|floatformat:0 }}</span>
             </td>

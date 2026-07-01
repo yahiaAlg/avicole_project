@@ -9,6 +9,7 @@ Admin registration for the client AR cycle:
 from django.contrib import admin
 from django.utils.html import format_html
 
+from core.admin import BrancheScopedAdminMixin
 from clients.models import (
     Client,
     BLClient,
@@ -175,16 +176,17 @@ class ClientAdmin(admin.ModelAdmin):
 
 
 @admin.register(BLClient)
-class BLClientAdmin(admin.ModelAdmin):
+class BLClientAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
     list_display = (
         "reference",
+        "branche",
         "client",
         "date_bl",
         "statut_badge",
         "montant_total_dzd",
         "created_at",
     )
-    list_filter = ("statut", "client", "date_bl")
+    list_filter = ("statut", "branche", "client", "date_bl")
     search_fields = ("reference", "client__nom", "signe_par")
     date_hierarchy = "date_bl"
     readonly_fields = (
@@ -194,7 +196,7 @@ class BLClientAdmin(admin.ModelAdmin):
         "est_verrouille",
     )
     inlines = (BLClientLigneInline,)
-    autocomplete_fields = ("client",)
+    autocomplete_fields = ("branche", "client")
 
     fieldsets = (
         (
@@ -202,6 +204,7 @@ class BLClientAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "reference",
+                    "branche",
                     "client",
                     "date_bl",
                     "adresse_livraison",
@@ -243,7 +246,7 @@ class BLClientAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         base = list(self.readonly_fields)
         if obj and obj.est_verrouille:
-            base += ["reference", "client", "date_bl", "adresse_livraison", "statut"]
+            base += ["reference", "branche", "client", "date_bl", "adresse_livraison", "statut"]
         return base
 
     def has_delete_permission(self, request, obj=None):
@@ -253,7 +256,9 @@ class BLClientAdmin(admin.ModelAdmin):
 
 
 @admin.register(BLClientLigne)
-class BLClientLigneAdmin(admin.ModelAdmin):
+class BLClientLigneAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
+    branche_lookup = "bl__branche"
+
     list_display = (
         "bl",
         "produit_fini",
@@ -261,7 +266,7 @@ class BLClientLigneAdmin(admin.ModelAdmin):
         "prix_unitaire",
         "montant_total_dzd",
     )
-    list_filter = ("bl__statut", "produit_fini__type_produit")
+    list_filter = ("bl__statut", "bl__branche", "produit_fini__type_produit")
     search_fields = ("bl__reference", "produit_fini__designation")
     readonly_fields = ("montant_total_dzd",)
     autocomplete_fields = ("bl", "produit_fini")
@@ -277,9 +282,10 @@ class BLClientLigneAdmin(admin.ModelAdmin):
 
 
 @admin.register(FactureClient)
-class FactureClientAdmin(admin.ModelAdmin):
+class FactureClientAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
     list_display = (
         "reference",
+        "branche",
         "client",
         "date_facture",
         "montant_ttc_dzd",
@@ -288,7 +294,7 @@ class FactureClientAdmin(admin.ModelAdmin):
         "statut_badge",
         "en_retard",
     )
-    list_filter = ("statut", "client", "date_facture")
+    list_filter = ("statut", "branche", "client", "date_facture")
     search_fields = ("reference", "client__nom")
     date_hierarchy = "date_facture"
     filter_horizontal = ("bls",)
@@ -303,7 +309,7 @@ class FactureClientAdmin(admin.ModelAdmin):
         "updated_at",
     )
     inlines = (PaiementAllocationInline,)
-    autocomplete_fields = ("client",)
+    autocomplete_fields = ("branche", "client")
 
     fieldsets = (
         (
@@ -311,6 +317,7 @@ class FactureClientAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "reference",
+                    "branche",
                     "client",
                     "date_facture",
                     "date_echeance",
@@ -379,7 +386,7 @@ class FactureClientAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         base = list(self.readonly_fields)
         if obj:
-            base += ["reference", "client", "bls", "taux_tva"]
+            base += ["reference", "branche", "client", "bls", "taux_tva"]
         return base
 
 
@@ -389,8 +396,9 @@ class FactureClientAdmin(admin.ModelAdmin):
 
 
 @admin.register(PaiementClient)
-class PaiementClientAdmin(admin.ModelAdmin):
+class PaiementClientAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
     list_display = (
+        "branche",
         "client",
         "date_paiement",
         "montant_dzd",
@@ -399,18 +407,19 @@ class PaiementClientAdmin(admin.ModelAdmin):
         "mode_paiement",
         "reference_paiement",
     )
-    list_filter = ("mode_paiement", "client", "date_paiement")
+    list_filter = ("mode_paiement", "branche", "client", "date_paiement")
     search_fields = ("client__nom", "reference_paiement", "notes")
     date_hierarchy = "date_paiement"
     readonly_fields = ("created_at", "montant_alloue_dzd", "solde_non_alloue_dzd")
     inlines = (FactureAllocationInline,)
-    autocomplete_fields = ("client",)
+    autocomplete_fields = ("branche", "client")
 
     fieldsets = (
         (
             "Paiement",
             {
                 "fields": (
+                    "branche",
                     "client",
                     "date_paiement",
                     "montant",
@@ -455,6 +464,7 @@ class PaiementClientAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         if obj:
             return (
+                "branche",
                 "client",
                 "date_paiement",
                 "montant",
@@ -473,9 +483,11 @@ class PaiementClientAdmin(admin.ModelAdmin):
 
 
 @admin.register(PaiementClientAllocation)
-class PaiementClientAllocationAdmin(admin.ModelAdmin):
+class PaiementClientAllocationAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
+    branche_lookup = "paiement__branche"
+
     list_display = ("paiement", "facture", "montant_alloue")
-    list_filter = ("paiement__client",)
+    list_filter = ("paiement__client", "paiement__branche")
     search_fields = ("paiement__client__nom", "facture__reference")
     readonly_fields = ("paiement", "facture", "montant_alloue")
 
@@ -508,8 +520,9 @@ class LivraisonPartielleInline(admin.TabularInline):
 
 
 @admin.register(AbonnementClient)
-class AbonnementClientAdmin(admin.ModelAdmin):
+class AbonnementClientAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
     list_display = (
+        "branche",
         "client",
         "produit_fini",
         "frequence",
@@ -520,7 +533,7 @@ class AbonnementClientAdmin(admin.ModelAdmin):
         "solde_restant_dzd",
         "statut_badge",
     )
-    list_filter = ("statut", "frequence", "produit_fini")
+    list_filter = ("statut", "branche", "frequence", "produit_fini")
     search_fields = ("client__nom", "produit_fini__designation")
     readonly_fields = (
         "created_at",
@@ -529,13 +542,14 @@ class AbonnementClientAdmin(admin.ModelAdmin):
         "solde_restant_dzd",
     )
     inlines = (LivraisonPartielleInline,)
-    autocomplete_fields = ("client", "produit_fini")
+    autocomplete_fields = ("branche", "client", "produit_fini")
 
     fieldsets = (
         (
             "Abonnement",
             {
                 "fields": (
+                    "branche",
                     "client",
                     "produit_fini",
                     "date_debut",
@@ -619,9 +633,11 @@ class VoyageLivraisonAdmin(admin.ModelAdmin):
 
 
 @admin.register(LivraisonPartielle)
-class LivraisonPartielleAdmin(admin.ModelAdmin):
+class LivraisonPartielleAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
+    branche_lookup = "abonnement__branche"
+
     list_display = ("abonnement", "voyage", "date", "quantite_livree")
-    list_filter = ("voyage", "date")
+    list_filter = ("voyage", "abonnement__branche", "date")
     search_fields = ("abonnement__client__nom", "abonnement__produit_fini__designation")
     date_hierarchy = "date"
     autocomplete_fields = ("abonnement", "voyage")

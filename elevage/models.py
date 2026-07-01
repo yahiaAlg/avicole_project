@@ -111,6 +111,15 @@ class LotElevage(models.Model):
         related_name="lots",
         verbose_name="المبنى",
     )
+    # v1.4 — denormalized from batiment.branche for direct filtering/indexing
+    # (BR-BRA-01); kept in sync automatically in save(), never set by hand.
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="lots",
+        verbose_name="الفرع",
+        editable=False,
+    )
     souche = models.CharField(
         max_length=100,
         verbose_name="السلالة",
@@ -146,6 +155,14 @@ class LotElevage(models.Model):
 
     def __str__(self):
         return self.designation
+
+    def save(self, *args, **kwargs):
+        # v1.4 — branche always mirrors the assigned bâtiment's branche
+        # (BR-BRA-01); this keeps every downstream query on `branche`
+        # consistent without requiring callers to set it explicitly.
+        if self.batiment_id:
+            self.branche_id = self.batiment.branche_id
+        super().save(*args, **kwargs)
 
     def fermer(self, date_fermeture=None):
         """
@@ -365,6 +382,11 @@ class Mortalite(models.Model):
     def __str__(self):
         return f"{self.lot} — {self.nombre} morts le {self.date}"
 
+    @property
+    def branche(self):
+        """v1.4 — inherited from the parent lot (BR-BRA-01), not stored."""
+        return self.lot.branche if self.lot_id else None
+
 
 class Consommation(models.Model):
     """
@@ -429,6 +451,11 @@ class Consommation(models.Model):
             f"{self.lot.designation} — {self.intrant.designation} "
             f"{self.quantite} {self.intrant.unite_mesure} ({self.date})"
         )
+
+    @property
+    def branche(self):
+        """v1.4 — inherited from the parent lot (BR-BRA-01), not stored."""
+        return self.lot.branche if self.lot_id else None
 
 
 class TransfertLot(models.Model):
@@ -540,6 +567,11 @@ class TransfertLot(models.Model):
             f"{self.batiment_destination} ({self.date_transfert})"
         )
 
+    @property
+    def branche(self):
+        """v1.4 — inherited from the source lot (BR-BRA-01), not stored."""
+        return self.lot.branche if self.lot_id else None
+
     def clean(self):
         from django.core.exceptions import ValidationError
 
@@ -552,6 +584,29 @@ class TransfertLot(models.Model):
         ):
             raise ValidationError(
                 "Le bâtiment de destination doit être différent du bâtiment d'origine."
+            )
+        # v1.4 — a lot belongs to exactly one branche (BR-BRA-01); transfers
+        # move birds between buildings WITHIN that same branche only. Moving
+        # birds to a building in another branche is not a TransfertLot —
+        # it would require closing the lot and reopening a new one there.
+        if (
+            self.batiment_origine_id
+            and self.batiment_destination_id
+            and self.batiment_origine.branche_id != self.batiment_destination.branche_id
+        ):
+            raise ValidationError(
+                "BR-BRA-01 : le transfert doit rester à l'intérieur d'une même "
+                "branche — le bâtiment d'origine et celui de destination "
+                "appartiennent à des branches différentes."
+            )
+        if (
+            self.lot_id
+            and self.batiment_origine_id
+            and self.lot.branche_id != self.batiment_origine.branche_id
+        ):
+            raise ValidationError(
+                "BR-BRA-01 : le bâtiment d'origine doit appartenir à la même "
+                "branche que le lot."
             )
         if self.lot_id and self.effectif_transfere:
             if self.effectif_transfere > self.lot.effectif_vivant:
@@ -635,6 +690,11 @@ class PeseeEchantillon(models.Model):
         return f"{self.lot.designation} — {self.get_type_pesee_display()} {self.date}"
 
     @property
+    def branche(self):
+        """v1.4 — inherited from the parent lot (BR-BRA-01), not stored."""
+        return self.lot.branche if self.lot_id else None
+
+    @property
     def poids_moyen_g(self):
         if not self.nombre_sujets:
             return Decimal("0")
@@ -700,6 +760,11 @@ class RecolteOeufs(models.Model):
 
     def __str__(self):
         return f"{self.lot.designation} — {self.nombre_oeufs} بيضة ({self.date})"
+
+    @property
+    def branche(self):
+        """v1.4 — inherited from the parent lot (BR-BRA-01), not stored."""
+        return self.lot.branche if self.lot_id else None
 
     def clean(self):
         from django.core.exceptions import ValidationError

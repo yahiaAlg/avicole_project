@@ -92,6 +92,7 @@
   <div class="doc-header">
     <div>
       <div class="doc-brand-name">{{ company.nom|default:"Élevage Avicole" }}</div>
+      {% if paiement.branche %}<div class="doc-brand-sub">الفرع : {{ paiement.branche.nom }}</div>{% endif %}
       {% if company.adresse %}<div class="doc-brand-sub">{{ company.adresse }}</div>{% endif %}
       {% if company.telephone %}<div class="doc-brand-sub">الهاتف : {{ company.telephone }}</div>{% endif %}
       {% if company.nif %}<div class="doc-brand-sub">NIF : {{ company.nif }}</div>{% endif %}

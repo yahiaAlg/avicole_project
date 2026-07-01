@@ -21,6 +21,11 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from core.views import (
+    branche_object_or_404,
+    get_active_branche,
+    require_branche_context,
+)
 from intrants.forms import (
     BatimentForm,
     CategorieIntrantForm,
@@ -346,14 +351,20 @@ def fournisseur_list(request):
 def fournisseur_detail(request, pk):
     """
     Supplier detail view with financial summary (dette, acompte, open invoices).
+
+    Fournisseur stays global (BR-BRA-06), but its BLs/factures/règlements
+    are branch-scoped (§3.5.3 ¶4): Vue par Branche shows this branch's
+    figures only; Vue Globale sums across every branch the supplier has
+    ever transacted with.
     """
     fournisseur = get_object_or_404(Fournisseur, pk=pk)
+    branche = get_active_branche(request)
 
     # Financial snapshot via achats utils (lazy import — achats depends on intrants).
     try:
         from achats.utils import get_fournisseur_solde
 
-        solde = get_fournisseur_solde(fournisseur)
+        solde = get_fournisseur_solde(fournisseur, branche=branche)
     except Exception:
         solde = {
             "dette_globale": 0,
@@ -363,13 +374,14 @@ def fournisseur_detail(request, pk):
             "nb_factures_retard": 0,
         }
 
-    # Recent BLs
+    # Recent BLs (scoped to the active branche, Vue Globale shows all)
     try:
         from achats.models import BLFournisseur
 
-        bls_recents = BLFournisseur.objects.filter(fournisseur=fournisseur).order_by(
-            "-date_bl"
-        )[:10]
+        bls_recents_qs = BLFournisseur.objects.filter(fournisseur=fournisseur)
+        if branche is not None:
+            bls_recents_qs = bls_recents_qs.filter(branche=branche)
+        bls_recents = bls_recents_qs.order_by("-date_bl")[:10]
     except Exception:
         bls_recents = []
 
@@ -384,6 +396,7 @@ def fournisseur_detail(request, pk):
             "solde": solde,
             "bls_recents": bls_recents,
             "intrants_lies": intrants_lies,
+            "active_branche": branche,
             "title": fournisseur.nom,
         },
     )
@@ -461,28 +474,42 @@ def fournisseur_toggle_active(request, pk):
 
 @login_required(login_url=LOGIN_URL)
 def batiment_list(request):
-    batiments = Batiment.objects.order_by("nom")
+    """
+    List buildings. Vue par Branche: only the active branche's buildings
+    (exactly what a chef de branche sees, BR-BRA-01/02). Vue Globale:
+    every building across all branches, with the branche shown per row.
+    """
+    branche = get_active_branche(request)
+    batiments = Batiment.objects.select_related("branche").order_by(
+        "branche__nom", "nom"
+    )
+    if branche is not None:
+        batiments = batiments.filter(branche=branche)
     return render(
         request,
         "intrants/batiment_list.html",
         {
             "batiments": batiments,
+            "active_branche": branche,
             "title": "المباني",
         },
     )
 
 
 @login_required(login_url=LOGIN_URL)
+@require_branche_context
 def batiment_create(request):
+    """Create a building — locked to the active branche (BR-BRA-01/02)."""
+    branche = get_active_branche(request)
     if request.method == "POST":
-        form = BatimentForm(request.POST)
+        form = BatimentForm(request.POST, branche=branche)
         if form.is_valid():
             obj = form.save()
             messages.success(request, f"تم إنشاء المبنى « {obj.nom} » بنجاح.")
             return redirect("intrants:batiment_list")
         messages.error(request, "يرجى تصحيح الأخطاء.")
     else:
-        form = BatimentForm()
+        form = BatimentForm(branche=branche)
     return render(
         request,
         "intrants/batiment_form.html",
@@ -496,16 +523,19 @@ def batiment_create(request):
 
 @login_required(login_url=LOGIN_URL)
 def batiment_edit(request, pk):
-    batiment = get_object_or_404(Batiment, pk=pk)
+    """Edit a building. A chef de branche/opérateur can only reach their
+    own branche's buildings (BR-BRA-02, enforced via branche_object_or_404)."""
+    batiment = branche_object_or_404(request, Batiment, pk=pk)
+    branche = get_active_branche(request)
     if request.method == "POST":
-        form = BatimentForm(request.POST, instance=batiment)
+        form = BatimentForm(request.POST, instance=batiment, branche=branche)
         if form.is_valid():
             form.save()
             messages.success(request, f"تم تحديث المبنى « {batiment.nom} ».")
             return redirect("intrants:batiment_list")
         messages.error(request, "يرجى تصحيح الأخطاء.")
     else:
-        form = BatimentForm(instance=batiment)
+        form = BatimentForm(instance=batiment, branche=branche)
     return render(
         request,
         "intrants/batiment_form.html",
@@ -521,7 +551,7 @@ def batiment_edit(request, pk):
 @login_required(login_url=LOGIN_URL)
 @require_POST
 def batiment_toggle_active(request, pk):
-    batiment = get_object_or_404(Batiment, pk=pk)
+    batiment = branche_object_or_404(request, Batiment, pk=pk)
     batiment.actif = not batiment.actif
     batiment.save(update_fields=["actif"])
     state = "مفعَّل" if batiment.actif else "معطَّل"
@@ -538,10 +568,15 @@ def batiment_toggle_active(request, pk):
 def intrant_list(request):
     """
     Intrant catalogue with search (designation, category) and alert filter.
+
+    v1.4 (BR-BRA-07): StockIntrant is now one row per (branche, intrant),
+    so the alert filter reads `en_alerte(branche)` for the active branche
+    (Vue par Branche) or the aggregated company-wide balance in Vue Globale.
     """
+    branche = get_active_branche(request)
     qs = (
-        Intrant.objects.select_related("categorie", "stock")
-        .prefetch_related("fournisseurs")
+        Intrant.objects.select_related("categorie")
+        .prefetch_related("stocks", "fournisseurs")
         .order_by("categorie__libelle", "designation")
     )
 
@@ -562,12 +597,20 @@ def intrant_list(request):
     if q:
         qs = qs.filter(Q(designation__icontains=q) | Q(categorie__libelle__icontains=q))
 
-    # Alert filter — quantite <= seuil_alerte (cross-model comparison; done in Python)
+    # Alert filter — en_alerte is now a method taking the active branche
+    # (BR-BRA-07); done in Python since it crosses model boundaries.
     en_alerte_filter = request.GET.get("alerte") == "1"
     if en_alerte_filter:
-        qs = [i for i in qs if i.en_alerte]
+        qs = [i for i in qs if i.en_alerte(branche)]
 
     page = _paginate(qs, request.GET.get("page"))
+
+    # Annotate each row with its branch-scoped balance/alert (BR-BRA-07):
+    # Vue par Branche shows that branch's figures; Vue Globale (branche=None)
+    # shows the aggregated total, matching intrant_detail's behaviour.
+    for item in page.object_list:
+        item.qte_affichee = item.quantite_en_stock(branche)
+        item.alerte_affichee = item.en_alerte(branche)
 
     categories = CategorieIntrant.objects.filter(actif=True).order_by(
         "ordre", "libelle"
@@ -582,7 +625,8 @@ def intrant_list(request):
             "afficher": afficher,
             "categorie_pk": categorie_pk,
             "categories": categories,
-            "en_alerte_filter": request.GET.get("alerte") == "1",
+            "en_alerte_filter": en_alerte_filter,
+            "active_branche": branche,
             "title": "كتالوج المدخلات",
         },
     )
@@ -592,25 +636,36 @@ def intrant_list(request):
 def intrant_detail(request, pk):
     """
     Intrant detail: catalogue info + current stock balance + recent movements.
+
+    v1.4 (BR-BRA-07): StockIntrant is now one row per (branche, intrant).
+    Vue par Branche shows that branch's row + movements; Vue Globale shows
+    every branch's row side by side (`stocks_par_branche`) plus the
+    aggregated total.
     """
+    branche = get_active_branche(request)
     intrant = get_object_or_404(
-        Intrant.objects.select_related("categorie", "stock"),
+        Intrant.objects.select_related("categorie").prefetch_related("stocks"),
         pk=pk,
     )
 
-    # Stock balance
-    try:
-        stock = intrant.stock
-    except Exception:
-        stock = None
+    # Stock balance(s)
+    stock = None
+    stocks_par_branche = []
+    if branche is not None:
+        stock = intrant.stocks.filter(branche=branche).first()
+    else:
+        stocks_par_branche = list(
+            intrant.stocks.select_related("branche").order_by("branche__nom")
+        )
 
-    # Recent stock movements (last 20)
+    # Recent stock movements (last 20, scoped to the active branche)
     try:
         from stock.models import StockMouvement
 
-        mouvements = StockMouvement.objects.filter(intrant=intrant).order_by(
-            "-date_mouvement", "-created_at"
-        )[:20]
+        mouvements_qs = StockMouvement.objects.filter(intrant=intrant)
+        if branche is not None:
+            mouvements_qs = mouvements_qs.filter(branche=branche)
+        mouvements = mouvements_qs.order_by("-date_mouvement", "-created_at")[:20]
     except Exception:
         mouvements = []
 
@@ -622,6 +677,10 @@ def intrant_detail(request, pk):
         {
             "intrant": intrant,
             "stock": stock,
+            "stocks_par_branche": stocks_par_branche,
+            "quantite_en_stock": intrant.quantite_en_stock(branche),
+            "en_alerte": intrant.en_alerte(branche),
+            "active_branche": branche,
             "mouvements": mouvements,
             "fournisseurs": fournisseurs,
             "title": intrant.designation,
@@ -701,15 +760,18 @@ def intrant_toggle_active(request, pk):
 @login_required(login_url=LOGIN_URL)
 def intrant_stock_json(request, pk):
     """
-    Return the current stock balance and PMP for one intrant as JSON.
-    Used by BL Fournisseur / Consommation forms to display live stock.
-    Spec §9 requires this for the intrant selection widget.
+    Return the current stock balance and PMP for one intrant as JSON,
+    scoped to the request's active branche (BR-BRA-07 — StockIntrant is now
+    one row per (branche, intrant)). Used by BL Fournisseur / Consommation
+    forms to display live stock for the branch the document is being
+    created in. Spec §9 requires this for the intrant selection widget.
     """
     from django.http import JsonResponse
 
+    branche = get_active_branche(request)
     intrant = get_object_or_404(Intrant, pk=pk)
     try:
-        stock = intrant.stock
+        stock = intrant.stocks.get(branche=branche)
         data = {
             "quantite": float(stock.quantite),
             "prix_moyen_pondere": float(stock.prix_moyen_pondere),

@@ -169,6 +169,7 @@
     <div class="meta-box">
       <div class="meta-label">معلومات الفاتورة</div>
       <div class="meta-val">التاريخ : {{ facture.date_facture|date:"d/m/Y" }}</div>
+      <div style="font-size:12px;color:#555;margin-top:3px;">الفرع : {{ facture.branche.nom }}</div>
       {% if facture.date_echeance %}
       <div style="font-size:12px;color:#555;margin-top:3px;">الاستحقاق : {{ facture.date_echeance|date:"d/m/Y" }}</div>
       {% endif %}

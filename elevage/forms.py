@@ -28,6 +28,12 @@ class LotElevageForm(forms.ModelForm):
 
     BR-LOT-01: an initial poussin count + BL Fournisseur (poussins) is required.
     The BL must be in RECU or FACTURE status (already received).
+
+    BR-BRA-01: a lot's branche is DERIVED from its bâtiment (denormalized
+    in LotElevage.save()), so there is no `branche` field here. Pass
+    `branche=<Branche instance>` from the view when the current user is
+    locked to one branch (chef de branche / opérateur, BR-BRA-02) to scope
+    the `batiment` and `bl_fournisseur_poussins` choices to that branche.
     """
 
     class Meta:
@@ -47,15 +53,23 @@ class LotElevageForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 2}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["fournisseur_poussins"].queryset = Fournisseur.objects.filter(
             actif=True
         ).order_by("nom")
-        self.fields["batiment"].queryset = Batiment.objects.filter(actif=True)
-        self.fields["bl_fournisseur_poussins"].queryset = BLFournisseur.objects.filter(
+        batiment_qs = Batiment.objects.filter(actif=True)
+        bl_qs = BLFournisseur.objects.filter(
             statut__in=[BLFournisseur.STATUT_RECU, BLFournisseur.STATUT_FACTURE]
-        ).order_by("-date_bl")
+        )
+        if branche:
+            # BR-BRA-01: the new lot's branche will be derived from
+            # `batiment`, so only offer buildings (and their delivery
+            # notes) already in this branche.
+            batiment_qs = batiment_qs.filter(branche=branche)
+            bl_qs = bl_qs.filter(branche=branche)
+        self.fields["batiment"].queryset = batiment_qs
+        self.fields["bl_fournisseur_poussins"].queryset = bl_qs.order_by("-date_bl")
         self.fields["bl_fournisseur_poussins"].required = False
 
     def clean_nombre_poussins_initial(self):
@@ -108,6 +122,12 @@ class MortaliteForm(forms.ModelForm):
     BR-LOT-03: only permitted on open lots (enforced in model.clean() and
     validated here for a better user-facing error message).
     The cumulative mortality cannot exceed the initial bird count.
+
+    BR-BRA-01: Mortalite.branche is DERIVED from `lot.branche` (no stored
+    column). Pass `branche=<Branche instance>` from the view when the
+    current user is locked to one branch (chef de branche / opérateur,
+    BR-BRA-02) and no specific `lot` is already known, to scope the `lot`
+    choices to that branche.
     """
 
     class Meta:
@@ -118,15 +138,16 @@ class MortaliteForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 2}),
         }
 
-    def __init__(self, *args, lot=None, **kwargs):
+    def __init__(self, *args, lot=None, branche=None, **kwargs):
         """
         Pass ``lot=<LotElevage instance>`` from the view to pre-select and
         lock the lot field, and to enable cumulative-mortality validation.
         """
         super().__init__(*args, **kwargs)
-        self.fields["lot"].queryset = LotElevage.objects.filter(
-            statut=LotElevage.STATUT_OUVERT
-        )
+        lot_qs = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT)
+        if branche:
+            lot_qs = lot_qs.filter(branche=branche)
+        self.fields["lot"].queryset = lot_qs
         if lot:
             self.fields["lot"].initial = lot
             self.fields["lot"].widget = forms.HiddenInput()
@@ -164,6 +185,11 @@ class ConsommationForm(forms.ModelForm):
     Business rules enforced here:
       BR-LOT-03  : lot must be open.
       BR-INT-03  : requested quantity cannot exceed available stock.
+
+    BR-BRA-01: Consommation.branche is DERIVED from `lot.branche` (no
+    stored column). Pass `branche=<Branche instance>` from the view when
+    the current user is locked to one branch and no specific `lot` is
+    already known, to scope the `lot` choices to that branche.
     """
 
     class Meta:
@@ -175,11 +201,12 @@ class ConsommationForm(forms.ModelForm):
             "quantite": forms.NumberInput(attrs={"step": "0.001", "min": "0.001"}),
         }
 
-    def __init__(self, *args, lot=None, **kwargs):
+    def __init__(self, *args, lot=None, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["lot"].queryset = LotElevage.objects.filter(
-            statut=LotElevage.STATUT_OUVERT
-        )
+        lot_qs = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT)
+        if branche:
+            lot_qs = lot_qs.filter(branche=branche)
+        self.fields["lot"].queryset = lot_qs
         # Only consumable intrants (feed, medicine) are allowed.
         intrant_qs = Intrant.objects.filter(
             categorie__consommable_en_lot=True,
@@ -239,6 +266,13 @@ class TransfertLotForm(forms.ModelForm):
     batiment_origine is pre-filled and locked from the lot's current batiment.
     lot_destination is only required for MODE_SPLIT_MERGE.
     designation_lot_enfant is optional for MODE_SPLIT_NEW (auto-generated if blank).
+
+    BR-BRA-01: TransfertLot.branche is DERIVED from `lot.branche`. A
+    transfer always stays within one branche — `batiment_destination` and
+    `lot_destination` are scoped to the same branche as the source `lot`
+    automatically once `lot` is known; pass `branche=<Branche instance>`
+    from the view to additionally scope the initial `lot` choices when no
+    specific lot is pre-selected.
     """
 
     class Meta:
@@ -265,11 +299,12 @@ class TransfertLotForm(forms.ModelForm):
             "mode": forms.HiddenInput(),
         }
 
-    def __init__(self, *args, lot=None, **kwargs):
+    def __init__(self, *args, lot=None, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["lot"].queryset = LotElevage.objects.filter(
-            statut=LotElevage.STATUT_OUVERT
-        )
+        lot_qs = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT)
+        if branche:
+            lot_qs = lot_qs.filter(branche=branche)
+        self.fields["lot"].queryset = lot_qs
         self.fields["batiment_destination"].queryset = Batiment.objects.filter(
             actif=True
         )
@@ -283,14 +318,18 @@ class TransfertLotForm(forms.ModelForm):
             self.fields["lot"].widget = forms.HiddenInput()
             self.fields["batiment_origine"].initial = lot.batiment
             self.fields["batiment_origine"].widget = forms.HiddenInput()
-            self.fields["batiment_destination"].queryset = self.fields[
-                "batiment_destination"
-            ].queryset.exclude(pk=lot.batiment_id)
+            self.fields["batiment_destination"].queryset = (
+                self.fields["batiment_destination"].queryset.exclude(pk=lot.batiment_id)
+                # BR-BRA-01: a transfer never crosses branches — destination
+                # building must be in the same branche as the source lot.
+                .filter(branche=lot.branche)
+            )
             self.fields["age_jours_transfert"].initial = lot.age_jours
             self.fields["effectif_transfere"].initial = lot.effectif_vivant
-            # lot_destination: all other open lots (template JS filters by building)
+            # lot_destination: all other open lots in the same branche
+            # (template JS filters further by building).
             self.fields["lot_destination"].queryset = LotElevage.objects.filter(
-                statut=LotElevage.STATUT_OUVERT
+                statut=LotElevage.STATUT_OUVERT, branche=lot.branche
             ).exclude(pk=lot.pk)
             self._lot = lot
         else:
@@ -344,7 +383,14 @@ class TransfertLotForm(forms.ModelForm):
 
 
 class PeseeEchantillonForm(forms.ModelForm):
-    """Record a sample weighing (birds or eggs) for a lot."""
+    """
+    Record a sample weighing (birds or eggs) for a lot.
+
+    BR-BRA-01: PeseeEchantillon.branche is DERIVED from `lot.branche` (no
+    stored column). Pass `branche=<Branche instance>` from the view when
+    the current user is locked to one branch and no specific `lot` is
+    already known, to scope the `lot` choices to that branche.
+    """
 
     class Meta:
         model = PeseeEchantillon
@@ -362,11 +408,12 @@ class PeseeEchantillonForm(forms.ModelForm):
             "poids_total_g": forms.NumberInput(attrs={"step": "0.01", "min": "0.01"}),
         }
 
-    def __init__(self, *args, lot=None, **kwargs):
+    def __init__(self, *args, lot=None, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["lot"].queryset = LotElevage.objects.filter(
-            statut=LotElevage.STATUT_OUVERT
-        )
+        lot_qs = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT)
+        if branche:
+            lot_qs = lot_qs.filter(branche=branche)
+        self.fields["lot"].queryset = lot_qs
         self.fields["notes"].required = False
         if lot:
             self.fields["lot"].initial = lot
@@ -388,6 +435,11 @@ class RecolteOeufsForm(forms.ModelForm):
 
     BR-LOT-03 equivalent: only permitted on open lots (model.clean() also
     enforces this — duplicated here for a form-level error message).
+
+    BR-BRA-01: RecolteOeufs.branche is DERIVED from `lot.branche` (no
+    stored column). Pass `branche=<Branche instance>` from the view when
+    the current user is locked to one branch and no specific `lot` is
+    already known, to scope the `lot` choices to that branche.
     """
 
     class Meta:
@@ -398,11 +450,12 @@ class RecolteOeufsForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 2}),
         }
 
-    def __init__(self, *args, lot=None, **kwargs):
+    def __init__(self, *args, lot=None, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["lot"].queryset = LotElevage.objects.filter(
-            statut=LotElevage.STATUT_OUVERT
-        )
+        lot_qs = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT)
+        if branche:
+            lot_qs = lot_qs.filter(branche=branche)
+        self.fields["lot"].queryset = lot_qs
         self.fields["pesee"].required = False
         self.fields["notes"].required = False
         if lot:

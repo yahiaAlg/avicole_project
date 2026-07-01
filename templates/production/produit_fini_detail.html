@@ -9,6 +9,7 @@
 {% block page_sub_text %}
   {{ produit.get_type_produit_display }} —
   {% if produit.actif %}<span style="color:var(--accent-text);">نشط</span>{% else %}<span style="color:#dc2626;">غير نشط</span>{% endif %}
+  {% if not active_branche %} — <span style="color:var(--text-muted);">Vue Globale · كل الفروع</span>{% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
@@ -27,27 +28,42 @@
 
   <!-- KPI row -->
   <div class="kpi-row">
-    <div class="kpi-card {% if stock and stock.en_alerte %}kpi-card--danger{% endif %}">
+    <div class="kpi-card {% if active_branche %}{% if stock and stock.en_alerte %}kpi-card--danger{% endif %}{% elif nb_branches_en_alerte %}kpi-card--danger{% endif %}">
       <div class="kpi-card__label">المخزون الحالي</div>
       <div class="kpi-card__value">
-        {% if stock %}{{ stock.quantite|floatformat:3 }}{% else %}0.000{% endif %}
+        {% if active_branche %}
+          {% if stock %}{{ stock.quantite|floatformat:3 }}{% else %}0.000{% endif %}
+        {% else %}
+          {{ produit.quantite_en_stock|floatformat:3 }}
+        {% endif %}
         <span class="kpi-currency">{{ produit.get_unite_mesure_display }}</span>
       </div>
       <div class="kpi-card__sub">
-        {% if stock and stock.en_alerte %}
-          <span style="color:#dc2626;"><i class="bx bxs-bell" style="font-size:11px;"></i> دون حد التنبيه</span>
+        {% if active_branche %}
+          {% if stock and stock.en_alerte %}
+            <span style="color:#dc2626;"><i class="bx bxs-bell" style="font-size:11px;"></i> دون حد التنبيه</span>
+          {% else %}
+            رصيد المخزون
+          {% endif %}
         {% else %}
-          رصيد المخزون
+          {% if nb_branches_en_alerte %}
+            <span style="color:#dc2626;"><i class="bx bxs-bell" style="font-size:11px;"></i> {{ nb_branches_en_alerte }} فرع دون الحد</span>
+          {% else %}
+            إجمالي كل الفروع
+          {% endif %}
         {% endif %}
       </div>
     </div>
     <div class="kpi-card">
       <div class="kpi-card__label">متوسط تكلفة الإنتاج</div>
       <div class="kpi-card__value">
-        {% if stock %}{{ stock.cout_moyen_production|floatformat:2 }}{% else %}0.00{% endif %}
-        <span class="kpi-currency">دج / {{ produit.unite_mesure }}</span>
+        {% if active_branche %}
+          {% if stock %}{{ stock.cout_moyen_production|floatformat:2 }}{% else %}0.00{% endif %}
+        {% else %}
+          <span style="font-size:15px;color:var(--text-muted);">يختلف حسب الفرع</span>
+        {% endif %}
       </div>
-      <div class="kpi-card__sub">المتوسط المرجح</div>
+      <div class="kpi-card__sub">{% if active_branche %}المتوسط المرجح{% else %}انظر التفصيل أدناه{% endif %}</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-card__label">سعر البيع الافتراضي</div>
@@ -137,6 +153,7 @@
               <tr>
                 <th>التاريخ</th>
                 <th>الدفعة</th>
+                {% if not active_branche %}<th>الفرع</th>{% endif %}
                 <th style="text-align:right;">الكمية</th>
                 <th style="text-align:right;">الوزن الوحدوي (كغ)</th>
                 <th style="text-align:right;">التكلفة الوحدوية (دج)</th>
@@ -153,6 +170,7 @@
                     {{ ligne.production.lot.designation }}
                   </a>
                 </td>
+                {% if not active_branche %}<td><span class="pill-neutral">{{ ligne.production.branche.code }}</span></td>{% endif %}
                 <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">
                   {{ ligne.quantite|floatformat:2 }} <span style="font-size:11px;color:var(--text-muted);">{{ produit.unite_mesure }}</span>
                 </td>
@@ -186,6 +204,7 @@
                 <th>التاريخ</th>
                 <th>النوع</th>
                 <th>المصدر</th>
+                {% if not active_branche %}<th>الفرع</th>{% endif %}
                 <th>المرجع</th>
                 <th style="text-align:right;">الكمية</th>
                 <th style="text-align:right;">المخزون قبل</th>
@@ -202,6 +221,7 @@
                   {% else %}<span class="pill-info">تسوية</span>{% endif %}
                 </td>
                 <td style="color:var(--text-muted);">{{ m.get_source_display }}</td>
+                {% if not active_branche %}<td><span class="pill-neutral">{{ m.branche.code }}</span></td>{% endif %}
                 <td style="font-size:12px;color:var(--text-muted);">{{ m.reference_label|default:"—" }}</td>
                 <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;
                   {% if m.type_mouvement == 'entree' %}color:var(--accent-text);{% elif m.type_mouvement == 'sortie' %}color:#dc2626;{% else %}color:var(--text-primary);{% endif %}">
@@ -231,51 +251,78 @@
       <!-- Stock actuel -->
       <div class="card {% if stock and stock.en_alerte %}card--alert{% endif %}">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bxs-package"></i> المخزون الحالي</div>
+          <div class="section-eyebrow"><i class="bx bxs-package"></i> {% if active_branche %}المخزون الحالي{% else %}المخزون حسب الفرع{% endif %}</div>
         </div>
         <div class="card-body">
-          {% if stock %}
-            <div class="stock-gauge">
-              <div class="stock-gauge__value {% if stock.en_alerte %}text-danger{% endif %}">
-                {{ stock.quantite|floatformat:3 }}
-              </div>
-              <div class="stock-gauge__unit">{{ produit.get_unite_mesure_display }}</div>
-              {% if stock.seuil_alerte > 0 %}
-              <div class="stock-gauge__bar-wrap">
-                <div class="stock-gauge__bar">
-                  <div class="stock-gauge__fill {% if stock.en_alerte %}fill--danger{% endif %}"
-                       style="width:{% widthratio stock.quantite stock.seuil_alerte 100 %}%;max-width:100%;"></div>
+          {% if active_branche %}
+            {% if stock %}
+              <div class="stock-gauge">
+                <div class="stock-gauge__value {% if stock.en_alerte %}text-danger{% endif %}">
+                  {{ stock.quantite|floatformat:3 }}
                 </div>
-                <div class="stock-gauge__legend">الحد: {{ stock.seuil_alerte|floatformat:2 }} {{ produit.unite_mesure }}</div>
+                <div class="stock-gauge__unit">{{ produit.get_unite_mesure_display }}</div>
+                {% if stock.seuil_alerte > 0 %}
+                <div class="stock-gauge__bar-wrap">
+                  <div class="stock-gauge__bar">
+                    <div class="stock-gauge__fill {% if stock.en_alerte %}fill--danger{% endif %}"
+                         style="width:{% widthratio stock.quantite stock.seuil_alerte 100 %}%;max-width:100%;"></div>
+                  </div>
+                  <div class="stock-gauge__legend">الحد: {{ stock.seuil_alerte|floatformat:2 }} {{ produit.unite_mesure }}</div>
+                </div>
+                {% endif %}
+                {% if stock.en_alerte %}
+                  <div style="margin-top:12px;"><span class="pill-danger"><i class="bx bxs-error"></i> تم بلوغ حد التنبيه</span></div>
+                {% endif %}
               </div>
-              {% endif %}
-              {% if stock.en_alerte %}
-                <div style="margin-top:12px;"><span class="pill-danger"><i class="bx bxs-error"></i> تم بلوغ حد التنبيه</span></div>
-              {% endif %}
-            </div>
-            <div style="border-top:1px solid var(--border);padding-top:14px;">
-              <div class="aside-info-row">
-                <span class="aside-info-label">متوسط تكلفة الإنتاج</span>
-                <span class="aside-info-val">{{ stock.cout_moyen_production|floatformat:2 }} دج</span>
+              <div style="border-top:1px solid var(--border);padding-top:14px;">
+                <div class="aside-info-row">
+                  <span class="aside-info-label">متوسط تكلفة الإنتاج</span>
+                  <span class="aside-info-val">{{ stock.cout_moyen_production|floatformat:2 }} دج</span>
+                </div>
+                <div class="aside-info-row">
+                  <span class="aside-info-label">القيمة التقديرية للمخزون</span>
+                  <span class="aside-info-val" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ stock.valeur_stock|floatformat:0 }} دج</span>
+                </div>
+                <div class="aside-info-row">
+                  <span class="aside-info-label">حد التنبيه</span>
+                  <span class="aside-info-val">{{ stock.seuil_alerte|floatformat:2 }} {{ produit.unite_mesure }}</span>
+                </div>
+                <div class="aside-info-row">
+                  <span class="aside-info-label">آخر تحديث</span>
+                  <span class="aside-info-val" style="color:var(--text-muted);">{{ stock.derniere_mise_a_jour|date:"d/m/Y" }}</span>
+                </div>
               </div>
-              <div class="aside-info-row">
-                <span class="aside-info-label">القيمة التقديرية للمخزون</span>
-                <span class="aside-info-val" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ stock.valeur_stock|floatformat:0 }} دج</span>
+            {% else %}
+              <div class="empty-state empty-state--sm">
+                <i class="bx bxs-archive empty-state__icon"></i>
+                <div class="empty-state__title">المخزون غير محدد</div>
               </div>
-              <div class="aside-info-row">
-                <span class="aside-info-label">حد التنبيه</span>
-                <span class="aside-info-val">{{ stock.seuil_alerte|floatformat:2 }} {{ produit.unite_mesure }}</span>
-              </div>
-              <div class="aside-info-row">
-                <span class="aside-info-label">آخر تحديث</span>
-                <span class="aside-info-val" style="color:var(--text-muted);">{{ stock.derniere_mise_a_jour|date:"d/m/Y" }}</span>
-              </div>
-            </div>
+            {% endif %}
           {% else %}
-            <div class="empty-state empty-state--sm">
-              <i class="bx bxs-archive empty-state__icon"></i>
-              <div class="empty-state__title">المخزون غير محدد</div>
-            </div>
+            {% if stocks_par_branche %}
+              {% for s in stocks_par_branche %}
+              <div class="aside-info-row">
+                <span class="aside-info-label" style="display:flex;align-items:center;gap:5px;">
+                  {% if s.en_alerte %}<i class="bx bxs-error" style="color:#dc2626;font-size:12px;"></i>{% endif %}
+                  {{ s.branche.nom }}
+                </span>
+                <span class="aside-info-val {% if s.en_alerte %}text-danger{% endif %}" style="font-family:'Nunito',sans-serif;font-weight:700;">
+                  {{ s.quantite|floatformat:3 }} <span style="font-size:10.5px;color:var(--text-muted);font-weight:400;">{{ produit.unite_mesure }}</span>
+                </span>
+              </div>
+              {% endfor %}
+              <div class="aside-info-row" style="border-top:1px solid var(--border);margin-top:6px;padding-top:10px;">
+                <span class="aside-info-label" style="font-weight:700;">الإجمالي — كل الفروع</span>
+                <span class="aside-info-val" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;color:var(--text-primary);">
+                  {{ produit.quantite_en_stock|floatformat:3 }} {{ produit.unite_mesure }}
+                </span>
+              </div>
+            {% else %}
+              <div class="empty-state empty-state--sm">
+                <i class="bx bxs-archive empty-state__icon"></i>
+                <div class="empty-state__title">المخزون غير محدد</div>
+              </div>
+            {% endif %}
           {% endif %}
         </div>
       </div>
@@ -311,6 +358,12 @@
           <div class="section-eyebrow"><i class="bx bx-trending-up"></i> حاسبة الهامش</div>
         </div>
         <div class="card-body" style="display:flex;flex-direction:column;gap:14px;">
+
+          {% if not active_branche %}
+          <div style="font-size:12px;color:var(--text-muted);background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;">
+            <i class="bx bxs-info-circle"></i> اختر فرعاً لعرض متوسط تكلفة إنتاجه في الحاسبة (Vue Globale لا تملك تكلفة موحدة).
+          </div>
+          {% endif %}
 
           <!-- Base price display -->
           <div class="calc-base-row">

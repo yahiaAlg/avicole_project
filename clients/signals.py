@@ -6,8 +6,9 @@ Signals for the client AR (accounts-receivable) cycle.
 Registered signals:
   1. pre_save   on BLClient        → cache old statut for transition detection.
   2. post_save  on BLClient        → when statut transitions to LIVRE, decrease
-                                      StockProduitFini for every BL line and
-                                      create a StockMouvement (sortie / bl_client).
+                                      StockProduitFini (scoped to bl.branche) for
+                                      every BL line and create a StockMouvement
+                                      (sortie / bl_client).
   3. pre_save   on FactureClient   → cache old statut / is_new flag.
   4. post_save  on FactureClient   → on creation: log only (BLs not linked yet).
   5. m2m_changed on FactureClient.bls.through →
@@ -16,8 +17,10 @@ Registered signals:
             montant_tva and montant_ttc, initialise reste_a_payer.
          b. (BR-FAC-02 / BR-BLC-03) lock all included BLs to STATUT_FACTURE.
   6. post_save  on LivraisonPartielle → on creation, decrease StockProduitFini
-                                      for the parent abonnement's product and
-                                      create a StockMouvement (sortie).
+                                      (scoped to the parent abonnement's
+                                      branche) for the parent abonnement's
+                                      product and create a StockMouvement
+                                      (sortie).
   7. pre_delete on LivraisonPartielle → reverse the stock decrease.
 
 Root-cause fix (créances clients = 0 on dashboard):
@@ -36,6 +39,11 @@ Business rules enforced here:
              montant_tva = montant_ht × taux_tva / 100 (rounded to 2 d.p.).
              montant_ttc = montant_ht + montant_tva.
              reste_a_payer is initialised to montant_ttc at creation.
+  BR-BRA-01/07 (v1.4) : every BLClient/FactureClient/AbonnementClient belongs
+             to exactly one Branche, and the StockProduitFini row debited is
+             the one for THAT branche (stock is keyed by (branche, produit
+             fini), not by produit fini alone). LivraisonPartielle has no
+             stored branche — it inherits it from its parent abonnement.
 """
 
 import logging
@@ -123,15 +131,17 @@ def bl_client_post_save(sender, instance, created, **kwargs):
             created_by=instance.created_by,
             reference_label=instance.reference,
             reference_id=instance.pk,
+            branche=instance.branche,
         )
 
 
 def _appliquer_sortie_stock_produit_fini(
-    ligne, date_bl, created_by, reference_label, reference_id
+    ligne, date_bl, created_by, reference_label, reference_id, branche
 ):
     """
-    Decrease StockProduitFini.quantite for one BLClientLigne and record a
-    StockMouvement (SORTIE / BL_CLIENT).
+    Decrease StockProduitFini.quantite for one BLClientLigne, scoped to
+    `branche` (BR-BRA-07 — stock is keyed by (branche, produit_fini)), and
+    record a StockMouvement (SORTIE / BL_CLIENT) in the same branche.
 
     A negative balance is allowed at the model level (physical discrepancy);
     a warning is logged so operators can reconcile via StockAjustement.
@@ -141,6 +151,7 @@ def _appliquer_sortie_stock_produit_fini(
     produit_fini = ligne.produit_fini
 
     stock, _ = StockProduitFini.objects.get_or_create(
+        branche=branche,
         produit_fini=produit_fini,
         defaults={
             "quantite": Decimal("0"),
@@ -155,13 +166,15 @@ def _appliquer_sortie_stock_produit_fini(
 
     if stock.quantite < 0:
         logger.warning(
-            "Stock négatif après BL Client: produit_fini pk=%s quantite=%s. "
+            "Stock négatif après BL Client: produit_fini pk=%s quantite=%s (branche=%s). "
             "Vérifiez les entrées ou créez un ajustement.",
             produit_fini.pk,
             stock.quantite,
+            branche.code,
         )
 
     StockMouvement.objects.create(
+        branche=branche,
         produit_fini=produit_fini,
         type_mouvement=StockMouvement.TYPE_SORTIE,
         source=StockMouvement.SOURCE_BL_CLIENT,
@@ -175,10 +188,11 @@ def _appliquer_sortie_stock_produit_fini(
     )
 
     logger.debug(
-        "Stock sortie (BL Client): produit_fini pk=%s -%s → %s. BL %s.",
+        "Stock sortie (BL Client): produit_fini pk=%s -%s → %s (branche=%s). BL %s.",
         produit_fini.pk,
         ligne.quantite,
         stock.quantite,
+        branche.code,
         reference_label,
     )
 
@@ -281,6 +295,22 @@ def facture_client_bls_changed(sender, instance, action, **kwargs):
         )
         return
 
+    # BR-BRA-01 (defensive): every linked BL must belong to the same branche
+    # as the facture. Primary enforcement is at the view/form layer (the BL
+    # queryset offered to the user is filtered to the facture's branche);
+    # this is a last-resort audit log, not a block, since the M2M rows are
+    # already written by the time this signal fires.
+    bls_branche_differente = db_instance.bls.exclude(branche_id=db_instance.branche_id)
+    if bls_branche_differente.exists():
+        logger.error(
+            "BR-BRA-01 VIOLATION: FactureClient pk=%s (branche=%s) a été liée "
+            "à %d BL(s) d'une autre branche : %s.",
+            db_instance.pk,
+            db_instance.branche_id,
+            bls_branche_differente.count(),
+            list(bls_branche_differente.values_list("reference", flat=True)),
+        )
+
     # ── BR-FAC-01: derive financial totals from BL lines ─────────────────
     montant_ht = Decimal("0")
     for bl in db_instance.bls.prefetch_related("lignes").all():
@@ -335,6 +365,10 @@ def livraison_partielle_post_save(sender, instance, created, **kwargs):
     LIVRAISON_ABONNEMENT) when a LivraisonPartielle is created. Records are
     immutable after creation (mirrors PaiementClientAllocation) — only the
     create path touches stock.
+
+    v1.4 (BR-BRA-07): LivraisonPartielle has no stored `branche` — it
+    inherits the abonnement's branche (instance.branche property), and that
+    is the branche whose StockProduitFini row is debited.
     """
     if not created:
         return
@@ -342,8 +376,10 @@ def livraison_partielle_post_save(sender, instance, created, **kwargs):
     from stock.models import StockProduitFini, StockMouvement
 
     produit_fini = instance.abonnement.produit_fini
+    branche = instance.abonnement.branche
 
     stock, _ = StockProduitFini.objects.get_or_create(
+        branche=branche,
         produit_fini=produit_fini,
         defaults={
             "quantite": Decimal("0"),
@@ -358,13 +394,15 @@ def livraison_partielle_post_save(sender, instance, created, **kwargs):
 
     if stock.quantite < 0:
         logger.warning(
-            "Stock négatif après LivraisonPartielle: produit_fini pk=%s quantite=%s. "
-            "Vérifiez les entrées ou créez un ajustement.",
+            "Stock négatif après LivraisonPartielle: produit_fini pk=%s quantite=%s "
+            "(branche=%s). Vérifiez les entrées ou créez un ajustement.",
             produit_fini.pk,
             stock.quantite,
+            branche.code,
         )
 
     StockMouvement.objects.create(
+        branche=branche,
         produit_fini=produit_fini,
         type_mouvement=StockMouvement.TYPE_SORTIE,
         source=StockMouvement.SOURCE_LIVRAISON_ABONNEMENT,
@@ -380,12 +418,13 @@ def livraison_partielle_post_save(sender, instance, created, **kwargs):
     )
 
     logger.info(
-        "LivraisonPartielle pk=%s: -%s %s → %s (abonnement pk=%s).",
+        "LivraisonPartielle pk=%s: -%s %s → %s (abonnement pk=%s, branche=%s).",
         instance.pk,
         instance.quantite_livree,
         produit_fini.unite_mesure,
         stock.quantite,
         instance.abonnement_id,
+        branche.code,
     )
 
 
@@ -395,8 +434,10 @@ def livraison_partielle_pre_delete(sender, instance, **kwargs):
     from stock.models import StockProduitFini, StockMouvement
 
     produit_fini = instance.abonnement.produit_fini
+    branche = instance.abonnement.branche
 
     stock, _ = StockProduitFini.objects.get_or_create(
+        branche=branche,
         produit_fini=produit_fini,
         defaults={
             "quantite": Decimal("0"),
@@ -410,6 +451,7 @@ def livraison_partielle_pre_delete(sender, instance, **kwargs):
     stock.save(update_fields=["quantite", "derniere_mise_a_jour"])
 
     StockMouvement.objects.create(
+        branche=branche,
         produit_fini=produit_fini,
         type_mouvement=StockMouvement.TYPE_ENTREE,
         source=StockMouvement.SOURCE_LIVRAISON_ABONNEMENT,
@@ -423,8 +465,9 @@ def livraison_partielle_pre_delete(sender, instance, **kwargs):
     )
 
     logger.debug(
-        "Stock entrée (annulation livraison abonnement): produit_fini pk=%s +%s → %s.",
+        "Stock entrée (annulation livraison abonnement): produit_fini pk=%s +%s → %s (branche=%s).",
         produit_fini.pk,
         instance.quantite_livree,
         stock.quantite,
+        branche.code,
     )

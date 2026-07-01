@@ -77,7 +77,24 @@
             {% endif %}
           </div>
 
+          <!-- Branche -->
+          {% if form.branche.is_hidden %}
+            {{ form.branche }}
+          {% else %}
+          <div class="form-field">
+            <label class="form-label" for="{{ form.branche.id_for_label }}">الفرع *</label>
+            <div class="input-icon-wrap">
+              <i class="bx bxs-buildings"></i>
+              {{ form.branche }}
+            </div>
+            {% if form.branche.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.branche.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+          {% endif %}
+
           <!-- Fournisseur -->
+
           <div class="form-field">
             <label class="form-label" for="{{ form.fournisseur.id_for_label }}">المورد *</label>
             <div class="input-icon-wrap">

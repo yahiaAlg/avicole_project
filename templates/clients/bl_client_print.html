@@ -95,6 +95,7 @@
     </div>
     <div class="doc-brand">
       <div class="doc-brand-name">{{ company.nom|default:"تربية الدواجن" }}</div>
+      {% if bl.branche %}<div class="doc-brand-sub">الفرع : {{ bl.branche.nom }}</div>{% endif %}
       {% if company.adresse %}<div class="doc-brand-sub">{{ company.adresse }}</div>{% endif %}
       {% if company.telephone %}<div class="doc-brand-sub">هاتف : {{ company.telephone }}</div>{% endif %}
       {% if company.nif %}<div class="doc-brand-sub">الرقم الجبائي : {{ company.nif }}</div>{% endif %}

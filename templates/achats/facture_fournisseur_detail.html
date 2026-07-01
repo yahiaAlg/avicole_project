@@ -233,6 +233,10 @@
     <div class="aside-info-card">
       <div class="aside-info-card__title">المعلومات</div>
       <div class="aside-info-row">
+        <span class="aside-info-label">الفرع</span>
+        <span class="aside-info-val">{{ facture.branche.nom }}</span>
+      </div>
+      <div class="aside-info-row">
         <span class="aside-info-label">أنشأه</span>
         <span class="aside-info-val">{{ facture.created_by.get_full_name|default:facture.created_by.username|default:"—" }}</span>
       </div>

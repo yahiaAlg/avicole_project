@@ -5,6 +5,11 @@ Shared utilities used across all apps:
   - Sequential document reference generation (generic engine used by all apps)
   - Pagination helper
   - Date helpers
+
+v1.4 — Multi-Branch Architecture (§3.5): `generer_reference` now accepts an
+optional `branche` so document numbering can embed the branch code per
+BR-BRA-05, keeping each branch's sequence independent without any
+cross-branch coordination.
 """
 
 import datetime
@@ -21,6 +26,7 @@ logger = logging.getLogger(__name__)
 def generer_reference(
     model_class,
     prefix: str,
+    branche=None,
     champ_reference: str = "reference",
     year: int | None = None,
     padding: int = 4,
@@ -28,17 +34,28 @@ def generer_reference(
     """
     Generate the next sequential document reference for any model.
 
-    Format: <prefix>-<YYYY>-<NNNN>
-    Example: BLC-2025-0001, FAC-2025-0042
+    Format: <prefix>-<YYYY>-<NNNN>                  — branche omitted
+            <prefix>-<code_branche>-<YYYY>-<NNNN>    — branche given (BR-BRA-05)
+    Example: BLC-2025-0001  /  BLC-EST-2026-0042
+
+    v1.4 (§3.5.4 / BR-BRA-05): embedding the branch's `code` keeps each
+    branch's numbering sequence independent — the pattern match below only
+    ever looks at references that already carry that exact branch code, so
+    two branches can issue documents the same day with no coordination and
+    no collision.
 
     The function queries the last existing reference that starts with
-    ``<prefix>-<year>-`` and increments the trailing sequence number.
+    the resolved pattern and increments the trailing sequence number.
     It is NOT wrapped in a transaction here — the caller (view or signal)
     must ensure atomicity when the reference is assigned.
 
     Args:
         model_class:      The Django model whose table is queried.
         prefix (str):     Document prefix (e.g. "BLC", "FAC", "BLF").
+        branche (Branche | None): When given, its `.code` is embedded in
+            the reference and the sequence is scoped to that branch alone
+            (BR-BRA-05). Omit only for documents that intentionally stay
+            branch-independent.
         champ_reference:  Name of the reference CharField on the model.
         year (int|None):  Target year; defaults to current year.
         padding (int):    Zero-padding width for the sequence number.
@@ -47,7 +64,10 @@ def generer_reference(
         str: Next available reference string.
     """
     year = year or datetime.date.today().year
-    pattern = f"{prefix}-{year}-"
+    if branche is not None:
+        pattern = f"{prefix}-{branche.code}-{year}-"
+    else:
+        pattern = f"{prefix}-{year}-"
 
     filtre = {f"{champ_reference}__startswith": pattern}
     last = model_class.objects.filter(**filtre).order_by(champ_reference).last()

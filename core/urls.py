@@ -2,11 +2,13 @@
 core/urls.py
 
 URL patterns for:
-  - Authentication   (login, logout)
-  - Dashboard        (/)
-  - Company Info     (/parametres/entreprise/)
-  - User Management  (/parametres/utilisateurs/)
-  - My Profile       (/profil/)
+  - Authentication      (login, logout)
+  - Dashboard           (/)
+  - Company Info        (/parametres/entreprise/)
+  - User Management     (/parametres/utilisateurs/)
+  - My Profile          (/profil/)
+  - Multi-branch (v1.4) : branch switcher, Branche CRUD (admin only,
+                           BR-BRA-06) (/parametres/branches/)
 """
 
 from django.urls import path
@@ -58,5 +60,28 @@ urlpatterns = [
         "parametres/utilisateurs/<int:pk>/mot-de-passe/",
         views.user_password_change,
         name="user_password_change",
+    ),
+    # ── Multi-branch context (v1.4, §3.5) ───────────────────────────────
+    # Branch switcher — admin / unbound comptable only (BR-BRA-03/04)
+    path(
+        "branche/changer/",
+        views.branche_switch,
+        name="branche_switch",
+    ),
+    # Branche CRUD — admin only (BR-BRA-06)
+    path(
+        "parametres/branches/",
+        views.branche_list,
+        name="branche_list",
+    ),
+    path(
+        "parametres/branches/creer/",
+        views.branche_create,
+        name="branche_create",
+    ),
+    path(
+        "parametres/branches/<int:pk>/modifier/",
+        views.branche_edit,
+        name="branche_edit",
     ),
 ]

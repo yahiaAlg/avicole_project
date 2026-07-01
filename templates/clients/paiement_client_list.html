@@ -65,6 +65,7 @@
         <thead>
           <tr>
             <th>العميل</th>
+            {% if not active_branche %}<th>الفرع</th>{% endif %}
             <th>التاريخ</th>
             <th>الطريقة</th>
             <th>المرجع</th>
@@ -79,6 +80,9 @@
             <td>
               <a href="{% url 'clients:client_detail' paiement.client.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;">{{ paiement.client.nom }}</a>
             </td>
+            {% if not active_branche %}
+            <td style="font-size:12px;color:var(--text-muted);">{{ paiement.branche.nom }}</td>
+            {% endif %}
             <td style="font-size:12px;color:var(--text-muted);">{{ paiement.date_paiement|date:"d/m/Y" }}</td>
             <td>
               {% if paiement.mode_paiement == 'especes' %}<span class="pill-neutral"><i class="bx bxs-money"></i> نقداً</span>

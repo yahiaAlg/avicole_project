@@ -17,6 +17,17 @@ Business rules enforced here (complementing model.clean() and signals):
 
 All write operations use Post-Redirect-Get.
 State changes (validate, toggle active) are POST-only.
+
+v1.4 (§3.5, BR-BRA-01): ProductionRecord.branche and CollecteFertilisant.branche
+are denormalized (derived from lot.branche / batiment.branche, editable=False);
+TraitementFertilisant.branche is explicit, since a batch is created before its
+raw collectes are assigned. ProduitFini stays a global catalogue (BR-BRA-06)
+but its StockProduitFini balance is now one row per (branche, produit_fini)
+(BR-BRA-07). Vue par Branche scopes every list/detail to the request's active
+branche (BR-BRA-02); Vue Globale shows every branche combined. Creation views
+require a concrete active branche (@require_branche_context — BR-BRA-04) so
+the lot/batiment pickers (and TraitementFertilisant's explicit branche field)
+are correctly scoped/locked.
 """
 
 import logging
@@ -30,6 +41,11 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from core.views import (
+    branche_object_or_404,
+    get_active_branche,
+    require_branche_context,
+)
 from production.forms import (
     ProduitFiniForm,
     ProductionRecordForm,
@@ -230,27 +246,41 @@ def produit_fini_detail(request, pk):
     """
     Detail view for one finished-product type: catalogue info, current stock
     balance, recent stock movements, and recent production lines.
-    """
-    produit = get_object_or_404(ProduitFini, pk=pk)
 
-    try:
-        stock = produit.stock
-    except Exception:
-        stock = None
+    v1.4 (BR-BRA-07): StockProduitFini is now one row per (branche,
+    produit_fini). Vue par Branche shows that branch's row + movements;
+    Vue Globale shows every branch's row side by side (`stocks_par_branche`)
+    plus the aggregated total (`produit.quantite_en_stock`).
+    """
+    branche = get_active_branche(request)
+    produit = get_object_or_404(ProduitFini.objects.prefetch_related("stocks"), pk=pk)
+
+    stock = None
+    stocks_par_branche = []
+    nb_branches_en_alerte = 0
+    if branche is not None:
+        stock = produit.stocks.filter(branche=branche).first()
+    else:
+        stocks_par_branche = list(
+            produit.stocks.select_related("branche").order_by("branche__nom")
+        )
+        nb_branches_en_alerte = sum(1 for s in stocks_par_branche if s.en_alerte)
 
     from stock.models import StockMouvement
 
-    mouvements = (
-        StockMouvement.objects.filter(produit_fini=produit)
-        .select_related("created_by")
-        .order_by("-date_mouvement", "-created_at")[:30]
-    )
+    mouvements_qs = StockMouvement.objects.filter(produit_fini=produit)
+    if branche is not None:
+        mouvements_qs = mouvements_qs.filter(branche=branche)
+    mouvements = mouvements_qs.select_related("created_by", "branche").order_by(
+        "-date_mouvement", "-created_at"
+    )[:30]
 
-    lignes_recentes = (
-        ProductionLigne.objects.filter(produit_fini=produit)
-        .select_related("production__lot")
-        .order_by("-production__date_production")[:20]
-    )
+    lignes_recentes_qs = ProductionLigne.objects.filter(
+        produit_fini=produit
+    ).select_related("production__lot", "production__branche")
+    if branche is not None:
+        lignes_recentes_qs = lignes_recentes_qs.filter(production__branche=branche)
+    lignes_recentes = lignes_recentes_qs.order_by("-production__date_production")[:20]
 
     return render(
         request,
@@ -258,8 +288,11 @@ def produit_fini_detail(request, pk):
         {
             "produit": produit,
             "stock": stock,
+            "stocks_par_branche": stocks_par_branche,
+            "nb_branches_en_alerte": nb_branches_en_alerte,
             "mouvements": mouvements,
             "lignes_recentes": lignes_recentes,
+            "active_branche": branche,
             "title": f"المنتج النهائي — {produit.designation}",
         },
     )
@@ -344,14 +377,23 @@ def production_record_list(request):
       ?lot=<pk>
       ?date_debut=YYYY-MM-DD, ?date_fin=YYYY-MM-DD
       ?q=<search>  — lot designation
+
+    v1.4 (BR-BRA-01/02): Vue par Branche shows only the active branche's
+    production records; Vue Globale shows every branche's records combined.
     """
     from elevage.models import LotElevage
 
+    branche = get_active_branche(request)
+
     qs = (
-        ProductionRecord.objects.select_related("lot__batiment", "created_by")
+        ProductionRecord.objects.select_related(
+            "lot__batiment", "branche", "created_by"
+        )
         .prefetch_related("lignes__produit_fini")
         .order_by("-date_production", "-created_at")
     )
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     statut = request.GET.get("statut", "")
     if statut in (ProductionRecord.STATUT_BROUILLON, ProductionRecord.STATUT_VALIDE):
@@ -373,15 +415,23 @@ def production_record_list(request):
         qs = qs.filter(lot__designation__icontains=q)
 
     page = _paginate(qs, request.GET.get("page"))
-    lots = LotElevage.objects.order_by("-date_ouverture")
+    lots_qs = LotElevage.objects.order_by("-date_ouverture")
+    if branche is not None:
+        lots_qs = lots_qs.filter(branche=branche)
+    lots = lots_qs
 
     # Summary counts
-    nb_brouillons = ProductionRecord.objects.filter(
+    nb_brouillons_qs = ProductionRecord.objects.filter(
         statut=ProductionRecord.STATUT_BROUILLON
-    ).count()
-    nb_valides = ProductionRecord.objects.filter(
+    )
+    nb_valides_qs = ProductionRecord.objects.filter(
         statut=ProductionRecord.STATUT_VALIDE
-    ).count()
+    )
+    if branche is not None:
+        nb_brouillons_qs = nb_brouillons_qs.filter(branche=branche)
+        nb_valides_qs = nb_valides_qs.filter(branche=branche)
+    nb_brouillons = nb_brouillons_qs.count()
+    nb_valides = nb_valides_qs.count()
 
     return render(
         request,
@@ -397,6 +447,7 @@ def production_record_list(request):
             "nb_brouillons": nb_brouillons,
             "nb_valides": nb_valides,
             "statut_choices": ProductionRecord.STATUT_CHOICES,
+            "active_branche": branche,
             "title": "سجلات الإنتاج",
         },
     )
@@ -408,6 +459,7 @@ def production_record_list(request):
 
 
 @login_required(login_url=LOGIN_URL)
+@require_branche_context
 def production_record_create(request, lot_pk=None):
     """
     Create a new production record (harvest event) in BROUILLON status.
@@ -419,15 +471,21 @@ def production_record_create(request, lot_pk=None):
     (one per produit fini type generated at harvest).
     Cost allocation (allouer_cout_production) is NOT called at creation —
     it runs at validation time to reflect the latest lot costs.
+
+    v1.4 (BR-BRA-01/04): ProductionRecord.branche mirrors `lot.branche`
+    (denormalized, not a form field); the `lot` choices are scoped to the
+    request's active branche so the derived branche is always correct.
     """
     from elevage.models import LotElevage
 
+    branche = get_active_branche(request)
+
     lot = None
     if lot_pk:
-        lot = get_object_or_404(LotElevage, pk=lot_pk)
+        lot = branche_object_or_404(request, LotElevage, pk=lot_pk)
 
     if request.method == "POST":
-        form = ProductionRecordForm(request.POST, lot=lot)
+        form = ProductionRecordForm(request.POST, lot=lot, branche=branche)
         formset = ProductionLigneFormSet(request.POST)
 
         if form.is_valid() and formset.is_valid():
@@ -478,7 +536,7 @@ def production_record_create(request, lot_pk=None):
                 "يرجى تصحيح الأخطاء في رأس النموذج و/أو السطور.",
             )
     else:
-        form = ProductionRecordForm(lot=lot)
+        form = ProductionRecordForm(lot=lot, branche=branche)
         # Bind an unbound formset to an unsaved instance so the inline FK works
         tmp_record = ProductionRecord()
         if lot:
@@ -492,6 +550,7 @@ def production_record_create(request, lot_pk=None):
             "form": form,
             "formset": formset,
             "lot": lot,
+            "active_branche": branche,
             "title": "سجل إنتاج جديد",
             "action_label": "حفظ (مسودة)",
         },
@@ -514,8 +573,11 @@ def production_record_detail(request, pk):
       - Slaughter yield % (rendement_abattage) for carcasse lines
       - Stock impact summary (only for validated records)
     """
-    record = get_object_or_404(
-        ProductionRecord.objects.select_related("lot__batiment", "created_by"),
+    record = branche_object_or_404(
+        request,
+        ProductionRecord.objects.select_related(
+            "lot__batiment", "branche", "created_by"
+        ),
         pk=pk,
     )
     lignes = record.lignes.select_related("produit_fini").order_by(
@@ -549,6 +611,7 @@ def production_record_detail(request, pk):
             "rendement": rendement,
             "mouvements": mouvements,
             "valeur_totale_production": valeur_totale_production,
+            "active_branche": get_active_branche(request),
             "title": f"الإنتاج — {record.lot.designation} — {record.date_production}",
         },
     )
@@ -567,13 +630,17 @@ def production_record_edit(request, pk):
     Validated records are immutable — this view redirects with an error if
     the record has already been validated.
     """
-    record = get_object_or_404(ProductionRecord.objects.select_related("lot"), pk=pk)
+    record = branche_object_or_404(
+        request, ProductionRecord.objects.select_related("lot"), pk=pk
+    )
 
     if not _assert_brouillon(record, request):
         return redirect("production:production_record_detail", pk=record.pk)
 
     if request.method == "POST":
-        form = ProductionRecordForm(request.POST, instance=record, lot=record.lot)
+        form = ProductionRecordForm(
+            request.POST, instance=record, lot=record.lot, branche=record.branche
+        )
         formset = ProductionLigneFormSet(request.POST, instance=record)
 
         if form.is_valid() and formset.is_valid():
@@ -611,7 +678,9 @@ def production_record_edit(request, pk):
                 "يرجى تصحيح الأخطاء في رأس النموذج و/أو السطور.",
             )
     else:
-        form = ProductionRecordForm(instance=record, lot=record.lot)
+        form = ProductionRecordForm(
+            instance=record, lot=record.lot, branche=record.branche
+        )
         formset = ProductionLigneFormSet(instance=record)
 
     return render(
@@ -622,6 +691,7 @@ def production_record_edit(request, pk):
             "formset": formset,
             "record": record,
             "lot": record.lot,
+            "active_branche": record.branche,
             "title": f"تعديل — إنتاج {record.date_production}",
             "action_label": "حفظ التعديلات",
         },
@@ -650,7 +720,9 @@ def production_record_valider(request, pk):
            - Recalculates cout_moyen_production (weighted average).
            - Creates StockMouvement (ENTREE / PRODUCTION) per ligne.
     """
-    record = get_object_or_404(ProductionRecord.objects.select_related("lot"), pk=pk)
+    record = branche_object_or_404(
+        request, ProductionRecord.objects.select_related("lot"), pk=pk
+    )
 
     if not _assert_brouillon(record, request):
         return redirect("production:production_record_detail", pk=record.pk)
@@ -747,7 +819,9 @@ def production_record_delete(request, pk):
     Validated records cannot be deleted — they are immutable audit records.
     No stock reversal is needed because BROUILLON records have no stock impact.
     """
-    record = get_object_or_404(ProductionRecord.objects.select_related("lot"), pk=pk)
+    record = branche_object_or_404(
+        request, ProductionRecord.objects.select_related("lot"), pk=pk
+    )
 
     if not _assert_brouillon(record, request):
         return redirect("production:production_record_detail", pk=record.pk)
@@ -784,8 +858,14 @@ def production_dashboard(request):
       - Draft (BROUILLON) records awaiting validation
       - Recent validated records (last 10)
       - Optional date-range filter passed through to get_production_dashboard()
+
+    v1.4 (§3.5.5): Vue par Branche shows only the active branche's figures;
+    Vue Globale aggregates across every branche (stock_produits then holds
+    one row per (branche, produit_fini) rather than per produit_fini).
     """
     import datetime
+
+    branche = get_active_branche(request)
 
     date_debut_str = request.GET.get("date_debut", "")
     date_fin_str = request.GET.get("date_fin", "")
@@ -800,22 +880,28 @@ def production_dashboard(request):
     except ValueError:
         pass
 
-    dashboard_rows = get_production_dashboard(date_debut=date_debut, date_fin=date_fin)
-
-    brouillons = (
-        ProductionRecord.objects.filter(statut=ProductionRecord.STATUT_BROUILLON)
-        .select_related("lot")
-        .order_by("-date_production")
+    dashboard_rows = get_production_dashboard(
+        date_debut=date_debut, date_fin=date_fin, branche=branche
     )
 
-    valides_recents = (
-        ProductionRecord.objects.filter(statut=ProductionRecord.STATUT_VALIDE)
-        .select_related("lot")
-        .order_by("-date_production")[:10]
+    brouillons_qs = ProductionRecord.objects.filter(
+        statut=ProductionRecord.STATUT_BROUILLON
     )
+    valides_recents_qs = ProductionRecord.objects.filter(
+        statut=ProductionRecord.STATUT_VALIDE
+    )
+    valides_qs = ProductionRecord.objects.filter(statut=ProductionRecord.STATUT_VALIDE)
+    if branche is not None:
+        brouillons_qs = brouillons_qs.filter(branche=branche)
+        valides_recents_qs = valides_recents_qs.filter(branche=branche)
+        valides_qs = valides_qs.filter(branche=branche)
+
+    brouillons = brouillons_qs.select_related("lot").order_by("-date_production")
+    valides_recents = valides_recents_qs.select_related("lot").order_by(
+        "-date_production"
+    )[:10]
 
     # Aggregate totals for the filtered period
-    valides_qs = ProductionRecord.objects.filter(statut=ProductionRecord.STATUT_VALIDE)
     if date_debut:
         valides_qs = valides_qs.filter(date_production__gte=date_debut)
     if date_fin:
@@ -829,8 +915,13 @@ def production_dashboard(request):
     # Stock produits finis summary
     from stock.models import StockProduitFini
 
+    stock_produits_qs = StockProduitFini.objects.select_related(
+        "produit_fini", "branche"
+    )
+    if branche is not None:
+        stock_produits_qs = stock_produits_qs.filter(branche=branche)
     stock_produits = list(
-        StockProduitFini.objects.select_related("produit_fini").order_by(
+        stock_produits_qs.order_by(
             "produit_fini__type_produit", "produit_fini__designation"
         )
     )
@@ -843,7 +934,10 @@ def production_dashboard(request):
 
     from elevage.models import LotElevage
 
-    lots_actifs = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT).count()
+    lots_actifs_qs = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT)
+    if branche is not None:
+        lots_actifs_qs = lots_actifs_qs.filter(branche=branche)
+    lots_actifs = lots_actifs_qs.count()
 
     return render(
         request,
@@ -860,6 +954,7 @@ def production_dashboard(request):
             "revenu_potentiel": revenu_potentiel,
             "nb_en_alerte": nb_en_alerte,
             "lots_actifs": lots_actifs,
+            "active_branche": branche,
             "title": "لوحة تحكم — الإنتاج",
         },
     )
@@ -876,12 +971,19 @@ def collecte_fertilisant_list(request):
     Cross-building raw fertilizer collection list.
 
     Filters: ?batiment=<pk>, ?date_debut, ?date_fin, ?non_affecte=1
+
+    v1.4 (BR-BRA-01/02): Vue par Branche shows only the active branche's
+    collectes (and bâtiments); Vue Globale shows every branche combined.
     """
     from intrants.models import Batiment
 
+    branche = get_active_branche(request)
+
     qs = CollecteFertilisant.objects.select_related(
-        "batiment", "traitement", "created_by"
+        "batiment", "branche", "traitement", "created_by"
     ).order_by("-date_collecte")
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     batiment_pk = request.GET.get("batiment", "")
     if batiment_pk:
@@ -902,6 +1004,8 @@ def collecte_fertilisant_list(request):
         actif=True,
         type_batiment__in=[Batiment.TYPE_POUSSINIERE, Batiment.TYPE_POULAILLER],
     ).order_by("nom")
+    if branche is not None:
+        batiments = batiments.filter(branche=branche)
 
     return render(
         request,
@@ -912,16 +1016,26 @@ def collecte_fertilisant_list(request):
             "batiment_pk": batiment_pk,
             "date_debut": date_debut,
             "date_fin": date_fin,
+            "active_branche": branche,
             "title": "جمع السماد الخام",
         },
     )
 
 
 @login_required(login_url=LOGIN_URL)
+@require_branche_context
 def collecte_fertilisant_create(request):
-    """Record a raw manure collection from a building."""
+    """
+    Record a raw manure collection from a building.
+
+    v1.4 (BR-BRA-01/04): CollecteFertilisant.branche mirrors `batiment.branche`
+    (denormalized, not a form field); the `batiment` choices are scoped to
+    the request's active branche so the derived branche is always correct.
+    """
+    branche = get_active_branche(request)
+
     if request.method == "POST":
-        form = CollecteFertilisantForm(request.POST)
+        form = CollecteFertilisantForm(request.POST, branche=branche)
         if form.is_valid():
             try:
                 collecte = form.save(commit=False)
@@ -945,19 +1059,31 @@ def collecte_fertilisant_create(request):
     else:
         import datetime
 
-        form = CollecteFertilisantForm(initial={"date_collecte": datetime.date.today()})
+        form = CollecteFertilisantForm(
+            initial={"date_collecte": datetime.date.today()}, branche=branche
+        )
 
     return render(
         request,
         "production/collecte_fertilisant_form.html",
-        {"form": form, "title": "جمع سماد خام جديد", "action_label": "حفظ"},
+        {
+            "form": form,
+            "active_branche": branche,
+            "title": "جمع سماد خام جديد",
+            "action_label": "حفظ",
+        },
     )
 
 
 @login_required(login_url=LOGIN_URL)
 def collecte_fertilisant_edit(request, pk):
-    """Edit an unassigned raw fertilizer collection."""
-    collecte = get_object_or_404(CollecteFertilisant, pk=pk)
+    """
+    Edit an unassigned raw fertilizer collection.
+
+    v1.4 (BR-BRA-02): the collecte must belong to the request's active
+    branche; its `batiment` choices stay locked to that same branche.
+    """
+    collecte = branche_object_or_404(request, CollecteFertilisant, pk=pk)
 
     if collecte.est_traitee:
         messages.error(
@@ -967,7 +1093,9 @@ def collecte_fertilisant_edit(request, pk):
         return redirect("production:collecte_fertilisant_list")
 
     if request.method == "POST":
-        form = CollecteFertilisantForm(request.POST, instance=collecte)
+        form = CollecteFertilisantForm(
+            request.POST, instance=collecte, branche=collecte.branche
+        )
         if form.is_valid():
             try:
                 form.save()
@@ -981,7 +1109,7 @@ def collecte_fertilisant_edit(request, pk):
         else:
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
-        form = CollecteFertilisantForm(instance=collecte)
+        form = CollecteFertilisantForm(instance=collecte, branche=collecte.branche)
 
     return render(
         request,
@@ -989,6 +1117,7 @@ def collecte_fertilisant_edit(request, pk):
         {
             "form": form,
             "collecte": collecte,
+            "active_branche": collecte.branche,
             "title": f"تعديل — جمع {collecte.date_collecte}",
             "action_label": "حفظ التعديلات",
         },
@@ -999,7 +1128,7 @@ def collecte_fertilisant_edit(request, pk):
 @require_POST
 def collecte_fertilisant_delete(request, pk):
     """Delete an unassigned raw fertilizer collection (POST-only)."""
-    collecte = get_object_or_404(CollecteFertilisant, pk=pk)
+    collecte = branche_object_or_404(request, CollecteFertilisant, pk=pk)
 
     if collecte.est_traitee:
         messages.error(request, "لا يمكن حذف جمع مرتبط بعملية معالجة.")
@@ -1028,12 +1157,21 @@ def traitement_fertilisant_list(request):
     Fertilizer treatment batch list.
 
     Filters: ?statut=brouillon|valide
+
+    v1.4 (BR-BRA-01/02): Vue par Branche shows only the active branche's
+    treatment batches; Vue Globale shows every branche combined.
     """
+    branche = get_active_branche(request)
+
     qs = (
-        TraitementFertilisant.objects.select_related("produit_fini", "created_by")
+        TraitementFertilisant.objects.select_related(
+            "produit_fini", "branche", "created_by"
+        )
         .prefetch_related("collectes")
         .order_by("-date_traitement")
     )
+    if branche is not None:
+        qs = qs.filter(branche=branche)
 
     statut = request.GET.get("statut", "")
     if statut in (
@@ -1051,16 +1189,27 @@ def traitement_fertilisant_list(request):
             "page": page,
             "statut": statut,
             "statut_choices": TraitementFertilisant.STATUT_CHOICES,
+            "active_branche": branche,
             "title": "معالجة السماد",
         },
     )
 
 
 @login_required(login_url=LOGIN_URL)
+@require_branche_context
 def traitement_fertilisant_create(request):
-    """Create a new fertilizer treatment batch (BROUILLON)."""
+    """
+    Create a new fertilizer treatment batch (BROUILLON).
+
+    v1.4 (BR-BRA-01/04): branche is EXPLICIT here (a batch is created
+    before its raw collectes are necessarily assigned) — pre-selected and
+    locked to the request's active branche; the `collectes` choices are
+    scoped to that same branche.
+    """
+    branche = get_active_branche(request)
+
     if request.method == "POST":
-        form = TraitementFertilisantForm(request.POST)
+        form = TraitementFertilisantForm(request.POST, branche=branche)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -1090,7 +1239,7 @@ def traitement_fertilisant_create(request):
         import datetime
 
         form = TraitementFertilisantForm(
-            initial={"date_traitement": datetime.date.today()}
+            initial={"date_traitement": datetime.date.today()}, branche=branche
         )
 
     return render(
@@ -1098,6 +1247,7 @@ def traitement_fertilisant_create(request):
         "production/traitement_fertilisant_form.html",
         {
             "form": form,
+            "active_branche": branche,
             "title": "دفعة معالجة سماد جديدة",
             "action_label": "حفظ (مسودة)",
         },
@@ -1106,10 +1256,11 @@ def traitement_fertilisant_create(request):
 
 @login_required(login_url=LOGIN_URL)
 def traitement_fertilisant_detail(request, pk):
-    """Detail view for one treatment batch."""
-    traitement = get_object_or_404(
+    """Detail view for one treatment batch (BR-BRA-02: scoped to active branche)."""
+    traitement = branche_object_or_404(
+        request,
         TraitementFertilisant.objects.select_related(
-            "produit_fini", "created_by"
+            "produit_fini", "branche", "created_by"
         ).prefetch_related("collectes__batiment"),
         pk=pk,
     )
@@ -1127,6 +1278,7 @@ def traitement_fertilisant_detail(request, pk):
         {
             "traitement": traitement,
             "mouvements": mouvements,
+            "active_branche": get_active_branche(request),
             "title": f"معالجة سماد — {traitement.date_traitement}",
         },
     )
@@ -1134,15 +1286,17 @@ def traitement_fertilisant_detail(request, pk):
 
 @login_required(login_url=LOGIN_URL)
 def traitement_fertilisant_edit(request, pk):
-    """Edit a BROUILLON treatment batch."""
-    traitement = get_object_or_404(TraitementFertilisant, pk=pk)
+    """Edit a BROUILLON treatment batch (BR-BRA-02: scoped to active branche)."""
+    traitement = branche_object_or_404(request, TraitementFertilisant, pk=pk)
 
     if traitement.statut == TraitementFertilisant.STATUT_VALIDE:
         messages.error(request, "لا يمكن تعديل دفعة معالجة محققة.")
         return redirect("production:traitement_fertilisant_detail", pk=pk)
 
     if request.method == "POST":
-        form = TraitementFertilisantForm(request.POST, instance=traitement)
+        form = TraitementFertilisantForm(
+            request.POST, instance=traitement, branche=traitement.branche
+        )
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -1161,7 +1315,9 @@ def traitement_fertilisant_edit(request, pk):
         else:
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
-        form = TraitementFertilisantForm(instance=traitement)
+        form = TraitementFertilisantForm(
+            instance=traitement, branche=traitement.branche
+        )
 
     return render(
         request,
@@ -1169,6 +1325,7 @@ def traitement_fertilisant_edit(request, pk):
         {
             "form": form,
             "traitement": traitement,
+            "active_branche": traitement.branche,
             "title": f"تعديل — معالجة {traitement.date_traitement}",
             "action_label": "حفظ التعديلات",
         },
@@ -1182,9 +1339,10 @@ def traitement_fertilisant_valider(request, pk):
     Transition a BROUILLON TraitementFertilisant to VALIDE (POST-only).
 
     On transition the post_save signal credits StockProduitFini and creates
-    a StockMouvement (ENTREE / FERTILISANT).
+    a StockMouvement (ENTREE / FERTILISANT), both scoped to traitement.branche.
+    BR-BRA-02: the batch must belong to the request's active branche.
     """
-    traitement = get_object_or_404(TraitementFertilisant, pk=pk)
+    traitement = branche_object_or_404(request, TraitementFertilisant, pk=pk)
 
     if traitement.statut == TraitementFertilisant.STATUT_VALIDE:
         messages.warning(request, "هذه الدفعة محققة مسبقًا.")
@@ -1226,6 +1384,8 @@ def lot_effectif_json(request, lot_pk):
     Called when the user selects a lot in the ProductionRecord form to
     show the maximum number of birds that can be harvested.
 
+    BR-BRA-02: the lot must belong to the request's active branche.
+
     Returns:
         {
           "effectif_vivant": int,
@@ -1238,7 +1398,7 @@ def lot_effectif_json(request, lot_pk):
     """
     from elevage.models import LotElevage
 
-    lot = get_object_or_404(LotElevage, pk=lot_pk)
+    lot = branche_object_or_404(request, LotElevage, pk=lot_pk)
 
     return JsonResponse(
         {
@@ -1258,6 +1418,11 @@ def produit_fini_stock_json(request, pk):
     Return current stock balance for a ProduitFini as JSON.
     Called when building BL Client lines to show available quantity.
 
+    v1.4 (BR-BRA-07): StockProduitFini is now one row per (branche,
+    produit_fini) — scoped to the request's active branche, since a BL
+    Client always depletes exactly one branche's stock. Vue Globale falls
+    back to the aggregated total across every branche.
+
     Returns:
         {
           "quantite": float,
@@ -1266,16 +1431,20 @@ def produit_fini_stock_json(request, pk):
           "en_alerte": bool,
         }
     """
+    branche = get_active_branche(request)
     produit = get_object_or_404(ProduitFini, pk=pk)
     try:
-        stock = produit.stock
+        if branche is not None:
+            stock = produit.stocks.get(branche=branche)
+        else:
+            stock = produit.stocks.first()
         data = {
             "quantite": float(stock.quantite),
             "cout_moyen_production": float(stock.cout_moyen_production),
             "unite_mesure": produit.unite_mesure,
             "en_alerte": stock.en_alerte,
             "seuil_alerte": float(stock.seuil_alerte),
-            "prix_vente_defaut": float(produit.prix_vente_defaut),  # ← add this line
+            "prix_vente_defaut": float(produit.prix_vente_defaut),
         }
     except Exception:
         data = {
@@ -1284,7 +1453,7 @@ def produit_fini_stock_json(request, pk):
             "unite_mesure": produit.unite_mesure,
             "en_alerte": True,
             "seuil_alerte": 0.0,
-            "prix_vente_defaut": float(produit.prix_vente_defaut),  # ← add this line
+            "prix_vente_defaut": float(produit.prix_vente_defaut),
         }
     return JsonResponse(data)
 
@@ -1296,11 +1465,23 @@ from production.models import ProduitFini
 
 @require_GET
 def produit_fini_detail_json(request, pk):
+    """
+    v1.4 (BR-BRA-07): stock quantity/cost are scoped to the request's
+    active branche (one StockProduitFini row per (branche, produit_fini));
+    falls back to the aggregated Vue Globale total when no branche is active.
+    """
+    branche = get_active_branche(request)
     try:
         p = ProduitFini.objects.get(pk=pk, actif=True)
-        stock = p.quantite_en_stock
+        if branche is not None:
+            stock = p.quantite_en_stock_branche(branche)
+        else:
+            stock = p.quantite_en_stock
         try:
-            cmp = float(p.stock.cout_moyen_production)
+            if branche is not None:
+                cmp = float(p.stocks.get(branche=branche).cout_moyen_production)
+            else:
+                cmp = float(p.stocks.first().cout_moyen_production)
         except Exception:
             cmp = 0.0
         return JsonResponse(
@@ -1329,12 +1510,17 @@ def production_dashboard_charts_json(request):
     - stock_par_produit   : current stock quantity per produit fini
     - production_par_type : total quantity produced per product type (all time)
     - cout_vs_revenu      : per-lot cost vs revenue potential comparison
+
+    v1.4 (§3.5.5): every series is scoped to the request's active branche;
+    Vue Globale aggregates across every branche (stock_par_produit then
+    shows one bar per (branche, produit_fini) row rather than per produit).
     """
     import datetime
     from collections import defaultdict
     from stock.models import StockProduitFini
     from production.models import ProductionRecord, ProductionLigne, ProduitFini
 
+    branche = get_active_branche(request)
     today = datetime.date.today()
 
     # ── 1. Monthly production: last 6 months ─────────────────────────────
@@ -1370,11 +1556,14 @@ def production_dashboard_charts_json(request):
 
     for y, m in months:
         monthly_labels.append(f"{FR_MONTHS[m-1]} {y}")
-        agg = ProductionRecord.objects.filter(
+        agg_qs = ProductionRecord.objects.filter(
             statut=ProductionRecord.STATUT_VALIDE,
             date_production__year=y,
             date_production__month=m,
-        ).aggregate(
+        )
+        if branche is not None:
+            agg_qs = agg_qs.filter(branche=branche)
+        agg = agg_qs.aggregate(
             oiseaux=Sum("nombre_oiseaux_abattus"),
             poids=Sum("poids_total_kg"),
         )
@@ -1382,11 +1571,12 @@ def production_dashboard_charts_json(request):
         monthly_poids.append(float(agg["poids"] or 0))
 
     # ── 2. Stock par produit fini ─────────────────────────────────────────
-    stocks = (
-        StockProduitFini.objects.select_related("produit_fini")
-        .filter(produit_fini__actif=True)
-        .order_by("produit_fini__designation")
-    )
+    stocks_qs = StockProduitFini.objects.select_related(
+        "produit_fini", "branche"
+    ).filter(produit_fini__actif=True)
+    if branche is not None:
+        stocks_qs = stocks_qs.filter(branche=branche)
+    stocks = stocks_qs.order_by("produit_fini__designation")
     stock_labels = [s.produit_fini.designation for s in stocks]
     stock_quantities = [float(s.quantite) for s in stocks]
     stock_alertes = [s.en_alerte for s in stocks]
@@ -1395,9 +1585,12 @@ def production_dashboard_charts_json(request):
     # ── 3. Production par type de produit (quantités produites totales) ──
     type_totals = defaultdict(float)
     type_display = dict(ProduitFini.TYPE_CHOICES)
-    for ligne in ProductionLigne.objects.select_related(
+    lignes_qs = ProductionLigne.objects.select_related(
         "produit_fini", "production"
-    ).filter(production__statut=ProductionRecord.STATUT_VALIDE):
+    ).filter(production__statut=ProductionRecord.STATUT_VALIDE)
+    if branche is not None:
+        lignes_qs = lignes_qs.filter(production__branche=branche)
+    for ligne in lignes_qs:
         type_totals[ligne.produit_fini.get_type_produit_display()] += float(
             ligne.quantite
         )
@@ -1408,7 +1601,7 @@ def production_dashboard_charts_json(request):
     # ── 4. Cost vs revenue per lot ────────────────────────────────────────
     from production.utils import get_production_dashboard
 
-    rows = get_production_dashboard()
+    rows = get_production_dashboard(branche=branche)
     lot_labels = [r["lot"].designation.replace(" — ", "\n") for r in rows]
     lot_couts = [float(r["cout_total_dzd"]) for r in rows]
     lot_revenus = []

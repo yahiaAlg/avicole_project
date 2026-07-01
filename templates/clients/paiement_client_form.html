@@ -68,6 +68,8 @@
     <form method="post" id="paiement-form">
       {% csrf_token %}
       {% if client %}{{ form.client }}{% endif %}
+      {{ form.branche }}
+      {% for err in form.branche.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
 
       <div class="form-card">
         <div class="form-card__title"><i class="bx bxs-wallet"></i> تفاصيل الدفعة</div>
