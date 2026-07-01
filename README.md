@@ -510,3 +510,7 @@ psql -U postgres -c "CREATE USER admin WITH PASSWORD 'system2026*';"
 psql -U postgres -c "CREATE DATABASE avicole_db OWNER admin;"
 psql -U postgres -d avicole_db -c "GRANT ALL ON SCHEMA public TO admin;"
 ```
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
