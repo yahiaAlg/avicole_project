@@ -32,11 +32,15 @@ class StockIntrant(models.Model):
     never edited directly — it is updated exclusively through
     StockMouvement records triggered by validated BL Fournisseur,
     Consommation, and StockAjustement events, all scoped to this branche.
+
+    `branche` uses on_delete=CASCADE: deleting a Branche is an explicit
+    admin decision to wipe that branch, and its stock balances are wiped
+    along with it — no separate decommissioning step required.
     """
 
     branche = models.ForeignKey(
         "core.Branche",
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="stocks_intrants",
         verbose_name="الفرع",
     )
@@ -100,11 +104,15 @@ class StockProduitFini(models.Model):
     (branche, produit_fini). Increases via validated ProductionRecord
     lines for that branch. Decreases via validated BL Client lines for
     that branch.
+
+    `branche` uses on_delete=CASCADE: deleting a Branche is an explicit
+    admin decision to wipe that branch, and its stock balances are wiped
+    along with it — no separate decommissioning step required.
     """
 
     branche = models.ForeignKey(
         "core.Branche",
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="stocks_produits_finis",
         verbose_name="الفرع",
     )
@@ -170,6 +178,12 @@ class StockMouvement(models.Model):
     stock segment.  Created automatically by signals; never edited manually.
 
     Only one of (intrant / produit_fini) is populated per record.
+
+    `branche` uses on_delete=CASCADE: deleting a Branche is an explicit
+    admin decision to wipe that branch, and its movement history is wiped
+    along with it (this is intentional per stakeholder decision — no
+    separate decommissioning step, no confirmation screen enumerating
+    what's gone).
     """
 
     TYPE_ENTREE = "entree"
@@ -206,12 +220,10 @@ class StockMouvement(models.Model):
 
     # v1.4 — quantite_avant/quantite_apres now refer to that branche's
     # StockIntrant/StockProduitFini row, not a single farm-wide balance
-    # (BR-BRA-07). Required and explicit (not derived) since this is an
-    # immutable audit record that must stay correct even if the source
-    # document is later reassigned.
+    # (BR-BRA-07).
     branche = models.ForeignKey(
         "core.Branche",
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="mouvements_stock",
         verbose_name="الفرع",
     )
@@ -292,6 +304,10 @@ class StockAjustement(models.Model):
     """
     Manual correction applied when a physical count reveals a discrepancy.
     Flagged in audit trail; generates a StockMouvement of type 'ajustement'.
+
+    `branche` uses on_delete=CASCADE: deleting a Branche is an explicit
+    admin decision to wipe that branch, and its adjustment history is
+    wiped along with it.
     """
 
     SEGMENT_INTRANT = "intrant"
@@ -306,11 +322,10 @@ class StockAjustement(models.Model):
         max_length=20, choices=SEGMENT_CHOICES, verbose_name="قطاع المخزون"
     )
     # v1.4 — identifies which branch's StockIntrant/StockProduitFini row is
-    # being corrected (BR-BRA-07). Required and explicit for the same
-    # immutability reason as StockMouvement.branche above.
+    # being corrected (BR-BRA-07).
     branche = models.ForeignKey(
         "core.Branche",
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="ajustements_stock",
         verbose_name="الفرع",
     )

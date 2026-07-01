@@ -152,6 +152,14 @@ class Branche(models.Model):
     (`<prefix>-<code_branche>-<YYYY>-<NNNN>`, §3.5.4 / BR-BRA-05) so
     numbering sequences never collide across branches — keep it short
     and stable once documents have been issued under it.
+
+    Deleting a Branche is a deliberate, admin-only action from the admin
+    site. Every branch-scoped model (StockIntrant, StockProduitFini,
+    StockMouvement, StockAjustement, UserProfile, ...) points back here
+    with on_delete=CASCADE, so deleting a branch wipes all of its stock,
+    movement/adjustment history, and detaches (deletes) any UserProfile
+    bound to it in one action, with no separate decommissioning step —
+    this is an intentional design choice, not an oversight.
     """
 
     nom = models.CharField(max_length=150, verbose_name="اسم الفرع")
@@ -221,6 +229,16 @@ class UserProfile(models.Model):
                        implicitly filtered to it, with no switcher.
       - comptable   : `branche` is OPTIONAL — set for branch-only visibility,
                        left None for company-wide (Vue Globale) visibility.
+
+    `branche` uses on_delete=CASCADE (not PROTECT): deleting a Branche from
+    the admin is a deliberate wipe, and this profile goes with it — this
+    ALSO deletes the underlying User's profile row outright (not just
+    unbinds it), so a chef_branche/operateur whose only branch was deleted
+    loses their profile entirely and `request.user.profile` will raise
+    RelatedObjectDoesNotExist for that account until a new profile is
+    created for them. This is an accepted tradeoff of "delete = fully
+    gone, no extra steps" (stakeholder decision) — reassign or recreate
+    affected users' profiles manually after a branch deletion.
     """
 
     ROLE_ADMIN = "admin"
@@ -249,7 +267,7 @@ class UserProfile(models.Model):
     )
     branche = models.ForeignKey(
         Branche,
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="utilisateurs",
