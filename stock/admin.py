@@ -79,7 +79,12 @@ class StockIntrantAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
-        return False
+        # Manually deleting a system-maintained balance/audit row is
+        # blocked for everyone, EXCEPT a superuser must still be able to
+        # delete it as part of a cascade (e.g. deleting a Branche) — a
+        # bare 'return False' here also defeats Django's own superuser
+        # bypass and wrongly blocks that cascade.
+        return request.user.is_superuser
 
     def has_change_permission(self, request, obj=None):
         return False
@@ -133,7 +138,12 @@ class StockProduitFiniAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
-        return False
+        # Manually deleting a system-maintained balance/audit row is
+        # blocked for everyone, EXCEPT a superuser must still be able to
+        # delete it as part of a cascade (e.g. deleting a Branche) — a
+        # bare 'return False' here also defeats Django's own superuser
+        # bypass and wrongly blocks that cascade.
+        return request.user.is_superuser
 
     def has_change_permission(self, request, obj=None):
         return False
@@ -207,7 +217,12 @@ class StockMouvementAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
-        return False
+        # Manually deleting a system-maintained balance/audit row is
+        # blocked for everyone, EXCEPT a superuser must still be able to
+        # delete it as part of a cascade (e.g. deleting a Branche) — a
+        # bare 'return False' here also defeats Django's own superuser
+        # bypass and wrongly blocks that cascade.
+        return request.user.is_superuser
 
     def has_change_permission(self, request, obj=None):
         return False
@@ -309,4 +324,9 @@ class StockAjustementAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         return self.readonly_fields
 
     def has_delete_permission(self, request, obj=None):
-        return False
+        # Manually deleting a system-maintained balance/audit row is
+        # blocked for everyone, EXCEPT a superuser must still be able to
+        # delete it as part of a cascade (e.g. deleting a Branche) — a
+        # bare 'return False' here also defeats Django's own superuser
+        # bypass and wrongly blocks that cascade.
+        return request.user.is_superuser
