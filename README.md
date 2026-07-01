@@ -486,3 +486,21 @@ Business logic guards (e.g. `Consommation.intrant` queryset, `consommation_total
 ## License
 
 Internal use only — _Élevage Avicole Setif_.
+
+---
+
+## mysql collate issue fix
+
+```bash
+python manage.py shell -c "
+from django.db import connection
+with connection.cursor() as cursor:
+    cursor.execute(\"SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()\")
+    tables = cursor.fetchall()
+    for (table,) in tables:
+        sql = f'ALTER TABLE \`{table}\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
+        print(f'Converting {table}...')
+        cursor.execute(sql)
+print('Done!')
+"
+```
