@@ -5,9 +5,6 @@ Django settings for config project.
 from pathlib import Path
 import os
 from dotenv import load_dotenv
-import pymysql
-
-pymysql.install_as_MySQLdb()
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -73,7 +70,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 # ---------------------------------------------------------------------------
-# Database — MySQL if credentials present, SQLite fallback otherwise
+# Database — PostgreSQL if credentials present, SQLite fallback otherwise
 # ---------------------------------------------------------------------------
 
 _DB_NAME = os.environ.get("DB_NAME")
@@ -83,20 +80,14 @@ _DB_PASSWORD = os.environ.get("DB_PASSWORD")
 if _DB_NAME and _DB_USER and _DB_PASSWORD:
     DATABASES = {
         "default": {
-            "ENGINE": "django.db.backends.mysql",
+            "ENGINE": "django.db.backends.postgresql",
             "NAME": _DB_NAME,
             "USER": _DB_USER,
             "PASSWORD": _DB_PASSWORD,
             "HOST": os.environ.get("DB_HOST", "localhost"),
-            "PORT": os.environ.get("DB_PORT", "3306"),
+            "PORT": os.environ.get("DB_PORT", "5432"),
             "OPTIONS": {
-                "charset": "utf8mb4",
-                "init_command": (
-                    "SET character_set_client = utf8mb4, "
-                    "character_set_connection = utf8mb4, "
-                    "character_set_results = utf8mb4, "
-                    "collation_connection = utf8mb4_unicode_ci"
-                ),
+                "options": "-c client_encoding=UTF8",
             },
         }
     }
