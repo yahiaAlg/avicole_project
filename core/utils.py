@@ -12,6 +12,8 @@ BR-BRA-05, keeping each branch's sequence independent without any
 cross-branch coordination.
 """
 
+from __future__ import annotations
+
 import datetime
 import logging
 

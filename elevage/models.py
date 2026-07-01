@@ -334,12 +334,30 @@ class LotElevage(models.Model):
         """
         Estimated total input cost = Σ (quantite × prix_unitaire_moyen)
         for all consommation records where PMP is available.
+
+        v1.4 (BR-BRA-07): StockIntrant moved from a one-to-one on `intrant`
+        to a per-(branche, intrant) row (related_name "stocks"), so the PMP
+        must be looked up for THIS lot's own branche — an intrant can now
+        have a different weighted-average cost in another branche.
         """
+        from django.db.models import Prefetch
+        from stock.models import StockIntrant
+
         total = 0
-        for c in self.consommations.select_related("intrant__stock").all():
+        for c in (
+            self.consommations.select_related("intrant")
+            .prefetch_related(
+                Prefetch(
+                    "intrant__stocks",
+                    queryset=StockIntrant.objects.filter(branche=self.branche),
+                    to_attr="stocks_branche",
+                )
+            )
+            .all()
+        ):
             try:
-                pmp = c.intrant.stock.prix_moyen_pondere
-            except Exception:
+                pmp = c.intrant.stocks_branche[0].prix_moyen_pondere
+            except (IndexError, AttributeError):
                 pmp = 0
             total += float(c.quantite) * float(pmp)
         return round(total, 2)

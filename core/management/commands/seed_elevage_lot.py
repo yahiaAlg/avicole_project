@@ -7,29 +7,33 @@ de toutes les mortalités, consommations d'aliments et de médicaments.
 
 Utilisation :
     # Peuplement complet (mortalités + aliments + médicaments)
-    python manage.py seed_elevage_lot --lot "Lot Mai 2026 — Bâtiment A"
+    python manage.py seed_elevage_lot --lot "Lot Mars 2025 — Bâtiment A"
 
     # Seulement les mortalités
-    python manage.py seed_elevage_lot --lot "Lot Mai 2026 — Bâtiment A" --what mortalites
+    python manage.py seed_elevage_lot --lot "Lot Mars 2025 — Bâtiment A" --what mortalites
 
     # Seulement les consommations aliments
-    python manage.py seed_elevage_lot --lot "Lot Mai 2026 — Bâtiment A" --what aliments
+    python manage.py seed_elevage_lot --lot "Lot Mars 2025 — Bâtiment A" --what aliments
 
     # Seulement les consommations médicaments
-    python manage.py seed_elevage_lot --lot "Lot Mai 2026 — Bâtiment A" --what medics
+    python manage.py seed_elevage_lot --lot "Lot Mars 2025 — Bâtiment A" --what medics
 
-    # Utiliser les données du scénario Mai 2026 par défaut (sans spécifier --lot)
+    # Utiliser le lot par défaut (celui ouvert dans Bâtiment A par seed_db.py)
     python manage.py seed_elevage_lot
 
 Notes :
     - La commande est idempotente (get_or_create partout).
-    - Le lot doit déjà exister avec le statut OUVERT.
+    - Le lot doit déjà exister avec le statut OUVERT (créé par `seed_db`, qui
+      seed "Lot Mars 2025 — Bâtiment A" avec une date_ouverture RELATIVE —
+      date.today() - 40 jours — et non une date calendaire fixe).
     - Les intrants référencés doivent exister dans la base (créés via l'interface
       après avoir exécuté seed_db_minimal pour les catégories).
-    - Les dates sont ABSOLUES (issues du scénario Mai 2026) ; pour un autre lot,
-      adaptez les dates via --date-offset (décalage en jours par rapport aux dates du scénario).
+    - Les dates ci-dessous sont exprimées en JOURS ÉCOULÉS DEPUIS
+      lot.date_ouverture (et non en dates calendaires absolues), pour rester
+      cohérentes quel que soit le jour d'exécution de `seed_db`.
+      --date-offset ajoute un décalage supplémentaire (en jours) si besoin.
 
-Données incluses (scénario Lot Mai 2026 — Bâtiment A, 2 000 poussins Ross 308) :
+Données incluses (scénario Lot Mars 2025 — Bâtiment A, 4 000 poussins Cobb 500) :
     Mortalités   : 5 événements, 40 oiseaux au total
     Aliments     : 11 saisies (démarrage / croissance / finition)
     Médicaments  : 7 saisies (vaccins + amoxicilline + vitamines)
@@ -37,7 +41,7 @@ Données incluses (scénario Lot Mai 2026 — Bâtiment A, 2 000 poussins Ross 3
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth.models import User
@@ -45,49 +49,52 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 # ---------------------------------------------------------------------------
-# Données du scénario — Lot Mai 2026 — Bâtiment A
-# Modifiez ces constantes si vous utilisez un autre scénario.
+# Données du scénario — Lot Mars 2025 — Bâtiment A
+# Toutes les dates sont exprimées en jours écoulés depuis lot.date_ouverture
+# (J0 = date d'ouverture) pour rester valides quelle que soit la date réelle
+# à laquelle seed_db a été exécuté. Modifiez ces constantes si vous utilisez
+# un autre scénario.
 # ---------------------------------------------------------------------------
 
-DEFAULT_LOT_DESIGNATION = "Lot Mai 2026 — Bâtiment A"
+DEFAULT_LOT_DESIGNATION = "Lot Mars 2025 — Bâtiment A"
 
-# Format : (date_iso, nombre, cause)
+# Format : (jour_depuis_ouverture, nombre, cause)
 MORTALITE_DATA = [
-    ("2026-05-13", 5, "Stress transport / déshydratation"),
-    ("2026-05-18", 10, "Infection respiratoire précoce"),
-    ("2026-05-24", 12, "Aspergillose suspectée"),
-    ("2026-06-01", 8, "Coccidiose — traitement lancé"),
-    ("2026-06-14", 5, "Cause indéterminée"),
+    (1, 5, "Stress transport / déshydratation"),
+    (6, 10, "Infection respiratoire précoce"),
+    (12, 12, "Aspergillose suspectée"),
+    (20, 8, "Coccidiose — traitement lancé"),
+    (33, 5, "Cause indéterminée"),
 ]
 
-# Format : (date_iso, designation_intrant, quantite)
+# Format : (jour_depuis_ouverture, designation_intrant, quantite)
 # Désignations EXACTES telles qu'elles existent dans la table Intrant.
 ALIMENT_DATA = [
     # Démarrage J0→J14
-    ("2026-05-12", "علف البداية — الطور الأول (0–14 يوم)", Decimal("25.000")),
-    ("2026-05-14", "علف البداية — الطور الأول (0–14 يوم)", Decimal("25.000")),
-    ("2026-05-17", "علف البداية — الطور الأول (0–14 يوم)", Decimal("50.000")),
-    ("2026-05-21", "علف البداية — الطور الأول (0–14 يوم)", Decimal("50.000")),
-    ("2026-05-24", "علف البداية — الطور الأول (0–14 يوم)", Decimal("50.000")),
+    (0, "علف البداية — الطور الأول (0–14 يوم)", Decimal("25.000")),
+    (2, "علف البداية — الطور الأول (0–14 يوم)", Decimal("25.000")),
+    (5, "علف البداية — الطور الأول (0–14 يوم)", Decimal("50.000")),
+    (9, "علف البداية — الطور الأول (0–14 يوم)", Decimal("50.000")),
+    (12, "علف البداية — الطور الأول (0–14 يوم)", Decimal("50.000")),
     # Croissance J15→J28
-    ("2026-05-25", "علف النمو — الطور الثاني (15–28 يوم)", Decimal("60.000")),
-    ("2026-06-01", "علف النمو — الطور الثاني (15–28 يوم)", Decimal("60.000")),
-    ("2026-06-08", "علف النمو — الطور الثاني (15–28 يوم)", Decimal("60.000")),
+    (13, "علف النمو — الطور الثاني (15–28 يوم)", Decimal("60.000")),
+    (20, "علف النمو — الطور الثاني (15–28 يوم)", Decimal("60.000")),
+    (27, "علف النمو — الطور الثاني (15–28 يوم)", Decimal("60.000")),
     # Finition J29→J40
-    ("2026-06-08", "علف التسمين — الطور الثالث (29 يوم فأكثر)", Decimal("50.000")),
-    ("2026-06-13", "علف التسمين — الطور الثالث (29 يوم فأكثر)", Decimal("50.000")),
-    ("2026-06-18", "علف التسمين — الطور الثالث (29 يوم فأكثر)", Decimal("50.000")),
+    (27, "علف التسمين — الطور الثالث (29 يوم فأكثر)", Decimal("50.000")),
+    (32, "علف التسمين — الطور الثالث (29 يوم فأكثر)", Decimal("50.000")),
+    (37, "علف التسمين — الطور الثالث (29 يوم فأكثر)", Decimal("50.000")),
 ]
 
-# Format : (date_iso, designation_intrant, quantite)
+# Format : (jour_depuis_ouverture, designation_intrant, quantite)
 MEDIC_DATA = [
-    ("2026-05-13", "فيتامينات + إلكتروليتات (مركّب)", Decimal("2.000")),
-    ("2026-05-18", "أموكسيسيلين 50% مسحوق", Decimal("250.000")),
-    ("2026-05-18", "فيتامينات + إلكتروليتات (مركّب)", Decimal("3.000")),
-    ("2026-05-24", "لقاح نيوكاسل (هيتشنر B1)", Decimal("2000.000")),
-    ("2026-06-01", "لقاح غامبورو (IBD متوسط)", Decimal("1965.000")),
-    ("2026-06-01", "أموكسيسيلين 50% مسحوق", Decimal("250.000")),
-    ("2026-06-01", "فيتامينات + إلكتروليتات (مركّب)", Decimal("5.000")),
+    (1, "فيتامينات + إلكتروليتات (مركّب)", Decimal("2.000")),
+    (6, "أموكسيسيلين 50% مسحوق", Decimal("250.000")),
+    (6, "فيتامينات + إلكتروليتات (مركّب)", Decimal("3.000")),
+    (12, "لقاح نيوكاسل (هيتشنر B1)", Decimal("2000.000")),
+    (20, "لقاح غامبورو (IBD متوسط)", Decimal("1965.000")),
+    (20, "أموكسيسيلين 50% مسحوق", Decimal("250.000")),
+    (20, "فيتامينات + إلكتروليتات (مركّب)", Decimal("5.000")),
 ]
 
 
@@ -204,8 +211,8 @@ class Command(BaseCommand):
         from elevage.models import Mortalite
 
         created_count = 0
-        for date_iso, nombre, cause in MORTALITE_DATA:
-            dt = date.fromisoformat(date_iso) + offset
+        for jour, nombre, cause in MORTALITE_DATA:
+            dt = lot.date_ouverture + timedelta(days=jour) + offset
             _, created = Mortalite.objects.get_or_create(
                 lot=lot,
                 date=dt,
@@ -243,7 +250,7 @@ class Command(BaseCommand):
         # across different categories (the Intrant.designation field is not unique).
         intrant_cache: dict[str, object] = {}
         missing: list[str] = []
-        for _, designation, _ in data:
+        for _jour, designation, _quantite in data:
             if designation not in intrant_cache:
                 try:
                     intrant_cache[designation] = Intrant.objects.get(
@@ -269,8 +276,8 @@ class Command(BaseCommand):
             )
 
         created_count = 0
-        for date_iso, designation, quantite in data:
-            dt = date.fromisoformat(date_iso) + offset
+        for jour, designation, quantite in data:
+            dt = lot.date_ouverture + timedelta(days=jour) + offset
             intrant = intrant_cache[designation]
             _, created = Consommation.objects.get_or_create(
                 lot=lot,
