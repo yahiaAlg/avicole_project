@@ -18,8 +18,9 @@ management/commands/seed_phase0.py
     • Fournisseur (5)  — CCA / ONAB / Sanofi / Proxi-Aliments / Techno-Avicole
     • Client (5)       — Marché de Gros / Boucherie Amrane / Restaurant Le Palmier /
                           Épicerie Centrale Azazga / Grossiste Alger Sud
-    • Intrant (10)     — Poussin Ross 308, Aliments (démarrage/croissance/finition),
+    • Intrant (13)     — Poussin Ross 308, Aliments (démarrage/croissance/finition),
                           Vaccins (Newcastle/Gumboro), Amoxicilline, Vitamines,
+                          Poussine ISA Brown, Aliments Pré-Ponte/Ponte,
                           Poussin Cobb 500, Litière
 
 ما لا يتم إنشاؤه هنا (يُسجَّل يدوياً عبر الواجهة — branch-scoped) :
@@ -304,6 +305,37 @@ class Command(BaseCommand):
                 unite_mesure="litre",
                 seuil_alerte=Decimal("5"),
                 fournisseurs=[sanofi],
+            ),
+            dict(
+                designation="كتكوت دجاج بياض ISA Brown (يوم واحد)",
+                categorie=cat("POUSSIN"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure="unite",
+                seuil_alerte=Decimal("100"),
+                fournisseurs=[cca],
+            ),
+            dict(
+                designation="علف ما قبل الإنتاج — Pré-Ponte (15–18 أسبوع)",
+                categorie=cat("ALIMENT"),
+                # demarrage : la pondeuse est encore en Poussinière à cet âge
+                # (transfert au point de ponte, ~126 j — cf. scenario §5.6).
+                stade=Intrant.STADE_DEMARRAGE,
+                unite_mesure="sac",
+                seuil_alerte=Decimal("10"),
+                fournisseurs=[onab],
+            ),
+            dict(
+                designation="علف الإنتاج — Ponte (عالي الكالسيوم)",
+                categorie=cat("ALIMENT"),
+                # ⚠️ CRITIQUE : stade=croissance et NON stade=ponte. Le
+                # mapping LotElevage.stade_intrant_attendu ne renvoie jamais
+                # STADE_PONTE (Poulailler → STADE_CROISSANCE uniquement) ;
+                # un intrant en stade=ponte serait donc INVISIBLE dans
+                # ConsommationForm une fois le lot transféré au poulailler.
+                stade=Intrant.STADE_CROISSANCE,
+                unite_mesure="sac",
+                seuil_alerte=Decimal("15"),
+                fournisseurs=[onab],
             ),
             dict(
                 designation="كتكوت كوب 500 (يوم واحد)",

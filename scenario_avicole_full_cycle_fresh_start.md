@@ -15,8 +15,8 @@
 2. [Ce que le seed minimal fournit](#2-ce-que-le-seed-minimal-fournit)
 3. [Phase 0 — Configuration Initiale (fournisseurs, clients, bâtiments, intrants)](#phase-0--configuration-initiale-saisie-manuelle)
 4. [Phase 1 — Achats Intrants (BL + Facture + Règlement)](#3-phase-1--achats-intrants)
-5. [Phase 2 — Ouverture du Lot d'Élevage](#4-phase-2--ouverture-du-lot-délevage)
-6. [Phase 3 — Suivi Quotidien (Mortalités + Consommations)](#5-phase-3--suivi-quotidien)
+5. [Phase 2 — Ouverture du Lot d'Élevage (+ Lot Pondeuses, Poussinière Bâtiment C)](#4-phase-2--ouverture-du-lot-délevage)
+6. [Phase 3 — Suivi Quotidien (Mortalités + Consommations + Fertilisant + Élevage/Transfert/Ponte Pondeuses)](#5-phase-3--suivi-quotidien)
 7. [Phase 4 — Abattage & Production](#6-phase-4--abattage--production)
 8. [Phase 5 — Ajustement de Stock](#7-phase-5--ajustement-de-stock)
 9. [Phase 6 — Vente & Livraison Client](#8-phase-6--vente--livraison-client)
@@ -247,22 +247,31 @@ Module : PARAMÈTRES → Paramétrage Élevage → [Modifier]
 Modèle : ParametrageElevage (singleton — une seule ligne en base)
 
 ✅ Le seed_db_minimal crée déjà ce singleton avec les valeurs suivantes :
-   age_transfert_poussiniere_jours : 21   ← seeded
+   age_transfert_poussiniere_jours : 126  ← seeded (seuil réaliste "point de ponte", 18 sem.)
    age_maturite_vente_jours        : 35   ← seeded
 
 Impact sur ce cycle :
 
-  age_maturite_vente_jours = 35 ← le lot dure 40 j > 35 → ProductionRecord
-                                   validable ✅ Aucun ajustement nécessaire.
+  age_maturite_vente_jours = 35 ← le lot broiler dure 40 j > 35 →
+                                   ProductionRecord validable ✅ Aucun
+                                   ajustement nécessaire.
 
-  age_transfert_poussiniere_jours = 21 ← à J+21 (2026-05-31) le système
-                                          lève l'alerte "doit_etre_transfere".
-                                          ⚠️ Pour ce lot broiler Ross 308 de 40 j
-                                          qui reste en Poussinière tout le cycle,
-                                          ignorer l'alerte dashboard — aucun
-                                          TransfertLot ne sera créé.
-                                          (Pour les lots volaille longue durée /
-                                          ponte, configurer à 126 j ou adapter.)
+  age_transfert_poussiniere_jours = 126 ← seuil biologique réel pour une
+                                           poulette pondeuse (transfert
+                                           Poussinière → Poulailler au
+                                           point de ponte, ~18 semaines).
+                                           Ce seuil est FARM-WIDE (singleton) :
+
+    • Lot broiler Ross 308 (Bâtiment A, 40 j) : 40 j < 126 j → l'alerte
+      "doit_etre_transfere" ne se déclenche JAMAIS. Cohérent avec la
+      biologie : un broiler est abattu bien avant l'âge de ponte, il n'y
+      a donc aucun TransfertLot sur ce lot (cf. Annexe B).
+
+    • Lot Pondeuses ISA Brown (Bâtiment C → Bâtiment B, §5.6) : l'alerte
+      se déclenche exactement à J+126, jour où le TransfertLot est
+      enregistré dans ce scénario — exercice réel de doit_etre_transfere
+      ET de TransfertLot, contrairement à la version précédente du
+      document où les pondeuses étaient achetées déjà en pré-ponte.
 ```
 
 ---
@@ -281,17 +290,21 @@ BAT-1 — Bâtiment A  ← requis pour le lot
   capacite        : 5 000
   description     : الحظيرة الرئيسية — تهوية ميكانيكية
 
-BAT-2 — Bâtiment B  (optionnel — lots futurs)
+BAT-2 — Bâtiment B  ← requis pour le lot pondeuses (destination de ponte, §5.6)
   nom             : Bâtiment B
   type_batiment   : poulailler
   capacite        : 4 000
   description     : الحظيرة الثانوية — تهوية طبيعية
 
-BAT-3 — Bâtiment C  (optionnel)
+BAT-3 — Bâtiment C  ← requis pour le lot pondeuses (élevage initial, §4.3 / §5.6)
   nom             : Bâtiment C
-  type_batiment   : poulailler
-  capacite        : 6 000
-  description     : حظيرة جديدة — عزل مُحسَّن
+  type_batiment   : poussiniere   ← REQUIS — les poussines pondeuses démarrent
+                                    aussi obligatoirement en Poussinière
+                                    (BR-LOT-01), séparée de Bâtiment A pour ne
+                                    pas mélanger les deux cohortes (broiler /
+                                    pondeuses) dans le même local physique.
+  capacite        : 3 500
+  description     : حضانة مخصصة لدجاج البيض — منفصلة عن المبنى A
 
 BAT-4 — Dépôt Aliments  (optionnel)
   nom               : Dépôt Aliments
@@ -375,7 +388,38 @@ INT-8 — Vitamines + Électrolytes  ← requis (BLF-0004, support J3/J8/J22)
   seuil_alerte   : 5
   fournisseurs   : Sanofi Algérie (Vétérinaire)
 
-INT-9 — Poussin Cobb 500  (optionnel — lots futurs)
+INT-9 — Poussine ISA Brown  ← requis (ouverture Lot Pondeuses, §4.3)
+  designation    : كتكوت دجاج بياض ISA Brown (يوم واحد)
+  categorie      : POUSSIN
+  stade          : tous
+  unite_mesure   : unite
+  seuil_alerte   : 100
+  fournisseurs   : Couvoirs du Centre — CCA
+
+INT-10 — Aliment Pré-Ponte  ← requis (§5.6, consommations semaines 15–18)
+  designation    : علف ما قبل الإنتاج — Pré-Ponte (15–18 أسبوع)
+  categorie      : ALIMENT
+  stade          : demarrage    ← la pondeuse est encore en Poussinière à cet
+                                   âge (transfert au point de ponte à J+126)
+  unite_mesure   : sac
+  seuil_alerte   : 10
+  fournisseurs   : ONAB Setifien
+
+INT-11 — Aliment Ponte  ← requis (§5.6, consommations post-transfert)
+  designation    : علف الإنتاج — Ponte (عالي الكالسيوم)
+  categorie      : ALIMENT
+  stade          : croissance   ← ⚠️ CRITIQUE : PAS stade=ponte. La méthode
+                                   LotElevage.stade_intrant_attendu ne mappe
+                                   jamais vers STADE_PONTE (Poulailler →
+                                   STADE_CROISSANCE uniquement) — un intrant
+                                   en stade=ponte serait INVISIBLE dans
+                                   ConsommationForm une fois le lot transféré
+                                   au poulailler. Voir Annexe B.
+  unite_mesure   : sac
+  seuil_alerte   : 15
+  fournisseurs   : ONAB Setifien
+
+INT-12 — Poussin Cobb 500  (optionnel — lots futurs)
   designation    : كتكوت كوب 500 (يوم واحد)
   categorie      : POUSSIN
   stade          : tous
@@ -383,7 +427,7 @@ INT-9 — Poussin Cobb 500  (optionnel — lots futurs)
   seuil_alerte   : 100
   fournisseurs   : Couvoirs du Centre — CCA
 
-INT-10 — Litière  (optionnel)
+INT-13 — Litière  (optionnel)
   designation    : فراش (نشارة خشب)
   categorie      : AUTRE
   stade          : tous
@@ -645,6 +689,43 @@ Modèle : LotElevage
    (−1 par oiseau mort via signal mortalite_post_save).
 ```
 
+### 4.3 Ouverture du Lot Pondeuses (Bâtiment C — Poussinière)
+
+```
+Module : ÉLEVAGE → Lots → [Ouvrir un nouveau lot]
+Modèle : LotElevage
+
+⚠️ Second lot, INDÉPENDANT du lot broiler ci-dessus — démontre le
+   fonctionnement multi-lot / multi-bâtiment de la ferme, et suit un cycle
+   biologique complet propre aux pondeuses qu'un lot broiler Ross 308 ne
+   connaît jamais (pas de phase de ponte, abattu à 40 j — cf. Annexe B) :
+
+     poussine d'un jour → élevage en Poussinière (18 sem.) → TransfertLot
+     vers Poulailler au point de ponte → montée en ponte → RecolteOeufs
+
+   Contrairement à la version précédente de ce scénario (poules achetées
+   déjà en pré-ponte directement au Poulailler), le lot démarre ici comme
+   un VRAI lot de poussines d'un jour, exactement comme le lot broiler,
+   ce qui permet d'exercer BR-LOT-01 (ouverture obligatoire en Poussinière),
+   doit_etre_transfere et TransfertLot de façon biologiquement cohérente.
+
+  designation              : "Lot Pondeuses 2026"
+  date_ouverture           : 2026-05-15
+  nombre_poussins_initial  : 3 000        ← poussines ISA Brown d'un jour
+  fournisseur_poussins     : Couvoirs du Centre — CCA
+  bl_fournisseur_poussins  : (vide — simplifié, pas de BL dédié dans ce cycle,
+                               comme pour le poussin ISA Brown INT-9)
+  batiment                 : Bâtiment C   ← poussinière dédiée (BAT-3, §0.3),
+                                            distincte de Bâtiment A (broiler)
+  souche                   : ISA Brown
+  lot_parent               : (vide — lot racine)
+  notes                    : "Lot pondeuses — cycle complet Poussinière → Poulailler → Ponte, indépendant du cycle broiler"
+
+  → statut = ouvert
+  → effectif_vivant = 3 000
+  → phase = poussiniere (batiment.type_batiment)
+```
+
 ---
 
 ## 5. Phase 3 — Suivi Quotidien
@@ -759,6 +840,243 @@ Phase Préventive & Curative :
   Vaccin Gumboro    : 4 000 - 1 965 =  2 035 doses
   Amoxicilline      :   500 -   500 =     0 g ← épuisé
   Vitamines         :    10 -    10 =     0 L ← épuisé
+```
+
+### 5.5 Fertilisant — Collecte & Traitement (`CollecteFertilisantForm` / `TraitementFertilisantForm`)
+
+```
+Module : ÉLEVAGE → Fertilisant → [Nouvelle collecte] / [Nouveau traitement]
+Règle  : rattaché au BÂTIMENT (Bâtiment A), pas au lot — la litière est un
+         sous-produit du bâtiment, pas d'une cohorte en particulier.
+         branche dérivée automatiquement de batiment.branche (BR-BRA-01).
+
+Collectes brutes (CollecteFertilisant) :
+  ┌────────────────────────────────────────────────────────┐
+  │ date       │ bâtiment    │ quantité brute              │
+  ├────────────┼─────────────┼──────────────────────────────┤
+  │ 2026-05-20 │ Bâtiment A  │ 180,000 kg                  │
+  │ 2026-05-30 │ Bâtiment A  │ 220,000 kg                  │
+  │ 2026-06-09 │ Bâtiment A  │ 240,000 kg                  │
+  │ 2026-06-18 │ Bâtiment A  │ 200,000 kg  (nettoyage fin) │
+  └────────────┴─────────────┴──────────────────────────────┘
+  Total brut collecté : 840,000 kg
+
+Traitement (TraitementFertilisant) — batch unique regroupant les 4 collectes :
+  date_traitement       : 2026-06-24
+  méthode                : تجفيف طبيعي بالشمس (séchage naturel au soleil)
+  produit_fini           : سماد دواجن معالج (مجفف) [type_produit=fertilisant]
+  quantite_obtenue_kg    : 720,000 kg   (≈ 86 % du brut — perte d'humidité)
+  cout_unitaire_estime   : 9,5000 د.ج/kg
+  statut                 : validé ✅
+
+  → Signal traitement_fertilisant_post_save crédite StockProduitFini
+    (سماد دواجن معالج) de +720,000 kg, une seule fois à la validation
+    (mirroring ProductionRecord BROUILLON → VALIDE, §6.2-6.3).
+  → Les 4 CollecteFertilisant voient leur champ `traitement` assigné à ce
+    batch — elles ne peuvent plus être réaffectées à un autre traitement
+    tant que celui-ci reste validé.
+```
+
+### 5.6 Lot Pondeuses — Élevage, Transfert & Montée en Ponte
+
+```
+Lot : "Lot Pondeuses 2026" — J0 = 2026-05-15 — Bâtiment C (Poussinière) → Bâtiment B (Poulailler)
+
+Ce lot suit, en parallèle du cycle broiler, un vrai cycle biologique de
+pondeuse : élevage en Poussinière jusqu'au point de ponte (18 semaines /
+126 j), transfert vers le Poulailler, puis montée en ponte progressive.
+Il exerce ainsi TransfertLot et PeseeEchantillon, absents du cycle
+broiler (cf. Annexe B), en plus de RecolteOeufs.
+```
+
+#### 5.6.1 Calendrier du lot Pondeuses
+
+```mermaid
+timeline
+    title Cycle Lot Pondeuses 2026 (J0 = 15 mai 2026)
+    J+0   : 2026-05-15 — Ouverture lot, Bâtiment C (Poussinière)
+          : 3 000 poussines ISA Brown reçues
+    J+4   : Mortalité 15 — stress transport
+    J+12  : Mortalité 20 — infection respiratoire précoce
+    J+14  : Vaccination Newcastle
+    S+6   : Fin phase Démarrage (180 sacs) — Pesée 430 g/sujet
+    J+30  : Mortalité 18 — coccidiose, traitement lancé
+    S+12  : Pesée 1 050 g/sujet — mi-croissance
+    J+80  : Mortalité 20 — piétinement
+    S+15  : Passage Aliment Pré-Ponte
+    J+110 : Mortalité 17 — avant transfert (cumul 105, TM≈3,5 %)
+    J+126 : 2026-09-18 — TRANSFERT vers Bâtiment B (Poulailler)
+          : 2 895 poules transférées — Pesée 1 500 g/sujet
+    S+19  : 2026-09-25 — Premiers œufs (≈5 % ponte)
+    S+22  : Montée rapide — 65 % ponte
+    S+26–28 : Plateau de pic — 91-92 % ponte
+```
+
+#### 5.6.2 Phase Élevage — Mortalités (`MortaliteForm`)
+
+```
+Module : ÉLEVAGE → Lot Pondeuses → [Enregistrer mortalité]
+Règle  : identique au lot broiler (BR-LOT-03, cumul ≤ nombre_poussins_initial)
+
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ Date       │ Nombre │ Cause                            │ Cumul │ Vivants        │
+├────────────┼────────┼──────────────────────────────────┼───────┼────────────────┤
+│ 2026-05-19 │     15 │ Stress transport / déshydratation │    15 │  2 985         │
+│ 2026-05-27 │     20 │ Infection respiratoire précoce    │    35 │  2 965         │
+│ 2026-06-14 │     18 │ Coccidiose — traitement lancé     │    53 │  2 947         │
+│ 2026-07-09 │     15 │ Cause diverse (élevage)           │    68 │  2 932         │
+│ 2026-08-03 │     20 │ Piétinement / casse                │    88 │  2 912         │
+│ 2026-09-02 │     17 │ Cause indéterminée — avant transfert│  105 │  2 895         │
+└────────────┴────────┴──────────────────────────────────┴───────┴────────────────┘
+  Taux de mortalité élevage : 105 / 3 000 = 3,50 %  ← comparable au standard
+  d'élevage ISA Brown (3–5 % cumulé au point de ponte).
+  Effectif à transférer (J+126) : 2 895 poules.
+```
+
+#### 5.6.3 Pesées d'échantillon (`PeseeEchantillonForm`) — Courbe de croissance
+
+```
+Module : ÉLEVAGE → Lot Pondeuses → [Nouvelle pesée d'échantillon]
+Règle  : type_pesee=oiseaux ; poids_moyen_g = poids_total_g / nombre_sujets ;
+         qualite dérivée via intrants.utils.determiner_qualite (CategorieQualite)
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ date       │ âge      │ nombre_sujets │ poids_total_g │ poids_moyen_g │
+├────────────┼──────────┼───────────────┼───────────────┼───────────────┤
+│ 2026-05-15 │ J0       │      50       │    2 000,00   │     40,00 g   │
+│ 2026-06-26 │ 6 sem.   │      50       │   21 500,00   │    430,00 g   │
+│ 2026-08-07 │ 12 sem.  │      50       │   52 500,00   │  1 050,00 g   │
+│ 2026-09-18 │ 18 sem.  │      50       │   75 000,00   │  1 500,00 g   │
+└────────────┴──────────┴───────────────┴───────────────┴───────────────┘
+  Cible standard ISA Brown au point de ponte : ≈ 1,5–1,6 kg — la dernière
+  pesée (J+126) confirme que le lot est prêt pour le transfert.
+```
+
+#### 5.6.4 Consommations Aliment — Phase Élevage (`ConsommationForm`)
+
+```
+Règle : mêmes intrants démarrage/croissance que le broiler (catalogue
+        partagé), puis Aliment Pré-Ponte (INT-10, stade=demarrage — visible
+        tant que le lot est en Poussinière).
+
+Démarrage — S0 à S6 (J0→J42, 180 sacs)
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ date       │ intrant              │ quantite │ stock après       │
+  ├────────────┼──────────────────────┼──────────┼───────────────────┤
+  │ 2026-05-20 │ Alim. Démarrage      │  40,000  │ (partagé stock)   │
+  │ 2026-05-30 │ Alim. Démarrage      │  50,000  │                   │
+  │ 2026-06-09 │ Alim. Démarrage      │  45,000  │                   │
+  │ 2026-06-19 │ Alim. Démarrage      │  45,000  │ 180 sacs cumulés  │
+  └────────────┴──────────────────────┴──────────┴───────────────────┘
+
+Croissance — S6 à S15 (J42→J105, 420 sacs)
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ date       │ intrant              │ quantite │ stock après       │
+  ├────────────┼──────────────────────┼──────────┼───────────────────┤
+  │ 2026-07-04 │ Alim. Croissance     │  80,000  │                   │
+  │ 2026-07-19 │ Alim. Croissance     │  90,000  │                   │
+  │ 2026-08-03 │ Alim. Croissance     │  90,000  │                   │
+  │ 2026-08-18 │ Alim. Croissance     │  80,000  │                   │
+  │ 2026-08-27 │ Alim. Croissance     │  80,000  │ 420 sacs cumulés  │
+  └────────────┴──────────────────────┴──────────┴───────────────────┘
+
+Pré-Ponte — S15 à S18 (J105→J126, 90 sacs)
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ date       │ intrant              │ quantite │ stock après       │
+  ├────────────┼──────────────────────┼──────────┼───────────────────┤
+  │ 2026-09-04 │ Alim. Pré-Ponte      │  45,000  │                   │
+  │ 2026-09-16 │ Alim. Pré-Ponte      │  45,000  │ 90 sacs cumulés   │
+  └────────────┴──────────────────────┴──────────┴───────────────────┘
+```
+
+#### 5.6.5 Vaccinations & Traitements — Phase Élevage
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ date       │ intrant                  │ quantite │ motif                     │
+├────────────┼──────────────────────────┼──────────┼───────────────────────────┤
+│ 2026-05-19 │ Vitamines + Électrolytes │  3,000 L │ Stress arrivée poussines  │
+│ 2026-05-25 │ Vaccin Newcastle         │  3 000   │ Programme préventif       │
+│ 2026-06-02 │ Vaccin Gumboro           │  2 965   │ Programme préventif       │
+│ 2026-06-14 │ Amoxicilline 50%         │  300 g   │ Traitement coccidiose     │
+│ 2026-06-14 │ Vitamines + Électrolytes │  4,000 L │ Traitement coccidiose     │
+│ 2026-07-14 │ Vaccin Newcastle         │  2 925   │ Rappel avant maturité     │
+│ 2026-09-07 │ Vitamines + Électrolytes │  5,000 L │ Préparation transfert     │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 5.6.6 Transfert vers Poulailler (`TransfertLotForm`) — J+126
+
+```
+Module : ÉLEVAGE → Lot Pondeuses → [Transférer le lot]
+Modèle : TransfertLot (MODE_FULL — la bande entière déménage)
+Règle  : BR-BRA-01 (même branche origine/destination) ; lot doit être
+         ouvert ; effectif_transfere ≤ effectif_vivant. Immuable une fois créé.
+
+  lot                    : Lot Pondeuses 2026
+  batiment_origine       : Bâtiment C (Poussinière)
+  batiment_destination   : Bâtiment B (Poulailler)
+  date_transfert         : 2026-09-18
+  age_jours_transfert    : 126   ← déclenché par doit_etre_transfere (§0.0)
+  effectif_transfere     : 2 895 ← = effectif_vivant au moment du transfert
+  mode                   : full  ← toute la bande déménage, pas de scission
+  motif                  : "Point de ponte atteint (18 semaines) — transfert vers poulailler"
+
+  → Signal transfert_lot_post_save (mode=full) :
+      lot.batiment ← Bâtiment B
+      lot.branche  ← re-dérivée de Bâtiment B.branche (BR-BRA-01)
+      nombre_poussins_initial INCHANGÉ (3 000) — seul le mode split
+      décrémente la baseline ; nombre_poussins_reference reste donc 3 000.
+  → lot.phase = poulailler ; lot.stade_intrant_attendu = STADE_CROISSANCE
+    dès la validation → Aliment Ponte (INT-11, stade=croissance) devient
+    visible dans ConsommationForm ; Aliment Pré-Ponte (stade=demarrage)
+    disparaît de la liste.
+```
+
+#### 5.6.7 Montée en Ponte & Récolte d'Œufs (`RecolteOeufsForm`) — Bâtiment B
+
+```
+Module : ÉLEVAGE → Lot Pondeuses → [Enregistrer récolte d'œufs]
+Règle  : lot doit être ouvert ; nombre_oeufs ≥ 1 ; qualité optionnelle
+         (dérivée d'une PeseeEchantillon type_pesee=oeufs du même jour —
+         non utilisée ici, cf. Annexe B). Signal recolte_oeufs_post_save
+         crédite StockProduitFini (صينية بيض) au prorata des plateaux
+         de 30 œufs.
+
+⚠️ Contrairement à la version précédente du scénario (poules déjà en
+   pré-ponte), la ponte démarre ici réellement ~7 jours après le transfert
+   (19ᵉ semaine d'âge), avec la montée en cadence typique d'une bande ISA
+   Brown : 5 % → 90 %+ de taux de ponte en 6-7 semaines. Effectif de
+   référence : 2 895 poules.
+
+Aliment Ponte (`ConsommationForm`, post-transfert, INT-11, stade=croissance) :
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ date       │ intrant              │ quantite │ note              │
+  ├────────────┼──────────────────────┼──────────┼───────────────────┤
+  │ 2026-09-22 │ Alim. Ponte          │  80,000  │ démarrage ponte   │
+  │ 2026-10-12 │ Alim. Ponte          │ 100,000  │                   │
+  │ 2026-11-01 │ Alim. Ponte          │ 100,000  │                   │
+  │ 2026-11-21 │ Alim. Ponte          │ 100,000  │ plateau de pic    │
+  └────────────┴──────────────────────┴──────────┴───────────────────┘
+
+Montée en ponte (RecolteOeufs) :
+  ┌────────────────────────────────────────────────────────────────────────────────────────┐
+  │ date       │ âge (sem.) │ taux ponte │ nombre_oeufs │ plateaux (÷30) │ hors-plateau     │
+  ├────────────┼────────────┼────────────┼──────────────┼────────────────┼──────────────────┤
+  │ 2026-09-25 │     19     │     5 %    │       145    │        4       │        25        │
+  │ 2026-10-02 │     20     │    22 %    │       637    │       21       │         7        │
+  │ 2026-10-09 │     21     │    45 %    │     1 303    │       43       │        13        │
+  │ 2026-10-16 │     22     │    65 %    │     1 882    │       62       │        22        │
+  │ 2026-10-23 │     23     │    80 %    │     2 316    │       77       │         6        │
+  │ 2026-10-30 │     24     │    88 %    │     2 548    │       84       │        28        │
+  │ 2026-11-13 │     26     │    91 %    │     2 635    │       87       │        25        │
+  │ 2026-11-27 │     28     │    92 %    │     2 664    │       88       │        24        │
+  └────────────┴────────────┴────────────┴──────────────┴────────────────┴──────────────────┘
+  Total récolté sur la période : 14 130 œufs (≈ 471 plateaux)
+  → Stock صينية بيض (30 بيضة) crédité au fil de chaque récolte.
+  → Courbe de ponte réaliste : montée en S-shape typique d'une bande ISA
+    Brown, plateau de pic ≈ 91-92 % atteint vers S26-28, puis maintenu
+    plusieurs mois (au-delà de la portée temporelle de ce document).
 ```
 
 ---
@@ -1200,34 +1518,38 @@ timeline
 
 ### 11.1 Tableau des Business Rules par phase
 
-| BR               | Module   | Description                                     | Point d'application                                  |
-| ---------------- | -------- | ----------------------------------------------- | ---------------------------------------------------- |
-| **BR-BLF-01**    | Achats   | Impact stock uniquement à la validation du BL   | Signal `post_save` BLFournisseurLigne                |
-| **BR-BLF-02**    | Achats   | BL Facturé verrouillé — impossible à modifier   | `BLFournisseurForm.clean()` + `est_verrouille`       |
-| **BR-BLF-03**    | Achats   | BL En litige exclu de la sélection facture      | Queryset `FactureFournisseurForm`                    |
-| **BR-BLF-05**    | Achats   | Autorisation d'accès expirée bloquée (Reçu)     | Form + signal (`date_expiration_autorisation`)       |
-| **BR-FAF-01**    | Achats   | Montant facture = auto-somme lignes BL          | Signal calcul post-save                              |
-| **BR-FAF-02**    | Achats   | Seuls les BL Reçu du même fournisseur           | `FactureFournisseurForm.clean()`                     |
-| **BR-FAF-04**    | Achats   | Statut Payé non sélectionnable                  | `STATUT_USER_CHOICES` sans Payé                      |
-| **BR-REG-03**    | Achats   | Allocation FIFO automatique                     | Signal `post_save` ReglementFournisseur              |
-| **BR-REG-06**    | Achats   | Règlements immuables                            | Pas de formulaire d'édition                          |
-| **BR-LOT-01**    | Élevage  | Lot s'ouvre dans une Poussinière uniquement     | `LotElevageForm.clean()` + `batiment.type_batiment`  |
-| **BR-LOT-02**    | Élevage  | Lot nécessite nb poussins + BL                  | `LotElevageForm.clean()`                             |
-| **BR-LOT-03**    | Élevage  | Mortalité/Consommation sur lot ouvert seulement | `MortaliteForm.clean()` + `ConsommationForm.clean()` |
-| **BR-LOT-04**    | Élevage  | Fermeture lot requiert ≥ 1 production validée   | Validé dans la vue avant `LotFermetureForm`          |
-| **BR-LOT-05**    | Élevage  | Production bloquée si lot < age_maturite_jours  | `ProductionRecord` validate + vue                    |
-| **BR-MOR-01**    | Élevage  | Mortalité décrémente le stock intrant poussin   | Signal `mortalite_post_save` → StockIntrant          |
-| **BR-INT-03**    | Stock    | Consommation ≤ stock disponible                 | `ConsommationForm.clean()`                           |
-| **BR-INT-04**    | Intrants | Stade intrant filtré selon type_batiment du lot | `ConsommationForm` queryset                          |
-| **BR-INT-05**    | Intrants | Unité mesure immuable si mouvements existent    | `IntrantForm.clean_unite_mesure()`                   |
-| **BR-DEP-01/03** | Dépenses | facture_liee = Service uniquement               | `DepenseForm.clean()`                                |
-| **BR-DEP-04**    | Dépenses | Attribution lot optionnelle                     | Champ `lot` optionnel                                |
-| **BR-BLC-01**    | Ventes   | Stock PF décrémenté à la validation BL          | Signal `post_save` BLClientLigne                     |
-| **BR-BLC-02**    | Ventes   | Quantité ≤ stock disponible                     | Vérification vue avant validation                    |
-| **BR-BLC-03**    | Ventes   | BL Facturé verrouillé                           | `BLClientForm.est_verrouille`                        |
-| **BR-FAC-01**    | Ventes   | Montant facture = auto-somme BL inclus          | Signal calcul                                        |
-| **BR-FAC-02**    | Ventes   | Seuls les BL Livré du même client               | `FactureClientForm` queryset                         |
-| **BR-FAC-03**    | Ventes   | Allocation manuelle des paiements client        | `PaiementClientAllocation` vue                       |
+| BR               | Module   | Description                                             | Point d'application                                  |
+| ---------------- | -------- | ------------------------------------------------------- | ---------------------------------------------------- |
+| **BR-BLF-01**    | Achats   | Impact stock uniquement à la validation du BL           | Signal `post_save` BLFournisseurLigne                |
+| **BR-BLF-02**    | Achats   | BL Facturé verrouillé — impossible à modifier           | `BLFournisseurForm.clean()` + `est_verrouille`       |
+| **BR-BLF-03**    | Achats   | BL En litige exclu de la sélection facture              | Queryset `FactureFournisseurForm`                    |
+| **BR-BLF-05**    | Achats   | Autorisation d'accès expirée bloquée (Reçu)             | Form + signal (`date_expiration_autorisation`)       |
+| **BR-FAF-01**    | Achats   | Montant facture = auto-somme lignes BL                  | Signal calcul post-save                              |
+| **BR-FAF-02**    | Achats   | Seuls les BL Reçu du même fournisseur                   | `FactureFournisseurForm.clean()`                     |
+| **BR-FAF-04**    | Achats   | Statut Payé non sélectionnable                          | `STATUT_USER_CHOICES` sans Payé                      |
+| **BR-REG-03**    | Achats   | Allocation FIFO automatique                             | Signal `post_save` ReglementFournisseur              |
+| **BR-REG-06**    | Achats   | Règlements immuables                                    | Pas de formulaire d'édition                          |
+| **BR-LOT-01**    | Élevage  | Lot s'ouvre dans une Poussinière uniquement             | `LotElevageForm.clean()` + `batiment.type_batiment`  |
+| **BR-LOT-02**    | Élevage  | Lot nécessite nb poussins + BL                          | `LotElevageForm.clean()`                             |
+| **BR-LOT-03**    | Élevage  | Mortalité/Consommation sur lot ouvert seulement         | `MortaliteForm.clean()` + `ConsommationForm.clean()` |
+| **BR-LOT-04**    | Élevage  | Fermeture lot requiert ≥ 1 production validée           | Validé dans la vue avant `LotFermetureForm`          |
+| **BR-LOT-05**    | Élevage  | Production bloquée si lot < age_maturite_jours          | `ProductionRecord` validate + vue                    |
+| **BR-MOR-01**    | Élevage  | Mortalité décrémente le stock intrant poussin           | Signal `mortalite_post_save` → StockIntrant          |
+| **BR-INT-03**    | Stock    | Consommation ≤ stock disponible                         | `ConsommationForm.clean()`                           |
+| **BR-INT-04**    | Intrants | Stade intrant filtré selon type_batiment du lot         | `ConsommationForm` queryset                          |
+| **BR-INT-05**    | Intrants | Unité mesure immuable si mouvements existent            | `IntrantForm.clean_unite_mesure()`                   |
+| **BR-TRF-01**    | Élevage  | Transfert interdit sur lot fermé / hors branche         | `TransfertLot.clean()` (BR-BRA-01)                   |
+| **BR-TRF-02**    | Élevage  | MODE_FULL : lot.batiment mis à jour, baseline inchangée | Signal `transfert_lot_post_save`                     |
+| **BR-TRF-03**    | Élevage  | TransfertLot immuable (pas d'édition/suppression)       | Pas de vue d'édition                                 |
+| **BR-PES-01**    | Élevage  | Qualité dérivée de poids_moyen_g (CategorieQualite)     | `PeseeEchantillon.qualite` (property)                |
+| **BR-DEP-01/03** | Dépenses | facture_liee = Service uniquement                       | `DepenseForm.clean()`                                |
+| **BR-DEP-04**    | Dépenses | Attribution lot optionnelle                             | Champ `lot` optionnel                                |
+| **BR-BLC-01**    | Ventes   | Stock PF décrémenté à la validation BL                  | Signal `post_save` BLClientLigne                     |
+| **BR-BLC-02**    | Ventes   | Quantité ≤ stock disponible                             | Vérification vue avant validation                    |
+| **BR-BLC-03**    | Ventes   | BL Facturé verrouillé                                   | `BLClientForm.est_verrouille`                        |
+| **BR-FAC-01**    | Ventes   | Montant facture = auto-somme BL inclus                  | Signal calcul                                        |
+| **BR-FAC-02**    | Ventes   | Seuls les BL Livré du même client                       | `FactureClientForm` queryset                         |
+| **BR-FAC-03**    | Ventes   | Allocation manuelle des paiements client                | `PaiementClientAllocation` vue                       |
 
 ### 11.2 Transitions de statut
 
@@ -1245,8 +1567,9 @@ flowchart LR
     end
     subgraph LOT["Lot Élevage"]
         lt1[ouvert] --> |fermer\nBR-LOT-04| lt2[fermé 🔒]
-        lt1 --> |"TransfertLot MODE_FULL\n→ crée lot enfant\n→ source auto-fermé"| lt2
-        lt1 --> |"MODE_SPLIT_NEW ou SPLIT_MERGE\n→ lot source reste ouvert"| lt1
+        lt1 --> |"TransfertLot MODE_FULL\n→ lot.batiment mis à jour\n→ même lot reste ouvert (§5.6.6)"| lt1
+        lt1 --> |"MODE_SPLIT_NEW\n→ crée un lot_enfant à destination\n→ lot source reste ouvert (baseline ↓)"| lt1
+        lt1 --> |"MODE_SPLIT_MERGE\n→ fusionne dans lot_destination\n→ lot source reste ouvert (baseline ↓)"| lt1
     end
     subgraph BLC["BL Client"]
         bc1[brouillon] --> |valider| bc2[livré]
@@ -1283,26 +1606,35 @@ flowchart LR
 > zéro opérationnel, zéro instance physique.
 > **Phase 0** : fournisseurs / clients / bâtiment / intrants saisis manuellement.
 
-| Phase | Entité                | Référence / Identifiant                | Statut final              |
-| ----- | --------------------- | -------------------------------------- | ------------------------- |
-| 1     | BL Fournisseur        | BLF-2026-0001 (Poussins CCA)           | Facturé 🔒                |
-| 1     | BL Fournisseur        | BLF-2026-0002 (Aliments ONAB lot 1)    | Facturé 🔒                |
-| 1     | BL Fournisseur        | BLF-2026-0003 (Aliments ONAB finition) | Facturé 🔒                |
-| 1     | BL Fournisseur        | BLF-2026-0004 (Médicaments Sanofi)     | Facturé 🔒                |
-| 1     | Facture Fournisseur   | FRN-2026-0001 (CCA 64 000 DZD)         | Payée ✅                  |
-| 1     | Facture Fournisseur   | FRN-2026-0002 (ONAB 721 000 DZD)       | Payée ✅                  |
-| 1     | Facture Fournisseur   | FRN-2026-0003 (ONAB 307 500 DZD)       | Non payée ⏳              |
-| 1     | Facture Fournisseur   | FRN-2026-0004 (Sanofi 51 700 DZD)      | Payée ✅                  |
-| 1     | Règlement Fournisseur | REG-2026-0001/0002/0003/0004           | Immuables                 |
-| 2     | Lot d'élevage         | Lot Mai 2026 — Bâtiment A              | Fermé 🔒                  |
-| 3     | Mortalités            | 5 événements, 40 oiseaux               | —                         |
-| 3     | Consommations         | 11 saisies aliment + 7 médicament      | —                         |
-| 4     | ProductionRecord      | Production 2026-06-19                  | Validé ✅                 |
-| 5     | Ajustement stock      | ADJ-2026-0001 (−3 carcasses)           | —                         |
-| 6     | BL Client             | BLC-2026-0001/0002/0003                | Facturés 🔒               |
-| 6     | Facture Client        | FAC-2026-0001/0002/0003                | Payée / Partielle / Payée |
-| 6     | Paiement Client       | PAY-0001/0002/0003                     | Immuables                 |
-| 7     | Dépenses              | DEP-001/002/003/004                    | —                         |
+| Phase | Entité                  | Référence / Identifiant                  | Statut final              |
+| ----- | ----------------------- | ---------------------------------------- | ------------------------- |
+| 1     | BL Fournisseur          | BLF-2026-0001 (Poussins CCA)             | Facturé 🔒                |
+| 1     | BL Fournisseur          | BLF-2026-0002 (Aliments ONAB lot 1)      | Facturé 🔒                |
+| 1     | BL Fournisseur          | BLF-2026-0003 (Aliments ONAB finition)   | Facturé 🔒                |
+| 1     | BL Fournisseur          | BLF-2026-0004 (Médicaments Sanofi)       | Facturé 🔒                |
+| 1     | Facture Fournisseur     | FRN-2026-0001 (CCA 64 000 DZD)           | Payée ✅                  |
+| 1     | Facture Fournisseur     | FRN-2026-0002 (ONAB 721 000 DZD)         | Payée ✅                  |
+| 1     | Facture Fournisseur     | FRN-2026-0003 (ONAB 307 500 DZD)         | Non payée ⏳              |
+| 1     | Facture Fournisseur     | FRN-2026-0004 (Sanofi 51 700 DZD)        | Payée ✅                  |
+| 1     | Règlement Fournisseur   | REG-2026-0001/0002/0003/0004             | Immuables                 |
+| 2     | Lot d'élevage           | Lot Mai 2026 — Bâtiment A                | Fermé 🔒                  |
+| 3     | Mortalités              | 5 événements, 40 oiseaux                 | —                         |
+| 3     | Consommations           | 11 saisies aliment + 7 médicament        | —                         |
+| 3     | Collecte Fertilisant    | 4 collectes, 840 kg brut (Bâtiment A)    | Assignées au traitement   |
+| 3     | Traitement Fertilisant  | Traitement 2026-06-24 (720 kg)           | Validé ✅                 |
+| 2bis  | Lot d'élevage           | Lot Pondeuses 2026                       | Ouvert (Bâtiment B)       |
+| 3bis  | Mortalités (élevage)    | 6 événements, 105 oiseaux (≈3,5 %)       | —                         |
+| 3bis  | Consommations (élevage) | 11 aliment + 7 médicament                | —                         |
+| 3bis  | Pesées Échantillon      | 4 pesées (J0/J42/J84/J126)               | —                         |
+| 3bis  | Transfert Lot           | Poussinière C → Poulailler B (J+126)     | Immuable                  |
+| 3bis  | Consommations (ponte)   | 4 saisies Aliment Ponte (post-transfert) | —                         |
+| 3bis  | Récoltes d'Œufs         | 8 récoltes, 14 130 œufs (≈471 plateaux)  | —                         |
+| 4     | ProductionRecord        | Production 2026-06-19                    | Validé ✅                 |
+| 5     | Ajustement stock        | ADJ-2026-0001 (−3 carcasses)             | —                         |
+| 6     | BL Client               | BLC-2026-0001/0002/0003                  | Facturés 🔒               |
+| 6     | Facture Client          | FAC-2026-0001/0002/0003                  | Payée / Partielle / Payée |
+| 6     | Paiement Client         | PAY-0001/0002/0003                       | Immuables                 |
+| 7     | Dépenses                | DEP-001/002/003/004                      | —                         |
 
 ---
 
@@ -1315,15 +1647,32 @@ _Fin du document — ÉlevageERP Scénario Complet Lot Mai 2026 — Ross 308 —
 Les fonctionnalités suivantes existent dans le système (spec v1.3) mais ne sont
 pas activées par ce cycle de 40 jours sur un lot Ross 308 standard :
 
-| Domaine / Feature                               | Pourquoi absent ici                                                      |
-| ----------------------------------------------- | ------------------------------------------------------------------------ |
-| **TransfertLot**                                | Lot trop court (40 j < 126 j seuil transfert) — aucun déménagement       |
-| **PeseeEchantillon**                            | Optionnel ; non requis pour ouvrir / fermer le lot ou valider production |
-| **RecolteOeufs**                                | Lot broiler — pas de phase ponte                                         |
-| **CollecteFertilisant / TraitementFertilisant** | Non exercé dans ce cycle ; disponible par bâtiment                       |
-| **AbonnementClient / LivraisonPartielle**       | Ventes one-shot via BL Client ; pas d'abonnement récurrent               |
-| **Autorisation d'Accès (BLF)**                  | ONAB peut émettre ce type ; cycle utilise bl_classique pour simplifier   |
-| **Associés / RetraitAssocie**                   | Aucun retrait enregistré dans ce cycle                                   |
-| **RH (Employe / Pointage / BulletinPaie)**      | DEP-001 couvre le salaire en dépense occasionnelle                       |
-| **PrixMarche / Fiche Dettes Client**            | Non utilisé dans ce cycle ; outil analytique                             |
-| **CompanyInfo (TVA multi-taux)**                | Factures exonérées TVA → taux_tva = 0 % uniforme                         |
+| Domaine / Feature                          | Pourquoi absent ici                                                                                                                         |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **AbonnementClient / LivraisonPartielle**  | Ventes one-shot via BL Client ; pas d'abonnement récurrent                                                                                  |
+| **Autorisation d'Accès (BLF)**             | ONAB peut émettre ce type ; cycle utilise bl_classique pour simplifier                                                                      |
+| **Associés / RetraitAssocie**              | Aucun retrait enregistré dans ce cycle                                                                                                      |
+| **RH (Employe / Pointage / BulletinPaie)** | DEP-001 couvre le salaire en dépense occasionnelle                                                                                          |
+| **PrixMarche / Fiche Dettes Client**       | Non utilisé dans ce cycle ; outil analytique                                                                                                |
+| **CompanyInfo (TVA multi-taux)**           | Factures exonérées TVA → taux_tva = 0 % uniforme                                                                                            |
+| **TransfertLot MODE_SPLIT_NEW/MERGE**      | Seul MODE_FULL est exercé (§5.6.6) ; la scission d'une bande broiler pour raison de densité reste un scénario possible mais non couvert ici |
+| **PeseeEchantillon type_pesee=oeufs**      | Seules les pesées d'oiseaux (croissance, §5.6.3) sont exercées ; la pesée d'œufs (qualité RecolteOeufs) ne l'est pas                        |
+
+> ℹ️ **TransfertLot** (MODE_FULL) et **PeseeEchantillon** (type_pesee=oiseaux)
+> ne figurent plus dans ce tableau comme "non exercés" : ils sont désormais
+> exercés au §5.6, sur le lot Pondeuses 2026 (Poussinière → Poulailler au
+> point de ponte, 18 semaines), un cheminement biologiquement réaliste
+> qu'un lot broiler Ross 308 — abattu à 40 j, bien avant l'âge de ponte —
+> ne traverse jamais.
+>
+> ⚠️ **Piège documenté (§5.6.6/§0.4, INT-11)** : `LotElevage.stade_intrant_attendu`
+> ne mappe jamais un Poulailler vers `Intrant.STADE_PONTE`, seulement vers
+> `STADE_CROISSANCE` (avec `STADE_TOUS` toujours inclus). Un aliment de
+> ponte créé avec `stade=ponte` serait donc invisible dans `ConsommationForm`
+> pour un lot en Poulailler — l'Aliment Ponte de ce scénario est donc créé
+> avec `stade=croissance`, pas `stade=ponte`, malgré le nom du choix.
+>
+> ℹ️ **RecolteOeufs** et **CollecteFertilisant / TraitementFertilisant** ne
+> figurent plus dans ce tableau : ils sont désormais exercés respectivement
+> aux §5.6.7 (lot Pondeuses, après transfert vers le Poulailler) et §5.5
+> (au niveau du Bâtiment A, indépendamment du lot).

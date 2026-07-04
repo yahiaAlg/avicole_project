@@ -195,7 +195,12 @@ class Command(BaseCommand):
         obj, created = ParametrageElevage.objects.get_or_create(
             pk=1,
             defaults=dict(
-                age_transfert_poussiniere_jours=21,
+                # Seuil réaliste "point de ponte" (~18 semaines) pour les
+                # pondeuses (cf. scenario §5.6 — TransfertLot Poussinière→
+                # Poulailler). Un lot broiler Ross 308 (40 j) n'atteint
+                # jamais ce seuil : aucune alerte doit_etre_transfere ni
+                # transfert ne le concerne (cf. Annexe B du scénario).
+                age_transfert_poussiniere_jours=126,
                 age_maturite_vente_jours=35,
             ),
         )
