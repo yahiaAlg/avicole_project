@@ -1246,6 +1246,12 @@ flowchart TD
     FAC1 & FAC2 & FAC3 --> PAY[Paiements\n3 règlements clients]
 ```
 
+> ℹ️ Ce diagramme couvre uniquement la sortie du **lot broiler** (Poulet
+> vivant / Carcasse, juin 2026). Le **lot Pondeuses** produit également
+> 471 plateaux d'œufs, récoltés bien plus tard (S+19 à S+28, cf. §5.6.7) ;
+> leur vente (BLC-2026-0004) est traitée séparément en **§8.4**, une fois
+> la dernière récolte enregistrée.
+
 ### 8.2 Formulaires BL Client (`BLClientForm`)
 
 ```
@@ -1364,6 +1370,68 @@ FAC-2026-0003 — Restaurant Le Palmier
     mode_allocation: manuel
     Allocation    : → FAC-2026-0003 : 200 460 DZD → Payée ✅
 ```
+
+### 8.4 Vente Œufs (`BLClientForm`) — Lot Pondeuses 2026
+
+```
+⚠️ Correction de cohérence : le lot Pondeuses 2026 (§5.6.7) récolte 14 130
+   œufs (≈ 471 plateaux) crédités à StockProduitFini (صينية بيض). Ce stock
+   restait auparavant invendu dans le document — cette section clôture la
+   boucle en écoulant l'intégralité des plateaux, une fois la dernière
+   récolte enregistrée (2026-11-27).
+
+Module : VENTES → BL Client → [Nouveau]
+Prérequis : dernière RecolteOeufs du 2026-11-27 déjà enregistrée
+            (§5.6.7 — total cumulé 471 plateaux en stock).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BLC-2026-0004 — Marché de Gros Setifien (Œufs)
+  reference : BLC-2026-0004
+  client    : Marché de Gros Setifien
+  date_bl   : 2026-11-30
+  statut    : Livré
+
+  Lignes :
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │ produit_fini          │ quantite  │ prix_unitaire │ montant_total         │
+  ├───────────────────────┼───────────┼───────────────┼───────────────────────┤
+  │ Plateau œufs (30 œufs)│  471,000  │    350,0000   │  164 850,00           │
+  └───────────────────────┴───────────┴───────────────┴───────────────────────┘
+  Total BL : 164 850,00 DZD
+  → StockProduitFini(صينية بيض) ↓ −471 (reste 0) ✅ tout vendu
+
+FAC-2026-0004 — Facture Œufs Marché de Gros
+  reference      : FAC-2026-0004
+  client         : Marché de Gros Setifien
+  bls            : [BLC-2026-0004]
+  date_facture   : 2026-11-30
+  date_echeance  : 2026-12-30   ← +30 jours
+  montant_ht     : 164 850,00 ← auto
+  taux_tva       : 0,00 %      ← volaille/œufs exonérés TVA
+  montant_tva    : 0,00
+  montant_ttc    : 164 850,00
+
+  Paiement 4 :
+    client        : Marché de Gros Setifien
+    date_paiement : 2026-12-01
+    montant       : 164 850,00
+    mode_paiement : virement
+    reference     : "VIR-MG-OEUFS-301126"
+    mode_allocation: manuel
+    Allocation    : → FAC-2026-0004 : 164 850 DZD → Payée ✅
+```
+
+> ℹ️ **Portée du compte de résultat (§10)** : le Lot Pondeuses 2026 reste
+> **ouvert** à la fin de ce document (il n'atteint son point de ponte qu'à
+> S+19, bien après la fermeture du lot Mai 2026 — cf. §5.6.1). La vente
+> d'œufs ci-dessus n'est donc **pas intégrée** au P&L du §10.2, qui reste
+> volontairement scopé au seul Lot Mai 2026 (Ross 308) : les coûts
+> d'intrants du lot Pondeuses (poussines ISA Brown, Aliment Pré-Ponte,
+> Aliment Ponte) ne sont pas non plus détaillés dans les BL Fournisseur du
+> §3, donc mélanger cette recette au P&L broiler fausserait la marge sans
+> les charges correspondantes. Elle est en revanche bien reflétée dans le
+> tableau de bord des créances clients (§10.4), qui est transverse à tous
+> les clients et toutes les factures, indépendamment du lot.
 
 ---
 
@@ -1505,12 +1573,13 @@ timeline
 
 ### 10.4 Tableau de bord des créances clients
 
-| Client             | Facture       | Montant TTC   | Réglé         | Reste       | Statut       |
-| ------------------ | ------------- | ------------- | ------------- | ----------- | ------------ |
-| Marché de Gros     | FAC-2026-0001 | 744 000       | 744 000       | 0           | ✅ Payée     |
-| Boucherie Amrane   | FAC-2026-0002 | 396 000       | 200 000       | **196 000** | ⚠️ Partielle |
-| Restaurant Palmier | FAC-2026-0003 | 200 460       | 200 460       | 0           | ✅ Payée     |
-| **TOTAL**          |               | **1 340 460** | **1 144 460** | **196 000** |              |
+| Client                | Facture       | Montant TTC   | Réglé         | Reste       | Statut       |
+| --------------------- | ------------- | ------------- | ------------- | ----------- | ------------ |
+| Marché de Gros        | FAC-2026-0001 | 744 000       | 744 000       | 0           | ✅ Payée     |
+| Boucherie Amrane      | FAC-2026-0002 | 396 000       | 200 000       | **196 000** | ⚠️ Partielle |
+| Restaurant Palmier    | FAC-2026-0003 | 200 460       | 200 460       | 0           | ✅ Payée     |
+| Marché de Gros (œufs) | FAC-2026-0004 | 164 850       | 164 850       | 0           | ✅ Payée     |
+| **TOTAL**             |               | **1 505 310** | **1 309 310** | **196 000** |              |
 
 ---
 
@@ -1628,12 +1697,15 @@ flowchart LR
 | 3bis  | Pesées Échantillon      | 4 pesées (J0/J42/J84/J126)               | —                         |
 | 3bis  | Transfert Lot           | Poussinière C → Poulailler B (J+126)     | Immuable                  |
 | 3bis  | Consommations (ponte)   | 4 saisies Aliment Ponte (post-transfert) | —                         |
-| 3bis  | Récoltes d'Œufs         | 8 récoltes, 14 130 œufs (≈471 plateaux)  | —                         |
+| 3bis  | Récoltes d'Œufs         | 8 récoltes, 14 130 œufs (≈471 plateaux)  | Vendues (§8.4) ✅         |
 | 4     | ProductionRecord        | Production 2026-06-19                    | Validé ✅                 |
 | 5     | Ajustement stock        | ADJ-2026-0001 (−3 carcasses)             | —                         |
 | 6     | BL Client               | BLC-2026-0001/0002/0003                  | Facturés 🔒               |
 | 6     | Facture Client          | FAC-2026-0001/0002/0003                  | Payée / Partielle / Payée |
 | 6     | Paiement Client         | PAY-0001/0002/0003                       | Immuables                 |
+| 6bis  | BL Client (œufs)        | BLC-2026-0004 (Marché de Gros, §8.4)     | Facturé 🔒                |
+| 6bis  | Facture Client (œufs)   | FAC-2026-0004 (164 850 DZD)              | Payée ✅                  |
+| 6bis  | Paiement Client (œufs)  | PAY-0004                                 | Immuable                  |
 | 7     | Dépenses                | DEP-001/002/003/004                      | —                         |
 
 ---
