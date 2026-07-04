@@ -20,8 +20,8 @@ management/commands/seed_db_minimal.py
     • CategorieQualite (8)  — 4 tranches oiseaux + 4 tranches œufs
     • ProduitFini (9)       — دجاج حي / جثة / صدر / فخذ / جناح / كبد / قانصة
                               + بيض الاستهلاك / ألفيول بيض (TYPE_OEUFS)
-    • PrixMarche (6)        — أسعار سوق ابتدائية لمنتجَي البيض
-                              (3 نقاط سعرية لكل منتج — يُحدَّث يدوياً)
+    • PrixMarche (3)        — أسعار سوق ابتدائية لمنتج صينية البيض
+                              (3 نقاط سعرية — يُحدَّث يدوياً)
 
 ما لا يتم إنشاؤه (يُسجَّل يدوياً عبر الواجهة):
     • Fournisseurs  • Clients  • Bâtiments  • Intrants
@@ -536,72 +536,54 @@ class Command(BaseCommand):
 
     def _seed_prix_marche(self):
         """
-        Seed a short history of market prices for the two egg products.
+        Seed a short history of market prices for the egg product.
 
-        These are plausible DZD/unit reference prices drawn from the kind of
-        supplier statement visible in the project's reference image (≈ 480–543
-        DZD per plateau range).  Operators should update prices daily via
-        VENTES › Prix du marché.
+        Only one egg ProduitFini is seeded (`_seed_produits_finis` —
+        "صينية بيض (30 بيضة)", sold per plateau), so this seeds three price
+        points against that single product. Earlier revisions of this method
+        referenced two separate designations ("بيض الاستهلاك" /
+        "ألفيول بيض (30 بيضة)") that no longer exist in the catalogue — that
+        mismatch silently skipped PrixMarche creation entirely. Fixed here to
+        stay in sync with `_seed_produits_finis`.
+
+        These are plausible DZD/plateau reference prices drawn from the kind
+        of supplier statement visible in the project's reference image
+        (≈ 430–465 DZD per plateau range). Operators should update prices
+        daily via VENTES › Prix du marché.
         """
         import datetime
         from production.models import ProduitFini
         from clients.models import PrixMarche
 
         try:
-            oeuf = ProduitFini.objects.get(designation="بيض الاستهلاك")
-            alveole = ProduitFini.objects.get(designation="ألفيول بيض (30 بيضة)")
+            plateau = ProduitFini.objects.get(designation="صينية بيض (30 بيضة)")
         except ProduitFini.DoesNotExist:
             self.stdout.write(
-                self.style.WARNING(
-                    "  ~ PrixMarche ignoré : منتجات البيض غير موجودة بعد."
-                )
+                self.style.WARNING("  ~ PrixMarche ignoré : منتج البيض غير موجود بعد.")
             )
             return
 
         today = datetime.date.today()
 
-        # Six price points spread over ~90 days — one per product per date.
+        # Three price points spread over ~90 days for the egg plateau.
         # Prices reflect a mild upward trend typical of Algerian egg markets.
         seeds = [
-            # بيض الاستهلاك (per unit)
             dict(
-                produit_fini=oeuf,
-                date=today - datetime.timedelta(days=90),
-                prix_marche=Decimal("14.50"),
-                source="السوق المحلي",
-                notes="سعر مرجعي ابتدائي",
-            ),
-            dict(
-                produit_fini=oeuf,
-                date=today - datetime.timedelta(days=45),
-                prix_marche=Decimal("15.00"),
-                source="السوق المحلي",
-                notes="",
-            ),
-            dict(
-                produit_fini=oeuf,
-                date=today - datetime.timedelta(days=1),
-                prix_marche=Decimal("15.50"),
-                source="السوق المحلي",
-                notes="آخر سعر مسجّل",
-            ),
-            # ألفيول بيض (per plateau of 30)
-            dict(
-                produit_fini=alveole,
+                produit_fini=plateau,
                 date=today - datetime.timedelta(days=90),
                 prix_marche=Decimal("430.00"),
                 source="السوق المحلي",
                 notes="سعر مرجعي ابتدائي",
             ),
             dict(
-                produit_fini=alveole,
+                produit_fini=plateau,
                 date=today - datetime.timedelta(days=45),
                 prix_marche=Decimal("450.00"),
                 source="السوق المحلي",
                 notes="",
             ),
             dict(
-                produit_fini=alveole,
+                produit_fini=plateau,
                 date=today - datetime.timedelta(days=1),
                 prix_marche=Decimal("465.00"),
                 source="السوق المحلي",
@@ -624,7 +606,7 @@ class Command(BaseCommand):
                 created_count += 1
 
         self._log(
-            f"PrixMarche ({len(seeds)} — 3 × بيض استهلاك + 3 × ألفيول)",
+            f"PrixMarche ({len(seeds)} — 3 × صينية بيض)",
             created_count > 0,
         )
 

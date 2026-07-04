@@ -7,16 +7,16 @@ de toutes les mortalités, consommations d'aliments et de médicaments.
 
 Utilisation :
     # Peuplement complet (mortalités + aliments + médicaments)
-    python manage.py seed_elevage_lot --lot "Lot Mars 2025 — Bâtiment A"
+    python manage.py seed_elevage_lot --lot "Lot Mai 2026 — Bâtiment A"
 
     # Seulement les mortalités
-    python manage.py seed_elevage_lot --lot "Lot Mars 2025 — Bâtiment A" --what mortalites
+    python manage.py seed_elevage_lot --lot "Lot Mai 2026 — Bâtiment A" --what mortalites
 
     # Seulement les consommations aliments
-    python manage.py seed_elevage_lot --lot "Lot Mars 2025 — Bâtiment A" --what aliments
+    python manage.py seed_elevage_lot --lot "Lot Mai 2026 — Bâtiment A" --what aliments
 
     # Seulement les consommations médicaments
-    python manage.py seed_elevage_lot --lot "Lot Mars 2025 — Bâtiment A" --what medics
+    python manage.py seed_elevage_lot --lot "Lot Mai 2026 — Bâtiment A" --what medics
 
     # Utiliser le lot par défaut (celui ouvert dans Bâtiment A par seed_db.py)
     python manage.py seed_elevage_lot
@@ -24,7 +24,7 @@ Utilisation :
 Notes :
     - La commande est idempotente (get_or_create partout).
     - Le lot doit déjà exister avec le statut OUVERT (créé par `seed_db`, qui
-      seed "Lot Mars 2025 — Bâtiment A" avec une date_ouverture RELATIVE —
+      seed "Lot Mai 2026 — Bâtiment A" avec une date_ouverture RELATIVE —
       date.today() - 40 jours — et non une date calendaire fixe).
     - Les intrants référencés doivent exister dans la base (créés via l'interface
       après avoir exécuté seed_db_minimal pour les catégories).
@@ -33,10 +33,12 @@ Notes :
       cohérentes quel que soit le jour d'exécution de `seed_db`.
       --date-offset ajoute un décalage supplémentaire (en jours) si besoin.
 
-Données incluses (scénario Lot Mars 2025 — Bâtiment A, 4 000 poussins Cobb 500) :
+Données incluses (scénario Lot Mai 2026 — Bâtiment A, 2 000 poussins Ross 308) :
     Mortalités   : 5 événements, 40 oiseaux au total
     Aliments     : 11 saisies (démarrage / croissance / finition)
     Médicaments  : 7 saisies (vaccins + amoxicilline + vitamines)
+    (Offsets vérifiés contre scenario_avicole_full_cycle_fresh_start.md §5.2-5.4 :
+    date_ouverture = 2026-05-10 (J0) ; ex. mortalité J+3 = 2026-05-13, etc.)
 """
 
 from __future__ import annotations
@@ -49,52 +51,52 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 # ---------------------------------------------------------------------------
-# Données du scénario — Lot Mars 2025 — Bâtiment A
+# Données du scénario — Lot Mai 2026 — Bâtiment A
 # Toutes les dates sont exprimées en jours écoulés depuis lot.date_ouverture
 # (J0 = date d'ouverture) pour rester valides quelle que soit la date réelle
 # à laquelle seed_db a été exécuté. Modifiez ces constantes si vous utilisez
 # un autre scénario.
 # ---------------------------------------------------------------------------
 
-DEFAULT_LOT_DESIGNATION = "Lot Mars 2025 — Bâtiment A"
+DEFAULT_LOT_DESIGNATION = "Lot Mai 2026 — Bâtiment A"
 
 # Format : (jour_depuis_ouverture, nombre, cause)
 MORTALITE_DATA = [
-    (1, 5, "Stress transport / déshydratation"),
-    (6, 10, "Infection respiratoire précoce"),
-    (12, 12, "Aspergillose suspectée"),
-    (20, 8, "Coccidiose — traitement lancé"),
-    (33, 5, "Cause indéterminée"),
+    (3, 5, "Stress transport / déshydratation"),
+    (8, 10, "Infection respiratoire précoce"),
+    (14, 12, "Aspergillose suspectée"),
+    (22, 8, "Coccidiose — traitement lancé"),
+    (35, 5, "Cause indéterminée"),
 ]
 
 # Format : (jour_depuis_ouverture, designation_intrant, quantite)
 # Désignations EXACTES telles qu'elles existent dans la table Intrant.
 ALIMENT_DATA = [
     # Démarrage J0→J14
-    (0, "علف البداية — الطور الأول (0–14 يوم)", Decimal("25.000")),
     (2, "علف البداية — الطور الأول (0–14 يوم)", Decimal("25.000")),
-    (5, "علف البداية — الطور الأول (0–14 يوم)", Decimal("50.000")),
-    (9, "علف البداية — الطور الأول (0–14 يوم)", Decimal("50.000")),
-    (12, "علف البداية — الطور الأول (0–14 يوم)", Decimal("50.000")),
+    (4, "علف البداية — الطور الأول (0–14 يوم)", Decimal("25.000")),
+    (7, "علف البداية — الطور الأول (0–14 يوم)", Decimal("50.000")),
+    (11, "علف البداية — الطور الأول (0–14 يوم)", Decimal("50.000")),
+    (14, "علف البداية — الطور الأول (0–14 يوم)", Decimal("50.000")),
     # Croissance J15→J28
-    (13, "علف النمو — الطور الثاني (15–28 يوم)", Decimal("60.000")),
-    (20, "علف النمو — الطور الثاني (15–28 يوم)", Decimal("60.000")),
-    (27, "علف النمو — الطور الثاني (15–28 يوم)", Decimal("60.000")),
+    (15, "علف النمو — الطور الثاني (15–28 يوم)", Decimal("60.000")),
+    (22, "علف النمو — الطور الثاني (15–28 يوم)", Decimal("60.000")),
+    (29, "علف النمو — الطور الثاني (15–28 يوم)", Decimal("60.000")),
     # Finition J29→J40
-    (27, "علف التسمين — الطور الثالث (29 يوم فأكثر)", Decimal("50.000")),
-    (32, "علف التسمين — الطور الثالث (29 يوم فأكثر)", Decimal("50.000")),
-    (37, "علف التسمين — الطور الثالث (29 يوم فأكثر)", Decimal("50.000")),
+    (29, "علف التسمين — الطور الثالث (29 يوم فأكثر)", Decimal("50.000")),
+    (34, "علف التسمين — الطور الثالث (29 يوم فأكثر)", Decimal("50.000")),
+    (39, "علف التسمين — الطور الثالث (29 يوم فأكثر)", Decimal("50.000")),
 ]
 
 # Format : (jour_depuis_ouverture, designation_intrant, quantite)
 MEDIC_DATA = [
-    (1, "فيتامينات + إلكتروليتات (مركّب)", Decimal("2.000")),
-    (6, "أموكسيسيلين 50% مسحوق", Decimal("250.000")),
-    (6, "فيتامينات + إلكتروليتات (مركّب)", Decimal("3.000")),
-    (12, "لقاح نيوكاسل (هيتشنر B1)", Decimal("2000.000")),
-    (20, "لقاح غامبورو (IBD متوسط)", Decimal("1965.000")),
-    (20, "أموكسيسيلين 50% مسحوق", Decimal("250.000")),
-    (20, "فيتامينات + إلكتروليتات (مركّب)", Decimal("5.000")),
+    (3, "فيتامينات + إلكتروليتات (مركّب)", Decimal("2.000")),
+    (8, "أموكسيسيلين 50% مسحوق", Decimal("250.000")),
+    (8, "فيتامينات + إلكتروليتات (مركّب)", Decimal("3.000")),
+    (14, "لقاح نيوكاسل (هيتشنر B1)", Decimal("2000.000")),
+    (22, "لقاح غامبورو (IBD متوسط)", Decimal("1965.000")),
+    (22, "أموكسيسيلين 50% مسحوق", Decimal("250.000")),
+    (22, "فيتامينات + إلكتروليتات (مركّب)", Decimal("5.000")),
 ]
 
 
