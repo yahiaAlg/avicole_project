@@ -47,9 +47,12 @@ from django.views.decorators.http import require_POST
 from clients.forms import (
     BLClientForm,
     BLClientLigneFormSet,
+    BLClientPieceJointeFormSet,
     ClientForm,
     FactureClientForm,
+    FactureClientPieceJointeFormSet,
     PaiementClientForm,
+    PaiementClientPieceJointeFormSet,
     get_allocation_forms,
     AbonnementClientForm,
     VoyageLivraisonForm,
@@ -80,6 +83,7 @@ from clients.utils import (
 from core.views import (
     branche_object_or_404,
     branche_matches,
+    build_piece_jointe_formset,
     get_active_branche,
     require_branche_context,
 )
@@ -410,10 +414,13 @@ def bl_client_create(request, client_pk=None):
         client = get_object_or_404(Client, pk=client_pk)
 
     if request.method == "POST":
-        form = BLClientForm(request.POST, client=client, branche=branche)
+        form = BLClientForm(request.POST, request.FILES, client=client, branche=branche)
         formset = BLClientLigneFormSet(request.POST, form_kwargs={"branche": branche})
+        pj_formset = build_piece_jointe_formset(
+            BLClientPieceJointeFormSet, request, prefix="pj"
+        )
 
-        if form.is_valid() and formset.is_valid():
+        if form.is_valid() and formset.is_valid() and pj_formset.is_valid():
             try:
                 with transaction.atomic():
                     bl = form.save(commit=False)
@@ -430,6 +437,8 @@ def bl_client_create(request, client_pk=None):
 
                     formset.instance = bl
                     formset.save()  # lines must exist before stock check
+                    pj_formset.instance = bl
+                    pj_formset.save()
 
                     if wanted_statut == BLClient.STATUT_LIVRE:
                         lignes = bl.lignes.select_related("produit_fini").all()
@@ -488,6 +497,9 @@ def bl_client_create(request, client_pk=None):
         formset = BLClientLigneFormSet(
             instance=tmp_bl, form_kwargs={"branche": branche}
         )
+        pj_formset = build_piece_jointe_formset(
+            BLClientPieceJointeFormSet, request, prefix="pj"
+        )
 
     return render(
         request,
@@ -495,6 +507,7 @@ def bl_client_create(request, client_pk=None):
         {
             "form": form,
             "formset": formset,
+            "pj_formset": pj_formset,
             "client": client,
             "active_branche": branche,
             "title": "وصل تسليم جديد",
@@ -517,6 +530,9 @@ def bl_client_detail(request, pk):
     )
     lignes = bl.lignes.select_related("produit_fini").all()
     factures = bl.factures.order_by("-date_facture")
+    pieces_jointes = bl.pieces_jointes.select_related("uploaded_by").order_by(
+        "-created_at"
+    )
 
     # Build statut transition info for the sidebar
     is_admin = request.user.is_superuser or (
@@ -543,6 +559,7 @@ def bl_client_detail(request, pk):
             "bl": bl,
             "lignes": lignes,
             "factures": factures,
+            "pieces_jointes": pieces_jointes,
             "montant_total": bl.montant_total,
             "is_admin": is_admin,
             "statut_transitions": statut_transitions,
@@ -574,13 +591,16 @@ def bl_client_edit(request, pk):
 
     if request.method == "POST":
         form = BLClientForm(
-            request.POST, instance=bl, client=bl.client, branche=bl.branche
+            request.POST, request.FILES, instance=bl, client=bl.client, branche=bl.branche
         )
         formset = BLClientLigneFormSet(
             request.POST, instance=bl, form_kwargs={"branche": bl.branche}
         )
+        pj_formset = build_piece_jointe_formset(
+            BLClientPieceJointeFormSet, request, instance=bl, prefix="pj"
+        )
 
-        if form.is_valid() and formset.is_valid():
+        if form.is_valid() and formset.is_valid() and pj_formset.is_valid():
             try:
                 with transaction.atomic():
                     new_statut = form.cleaned_data.get("statut")
@@ -592,6 +612,7 @@ def bl_client_edit(request, pk):
                     # form.save below) reads the updated quantities, not
                     # the stale pre-edit DB rows.
                     formset.save()
+                    pj_formset.save()
                     if transitioning_to_livre:
                         lignes = bl.lignes.select_related("produit_fini").all()
                         insuffisant = []
@@ -629,6 +650,9 @@ def bl_client_edit(request, pk):
     else:
         form = BLClientForm(instance=bl, client=bl.client, branche=bl.branche)
         formset = BLClientLigneFormSet(instance=bl, form_kwargs={"branche": bl.branche})
+        pj_formset = build_piece_jointe_formset(
+            BLClientPieceJointeFormSet, request, instance=bl, prefix="pj"
+        )
 
     return render(
         request,
@@ -636,6 +660,7 @@ def bl_client_edit(request, pk):
         {
             "form": form,
             "formset": formset,
+            "pj_formset": pj_formset,
             "bl": bl,
             "client": bl.client,
             "title": f"تعديل وصل الاستلام — {bl.reference}",
@@ -973,8 +998,11 @@ def facture_client_create(request, client_pk=None):
 
     if request.method == "POST":
         form = FactureClientForm(request.POST, client=client, branche=branche)
+        pj_formset = build_piece_jointe_formset(
+            FactureClientPieceJointeFormSet, request, prefix="pj"
+        )
 
-        if form.is_valid():
+        if form.is_valid() and pj_formset.is_valid():
             try:
                 with transaction.atomic():
                     facture = form.save(commit=False)
@@ -989,6 +1017,8 @@ def facture_client_create(request, client_pk=None):
                     # M2M must be saved after the instance has a PK —
                     # this triggers the m2m_changed signal.
                     form.save_m2m()
+                    pj_formset.instance = facture
+                    pj_formset.save()
 
                 # Refresh from DB to get signal-computed totals for the message.
                 facture.refresh_from_db()
@@ -1016,12 +1046,16 @@ def facture_client_create(request, client_pk=None):
         if not client_pk:
             initial["reference"] = generer_reference_facture_client(branche)
         form = FactureClientForm(client=client, branche=branche, initial=initial)
+        pj_formset = build_piece_jointe_formset(
+            FactureClientPieceJointeFormSet, request, prefix="pj"
+        )
 
     return render(
         request,
         "clients/facture_client_form.html",
         {
             "form": form,
+            "pj_formset": pj_formset,
             "client": client,
             "active_branche": branche,
             "title": "فاتورة عميل جديدة",
@@ -1046,6 +1080,12 @@ def facture_client_detail(request, pk):
     allocations = facture.allocations.select_related("paiement").order_by(
         "-paiement__date_paiement"
     )
+    pieces_jointes = facture.pieces_jointes.select_related("uploaded_by").order_by(
+        "-created_at"
+    )
+    pj_formset = build_piece_jointe_formset(
+        FactureClientPieceJointeFormSet, request, instance=facture, prefix="pj"
+    )
 
     # Same admin pattern used elsewhere in this file (bl_client_detail) —
     # controls visibility of the cascade-delete button (facture + its BLs +
@@ -1062,10 +1102,37 @@ def facture_client_detail(request, pk):
             "facture": facture,
             "bls": bls,
             "allocations": allocations,
+            "pieces_jointes": pieces_jointes,
+            "pj_formset": pj_formset,
             "is_admin": is_admin,
             "title": f"فاتورة — {facture.reference}",
         },
     )
+
+
+# ===========================================================================
+# FactureClient — Ajouter des pièces jointes (pas d'édition possible)
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def facture_client_ajouter_piece_jointe(request, pk):
+    """
+    FactureClient has no edit view (locked once its BLs are linked), so
+    proof documents added after the fact go through this dedicated
+    POST-only action.
+    """
+    facture = branche_object_or_404(request, FactureClient, pk=pk)
+    pj_formset = build_piece_jointe_formset(
+        FactureClientPieceJointeFormSet, request, instance=facture, prefix="pj"
+    )
+    if pj_formset.is_valid():
+        pj_formset.save()
+        messages.success(request, "تم إضافة المرفقات.")
+    else:
+        messages.error(request, "يرجى تصحيح الأخطاء في المرفقات.")
+    return redirect("clients:facture_client_detail", pk=pk)
 
 
 # ===========================================================================
@@ -1278,8 +1345,11 @@ def paiement_client_create(request, client_pk=None):
                 client = get_object_or_404(Client, pk=client_id)
 
         form = PaiementClientForm(request.POST, client=client, branche=branche)
+        pj_formset = build_piece_jointe_formset(
+            PaiementClientPieceJointeFormSet, request, prefix="pj"
+        )
 
-        if form.is_valid():
+        if form.is_valid() and pj_formset.is_valid():
             paiement_client = (
                 form.client
                 if hasattr(form, "client")
@@ -1298,6 +1368,8 @@ def paiement_client_create(request, client_pk=None):
                         paiement = form.save(commit=False)
                         paiement.created_by = request.user
                         paiement.save()
+                        pj_formset.instance = paiement
+                        pj_formset.save()
 
                         # Build allocation list from submitted forms
                         allocations = [
@@ -1358,6 +1430,9 @@ def paiement_client_create(request, client_pk=None):
     else:
         form = PaiementClientForm(client=client, branche=branche)
         alloc_forms = get_allocation_forms(client, branche=branche) if client else []
+        pj_formset = build_piece_jointe_formset(
+            PaiementClientPieceJointeFormSet, request, prefix="pj"
+        )
 
     solde = get_client_solde(client, branche=branche) if client else None
 
@@ -1366,6 +1441,7 @@ def paiement_client_create(request, client_pk=None):
         "clients/paiement_client_form.html",
         {
             "form": form,
+            "pj_formset": pj_formset,
             "alloc_forms": alloc_forms,
             "client": client,
             "facture_obj": facture_obj,
@@ -1393,6 +1469,12 @@ def paiement_client_detail(request, pk):
     allocations = paiement.allocations.select_related("facture").order_by(
         "facture__reference"
     )
+    pieces_jointes = paiement.pieces_jointes.select_related("uploaded_by").order_by(
+        "-created_at"
+    )
+    pj_formset = build_piece_jointe_formset(
+        PaiementClientPieceJointeFormSet, request, instance=paiement, prefix="pj"
+    )
 
     return render(
         request,
@@ -1400,9 +1482,35 @@ def paiement_client_detail(request, pk):
         {
             "paiement": paiement,
             "allocations": allocations,
+            "pieces_jointes": pieces_jointes,
+            "pj_formset": pj_formset,
             "title": f"دفعة — {paiement.client.nom} — {paiement.date_paiement}",
         },
     )
+
+
+# ===========================================================================
+# PaiementClient — Ajouter des pièces jointes
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def paiement_client_ajouter_piece_jointe(request, pk):
+    """
+    PaiementClient has no edit view, so proof documents added after the
+    fact go through this dedicated POST-only action.
+    """
+    paiement = branche_object_or_404(request, PaiementClient, pk=pk)
+    pj_formset = build_piece_jointe_formset(
+        PaiementClientPieceJointeFormSet, request, instance=paiement, prefix="pj"
+    )
+    if pj_formset.is_valid():
+        pj_formset.save()
+        messages.success(request, "تم إضافة المرفقات.")
+    else:
+        messages.error(request, "يرجى تصحيح الأخطاء في المرفقات.")
+    return redirect("clients:paiement_client_detail", pk=pk)
 
 
 # ===========================================================================

@@ -10,6 +10,8 @@ import datetime
 from django.db import models
 from django.core.validators import MinValueValidator
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericRelation
+from core.models import PieceJointe
 
 
 class BLFournisseur(models.Model):
@@ -83,11 +85,11 @@ class BLFournisseur(models.Model):
         verbose_name="الحالة",
     )
     notes_reception = models.TextField(blank=True, verbose_name="ملاحظات الاستلام")
-    piece_jointe = models.FileField(
-        upload_to="bl_fournisseur/%Y/%m/",
-        blank=True,
-        null=True,
-        verbose_name="مرفق (PDF/JPG/PNG)",
+    # v1.5 — replaced the single `piece_jointe` FileField with the generic
+    # PieceJointe model (core.models) so a BL can carry several proofs
+    # (scanned BL + photo of the truck gate pass, etc.).
+    pieces_jointes = GenericRelation(
+        PieceJointe, related_query_name="bl_fournisseur"
     )
 
     # ------------------------------------------------------------------
@@ -149,7 +151,7 @@ class BLFournisseur(models.Model):
 
     @property
     def a_piece_jointe(self):
-        return bool(self.piece_jointe)
+        return self.pieces_jointes.exists()
 
     @property
     def est_verrouille(self):
@@ -306,6 +308,10 @@ class FactureFournisseur(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # v1.5 — proof documents (scanned invoice, credit note, ...).
+    pieces_jointes = GenericRelation(
+        PieceJointe, related_query_name="facture_fournisseur"
+    )
 
     class Meta:
         verbose_name = "فاتورة المورد"
@@ -425,6 +431,10 @@ class ReglementFournisseur(models.Model):
         related_name="reglements_fournisseur_crees",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    # v1.5 — proof of payment (bank transfer confirmation, cheque scan, ...).
+    pieces_jointes = GenericRelation(
+        PieceJointe, related_query_name="reglement_fournisseur"
+    )
 
     class Meta:
         verbose_name = "تسوية المورد"
@@ -526,6 +536,11 @@ class AcompteFournisseur(models.Model):
     utilise = models.BooleanField(default=False, verbose_name="مستخدم")
     notes = models.TextField(blank=True, verbose_name="ملاحظات")
     created_at = models.DateTimeField(auto_now_add=True)
+    # v1.5 — proof (e.g. reçu confirming the surplus), esp. when `reglement`
+    # is left blank (no source règlement to inherit proof from).
+    pieces_jointes = GenericRelation(
+        PieceJointe, related_query_name="acompte_fournisseur"
+    )
 
     class Meta:
         verbose_name = "دفعة مقدمة للمورد"

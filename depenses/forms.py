@@ -50,6 +50,7 @@ from depenses.models import (
     BulletinPaie,
 )
 from elevage.models import LotElevage
+from core.forms import make_piece_jointe_formset
 
 
 class CategorieDepenseForm(forms.ModelForm):
@@ -88,7 +89,6 @@ class DepenseForm(forms.ModelForm):
             "montant",
             "mode_paiement",
             "reference_document",
-            "piece_jointe",
             "lot",
             "facture_liee",
             "notes",
@@ -144,7 +144,6 @@ class DepenseForm(forms.ModelForm):
         )
 
         self.fields["reference_document"].required = False
-        self.fields["piece_jointe"].required = False
         self.fields["notes"].required = False
 
     def clean_date(self):
@@ -338,7 +337,6 @@ class RetraitAssocieForm(forms.ModelForm):
             "mode_paiement",
             "motif",
             "reference_document",
-            "piece_jointe",
             "notes",
         ]
         widgets = {
@@ -354,7 +352,6 @@ class RetraitAssocieForm(forms.ModelForm):
         )
         self.fields["motif"].required = False
         self.fields["reference_document"].required = False
-        self.fields["piece_jointe"].required = False
         self.fields["notes"].required = False
 
     def clean_date(self):
@@ -735,3 +732,17 @@ class RHFilterForm(forms.Form):
             self.fields["employe"].queryset = self.fields["employe"].queryset.filter(
                 batiment__branche=branche
             )
+
+
+# ---------------------------------------------------------------------------
+# PieceJointe formsets (v1.5) — one alias per attachment-capable model,
+# built from core.forms.make_piece_jointe_formset. Replaces the old
+# `piece_jointe` FileField on DepenseForm / RetraitAssocieForm (now removed
+# above) — proofs are attached/edited via these formsets in the view
+# alongside the header form, same pattern as achats.forms.
+# ---------------------------------------------------------------------------
+
+DepensePieceJointeFormSet = make_piece_jointe_formset(extra=1)
+RetraitAssociePieceJointeFormSet = make_piece_jointe_formset(extra=1)
+AcompteEmployePieceJointeFormSet = make_piece_jointe_formset(extra=1, max_num=3)
+BulletinPaiePieceJointeFormSet = make_piece_jointe_formset(extra=1, max_num=3)

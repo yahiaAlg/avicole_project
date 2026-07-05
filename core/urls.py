@@ -9,6 +9,8 @@ URL patterns for:
   - My Profile          (/profil/)
   - Multi-branch (v1.4) : branch switcher, Branche CRUD (admin only,
                            BR-BRA-06) (/parametres/branches/)
+  - Pièces jointes (v1.5): generic attachment delete, shared by every app
+                           (/pieces-jointes/<pk>/supprimer/)
 """
 
 from django.urls import path
@@ -83,5 +85,14 @@ urlpatterns = [
         "parametres/branches/<int:pk>/modifier/",
         views.branche_edit,
         name="branche_edit",
+    ),
+    # ── Pièces jointes (v1.5) — generic delete shared by every app ──────
+    # Every app's detail/edit templates (BL, facture, règlement, dépense,
+    # acompte, ...) point their delete buttons at this single POST-only
+    # view instead of each app re-implementing attachment deletion.
+    path(
+        "pieces-jointes/<int:pk>/supprimer/",
+        views.piece_jointe_delete,
+        name="piece_jointe_delete",
     ),
 ]

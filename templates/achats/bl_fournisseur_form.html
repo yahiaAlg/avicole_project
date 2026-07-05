@@ -139,14 +139,6 @@
             {% endif %}
           </div>
 
-          <!-- Pièce jointe -->
-          <div class="form-field">
-            <label class="form-label" for="{{ form.piece_jointe.id_for_label }}">مرفق (PDF/JPG/PNG، الحد الأقصى 5 ميغابايت)</label>
-            {{ form.piece_jointe }}
-            {% if form.piece_jointe.errors %}
-            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.piece_jointe.errors|join:", " }}</div>
-            {% endif %}
-          </div>
         </div>
 
         <!-- Notes réception (full width) -->
@@ -344,6 +336,57 @@
         {% if formset.non_form_errors %}
         <div class="form-error-banner" style="margin-top:12px;">
           <i class="bx bxs-error-circle"></i> {{ formset.non_form_errors|join:", " }}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Pièces jointes (v1.5) -->
+      <div class="form-card" style="margin-top: 16px;">
+        <div class="form-card__header">
+          <i class="bx bxs-paperclip ic-icon"></i>
+          <span class="form-card__title">المرفقات (PDF/JPG/PNG، 5 ميغابايت كحد أقصى)</span>
+        </div>
+
+        {{ pj_formset.management_form }}
+
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          {% for pj_form in pj_formset %}
+          <div class="pj-row{% if pj_form.instance.pk %} existing{% endif %}">
+            {{ pj_form.id }}
+            <div class="form-grid-2">
+              <div class="form-field">
+                <label class="form-label">الملف</label>
+                {{ pj_form.fichier }}
+                {% if pj_form.instance.pk and pj_form.instance.fichier %}
+                <a href="{{ pj_form.instance.fichier.url }}" target="_blank" style="font-size:12px;color:var(--accent-text);">عرض الملف الحالي</a>
+                {% endif %}
+                {% if pj_form.fichier.errors %}
+                <div class="field-error"><i class="bx bxs-x-circle"></i> {{ pj_form.fichier.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+              <div class="form-field">
+                <label class="form-label">نوع الوثيقة</label>
+                {{ pj_form.type_document }}
+              </div>
+              <div class="form-field">
+                <label class="form-label">وصف مختصر</label>
+                {{ pj_form.description }}
+              </div>
+              {% if pj_form.instance.pk %}
+              <div class="form-field" style="justify-content:flex-end;">
+                <label style="font-size:12px;color:#dc2626;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                  {{ pj_form.DELETE }} حذف هذا المرفق
+                </label>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        {% if pj_formset.non_form_errors %}
+        <div class="form-error-banner" style="margin-top:12px;">
+          <i class="bx bxs-error-circle"></i> {{ pj_formset.non_form_errors|join:", " }}
         </div>
         {% endif %}
       </div>

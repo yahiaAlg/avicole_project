@@ -41,6 +41,8 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericRelation
+from core.models import PieceJointe
 
 
 class CategorieDepense(models.Model):
@@ -155,12 +157,10 @@ class Depense(models.Model):
         help_text="رقم الوثيقة المثبتة الورقية.",
     )
 
-    piece_jointe = models.FileField(
-        upload_to="depenses/%Y/%m/",
-        blank=True,
-        null=True,
-        verbose_name="مرفق (PDF/JPG/PNG)",
-    )
+    # v1.5 — replaced the single `piece_jointe` FileField with the generic
+    # PieceJointe model (core.models) so a dépense can carry several
+    # proofs (receipt + bank transfer confirmation, etc.).
+    pieces_jointes = GenericRelation(PieceJointe, related_query_name="depense")
 
     # Optional lot attribution (BR-DEP-04)
     lot = models.ForeignKey(
@@ -242,7 +242,7 @@ class Depense(models.Model):
 
     @property
     def a_piece_jointe(self):
-        return bool(self.piece_jointe)
+        return self.pieces_jointes.exists()
 
 
 # ===========================================================================
@@ -325,12 +325,6 @@ class RetraitAssocie(models.Model):
     reference_document = models.CharField(
         max_length=150, blank=True, verbose_name="مرجع الوثيقة"
     )
-    piece_jointe = models.FileField(
-        upload_to="associes/retraits/%Y/%m/",
-        blank=True,
-        null=True,
-        verbose_name="مرفق (إيصال)",
-    )
     notes = models.TextField(blank=True, verbose_name="ملاحظات")
     enregistre_par = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -341,6 +335,9 @@ class RetraitAssocie(models.Model):
         verbose_name="مسجّل من قبل",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    # v1.5 — replaced the single `piece_jointe` FileField with the generic
+    # PieceJointe model (core.models).
+    pieces_jointes = GenericRelation(PieceJointe, related_query_name="retrait_associe")
 
     class Meta:
         verbose_name = "سحب شريك"
@@ -349,6 +346,10 @@ class RetraitAssocie(models.Model):
 
     def __str__(self):
         return f"{self.date} | {self.associe.nom} | {self.montant} DZD"
+
+    @property
+    def a_piece_jointe(self):
+        return self.pieces_jointes.exists()
 
 
 # ===========================================================================
@@ -687,6 +688,10 @@ class AcompteEmploye(models.Model):
         verbose_name="مسجّل من قبل",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    # v1.5 — proof of the advance handed to the employee (signed receipt, etc.).
+    pieces_jointes = GenericRelation(
+        PieceJointe, related_query_name="acompte_employe"
+    )
 
     class Meta:
         verbose_name = "تسبيق على الراتب"
@@ -696,6 +701,10 @@ class AcompteEmploye(models.Model):
     def __str__(self):
         status = "مخصوم" if self.bulletin_paie_id else "قيد الانتظار"
         return f"{self.employe.nom_complet} — {self.montant} DZD [{status}]"
+
+    @property
+    def a_piece_jointe(self):
+        return self.pieces_jointes.exists()
 
     @property
     def deduit(self) -> bool:
@@ -810,6 +819,11 @@ class BulletinPaie(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # v1.5 — proof of salary payment (bank transfer confirmation, signed
+    # receipt, ...), attached once `statut` moves to PAYE.
+    pieces_jointes = GenericRelation(
+        PieceJointe, related_query_name="bulletin_paie"
+    )
 
     class Meta:
         verbose_name = "كشف راتب"
@@ -830,6 +844,10 @@ class BulletinPaie(models.Model):
     @property
     def periode_label(self) -> str:
         return f"{self.mois:02d}/{self.annee}"
+
+    @property
+    def a_piece_jointe(self):
+        return self.pieces_jointes.exists()
 
     @property
     def branche(self):

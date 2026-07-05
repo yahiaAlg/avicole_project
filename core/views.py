@@ -858,3 +858,57 @@ def profile_view(request):
             "title": "ملفي الشخصي",
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# PieceJointe (v1.5) — generic attachment handling shared by every app
+#
+# Every create/edit view that carries proof documents (BL, facture,
+# règlement/paiement, dépense, retrait, acompte, bulletin de paie, ...)
+# builds its formset through `build_piece_jointe_formset` below instead of
+# each app re-implementing the request.method / request.FILES branching.
+# Deletion of a single attachment (e.g. from a detail page, for models with
+# no dedicated edit view such as FactureFournisseur/ReglementFournisseur/
+# AcompteFournisseur) goes through the one generic `piece_jointe_delete`
+# view — wired once in core/urls.py and reused by every app's templates.
+# ---------------------------------------------------------------------------
+
+
+def build_piece_jointe_formset(formset_class, request, instance=None, prefix="pj"):
+    """
+    Build a generic PieceJointeFormSet bound to *instance* (an existing
+    header row) — or unbound-to-instance when called before the parent is
+    saved (the caller must then set `formset.instance = obj` and re-save,
+    mirroring the pattern already used for line-item formsets).
+
+    On GET (or when the request isn't a POST), returns an unbound formset
+    for display. On POST, returns it bound to request.POST/request.FILES
+    so the calling view can run its own `form.is_valid() and
+    formset.is_valid()` check inside its existing transaction.
+    """
+    kwargs = {"prefix": prefix}
+    if instance is not None:
+        kwargs["instance"] = instance
+    if request.method == "POST":
+        return formset_class(request.POST, request.FILES, **kwargs)
+    return formset_class(**kwargs)
+
+
+@login_required(login_url="core:login")
+@require_POST
+def piece_jointe_delete(request, pk):
+    """
+    Delete a single PieceJointe row, regardless of which app/model owns it.
+
+    Generic on purpose: the underlying file is removed by the
+    `post_delete` signal in core/signals.py, so this view only needs to
+    fetch-and-delete the row and bounce back to wherever the user came
+    from (?next=<url> or the HTTP referer).
+    """
+    from core.models import PieceJointe
+
+    pj = get_object_or_404(PieceJointe, pk=pk)
+    next_url = request.POST.get("next") or request.META.get("HTTP_REFERER") or "/"
+    pj.delete()
+    messages.success(request, "تم حذف المرفق.")
+    return redirect(next_url)

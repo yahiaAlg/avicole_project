@@ -31,6 +31,7 @@ from clients.models import (
     LivraisonPartielle,
 )
 from production.models import ProduitFini
+from core.forms import make_piece_jointe_formset
 
 # ---------------------------------------------------------------------------
 # Client master record
@@ -750,3 +751,15 @@ class PrixMarcheForm(forms.ModelForm):
         self.fields["produit_fini"].queryset = ProduitFini.objects.filter(
             actif=True, type_produit__code="OEUFS"
         ).order_by("designation")
+
+
+# ---------------------------------------------------------------------------
+# PieceJointe formsets (v1.5) — one alias per attachment-capable model,
+# built from core.forms.make_piece_jointe_formset. BLClient / FactureClient /
+# PaiementClient never had an ad-hoc `piece_jointe` FileField, so this is a
+# pure addition (same pattern as achats.forms / depenses.forms).
+# ---------------------------------------------------------------------------
+
+BLClientPieceJointeFormSet = make_piece_jointe_formset(extra=1)
+FactureClientPieceJointeFormSet = make_piece_jointe_formset(extra=1)
+PaiementClientPieceJointeFormSet = make_piece_jointe_formset(extra=1)

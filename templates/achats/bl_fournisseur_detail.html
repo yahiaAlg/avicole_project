@@ -95,9 +95,9 @@
         <div class="info-item">
           <div class="info-label">المرفقات</div>
           <div class="info-val">
-            {% if bl.a_piece_jointe %}
-              <a href="{{ bl.piece_jointe.url }}" target="_blank" style="color:var(--accent-text);display:inline-flex;align-items:center;gap:4px;font-size:13px;">
-                <i class="bx bx-paperclip"></i> عرض المرفق
+            {% if pieces_jointes %}
+              <a href="#pieces-jointes" style="color:var(--accent-text);display:inline-flex;align-items:center;gap:4px;font-size:13px;">
+                <i class="bx bx-paperclip"></i> {{ pieces_jointes|length }} ملف
               </a>
             {% else %}
               <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#dc2626;">
@@ -285,6 +285,41 @@
     </div>
     {% endif %}
 
+    <!-- Pièces jointes -->
+    <div class="detail-card" id="pieces-jointes" style="margin-top:16px;">
+      <div class="detail-card__header">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="ic-box ic-blue"><i class="bx bxs-paperclip"></i></div>
+          <span class="detail-card__title">المرفقات</span>
+        </div>
+        {% if not bl.est_verrouille %}
+        <a href="{% url 'achats:bl_fournisseur_edit' bl.pk %}#pj-formset" class="btn-ghost btn-sm">
+          <i class="bx bx-plus"></i> إضافة مرفق
+        </a>
+        {% endif %}
+      </div>
+      {% if pieces_jointes %}
+      <div class="pj-list">
+        {% for pj in pieces_jointes %}
+        <div class="pj-item">
+          <a href="{{ pj.fichier.url }}" target="_blank" class="pj-item__link">
+            <i class="bx bxs-file-blank"></i>
+            <span>{{ pj.get_type_document_display }}{% if pj.description %} — {{ pj.description }}{% endif %}</span>
+          </a>
+          <span class="pj-item__meta">{{ pj.created_at|date:"d/m/Y" }} · {{ pj.uploaded_by.get_full_name|default:pj.uploaded_by.username|default:"—" }}</span>
+          <form method="post" action="{% url 'core:piece_jointe_delete' pj.pk %}" onsubmit="return confirm('حذف هذا المرفق؟');">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}#pieces-jointes" />
+            <button type="submit" class="action-btn action-btn--danger" title="حذف"><i class="bx bx-trash"></i></button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div style="padding:16px 4px;color:var(--text-muted);font-size:13px;">لا توجد مرفقات لهذا الوصل.</div>
+      {% endif %}
+    </div>
+
   </div><!-- /detail-main -->
 
   <!-- Right: quick actions -->
@@ -418,6 +453,22 @@
     border-radius: var(--radius-lg);
     padding: 20px 22px;
   }
+  .pj-list { display: flex; flex-direction: column; gap: 8px; }
+  .pj-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md);
+    background: var(--bg-raised);
+  }
+  .pj-item__link {
+    display: flex; align-items: center; gap: 6px;
+    color: var(--accent-text); text-decoration: none; font-size: 13px; flex: 1; min-width: 0;
+  }
+  .pj-item__link:hover { color: var(--accent); }
+  .pj-item__link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pj-item__meta { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; }
+  .action-btn--danger { color: #dc2626; border-color: rgba(239,68,68,.25); }
+  .action-btn--danger:hover { background: rgba(239,68,68,.1); color: #dc2626; }
+
   .detail-card__header {
     display: flex; align-items: center; justify-content: space-between;
     gap: 12px; margin-bottom: 18px;

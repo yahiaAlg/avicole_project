@@ -11,7 +11,7 @@ from django.utils.html import format_html
 
 from import_export.admin import ImportExportModelAdmin
 
-from core.admin import BrancheScopedAdminMixin
+from core.admin import BrancheScopedAdminMixin, PieceJointeInline
 from clients.models import (
     TypeClient,
     Client,
@@ -227,6 +227,7 @@ class BLClientAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         "date_bl",
         "statut_badge",
         "montant_total_dzd",
+        "a_piece_jointe",
         "created_at",
     )
     list_filter = ("statut", "branche", "client", "date_bl")
@@ -238,7 +239,7 @@ class BLClientAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         "montant_total_dzd",
         "est_verrouille",
     )
-    inlines = (BLClientLigneInline,)
+    inlines = (BLClientLigneInline, PieceJointeInline)
     autocomplete_fields = ("branche", "client")
 
     fieldsets = (
@@ -270,6 +271,10 @@ class BLClientAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     @admin.display(description="Montant total (DZD)")
     def montant_total_dzd(self, obj):
         return f"{obj.montant_total:,.2f} DZD"
+
+    @admin.display(description="PJ", boolean=True)
+    def a_piece_jointe(self, obj):
+        return obj.a_piece_jointe
 
     @admin.display(description="Statut")
     def statut_badge(self, obj):
@@ -360,7 +365,7 @@ class FactureClientAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         "created_at",
         "updated_at",
     )
-    inlines = (PaiementAllocationInline,)
+    inlines = (PaiementAllocationInline, PieceJointeInline)
     autocomplete_fields = ("branche", "client")
 
     fieldsets = (
@@ -485,7 +490,7 @@ class PaiementClientAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     search_fields = ("client__nom", "reference_paiement", "notes")
     date_hierarchy = "date_paiement"
     readonly_fields = ("created_at", "montant_alloue_dzd", "solde_non_alloue_dzd")
-    inlines = (FactureAllocationInline,)
+    inlines = (FactureAllocationInline, PieceJointeInline)
     autocomplete_fields = ("branche", "client")
 
     fieldsets = (

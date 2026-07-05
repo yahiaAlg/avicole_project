@@ -159,6 +159,56 @@
       </div>
     </div>
 
+    <!-- Pièces jointes (v1.5 — no create/edit view, add post-hoc) -->
+    <div class="detail-card">
+      <div class="form-card__title"><i class="bx bxs-paperclip"></i> المرفقات</div>
+      {% if pieces_jointes %}
+      <div class="pj-list">
+        {% for pj in pieces_jointes %}
+        <div class="pj-item">
+          <a href="{{ pj.fichier.url }}" target="_blank" class="pj-item__link">
+            <i class="bx bxs-file-blank"></i>
+            <span>{{ pj.get_type_document_display }}{% if pj.description %} — {{ pj.description }}{% endif %}</span>
+          </a>
+          <span class="pj-item__meta">{{ pj.created_at|date:"d/m/Y" }} · {{ pj.uploaded_by.get_full_name|default:pj.uploaded_by.username|default:"—" }}</span>
+          <form method="post" action="{% url 'core:piece_jointe_delete' pj.pk %}" onsubmit="return confirm('حذف هذا المرفق؟');">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}" />
+            <button type="submit" class="action-btn action-btn--danger" title="حذف"><i class="bx bx-trash"></i></button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div style="padding:8px 0;color:var(--text-muted);font-size:13px;">لا توجد مرفقات لهذه الدفعة المقدمة.</div>
+      {% endif %}
+
+      <form method="post" enctype="multipart/form-data" action="{% url 'achats:acompte_fournisseur_ajouter_piece_jointe' acompte.pk %}" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+        {% csrf_token %}
+        {{ pj_formset.management_form }}
+        {% for pj_form in pj_formset %}
+        <div class="form-row-2">
+          <div class="field-group">
+            <label class="field-label">إضافة ملف</label>
+            {{ pj_form.fichier }}
+            {% if pj_form.fichier.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ pj_form.fichier.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div class="field-group">
+            <label class="field-label">نوع الوثيقة</label>
+            {{ pj_form.type_document }}
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">وصف مختصر</label>
+          {{ pj_form.description }}
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn-ghost btn-sm" style="margin-top:8px;"><i class="bx bx-plus"></i> إضافة</button>
+      </form>
+    </div>
+
   </div>
 
   <!-- ── Aside ── -->
@@ -343,5 +393,56 @@
     transition: background .12s; text-decoration: none;
   }
   .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .btn-sm { padding: 7px 13px !important; font-size: 12px !important; }
+
+  /* Pièces jointes (v1.5) */
+  .pj-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
+  .pj-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md);
+    background: var(--bg-raised);
+  }
+  .pj-item__link {
+    display: flex; align-items: center; gap: 6px;
+    color: var(--accent-text); text-decoration: none; font-size: 13px; flex: 1; min-width: 0;
+  }
+  .pj-item__link:hover { color: var(--accent); }
+  .pj-item__link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pj-item__meta { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; }
+  .action-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: transparent; color: var(--text-muted);
+    font-size: 14px; cursor: pointer; transition: background .12s;
+  }
+  .action-btn--danger { color: #dc2626; border-color: rgba(239,68,68,.25); }
+  .action-btn--danger:hover { background: rgba(239,68,68,.1); color: #dc2626; }
+
+  .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px; }
+  .field-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+  .field-group:last-child { margin-bottom: 0; }
+  .field-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .03em; }
+  .field-error { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #dc2626; }
+  .detail-card input[type="text"],
+  .detail-card input[type="file"],
+  .detail-card select,
+  .detail-card textarea {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    padding: 9px 12px;
+    width: 100%;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .detail-card input:focus,
+  .detail-card select:focus,
+  .detail-card textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
 </style>
 {% endblock %}

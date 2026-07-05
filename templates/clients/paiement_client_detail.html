@@ -138,6 +138,67 @@
         {% endif %}
       </div>
 
+      <!-- Pièces jointes -->
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bx-paperclip"></i> المرفقات / وثائق الإثبات</div>
+        </div>
+        {% if pieces_jointes %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>النوع</th>
+                <th>الوصف</th>
+                <th>أُضيف بواسطة</th>
+                <th style="text-align:right;">إجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for pj in pieces_jointes %}
+              <tr>
+                <td><span class="pill-neutral">{{ pj.get_type_document_display }}</span></td>
+                <td style="color:var(--text-secondary);font-size:12.5px;">{{ pj.description|default:"—" }}</td>
+                <td style="font-size:12px;color:var(--text-muted);">{{ pj.uploaded_by|default:"—" }} · {{ pj.created_at|date:"d/m/Y H:i" }}</td>
+                <td>
+                  <div class="actions-cell">
+                    <a href="{{ pj.fichier.url }}" class="action-btn" title="فتح الملف" target="_blank"><i class="bx bx-download"></i></a>
+                    <form method="post" action="{% url 'core:piece_jointe_delete' pj.pk %}" style="display:inline;" onsubmit="return confirm('حذف هذا المرفق؟');">
+                      {% csrf_token %}
+                      <button type="submit" class="action-btn" title="حذف"><i class="bx bx-trash" style="color:#dc2626;"></i></button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div style="padding:24px 16px;text-align:center;color:var(--text-muted);font-size:13px;">
+          <i class="bx bx-paperclip" style="font-size:22px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
+          لا توجد مرفقات لهذه الدفعة.
+        </div>
+        {% endif %}
+
+        <form method="post" action="{% url 'clients:paiement_client_ajouter_piece_jointe' paiement.pk %}" enctype="multipart/form-data" style="padding:16px 18px;border-top:1px solid var(--border);">
+          {% csrf_token %}
+          {{ pj_formset.management_form }}
+          {% for pj_form in pj_formset %}
+          <div style="display:grid;grid-template-columns:2fr 1fr 1.4fr;gap:10px;margin-bottom:{% if not forloop.last %}10px{% else %}0{% endif %};">
+            {% for hfield in pj_form.hidden_fields %}{{ hfield }}{% endfor %}
+            {{ pj_form.fichier }}
+            {{ pj_form.type_document }}
+            {{ pj_form.description }}
+          </div>
+          {% for err in pj_form.fichier.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+          {% endfor %}
+          <button type="submit" class="btn-ghost btn-sm" style="margin-top:10px;">
+            <i class="bx bx-upload"></i> رفع المرفق
+          </button>
+        </form>
+      </div>
+
     </div>
 
     <!-- Right: financial summary -->

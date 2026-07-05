@@ -94,8 +94,6 @@ class DepenseResource(resources.ModelResource):
                      must be a Service-type invoice — BR-DEP-03; must
                      share the dépense's branche — BR-BRA-01)
       - enregistre_par resolved by User.username (readonly on import)
-
-    File attachments (piece_jointe) are excluded — managed via admin.
     """
 
     branche = fields.Field(
@@ -136,7 +134,6 @@ class DepenseResource(resources.ModelResource):
         skip_unchanged = True
         report_skipped = False
         import_id_fields = ["id"]
-        exclude = ["piece_jointe"]
         fields = [
             "id",
             "date",
@@ -253,13 +250,18 @@ class RetraitAssocieResource(resources.ModelResource):
         widget=ForeignKeyWidget(User, field="username"),
         readonly=True,
     )
+    a_piece_jointe = fields.Field(
+        column_name="a_piece_jointe",
+        attribute="a_piece_jointe",
+        widget=BooleanWidget(),
+        readonly=True,
+    )
 
     class Meta:
         model = RetraitAssocie
         skip_unchanged = True
         report_skipped = False
         import_id_fields = ["id"]
-        exclude = ["piece_jointe"]
         fields = [
             "id",
             "date",
@@ -269,6 +271,7 @@ class RetraitAssocieResource(resources.ModelResource):
             "motif",
             "reference_document",
             "notes",
+            "a_piece_jointe",
             "enregistre_par",
             "created_at",
         ]
@@ -401,6 +404,12 @@ class AcompteEmployeResource(resources.ModelResource):
         column_name="branche_code",
         readonly=True,
     )
+    a_piece_jointe = fields.Field(
+        column_name="a_piece_jointe",
+        attribute="a_piece_jointe",
+        widget=BooleanWidget(),
+        readonly=True,
+    )
 
     class Meta:
         model = AcompteEmploye
@@ -416,6 +425,7 @@ class AcompteEmployeResource(resources.ModelResource):
             "mode_paiement",
             "motif",
             "notes",
+            "a_piece_jointe",
             "enregistre_par",
             "created_at",
         ]
@@ -441,6 +451,12 @@ class BulletinPaieResource(resources.ModelResource):
     # v1.4 — derived from employe.branche (BR-BRA-09), export only.
     branche_code = fields.Field(
         column_name="branche_code",
+        readonly=True,
+    )
+    a_piece_jointe = fields.Field(
+        column_name="a_piece_jointe",
+        attribute="a_piece_jointe",
+        widget=BooleanWidget(),
         readonly=True,
     )
 
@@ -469,6 +485,7 @@ class BulletinPaieResource(resources.ModelResource):
             "statut",
             "date_paiement",
             "mode_paiement",
+            "a_piece_jointe",
             "created_at",
         ]
         export_order = fields

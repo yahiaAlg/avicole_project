@@ -1,7 +1,7 @@
 # clients/resources.py
 # django-import-export ModelResource definitions for the clients application.
 from import_export import resources, fields
-from import_export.widgets import ForeignKeyWidget, ManyToManyWidget
+from import_export.widgets import ForeignKeyWidget, ManyToManyWidget, BooleanWidget
 
 from clients.models import (
     TypeClient,
@@ -74,6 +74,12 @@ class BLClientResource(resources.ModelResource):
         attribute="client",
         widget=ForeignKeyWidget(Client, field="nom"),
     )
+    a_piece_jointe = fields.Field(
+        column_name="a_piece_jointe",
+        attribute="a_piece_jointe",
+        widget=BooleanWidget(),
+        readonly=True,
+    )
 
     class Meta:
         model = BLClient
@@ -87,6 +93,7 @@ class BLClientResource(resources.ModelResource):
             "statut",
             "signe_par",
             "notes",
+            "a_piece_jointe",
             "created_at",
             "updated_at",
         )
@@ -140,6 +147,11 @@ class FactureClientResource(resources.ModelResource):
         attribute="bls",
         widget=ManyToManyWidget(BLClient, field="reference", separator=","),
     )
+    a_piece_jointe = fields.Field(
+        column_name="a_piece_jointe",
+        widget=BooleanWidget(),
+        readonly=True,
+    )
 
     class Meta:
         model = FactureClient
@@ -159,6 +171,7 @@ class FactureClientResource(resources.ModelResource):
             "reste_a_payer",
             "statut",
             "notes",
+            "a_piece_jointe",
             "created_at",
             "updated_at",
         )
@@ -166,6 +179,9 @@ class FactureClientResource(resources.ModelResource):
         import_id_fields = ("reference",)
         skip_unchanged = True
         report_skipped = True
+
+    def dehydrate_a_piece_jointe(self, obj):
+        return obj.pieces_jointes.exists()
 
 
 class PaiementClientResource(resources.ModelResource):
@@ -179,6 +195,11 @@ class PaiementClientResource(resources.ModelResource):
         attribute="branche",
         widget=ForeignKeyWidget(Branche, field="code"),
     )
+    a_piece_jointe = fields.Field(
+        column_name="a_piece_jointe",
+        widget=BooleanWidget(),
+        readonly=True,
+    )
 
     class Meta:
         model = PaiementClient
@@ -191,12 +212,16 @@ class PaiementClientResource(resources.ModelResource):
             "mode_paiement",
             "reference_paiement",
             "notes",
+            "a_piece_jointe",
             "created_at",
         )
         export_order = fields
         import_id_fields = ("id",)
         skip_unchanged = True
         report_skipped = True
+
+    def dehydrate_a_piece_jointe(self, obj):
+        return obj.pieces_jointes.exists()
 
 
 class PaiementClientAllocationResource(resources.ModelResource):

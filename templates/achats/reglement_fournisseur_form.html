@@ -62,7 +62,7 @@
       <span><strong>ملاحظة:</strong> التسويات <strong>غير قابلة للتعديل</strong> بعد التسجيل (BR-REG-06). تحقق من المبلغ والمورد قبل الإرسال.</span>
     </div>
 
-    <form method="post" id="reglement-form">
+    <form method="post" enctype="multipart/form-data" id="reglement-form">
       {% csrf_token %}
 
       {% if fournisseur %}
@@ -153,6 +153,36 @@
           <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.notes.errors.0 }}</div>
           {% endif %}
         </div>
+      </div>
+
+      <!-- Pièces jointes (v1.5) -->
+      <div class="form-card">
+        <div class="form-card__title"><i class="bx bxs-paperclip"></i> المرفقات
+          <span style="font-size:11px;font-weight:400;color:var(--text-muted);margin-right:8px;">PDF/JPG/PNG، 5 ميغابايت كحد أقصى</span>
+        </div>
+        {{ pj_formset.management_form }}
+        {% for pj_form in pj_formset %}
+        <div class="form-row-2">
+          <div class="field-group">
+            <label class="field-label">الملف</label>
+            {{ pj_form.fichier }}
+            {% if pj_form.fichier.errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ pj_form.fichier.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div class="field-group">
+            <label class="field-label">نوع الوثيقة</label>
+            {{ pj_form.type_document }}
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">وصف مختصر</label>
+          {{ pj_form.description }}
+        </div>
+        {% endfor %}
+        {% if pj_formset.non_form_errors %}
+        <div class="field-error" style="margin-top:8px;"><i class="bx bxs-x-circle"></i> {{ pj_formset.non_form_errors|join:", " }}</div>
+        {% endif %}
       </div>
 
       <!-- FIFO Preview block (rendered by JS on amount input) -->

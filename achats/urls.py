@@ -70,6 +70,11 @@ urlpatterns = [
         name="facture_fournisseur_detail",
     ),
     path(
+        "factures/<int:pk>/ajouter-piece-jointe/",
+        views.facture_fournisseur_ajouter_piece_jointe,
+        name="facture_fournisseur_ajouter_piece_jointe",
+    ),
+    path(
         "factures/<int:pk>/imprimer/",
         views.facture_fournisseur_print,
         name="facture_fournisseur_print",
@@ -100,6 +105,11 @@ urlpatterns = [
         views.reglement_fournisseur_detail,
         name="reglement_fournisseur_detail",
     ),
+    path(
+        "reglements/<int:pk>/ajouter-piece-jointe/",
+        views.reglement_fournisseur_ajouter_piece_jointe,
+        name="reglement_fournisseur_ajouter_piece_jointe",
+    ),
     # ── Acompte Fournisseur ─────────────────────────────────────────────
     path(
         "acomptes/",
@@ -110,6 +120,11 @@ urlpatterns = [
         "acomptes/<int:pk>/",
         views.acompte_fournisseur_detail,
         name="acompte_fournisseur_detail",
+    ),
+    path(
+        "acomptes/<int:pk>/ajouter-piece-jointe/",
+        views.acompte_fournisseur_ajouter_piece_jointe,
+        name="acompte_fournisseur_ajouter_piece_jointe",
     ),
     # ── Tableau de bord fournisseur ─────────────────────────────────────
     path(

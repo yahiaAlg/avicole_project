@@ -183,30 +183,56 @@
           </div>
         </div>
 
-        <!-- Pièce jointe -->
+        <!-- Pieces jointes -->
         <div class="form-card">
           <div class="form-card__header">
-            <div class="section-eyebrow"><i class="bx bx-paperclip"></i> المستند المرفق (اختياري)</div>
+            <div class="section-eyebrow"><i class="bx bx-paperclip"></i> المستندات المرفقة (اختياري)</div>
           </div>
           <div class="form-card__body">
-            <div class="form-group" style="margin-bottom:0;">
-              <div class="file-upload-area" id="file-upload-area">
-                <i class="bx bx-cloud-upload file-upload__icon"></i>
-                <div class="file-upload__label">اسحب ملفاً أو انقر للاختيار</div>
-                <div class="file-upload__hint">PDF، JPG أو PNG — الحد الأقصى 5 ميغابايت</div>
-                {{ form.piece_jointe }}
+            {{ pj_formset.management_form }}
+            <div class="pj-formset" id="pj-formset">
+              {% for pf in pj_formset %}
+              <div class="pj-row">
+                {% if pf.instance.pk %}
+                <div class="current-attachment">
+                  <i class="bx bxs-file" style="color:#0284c7;font-size:15px;"></i>
+                  <span>{{ pf.instance.fichier.name|slice:"16:" }}</span>
+                  <a href="{{ pf.instance.fichier.url }}" target="_blank" style="font-size:12px;color:var(--accent-text);margin-left:auto;">عرض</a>
+                </div>
+                {% endif %}
+                {% for hidden in pf.hidden_fields %}{{ hidden }}{% endfor %}
+                <div class="pj-row__fields">
+                  <div class="form-group" style="margin-bottom:0;">
+                    <div class="file-upload-area">
+                      <i class="bx bx-cloud-upload file-upload__icon"></i>
+                      <div class="file-upload__label">اسحب ملفاً أو انقر للاختيار</div>
+                      <div class="file-upload__hint">PDF، JPG أو PNG — الحد الأقصى 5 ميغابايت</div>
+                      {{ pf.fichier }}
+                    </div>
+                    {% for err in pf.fichier.errors %}
+                    <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+                    {% endfor %}
+                  </div>
+                  <div class="form-row-2">
+                    <div class="form-group">
+                      <label class="form-label">نوع المستند</label>
+                      {{ pf.type_document }}
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">وصف</label>
+                      {{ pf.description }}
+                    </div>
+                  </div>
+                  {% if pf.DELETE %}
+                  <label class="checkbox-label" style="font-size:12px;">{{ pf.DELETE }} <span>حذف هذا المرفق</span></label>
+                  {% endif %}
+                </div>
               </div>
-              {% if depense and depense.a_piece_jointe %}
-              <div class="current-attachment">
-                <i class="bx bxs-file" style="color:#0284c7;font-size:15px;"></i>
-                <span>الملف الحالي: {{ depense.piece_jointe.name|slice:"16:" }}</span>
-                <a href="{{ depense.piece_jointe.url }}" target="_blank" style="font-size:12px;color:var(--accent-text);margin-left:auto;">عرض</a>
-              </div>
-              {% endif %}
-              {% for err in form.piece_jointe.errors %}
-              <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
               {% endfor %}
             </div>
+            {% if pj_formset.non_form_errors %}
+            <div class="field-error"><i class="bx bxs-x-circle"></i> {{ pj_formset.non_form_errors }}</div>
+            {% endif %}
           </div>
         </div>
 
@@ -320,6 +346,9 @@
   .file-upload__label { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
   .file-upload__hint { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
   .current-attachment { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12.5px; color: var(--text-secondary); background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; }
+  .pj-formset { display: flex; flex-direction: column; gap: 16px; }
+  .pj-row { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; }
+  .pj-row__fields { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
 
   .service-notice { display: flex; align-items: flex-start; gap: 8px; background: rgba(56,189,248,.07); border: 1px solid rgba(56,189,248,.2); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 12.5px; color: var(--text-secondary); }
   .service-notice__icon { color: #0284c7; font-size: 15px; margin-top: 1px; flex-shrink: 0; }

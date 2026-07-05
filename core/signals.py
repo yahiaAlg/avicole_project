@@ -3,13 +3,17 @@ core/signals.py
 
 Signals for the core application.
 
-Registered signal (v1.4 — Multi-Branch Architecture, spec §3.5):
-  post_save on Branche → on creation of a new branch, bootstrap a
-  StockIntrant row (quantite=0) for every existing Intrant and a
-  StockProduitFini row (quantite=0) for every existing ProduitFini, scoped
-  to that branch.
+Registered signals:
+  1. post_save on Branche (v1.4 — Multi-Branch Architecture, spec §3.5) →
+     on creation of a new branch, bootstrap a StockIntrant row (quantite=0)
+     for every existing Intrant and a StockProduitFini row (quantite=0) for
+     every existing ProduitFini, scoped to that branch.
+  2. post_delete on PieceJointe (v1.5 — generic document-proof model) →
+     delete the underlying file from storage whenever a PieceJointe row is
+     removed, whether directly or via cascade when its owning record
+     (BL, facture, règlement, dépense, ...) is deleted.
 
-Why this is needed:
+Why #1 is needed:
   StockIntrant / StockProduitFini are now keyed by (branche, item) instead
   of by item alone (BR-BRA-07). intrants/signals.py and production/signals.py
   already guarantee a stock row per (existing branch, new item) whenever a
@@ -22,10 +26,10 @@ Why this is needed:
 
 import logging
 
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
-from core.models import Branche
+from core.models import Branche, PieceJointe
 
 logger = logging.getLogger(__name__)
 
@@ -79,3 +83,18 @@ def bootstrap_stock_pour_nouvelle_branche(sender, instance, created, **kwargs):
         nb_stock_intrants,
         nb_stock_produits,
     )
+
+
+@receiver(post_delete, sender=PieceJointe)
+def supprimer_fichier_piece_jointe(sender, instance, **kwargs):
+    """
+    v1.5 — PieceJointe rows are removed automatically whenever their owning
+    record is deleted (GenericRelation participates in the delete collector
+    like a CASCADE FK), but Django never deletes the underlying file from
+    storage on model delete. Without this, every removed BL/facture/
+    règlement/dépense/... would leave an orphaned file behind. This also
+    fires for direct/manual PieceJointe deletion (e.g. from the admin or
+    a "remove attachment" view action).
+    """
+    if instance.fichier:
+        instance.fichier.delete(save=False)

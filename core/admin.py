@@ -15,12 +15,43 @@ admin and an unbound comptable keep full Vue Globale visibility.
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
+from django.contrib.contenttypes.admin import GenericTabularInline
 from django.utils.html import format_html
 
 from import_export.admin import ImportExportModelAdmin
 
-from core.models import CompanyInfo, Branche, UserProfile
+from core.models import CompanyInfo, Branche, UserProfile, PieceJointe
 from core.resources import CompanyInfoResource, UserProfileResource
+
+
+# ---------------------------------------------------------------------------
+# PieceJointeInline — shared generic inline (v1.5), reused by every admin
+# that used to carry an ad-hoc `piece_jointe` FileField (BLFournisseur,
+# FactureFournisseur, ReglementFournisseur, AcompteFournisseur, BLClient,
+# FactureClient, PaiementClient, Depense, RetraitAssocie, AcompteEmploye,
+# BulletinPaie). Import and drop into `inlines` on the target ModelAdmin.
+# ---------------------------------------------------------------------------
+
+
+class PieceJointeInline(GenericTabularInline):
+    model = PieceJointe
+    extra = 1
+    fields = ("fichier", "type_document", "description", "uploaded_by")
+    readonly_fields = ("uploaded_by",)
+    verbose_name = "Pièce jointe"
+    verbose_name_plural = "Pièces jointes"
+
+    def save_new(self, form, commit=True):
+        obj = super().save_new(form, commit=False)
+        if not obj.uploaded_by_id and getattr(self, "_request", None):
+            obj.uploaded_by = self._request.user
+        if commit:
+            obj.save()
+        return obj
+
+    def get_formset(self, request, obj=None, **kwargs):
+        self._request = request
+        return super().get_formset(request, obj, **kwargs)
 
 # ---------------------------------------------------------------------------
 # BrancheScopedAdminMixin — shared scoping logic (BR-BRA-01..04)

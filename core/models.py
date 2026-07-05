@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 
 
 class CompanyInfo(models.Model):
@@ -320,3 +322,83 @@ class UserProfile(models.Model):
     def peut_changer_de_branche(self):
         """True for roles that get a branch switcher in the UI (§3.5.4)."""
         return self.a_vue_globale
+
+
+# ---------------------------------------------------------------------------
+# PieceJointe — generic document-proof model (replaces the ad-hoc
+# `piece_jointe` FileField previously duplicated on BLFournisseur, Depense,
+# RetraitAssocie, ...). Attaches to ANY model (BL, facture, règlement/
+# paiement, dépense, retrait, ...) via ContentType, and supports MULTIPLE
+# files per record (a facture may need the scanned invoice + a bank
+# transfer confirmation + a delivery signature, for example).
+# ---------------------------------------------------------------------------
+
+
+class PieceJointe(models.Model):
+    """
+    A single proof/attachment file linked to any other model instance
+    via GenericForeignKey. Use the reverse `GenericRelation` declared on
+    the target model (e.g. `bl.pieces_jointes.all()`) to query/attach.
+    """
+
+    TYPE_FACTURE = "facture"
+    TYPE_RECU = "recu"
+    TYPE_VIREMENT = "virement"
+    TYPE_BL = "bl"
+    TYPE_CHEQUE = "cheque"
+    TYPE_PHOTO = "photo"
+    TYPE_AUTRE = "autre"
+
+    TYPE_CHOICES = [
+        (TYPE_FACTURE, "فاتورة (نسخة ممسوحة)"),
+        (TYPE_RECU, "إيصال"),
+        (TYPE_VIREMENT, "تأكيد تحويل بنكي"),
+        (TYPE_BL, "وصل تسليم (نسخة ممسوحة)"),
+        (TYPE_CHEQUE, "صورة الشيك"),
+        (TYPE_PHOTO, "صورة"),
+        (TYPE_AUTRE, "أخرى"),
+    ]
+
+    # --- Generic link to the owning record (BL, facture, règlement, ...) ---
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        related_name="pieces_jointes",
+        verbose_name="نوع السجل",
+    )
+    object_id = models.PositiveIntegerField(verbose_name="معرّف السجل")
+    content_object = GenericForeignKey("content_type", "object_id")
+
+    fichier = models.FileField(
+        upload_to="pieces_jointes/%Y/%m/",
+        verbose_name="الملف (PDF/JPG/PNG)",
+    )
+    type_document = models.CharField(
+        max_length=20,
+        choices=TYPE_CHOICES,
+        default=TYPE_AUTRE,
+        verbose_name="نوع الوثيقة",
+    )
+    description = models.CharField(
+        max_length=200, blank=True, verbose_name="وصف مختصر"
+    )
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pieces_jointes_ajoutees",
+        verbose_name="أضيف من قبل",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإضافة")
+
+    class Meta:
+        verbose_name = "مرفق / وثيقة إثبات"
+        verbose_name_plural = "المرفقات / وثائق الإثبات"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["content_type", "object_id"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_type_document_display()} — {self.content_object} ({self.created_at:%Y-%m-%d})"

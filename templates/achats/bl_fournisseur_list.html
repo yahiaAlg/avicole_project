@@ -137,7 +137,7 @@
           </td>
           <td>
             {% if bl.a_piece_jointe %}
-              <a href="{{ bl.piece_jointe.url }}" target="_blank" class="pj-link" title="عرض المرفق">
+              <a href="{% url 'achats:bl_fournisseur_detail' bl.pk %}#pieces-jointes" class="pj-link" title="عرض المرفقات">
                 <i class="bx bx-paperclip" style="color:var(--accent-text);"></i>
               </a>
             {% else %}

@@ -18,6 +18,8 @@ from decimal import Decimal
 from django.db import models
 from django.core.validators import MinValueValidator
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericRelation
+from core.models import PieceJointe
 
 # ---------------------------------------------------------------------------
 # Dynamic category table (replaces hardcoded choice tuple)
@@ -220,6 +222,8 @@ class BLClient(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # v1.5 — proof documents (signed delivery slip photo, etc.).
+    pieces_jointes = GenericRelation(PieceJointe, related_query_name="bl_client")
 
     class Meta:
         verbose_name = "وصل تسليم العميل"
@@ -232,6 +236,10 @@ class BLClient(models.Model):
     @property
     def montant_total(self):
         return sum(ligne.montant_total for ligne in self.lignes.all())
+
+    @property
+    def a_piece_jointe(self):
+        return self.pieces_jointes.exists()
 
     @property
     def est_verrouille(self):
@@ -403,6 +411,10 @@ class FactureClient(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # v1.5 — proof documents (signed invoice copy, etc.).
+    pieces_jointes = GenericRelation(
+        PieceJointe, related_query_name="facture_client"
+    )
 
     class Meta:
         verbose_name = "فاتورة العميل"
@@ -512,6 +524,10 @@ class PaiementClient(models.Model):
         related_name="paiements_client_enregistres",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    # v1.5 — proof of payment (cheque scan, transfer confirmation, ...).
+    pieces_jointes = GenericRelation(
+        PieceJointe, related_query_name="paiement_client"
+    )
 
     class Meta:
         verbose_name = "دفع العميل"

@@ -140,6 +140,57 @@
         {% endif %}
       </div>
 
+      <!-- Pièces jointes -->
+      <div class="card" style="margin-top:16px;">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bx-paperclip"></i> المرفقات / وثائق الإثبات</div>
+        </div>
+        {% if pieces_jointes %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>النوع</th>
+                <th>الوصف</th>
+                <th>أُضيف بواسطة</th>
+                <th style="text-align:left;">الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for pj in pieces_jointes %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td><span class="pill-neutral">{{ pj.get_type_document_display }}</span></td>
+                <td style="color:var(--text-secondary);font-size:12.5px;">{{ pj.description|default:"—" }}</td>
+                <td style="font-size:12px;color:var(--text-muted);">{{ pj.uploaded_by|default:"—" }} · {{ pj.created_at|date:"d/m/Y H:i" }}</td>
+                <td>
+                  <div class="actions-cell">
+                    <a href="{{ pj.fichier.url }}" class="action-btn" title="فتح الملف" target="_blank"><i class="bx bx-download"></i></a>
+                    <form method="post" action="{% url 'core:piece_jointe_delete' pj.pk %}" style="display:inline;" onsubmit="return confirm('حذف هذا المرفق؟');">
+                      {% csrf_token %}
+                      <button type="submit" class="action-btn" title="حذف"><i class="bx bx-trash" style="color:#dc2626;"></i></button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:28px 20px;color:var(--text-muted);">
+          <i class="bx bx-paperclip" style="font-size:26px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
+          <div style="font-size:13px;">لا توجد مرفقات لهذا الوصل.</div>
+        </div>
+        {% endif %}
+        {% if not bl.est_verrouille %}
+        <div style="padding:14px 18px;border-top:1px solid var(--border);">
+          <a href="{% url 'clients:bl_client_edit' bl.pk %}" class="btn-ghost btn-sm">
+            <i class="bx bx-plus"></i> إضافة / تعديل المرفقات
+          </a>
+        </div>
+        {% endif %}
+      </div>
+
     </div>
 
     <!-- Left (side): actions + related invoices -->

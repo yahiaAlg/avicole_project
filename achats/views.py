@@ -38,10 +38,14 @@ from django.views.decorators.http import require_POST
 from django import forms
 
 from achats.forms import (
+    AcompteFournisseurPieceJointeFormSet,
     BLFournisseurForm,
     BLFournisseurLigneFormSet,
+    BLFournisseurPieceJointeFormSet,
     FactureFournisseurForm,
+    FactureFournisseurPieceJointeFormSet,
     ReglementFournisseurForm,
+    ReglementFournisseurPieceJointeFormSet,
 )
 from achats.models import (
     AcompteFournisseur,
@@ -53,6 +57,7 @@ from achats.models import (
 )
 from core.views import (
     branche_object_or_404,
+    build_piece_jointe_formset,
     get_active_branche,
     require_branche_context,
 )
@@ -206,8 +211,11 @@ def bl_fournisseur_create(request, fournisseur_pk=None):
     if request.method == "POST":
         form = BLFournisseurForm(request.POST, request.FILES, branche=branche)
         formset = BLFournisseurLigneFormSet(request.POST, prefix="lignes")
+        pj_formset = build_piece_jointe_formset(
+            BLFournisseurPieceJointeFormSet, request, prefix="pj"
+        )
 
-        if form.is_valid() and formset.is_valid():
+        if form.is_valid() and formset.is_valid() and pj_formset.is_valid():
             try:
                 with transaction.atomic():
                     bl = form.save(commit=False)
@@ -215,6 +223,8 @@ def bl_fournisseur_create(request, fournisseur_pk=None):
                     bl.save()
                     formset.instance = bl
                     formset.save()
+                    pj_formset.instance = bl
+                    pj_formset.save()
                     # If the BL was created directly with statut=RECU, the
                     # post_save signal fired before lines existed (lines are
                     # saved by formset.save() above).  Process stock entries
@@ -253,6 +263,9 @@ def bl_fournisseur_create(request, fournisseur_pk=None):
             form.fields["fournisseur"].widget = forms.HiddenInput()
             form.fields["fournisseur"].initial = fournisseur
         formset = BLFournisseurLigneFormSet(prefix="lignes")
+        pj_formset = build_piece_jointe_formset(
+            BLFournisseurPieceJointeFormSet, request, prefix="pj"
+        )
 
     return render(
         request,
@@ -260,6 +273,7 @@ def bl_fournisseur_create(request, fournisseur_pk=None):
         {
             "form": form,
             "formset": formset,
+            "pj_formset": pj_formset,
             "title": "وصل استلام جديد",
             "action_label": "إنشاء",
             "fournisseur": fournisseur,
@@ -305,12 +319,16 @@ def bl_fournisseur_edit(request, pk):
             request.POST, request.FILES, instance=bl, branche=bl.branche
         )
         formset = BLFournisseurLigneFormSet(request.POST, instance=bl, prefix="lignes")
+        pj_formset = build_piece_jointe_formset(
+            BLFournisseurPieceJointeFormSet, request, instance=bl, prefix="pj"
+        )
 
-        if form.is_valid() and formset.is_valid():
+        if form.is_valid() and formset.is_valid() and pj_formset.is_valid():
             try:
                 with transaction.atomic():
                     form.save()
                     formset.save()
+                    pj_formset.save()
 
                 messages.success(request, f"تم تحديث وصل الاستلام {bl.reference}.")
                 logger.info("BLFournisseur pk=%s updated by '%s'.", pk, request.user)
@@ -326,6 +344,9 @@ def bl_fournisseur_edit(request, pk):
     else:
         form = BLFournisseurForm(instance=bl, branche=bl.branche)
         formset = BLFournisseurLigneFormSet(instance=bl, prefix="lignes")
+        pj_formset = build_piece_jointe_formset(
+            BLFournisseurPieceJointeFormSet, request, instance=bl, prefix="pj"
+        )
 
     return render(
         request,
@@ -333,6 +354,7 @@ def bl_fournisseur_edit(request, pk):
         {
             "form": form,
             "formset": formset,
+            "pj_formset": pj_formset,
             "object": bl,
             "title": f"تعديل وصل الاستلام — {bl.reference}",
             "action_label": "حفظ",
@@ -364,6 +386,9 @@ def bl_fournisseur_detail(request, pk):
     )
     lignes = bl.lignes.select_related("intrant").all()
     factures = bl.factures.order_by("-date_facture")
+    pieces_jointes = bl.pieces_jointes.select_related("uploaded_by").order_by(
+        "-created_at"
+    )
 
     # Determine admin status: staff OR profile role == "admin"
     try:
@@ -416,6 +441,7 @@ def bl_fournisseur_detail(request, pk):
             "bl": bl,
             "lignes": lignes,
             "factures": factures,
+            "pieces_jointes": pieces_jointes,
             "montant_total": bl.montant_total,
             "title": f"وصل الاستلام {bl.reference}",
             "is_admin": is_admin,
@@ -698,7 +724,10 @@ def facture_fournisseur_create(request):
             fournisseur=fournisseur,
             branche=branche,
         )
-        if form.is_valid():
+        pj_formset = build_piece_jointe_formset(
+            FactureFournisseurPieceJointeFormSet, request, prefix="pj"
+        )
+        if form.is_valid() and pj_formset.is_valid():
             try:
                 with transaction.atomic():
                     facture = form.save(commit=False)
@@ -708,6 +737,8 @@ def facture_fournisseur_create(request):
                     # lines immediately after the M2M relation is saved.
                     facture.save()
                     form.save_m2m()  # persist bls M2M
+                    pj_formset.instance = facture
+                    pj_formset.save()
 
                 messages.success(
                     request,
@@ -735,6 +766,9 @@ def facture_fournisseur_create(request):
             branche=branche,
             initial={"reference": initial_ref},
         )
+        pj_formset = build_piece_jointe_formset(
+            FactureFournisseurPieceJointeFormSet, request, prefix="pj"
+        )
 
     # Expose available BL amounts for the template's running total widget —
     # scoped to the active branche (BR-BRA-01), mirroring the form's own
@@ -756,6 +790,7 @@ def facture_fournisseur_create(request):
         "achats/facture_fournisseur_form.html",
         {
             "form": form,
+            "pj_formset": pj_formset,
             "fournisseur": fournisseur,
             "bls_recu": bls_recu,
             "active_branche": branche,
@@ -784,6 +819,12 @@ def facture_fournisseur_detail(request, pk):
     allocations = facture.allocations.select_related("reglement").order_by(
         "reglement__date_reglement"
     )
+    pieces_jointes = facture.pieces_jointes.select_related("uploaded_by").order_by(
+        "-created_at"
+    )
+    pj_formset = build_piece_jointe_formset(
+        FactureFournisseurPieceJointeFormSet, request, instance=facture, prefix="pj"
+    )
 
     # Determine admin status: staff OR profile role == "admin" (same pattern
     # as bl_fournisseur_detail) — controls visibility of the cascade-delete
@@ -800,10 +841,37 @@ def facture_fournisseur_detail(request, pk):
             "facture": facture,
             "bls": bls,
             "allocations": allocations,
+            "pieces_jointes": pieces_jointes,
+            "pj_formset": pj_formset,
             "is_admin": is_admin,
             "title": f"فاتورة {facture.reference}",
         },
     )
+
+
+# ===========================================================================
+# Facture Fournisseur — Ajouter des pièces jointes (pas d'édition possible)
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def facture_fournisseur_ajouter_piece_jointe(request, pk):
+    """
+    FactureFournisseur has no edit view (BR-FAF-03 — locked once created),
+    so adding proof documents after the fact goes through this dedicated
+    POST-only action instead of a full edit form.
+    """
+    facture = branche_object_or_404(request, FactureFournisseur, pk=pk)
+    pj_formset = build_piece_jointe_formset(
+        FactureFournisseurPieceJointeFormSet, request, instance=facture, prefix="pj"
+    )
+    if pj_formset.is_valid():
+        pj_formset.save()
+        messages.success(request, "تم إضافة المرفقات.")
+    else:
+        messages.error(request, "يرجى تصحيح الأخطاء في المرفقات.")
+    return redirect("achats:facture_fournisseur_detail", pk=pk)
 
 
 # ===========================================================================
@@ -1043,13 +1111,18 @@ def reglement_fournisseur_create(request):
 
     if request.method == "POST":
         form = ReglementFournisseurForm(
-            request.POST, fournisseur=fournisseur, branche=branche
+            request.POST, request.FILES, fournisseur=fournisseur, branche=branche
         )
-        if form.is_valid():
+        pj_formset = build_piece_jointe_formset(
+            ReglementFournisseurPieceJointeFormSet, request, prefix="pj"
+        )
+        if form.is_valid() and pj_formset.is_valid():
             try:
                 reglement = form.save(commit=False)
                 reglement.created_by = request.user
                 reglement.save()  # triggers post_save → FIFO allocation
+                pj_formset.instance = reglement
+                pj_formset.save()
 
                 # Refresh from DB so the template can show updated allocation info
                 reglement.refresh_from_db()
@@ -1077,6 +1150,9 @@ def reglement_fournisseur_create(request):
     else:
         # Show the supplier's current debt for reference
         form = ReglementFournisseurForm(fournisseur=fournisseur, branche=branche)
+        pj_formset = build_piece_jointe_formset(
+            ReglementFournisseurPieceJointeFormSet, request, prefix="pj"
+        )
 
     # Debt summary for the sidebar — scoped to the active branche, mirroring
     # the FIFO engine's own scope (BR-BRA-01).
@@ -1094,6 +1170,7 @@ def reglement_fournisseur_create(request):
         "achats/reglement_fournisseur_form.html",
         {
             "form": form,
+            "pj_formset": pj_formset,
             "fournisseur": fournisseur,
             "solde": solde,
             "facture_obj": facture_obj,
@@ -1128,6 +1205,12 @@ def reglement_fournisseur_detail(request, pk):
         acompte = reglement.acompte
     except AcompteFournisseur.DoesNotExist:
         acompte = None
+    pieces_jointes = reglement.pieces_jointes.select_related("uploaded_by").order_by(
+        "-created_at"
+    )
+    pj_formset = build_piece_jointe_formset(
+        ReglementFournisseurPieceJointeFormSet, request, instance=reglement, prefix="pj"
+    )
 
     return render(
         request,
@@ -1136,9 +1219,36 @@ def reglement_fournisseur_detail(request, pk):
             "reglement": reglement,
             "allocations": allocations,
             "acompte": acompte,
+            "pieces_jointes": pieces_jointes,
+            "pj_formset": pj_formset,
             "title": f"تسوية — {reglement.fournisseur.nom} ({reglement.date_reglement})",
         },
     )
+
+
+# ===========================================================================
+# Règlement Fournisseur — Ajouter des pièces jointes (immutable — BR-REG-06)
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def reglement_fournisseur_ajouter_piece_jointe(request, pk):
+    """
+    ReglementFournisseur rows are immutable (BR-REG-06 — no edit view), so
+    proof documents added after creation go through this dedicated
+    POST-only action.
+    """
+    reglement = branche_object_or_404(request, ReglementFournisseur, pk=pk)
+    pj_formset = build_piece_jointe_formset(
+        ReglementFournisseurPieceJointeFormSet, request, instance=reglement, prefix="pj"
+    )
+    if pj_formset.is_valid():
+        pj_formset.save()
+        messages.success(request, "تم إضافة المرفقات.")
+    else:
+        messages.error(request, "يرجى تصحيح الأخطاء في المرفقات.")
+    return redirect("achats:reglement_fournisseur_detail", pk=pk)
 
 
 # ===========================================================================
@@ -1204,15 +1314,47 @@ def acompte_fournisseur_detail(request, pk):
         ),
         pk=pk,
     )
+    pieces_jointes = acompte.pieces_jointes.select_related("uploaded_by").order_by(
+        "-created_at"
+    )
+    pj_formset = build_piece_jointe_formset(
+        AcompteFournisseurPieceJointeFormSet, request, instance=acompte, prefix="pj"
+    )
     return render(
         request,
         "achats/acompte_fournisseur_detail.html",
         {
             "acompte": acompte,
+            "pieces_jointes": pieces_jointes,
+            "pj_formset": pj_formset,
             "active_branche": get_active_branche(request),
             "title": f"دفعة مسبقة — {acompte.fournisseur.nom}",
         },
     )
+
+
+# ===========================================================================
+# Acompte Fournisseur — Ajouter des pièces jointes
+#
+# AcompteFournisseur rows are created automatically by the FIFO engine
+# (no create/edit view of their own), so proof documents (e.g. an overpaid
+# règlement's supporting doc) are attached after the fact here.
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def acompte_fournisseur_ajouter_piece_jointe(request, pk):
+    acompte = branche_object_or_404(request, AcompteFournisseur, pk=pk)
+    pj_formset = build_piece_jointe_formset(
+        AcompteFournisseurPieceJointeFormSet, request, instance=acompte, prefix="pj"
+    )
+    if pj_formset.is_valid():
+        pj_formset.save()
+        messages.success(request, "تم إضافة المرفقات.")
+    else:
+        messages.error(request, "يرجى تصحيح الأخطاء في المرفقات.")
+    return redirect("achats:acompte_fournisseur_detail", pk=pk)
 
 
 # ===========================================================================

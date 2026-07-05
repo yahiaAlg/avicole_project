@@ -26,13 +26,16 @@ from achats.models import (
     ReglementFournisseur,
 )
 from intrants.models import Fournisseur, Intrant
+from core.forms import make_piece_jointe_formset
 
 # ---------------------------------------------------------------------------
 # BL Fournisseur
 # ---------------------------------------------------------------------------
 
-ALLOWED_ATTACHMENT_TYPES = ["application/pdf", "image/jpeg", "image/png"]
-MAX_ATTACHMENT_SIZE_MB = 5
+# v1.5 — attachment validation (allowed types / max size) now lives in
+# core.forms (PieceJointeForm), shared by every app instead of being
+# duplicated here. Proofs are attached via the formsets exported at the
+# bottom of this module.
 
 
 class BLFournisseurForm(forms.ModelForm):
@@ -81,7 +84,6 @@ class BLFournisseurForm(forms.ModelForm):
             "portail_sortie",
             # -----------------------------------
             "notes_reception",
-            "piece_jointe",
         ]
         widgets = {
             "date_bl": forms.DateInput(attrs={"type": "date"}),
@@ -105,7 +107,6 @@ class BLFournisseurForm(forms.ModelForm):
         self.fields["statut"].choices = self.STATUT_USER_CHOICES
         self.fields["reference_fournisseur"].required = False
         self.fields["notes_reception"].required = False
-        self.fields["piece_jointe"].required = False
 
         # Autorisation-specific fields are always optional at the DB level;
         # the template hides/shows them via JS based on type_document.
@@ -139,19 +140,6 @@ class BLFournisseurForm(forms.ModelForm):
                 "La date d'expiration doit être postérieure ou égale à la date du BL / de l'autorisation."
             )
         return date_exp
-
-    def clean_piece_jointe(self):
-        file = self.cleaned_data.get("piece_jointe")
-        if file and hasattr(file, "content_type"):
-            if file.content_type not in ALLOWED_ATTACHMENT_TYPES:
-                raise ValidationError(
-                    "Seuls les fichiers PDF, JPG et PNG sont acceptés."
-                )
-            if file.size > MAX_ATTACHMENT_SIZE_MB * 1024 * 1024:
-                raise ValidationError(
-                    f"La taille du fichier ne doit pas dépasser {MAX_ATTACHMENT_SIZE_MB} Mo."
-                )
-        return file
 
     def clean(self):
         cleaned = super().clean()
@@ -414,3 +402,18 @@ class ReglementFournisseurForm(forms.ModelForm):
                 "La date du règlement ne peut pas être dans le futur."
             )
         return date
+
+
+# ---------------------------------------------------------------------------
+# PieceJointe formsets (v1.5) — one alias per attachment-capable model,
+# built from core.forms.make_piece_jointe_formset. Pair with the matching
+# header form in the view, e.g.:
+#   formset = BLFournisseurPieceJointeFormSet(request.POST or None,
+#                                              request.FILES or None,
+#                                              instance=bl)
+# ---------------------------------------------------------------------------
+
+BLFournisseurPieceJointeFormSet = make_piece_jointe_formset(extra=1)
+FactureFournisseurPieceJointeFormSet = make_piece_jointe_formset(extra=1)
+ReglementFournisseurPieceJointeFormSet = make_piece_jointe_formset(extra=1)
+AcompteFournisseurPieceJointeFormSet = make_piece_jointe_formset(extra=1, max_num=3)

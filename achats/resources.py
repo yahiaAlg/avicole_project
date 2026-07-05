@@ -85,7 +85,6 @@ class BLFournisseurResource(resources.ModelResource):
         skip_unchanged = True
         report_skipped = False
         import_id_fields = ["reference"]
-        exclude = ["piece_jointe"]
         fields = [
             "id",
             "reference",
@@ -235,6 +234,11 @@ class FactureFournisseurResource(resources.ModelResource):
         widget=BooleanWidget(),
         readonly=True,
     )
+    a_piece_jointe = fields.Field(
+        column_name="a_piece_jointe",
+        widget=BooleanWidget(),
+        readonly=True,
+    )
 
     class Meta:
         model = FactureFournisseur
@@ -254,12 +258,16 @@ class FactureFournisseurResource(resources.ModelResource):
             "reste_a_payer",
             "statut",
             "est_en_retard",
+            "a_piece_jointe",
             "notes",
             "created_by",
             "created_at",
             "updated_at",
         ]
         export_order = fields
+
+    def dehydrate_a_piece_jointe(self, obj):
+        return obj.pieces_jointes.exists()
 
     def before_import(self, dataset, **kwargs):
         raise NotImplementedError(
@@ -299,6 +307,11 @@ class ReglementFournisseurResource(resources.ModelResource):
         widget=ForeignKeyWidget(User, field="username"),
         readonly=True,
     )
+    a_piece_jointe = fields.Field(
+        column_name="a_piece_jointe",
+        widget=BooleanWidget(),
+        readonly=True,
+    )
 
     class Meta:
         model = ReglementFournisseur
@@ -314,10 +327,14 @@ class ReglementFournisseurResource(resources.ModelResource):
             "mode_paiement",
             "reference_paiement",
             "notes",
+            "a_piece_jointe",
             "created_by",
             "created_at",
         ]
         export_order = fields
+
+    def dehydrate_a_piece_jointe(self, obj):
+        return obj.pieces_jointes.exists()
 
     def before_import(self, dataset, **kwargs):
         raise NotImplementedError(
@@ -413,6 +430,11 @@ class AcompteFournisseurResource(resources.ModelResource):
         widget=BooleanWidget(),
         readonly=True,
     )
+    a_piece_jointe = fields.Field(
+        column_name="a_piece_jointe",
+        widget=BooleanWidget(),
+        readonly=True,
+    )
 
     class Meta:
         model = AcompteFournisseur
@@ -427,10 +449,14 @@ class AcompteFournisseurResource(resources.ModelResource):
             "montant",
             "date",
             "utilise",
+            "a_piece_jointe",
             "notes",
             "created_at",
         ]
         export_order = fields
+
+    def dehydrate_a_piece_jointe(self, obj):
+        return obj.pieces_jointes.exists()
 
     def before_import(self, dataset, **kwargs):
         raise NotImplementedError(

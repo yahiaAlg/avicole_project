@@ -12,7 +12,7 @@ from django.utils.translation import gettext_lazy as _
 
 from import_export.admin import ImportExportModelAdmin
 
-from core.admin import BrancheScopedAdminMixin
+from core.admin import BrancheScopedAdminMixin, PieceJointeInline
 from achats.models import (
     BLFournisseur,
     BLFournisseurLigne,
@@ -123,7 +123,7 @@ class BLFournisseurAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         "est_verrouille",
         "est_expire",
     )
-    inlines = (BLFournisseurLigneInline,)
+    inlines = (BLFournisseurLigneInline, PieceJointeInline)
     autocomplete_fields = ("branche", "fournisseur")
 
     fieldsets = (
@@ -160,9 +160,9 @@ class BLFournisseurAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
             },
         ),
         (
-            "Pièce jointe & notes",
+            "Notes",
             {
-                "fields": ("piece_jointe", "notes_reception"),
+                "fields": ("notes_reception",),
                 "classes": ("collapse",),
             },
         ),
@@ -269,7 +269,7 @@ class FactureFournisseurAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         "created_at",
         "updated_at",
     )
-    inlines = (FactureAllocationInline,)
+    inlines = (FactureAllocationInline, PieceJointeInline)
     autocomplete_fields = ("branche", "fournisseur")
 
     fieldsets = (
@@ -394,7 +394,7 @@ class ReglementFournisseurAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin)
     search_fields = ("fournisseur__nom", "reference_paiement", "notes")
     date_hierarchy = "date_reglement"
     readonly_fields = ("created_at",)
-    inlines = (AllocationReglementInline,)
+    inlines = (AllocationReglementInline, PieceJointeInline)
     autocomplete_fields = ("branche", "fournisseur")
 
     fieldsets = (
@@ -488,6 +488,7 @@ class AcompteFournisseurAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     search_fields = ("fournisseur__nom", "notes")
     date_hierarchy = "date"
     readonly_fields = ("branche", "fournisseur", "reglement", "montant", "date", "created_at")
+    inlines = (PieceJointeInline,)
 
     fieldsets = (
         (

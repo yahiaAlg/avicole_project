@@ -13,7 +13,7 @@ from django.utils.html import format_html
 
 from import_export.admin import ImportExportModelAdmin
 
-from core.admin import BrancheScopedAdminMixin
+from core.admin import BrancheScopedAdminMixin, PieceJointeInline
 from depenses.models import (
     CategorieDepense,
     Depense,
@@ -72,6 +72,7 @@ class DepenseAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     date_hierarchy = "date"
     readonly_fields = ("a_pj", "created_at", "updated_at")
     autocomplete_fields = ("branche", "categorie", "lot", "facture_liee")
+    inlines = (PieceJointeInline,)
 
     fieldsets = (
         (
@@ -90,7 +91,7 @@ class DepenseAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         (
             "Justificatif",
             {
-                "fields": ("reference_document", "piece_jointe", "a_pj"),
+                "fields": ("reference_document", "a_pj"),
             },
         ),
         (
@@ -145,16 +146,21 @@ class AssocieAdmin(ImportExportModelAdmin):
 @admin.register(RetraitAssocie)
 class RetraitAssocieAdmin(ImportExportModelAdmin):
     resource_class = RetraitAssocieResource
-    list_display = ("date", "associe", "montant_dzd", "mode_paiement", "motif")
+    list_display = ("date", "associe", "montant_dzd", "mode_paiement", "motif", "a_pj")
     list_filter = ("associe", "mode_paiement", "date")
     search_fields = ("motif", "reference_document", "notes", "associe__nom")
     date_hierarchy = "date"
     autocomplete_fields = ("associe",)
     readonly_fields = ("created_at",)
+    inlines = (PieceJointeInline,)
 
     @admin.display(description="المبلغ (DZD)")
     def montant_dzd(self, obj):
         return f"{obj.montant:,.2f} DZD"
+
+    @admin.display(description="PJ", boolean=True)
+    def a_pj(self, obj):
+        return obj.a_piece_jointe
 
 
 # ===========================================================================
@@ -244,12 +250,20 @@ class AcompteEmployeAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = AcompteEmployeResource
     branche_lookup = "employe__batiment__branche"
 
-    list_display = ("date", "employe", "montant_dzd", "mode_paiement", "deduit_badge")
+    list_display = (
+        "date",
+        "employe",
+        "montant_dzd",
+        "mode_paiement",
+        "deduit_badge",
+        "a_pj",
+    )
     list_filter = ("employe__batiment__branche", "employe", "mode_paiement", "date")
     search_fields = ("employe__nom_complet", "motif", "notes")
     date_hierarchy = "date"
     autocomplete_fields = ("employe", "bulletin_paie")
     readonly_fields = ("created_at",)
+    inlines = (PieceJointeInline,)
 
     @admin.display(description="المبلغ (DZD)")
     def montant_dzd(self, obj):
@@ -258,6 +272,10 @@ class AcompteEmployeAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     @admin.display(description="مخصوم", boolean=True)
     def deduit_badge(self, obj):
         return obj.deduit
+
+    @admin.display(description="PJ", boolean=True)
+    def a_pj(self, obj):
+        return obj.a_piece_jointe
 
 
 @admin.register(BulletinPaie)
@@ -274,10 +292,12 @@ class BulletinPaieAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         "total_acomptes",
         "montant_net",
         "statut",
+        "a_pj",
     )
     list_filter = ("statut", "annee", "mois", "employe__batiment__branche", "employe")
     search_fields = ("employe__nom_complet", "employe__matricule")
     autocomplete_fields = ("employe",)
+    inlines = (PieceJointeInline,)
     readonly_fields = (
         "jours_presence",
         "jours_absence",
@@ -293,3 +313,7 @@ class BulletinPaieAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         "created_at",
         "updated_at",
     )
+
+    @admin.display(description="PJ", boolean=True)
+    def a_pj(self, obj):
+        return obj.a_piece_jointe

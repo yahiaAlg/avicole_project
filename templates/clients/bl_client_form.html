@@ -31,7 +31,7 @@
 </div>
 {% endif %}
 
-<form method="post" id="bl-form" novalidate>
+<form method="post" id="bl-form" novalidate enctype="multipart/form-data">
   {% csrf_token %}
   {{ formset.management_form }}
 
@@ -185,6 +185,63 @@
         </div>
       </div>
 
+      <!-- Pièces jointes -->
+      <div class="form-card" style="margin-top:16px;">
+        <div class="form-card__header" style="justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <i class="bx bx-paperclip ic-icon"></i>
+            <span class="form-card__title">المرفقات / وثائق الإثبات</span>
+          </div>
+          <button type="button" id="pj-add-btn" class="btn-ghost btn-sm">
+            <i class="bx bx-plus"></i> إضافة مرفق
+          </button>
+        </div>
+
+        {{ pj_formset.management_form }}
+        {% if pj_formset.non_form_errors %}
+        <div class="form-error-banner" style="margin-top:10px;">
+          <i class="bx bxs-error-circle"></i> {{ pj_formset.non_form_errors|join:", " }}
+        </div>
+        {% endif %}
+
+        <div id="pj-formset-container">
+          {% for pj_form in pj_formset %}
+          <div class="pj-row" data-pj-idx="{{ forloop.counter0 }}">
+            {% for hfield in pj_form.hidden_fields %}{{ hfield }}{% endfor %}
+            <div class="pj-row__fields">
+              <div class="form-field">
+                <label class="form-label">الملف</label>
+                {{ pj_form.fichier }}
+                {% for err in pj_form.fichier.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              </div>
+              <div class="form-field">
+                <label class="form-label">نوع الوثيقة</label>
+                {{ pj_form.type_document }}
+              </div>
+              <div class="form-field">
+                <label class="form-label">وصف مختصر</label>
+                {{ pj_form.description }}
+              </div>
+            </div>
+            {% if pj_form.instance.pk %}
+            <label class="pj-delete-toggle">{{ pj_form.DELETE }} حذف هذا المرفق</label>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <template id="pj-empty-form-template">
+        <div class="pj-row" data-pj-idx="__prefix__">
+          {{ pj_formset.empty_form.id }}
+          <div class="pj-row__fields">
+            <div class="form-field"><label class="form-label">الملف</label>{{ pj_formset.empty_form.fichier }}</div>
+            <div class="form-field"><label class="form-label">نوع الوثيقة</label>{{ pj_formset.empty_form.type_document }}</div>
+            <div class="form-field"><label class="form-label">وصف مختصر</label>{{ pj_formset.empty_form.description }}</div>
+          </div>
+        </div>
+      </template>
+
     </div><!-- /form-main -->
 
     <!-- Sidebar -->
@@ -337,6 +394,12 @@
 
   .delete-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--radius-sm); border: 1px solid rgba(239,68,68,.2); background: transparent; color: #dc2626; cursor: pointer; font-size: 14px; transition: background .12s; }
   .delete-btn:hover { background: rgba(239,68,68,.08); }
+
+  /* Pièces jointes */
+  .pj-row { padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-md); margin-top: 12px; }
+  .pj-row__fields { display: grid; grid-template-columns: 2fr 1fr 1.4fr; gap: 12px; }
+  @media (max-width: 680px) { .pj-row__fields { grid-template-columns: 1fr; } }
+  .pj-delete-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #dc2626; margin-top: 10px; cursor: pointer; }
 
   /* Sidebar */
   .sticky-card { position: sticky; top: calc(var(--topbar-h) + 16px); }
@@ -539,6 +602,27 @@ document.addEventListener('DOMContentLoaded', function () {
     sidebarDeleteBtn.addEventListener('click', function () { if (panel) panel.style.display = ''; });
     if (cancelBtn) cancelBtn.addEventListener('click', function () { panel.style.display = 'none'; });
     if (panel) panel.addEventListener('click', function (e) { if (e.target === panel) panel.style.display = 'none'; });
+  }
+
+  // ── Pièces jointes: add-row-on-click (mirrors the lines formset) ──────
+  const pjAddBtn      = document.getElementById('pj-add-btn');
+  const pjContainer   = document.getElementById('pj-formset-container');
+  const pjEmptyTpl    = document.getElementById('pj-empty-form-template');
+  const pjTotalForms  = document.querySelector('[name="pj-TOTAL_FORMS"]');
+  if (pjAddBtn && pjContainer && pjEmptyTpl && pjTotalForms) {
+    pjAddBtn.addEventListener('click', function () {
+      const idx   = parseInt(pjTotalForms.value, 10);
+      const tmpl  = pjEmptyTpl.content.querySelector('.pj-row');
+      const clone = tmpl.cloneNode(true);
+      clone.dataset.pjIdx = idx;
+      clone.querySelectorAll('[name],[id],[for]').forEach(function (el) {
+        ['name', 'id', 'for'].forEach(function (a) {
+          if (el.getAttribute(a)) el.setAttribute(a, el.getAttribute(a).replace(/__prefix__/g, idx));
+        });
+      });
+      pjContainer.appendChild(clone);
+      pjTotalForms.value = idx + 1;
+    });
   }
 });
 </script>

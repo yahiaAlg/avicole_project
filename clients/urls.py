@@ -127,6 +127,12 @@ urlpatterns = [
         views.facture_client_delete,
         name="facture_client_delete",
     ),
+    # POST-only: attach a proof document after the fact (no edit view)
+    path(
+        "factures/<int:pk>/ajouter-piece-jointe/",
+        views.facture_client_ajouter_piece_jointe,
+        name="facture_client_ajouter_piece_jointe",
+    ),
     # ── Paiement Client ──────────────────────────────────────────────────
     path(
         "paiements/",
@@ -154,6 +160,12 @@ urlpatterns = [
         "paiements/<int:pk>/imprimer/",
         views.paiement_client_print,
         name="paiement_client_print",
+    ),
+    # POST-only: attach a proof document after the fact (no edit view)
+    path(
+        "paiements/<int:pk>/ajouter-piece-jointe/",
+        views.paiement_client_ajouter_piece_jointe,
+        name="paiement_client_ajouter_piece_jointe",
     ),
     # ── Fiche des dettes client ──────────────────────────────────────────
     path(

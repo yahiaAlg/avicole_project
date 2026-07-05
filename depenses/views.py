@@ -58,16 +58,21 @@ from django.views.decorators.http import require_POST
 from core.views import (
     branche_matches,
     branche_object_or_404,
+    build_piece_jointe_formset,
     get_active_branche,
     require_branche_context,
 )
 from depenses.forms import (
+    AcompteEmployePieceJointeFormSet,
+    BulletinPaiePieceJointeFormSet,
     CategorieDepenseForm,
     DashboardFilterForm,
     DepenseFilterForm,
     DepenseForm,
+    DepensePieceJointeFormSet,
     AssocieForm,
     RetraitAssocieForm,
+    RetraitAssociePieceJointeFormSet,
     RetraitFilterForm,
     EmployeForm,
     PointageForm,
@@ -600,7 +605,10 @@ def depense_create(request):
 
     if request.method == "POST":
         form = DepenseForm(request.POST, request.FILES, branche=branche)
-        if form.is_valid():
+        pj_formset = build_piece_jointe_formset(
+            DepensePieceJointeFormSet, request, prefix="pj"
+        )
+        if form.is_valid() and pj_formset.is_valid():
             try:
                 with transaction.atomic():
                     depense = form.save(commit=False)
@@ -608,6 +616,8 @@ def depense_create(request):
                     # Trigger model-level clean() for BR-DEP-01/03 double-guard.
                     depense.full_clean()
                     depense.save()
+                    pj_formset.instance = depense
+                    pj_formset.save()
 
                 messages.success(
                     request,
@@ -633,12 +643,16 @@ def depense_create(request):
         import datetime
 
         form = DepenseForm(initial={"date": datetime.date.today()}, branche=branche)
+        pj_formset = build_piece_jointe_formset(
+            DepensePieceJointeFormSet, request, prefix="pj"
+        )
 
     return render(
         request,
         "depenses/depense_form.html",
         {
             "form": form,
+            "pj_formset": pj_formset,
             "active_branche": branche,
             "title": "تسجيل مصروف",
             "action_label": "حفظ المصروف",
@@ -661,11 +675,15 @@ def depense_detail(request, pk):
         ),
         pk=pk,
     )
+    pieces_jointes = depense.pieces_jointes.select_related("uploaded_by").order_by(
+        "-created_at"
+    )
     return render(
         request,
         "depenses/depense_detail.html",
         {
             "depense": depense,
+            "pieces_jointes": pieces_jointes,
             "title": f"مصروف — {depense.date} | {depense.categorie.libelle}",
         },
     )
@@ -691,13 +709,17 @@ def depense_edit(request, pk):
         form = DepenseForm(
             request.POST, request.FILES, instance=depense, branche=depense.branche
         )
-        if form.is_valid():
+        pj_formset = build_piece_jointe_formset(
+            DepensePieceJointeFormSet, request, instance=depense, prefix="pj"
+        )
+        if form.is_valid() and pj_formset.is_valid():
             try:
                 with transaction.atomic():
                     updated = form.save(commit=False)
                     # Re-run model-level validation on update.
                     updated.full_clean()
                     updated.save()
+                    pj_formset.save()
 
                 messages.success(
                     request,
@@ -713,12 +735,16 @@ def depense_edit(request, pk):
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
         form = DepenseForm(instance=depense, branche=depense.branche)
+        pj_formset = build_piece_jointe_formset(
+            DepensePieceJointeFormSet, request, instance=depense, prefix="pj"
+        )
 
     return render(
         request,
         "depenses/depense_form.html",
         {
             "form": form,
+            "pj_formset": pj_formset,
             "depense": depense,
             "title": f"تعديل المصروف — {depense.date}",
             "action_label": "حفظ التعديلات",
@@ -951,13 +977,18 @@ def retrait_create(request):
     """BR-ASSOC-02: always a manual entry."""
     if request.method == "POST":
         form = RetraitAssocieForm(request.POST, request.FILES)
-        if form.is_valid():
+        pj_formset = build_piece_jointe_formset(
+            RetraitAssociePieceJointeFormSet, request, prefix="pj"
+        )
+        if form.is_valid() and pj_formset.is_valid():
             try:
                 with transaction.atomic():
                     retrait = form.save(commit=False)
                     retrait.enregistre_par = request.user
                     retrait.full_clean()
                     retrait.save()
+                    pj_formset.instance = retrait
+                    pj_formset.save()
                 messages.success(
                     request,
                     f"تم تسجيل سحب « {retrait.associe.nom} » ({retrait.montant} دج).",
@@ -977,11 +1008,19 @@ def retrait_create(request):
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
         form = RetraitAssocieForm(initial={"date": datetime.date.today()})
+        pj_formset = build_piece_jointe_formset(
+            RetraitAssociePieceJointeFormSet, request, prefix="pj"
+        )
 
     return render(
         request,
         "depenses/retrait_form.html",
-        {"form": form, "title": "سحب جديد لشريك", "action_label": "حفظ السحب"},
+        {
+            "form": form,
+            "pj_formset": pj_formset,
+            "title": "سحب جديد لشريك",
+            "action_label": "حفظ السحب",
+        },
     )
 
 
@@ -990,12 +1029,16 @@ def retrait_edit(request, pk):
     retrait = get_object_or_404(RetraitAssocie, pk=pk)
     if request.method == "POST":
         form = RetraitAssocieForm(request.POST, request.FILES, instance=retrait)
-        if form.is_valid():
+        pj_formset = build_piece_jointe_formset(
+            RetraitAssociePieceJointeFormSet, request, instance=retrait, prefix="pj"
+        )
+        if form.is_valid() and pj_formset.is_valid():
             try:
                 with transaction.atomic():
                     updated = form.save(commit=False)
                     updated.full_clean()
                     updated.save()
+                    pj_formset.save()
                 messages.success(request, "تم تحديث السحب.")
                 logger.info(
                     "RetraitAssocie pk=%s updated by '%s'.", retrait.pk, request.user
@@ -1008,12 +1051,16 @@ def retrait_edit(request, pk):
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
         form = RetraitAssocieForm(instance=retrait)
+        pj_formset = build_piece_jointe_formset(
+            RetraitAssociePieceJointeFormSet, request, instance=retrait, prefix="pj"
+        )
 
     return render(
         request,
         "depenses/retrait_form.html",
         {
             "form": form,
+            "pj_formset": pj_formset,
             "retrait": retrait,
             "title": "تعديل السحب",
             "action_label": "حفظ التعديلات",
@@ -1551,13 +1598,18 @@ def acompte_employe_create(request):
     branche = get_active_branche(request)
     if request.method == "POST":
         form = AcompteEmployeForm(request.POST, branche=branche)
-        if form.is_valid():
+        pj_formset = build_piece_jointe_formset(
+            AcompteEmployePieceJointeFormSet, request, prefix="pj"
+        )
+        if form.is_valid() and pj_formset.is_valid():
             try:
                 with transaction.atomic():
                     acompte = form.save(commit=False)
                     acompte.enregistre_par = request.user
                     acompte.full_clean()
                     acompte.save()
+                    pj_formset.instance = acompte
+                    pj_formset.save()
                 messages.success(
                     request,
                     f"تم تسجيل تسبيق « {acompte.employe.nom_complet} » ({acompte.montant} دج).",
@@ -1575,17 +1627,38 @@ def acompte_employe_create(request):
         form = AcompteEmployeForm(
             initial={"date": datetime.date.today()}, branche=branche
         )
+        pj_formset = build_piece_jointe_formset(
+            AcompteEmployePieceJointeFormSet, request, prefix="pj"
+        )
 
     return render(
         request,
         "depenses/acompte_employe_form.html",
         {
             "form": form,
+            "pj_formset": pj_formset,
             "active_branche": branche,
             "title": "تسبيق جديد",
             "action_label": "حفظ",
         },
     )
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def acompte_employe_ajouter_piece_jointe(request, pk):
+    """AcompteEmploye has no edit view — attach proof after the fact here."""
+    acompte = get_object_or_404(AcompteEmploye.objects.select_related("employe"), pk=pk)
+    _ensure_employe_branche_access(request, acompte)
+    pj_formset = build_piece_jointe_formset(
+        AcompteEmployePieceJointeFormSet, request, instance=acompte, prefix="pj"
+    )
+    if pj_formset.is_valid():
+        pj_formset.save()
+        messages.success(request, "تم إضافة المرفقات.")
+    else:
+        messages.error(request, "يرجى تصحيح الأخطاء في المرفقات.")
+    return redirect("depenses:employe_detail", pk=acompte.employe.pk)
 
 
 # ===========================================================================
@@ -1725,12 +1798,16 @@ def bulletin_paie_detail(request, pk):
     )
     _ensure_employe_branche_access(request, bulletin)
     acomptes = bulletin.acomptes_deduits.order_by("-date")
+    pieces_jointes = bulletin.pieces_jointes.select_related("uploaded_by").order_by(
+        "-created_at"
+    )
     return render(
         request,
         "depenses/bulletin_paie_detail.html",
         {
             "bulletin": bulletin,
             "acomptes": acomptes,
+            "pieces_jointes": pieces_jointes,
             "title": f"كشف راتب — {bulletin.employe.nom_complet} — {bulletin.periode_label}",
         },
     )
@@ -1764,10 +1841,14 @@ def bulletin_paie_payer(request, pk):
 
     if request.method == "POST":
         form = BulletinPaiementForm(request.POST, instance=bulletin)
-        if form.is_valid():
+        pj_formset = build_piece_jointe_formset(
+            BulletinPaiePieceJointeFormSet, request, instance=bulletin, prefix="pj"
+        )
+        if form.is_valid() and pj_formset.is_valid():
             paye = form.save(commit=False)
             paye.statut = BulletinPaie.STATUT_PAYE
             paye.save()
+            pj_formset.save()
             messages.success(
                 request,
                 f"تم تسجيل دفع « {bulletin.periode_label} » ({bulletin.montant_net} دج).",
@@ -1779,11 +1860,19 @@ def bulletin_paie_payer(request, pk):
         form = BulletinPaiementForm(
             instance=bulletin, initial={"date_paiement": datetime.date.today()}
         )
+        pj_formset = build_piece_jointe_formset(
+            BulletinPaiePieceJointeFormSet, request, instance=bulletin, prefix="pj"
+        )
 
     return render(
         request,
         "depenses/bulletin_paie_payer.html",
-        {"form": form, "bulletin": bulletin, "title": "تسجيل دفع الراتب"},
+        {
+            "form": form,
+            "pj_formset": pj_formset,
+            "bulletin": bulletin,
+            "title": "تسجيل دفع الراتب",
+        },
     )
 
 

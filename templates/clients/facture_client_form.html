@@ -22,7 +22,7 @@
 
 {% block content %}
 <div class="page-body" dir="rtl">
-  <form method="post" id="facture-form">
+  <form method="post" id="facture-form" enctype="multipart/form-data">
     {% csrf_token %}
     <div class="form-grid">
 
@@ -154,6 +154,58 @@
           </div>
         </div>
 
+        <!-- Pièces jointes -->
+        <div class="form-card">
+          <div class="form-card__header" style="display:flex;align-items:center;justify-content:space-between;">
+            <div class="section-eyebrow"><i class="bx bx-paperclip"></i> المرفقات / وثائق الإثبات</div>
+            <button type="button" id="pj-add-btn" class="btn-ghost" style="font-size:12px;padding:6px 11px;">
+              <i class="bx bx-plus"></i> إضافة مرفق
+            </button>
+          </div>
+          <div class="form-card__body">
+            {{ pj_formset.management_form }}
+            {% if pj_formset.non_form_errors %}
+            <div class="field-error" style="margin-bottom:10px;">{{ pj_formset.non_form_errors|join:", " }}</div>
+            {% endif %}
+            <div id="pj-formset-container">
+              {% for pj_form in pj_formset %}
+              <div class="pj-row" data-pj-idx="{{ forloop.counter0 }}">
+                {% for hfield in pj_form.hidden_fields %}{{ hfield }}{% endfor %}
+                <div class="pj-row__fields">
+                  <div class="form-group">
+                    <label class="form-label">الملف</label>
+                    {{ pj_form.fichier }}
+                    {% for err in pj_form.fichier.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">نوع الوثيقة</label>
+                    {{ pj_form.type_document }}
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">وصف مختصر</label>
+                    {{ pj_form.description }}
+                  </div>
+                </div>
+                {% if pj_form.instance.pk %}
+                <label class="pj-delete-toggle">{{ pj_form.DELETE }} حذف هذا المرفق</label>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <template id="pj-empty-form-template">
+          <div class="pj-row" data-pj-idx="__prefix__">
+            {{ pj_formset.empty_form.id }}
+            <div class="pj-row__fields">
+              <div class="form-group"><label class="form-label">الملف</label>{{ pj_formset.empty_form.fichier }}</div>
+              <div class="form-group"><label class="form-label">نوع الوثيقة</label>{{ pj_formset.empty_form.type_document }}</div>
+              <div class="form-group"><label class="form-label">وصف مختصر</label>{{ pj_formset.empty_form.description }}</div>
+            </div>
+          </div>
+        </template>
+
         <!-- Info block -->
         <div style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.18);border-radius:var(--radius-md);padding:14px 16px;display:flex;align-items:flex-start;gap:10px;">
           <i class="bx bxs-info-circle" style="color:#15803d;font-size:15px;flex-shrink:0;margin-top:1px;"></i>
@@ -232,6 +284,12 @@
   .bl-checkbox-ref { font-size: 13.5px; font-weight: 500; color: var(--text-primary); }
 
   .field-error { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #dc2626; margin-top: 5px; }
+
+  .pj-row { padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-md); margin-top: 12px; }
+  .pj-row:first-child { margin-top: 0; }
+  .pj-row__fields { display: grid; grid-template-columns: 2fr 1fr 1.4fr; gap: 12px; }
+  @media (max-width: 680px) { .pj-row__fields { grid-template-columns: 1fr; } }
+  .pj-delete-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #dc2626; margin-top: 10px; cursor: pointer; }
 
   .form-actions-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 16px 20px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
 
@@ -313,6 +371,27 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
   {% endif %}
+
+  // ── Pièces jointes: add-row-on-click ─────────────────────────────────
+  var pjAddBtn     = document.getElementById('pj-add-btn');
+  var pjContainer  = document.getElementById('pj-formset-container');
+  var pjEmptyTpl   = document.getElementById('pj-empty-form-template');
+  var pjTotalForms = document.querySelector('[name="pj-TOTAL_FORMS"]');
+  if (pjAddBtn && pjContainer && pjEmptyTpl && pjTotalForms) {
+    pjAddBtn.addEventListener('click', function () {
+      var idx   = parseInt(pjTotalForms.value, 10);
+      var tmpl  = pjEmptyTpl.content.querySelector('.pj-row');
+      var clone = tmpl.cloneNode(true);
+      clone.dataset.pjIdx = idx;
+      clone.querySelectorAll('[name],[id],[for]').forEach(function (el) {
+        ['name', 'id', 'for'].forEach(function (a) {
+          if (el.getAttribute(a)) el.setAttribute(a, el.getAttribute(a).replace(/__prefix__/g, idx));
+        });
+      });
+      pjContainer.appendChild(clone);
+      pjTotalForms.value = idx + 1;
+    });
+  }
 
 });
 </script>

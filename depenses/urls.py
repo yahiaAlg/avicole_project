@@ -110,6 +110,12 @@ urlpatterns = [
         views.acompte_employe_create,
         name="acompte_employe_create",
     ),
+    # POST-only: post-hoc attachment for an existing advance
+    path(
+        "rh/acomptes/<int:pk>/piece-jointe/",
+        views.acompte_employe_ajouter_piece_jointe,
+        name="acompte_employe_ajouter_piece_jointe",
+    ),
     # ── RH — Bulletins de paie ───────────────────────────────────────────
     path("rh/bulletins/", views.bulletin_paie_list, name="bulletin_paie_list"),
     path(

@@ -81,17 +81,27 @@
           <div class="section-eyebrow"><i class="bx bx-paperclip"></i> المستند المرفق</div>
         </div>
         <div class="detail-card__body">
-          {% if depense.a_piece_jointe %}
+          {% if pieces_jointes %}
+          {% for pj in pieces_jointes %}
           <div class="attachment-row">
             <div class="attachment-icon"><i class="bx bxs-file"></i></div>
             <div class="attachment-info">
-              <div style="font-size:13px;font-weight:500;color:var(--text-primary);">مستند مرفق</div>
-              <div style="font-size:12px;color:var(--text-muted);">{{ depense.piece_jointe.name|slice:"16:" }}</div>
+              <div style="font-size:13px;font-weight:500;color:var(--text-primary);">{{ pj.get_type_document_display|default:"مستند مرفق" }}</div>
+              <div style="font-size:12px;color:var(--text-muted);">{{ pj.fichier.name|slice:"16:" }}{% if pj.description %} — {{ pj.description }}{% endif %}</div>
             </div>
-            <a href="{{ depense.piece_jointe.url }}" class="btn-ghost btn-sm" target="_blank">
+            <a href="{{ pj.fichier.url }}" class="btn-ghost btn-sm" target="_blank">
               <i class="bx bx-download"></i> تحميل
             </a>
+            {% if not request.user.userprofile.role == 'viewer' %}
+            <form method="post" action="{% url 'core:piece_jointe_delete' pj.pk %}" style="margin:0;">
+              {% csrf_token %}
+              <button type="submit" class="btn-ghost btn-sm" title="حذف" onclick="return confirm('حذف هذا المرفق؟');">
+                <i class="bx bx-trash" style="color:#dc2626;"></i>
+              </button>
+            </form>
+            {% endif %}
           </div>
+          {% endfor %}
           {% else %}
           <div class="no-attachment">
             <i class="bx bx-paperclip" style="font-size:15px;"></i>
