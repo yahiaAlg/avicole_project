@@ -5,6 +5,7 @@ Django settings for config project.
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -70,14 +71,37 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 # ---------------------------------------------------------------------------
-# Database — PostgreSQL if credentials present, SQLite fallback otherwise
+# Database — selected via DB_ENGINE env var: "mysql" | "postgresql" | "sqlite"
+# (default: "postgresql", to preserve prior behaviour). SQLite fallback if
+# credentials are missing for the chosen engine.
 # ---------------------------------------------------------------------------
 
+_DB_ENGINE = os.environ.get("DB_ENGINE", "postgresql").strip().lower()
 _DB_NAME = os.environ.get("DB_NAME")
 _DB_USER = os.environ.get("DB_USER")
 _DB_PASSWORD = os.environ.get("DB_PASSWORD")
 
-if _DB_NAME and _DB_USER and _DB_PASSWORD:
+if _DB_ENGINE == "mysql" and _DB_NAME and _DB_USER and _DB_PASSWORD:
+    # PyMySQL used as the DB-API driver since mysqlclient needs system-level
+    # build dependencies that aren't always available (e.g. on Windows).
+    import pymysql
+
+    pymysql.install_as_MySQLdb()
+
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": _DB_NAME,
+            "USER": _DB_USER,
+            "PASSWORD": _DB_PASSWORD,
+            "HOST": os.environ.get("DB_HOST", "localhost"),
+            "PORT": os.environ.get("DB_PORT", "3306"),
+            "OPTIONS": {
+                "charset": "utf8mb4",
+            },
+        }
+    }
+elif _DB_ENGINE == "postgresql" and _DB_NAME and _DB_USER and _DB_PASSWORD:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
