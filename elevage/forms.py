@@ -6,6 +6,7 @@ Forms for lot lifecycle management:
 """
 
 import datetime
+from decimal import Decimal
 from django import forms
 from django.core.exceptions import ValidationError
 from django.db.models import Q
@@ -483,18 +484,29 @@ class RecolteOeufsForm(forms.ModelForm):
 
 class ProductionAlimentForm(forms.ModelForm):
     """
-    Replenish a finished feed's stock: bare quantity fast-path, or via a
-    FormuleAliment recipe (in which case ingredient Intrants are also
-    debited — handled in signals.py, not here).
+    Replenish a finished feed's stock: bare quantity fast-path (the common
+    case — optionally priced via `prix_unitaire`), or via a FormuleAliment
+    recipe (in which case ingredient Intrants are also debited, and their
+    own stock cost is used to price the feed automatically — handled in
+    signals.py, not here).
     """
 
     class Meta:
         model = ProductionAliment
-        fields = ["branche", "date", "formule", "intrant_produit", "quantite_produite_kg", "notes"]
+        fields = [
+            "branche",
+            "date",
+            "formule",
+            "intrant_produit",
+            "quantite_produite_kg",
+            "prix_unitaire",
+            "notes",
+        ]
         widgets = {
             "date": forms.DateInput(attrs={"type": "date"}),
             "notes": forms.Textarea(attrs={"rows": 2}),
             "quantite_produite_kg": forms.NumberInput(attrs={"step": "0.001", "min": "0.001"}),
+            "prix_unitaire": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
         }
 
     def __init__(self, *args, branche=None, **kwargs):
@@ -504,11 +516,20 @@ class ProductionAlimentForm(forms.ModelForm):
         self.fields["intrant_produit"].queryset = Intrant.objects.filter(
             categorie__code="ALIMENT", actif=True
         )
+        self.fields["prix_unitaire"].required = False
+        self.fields["prix_unitaire"].label = "سعر الوحدة (د.ج/كغ) — اختياري"
+        self.fields["prix_unitaire"].help_text = (
+            "اترك 0 إن كنت تستعمل تركيبة — تُحسب التكلفة تلقائياً من "
+            "مكوّناتها."
+        )
         if branche:
             self.fields["branche"].initial = branche
             self.fields["branche"].widget = forms.HiddenInput()
         if not self.initial.get("date"):
             self.fields["date"].initial = datetime.date.today()
+
+    def clean_prix_unitaire(self):
+        return self.cleaned_data.get("prix_unitaire") or Decimal("0")
 
     def clean(self):
         cleaned = super().clean()

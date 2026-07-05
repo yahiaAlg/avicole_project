@@ -900,6 +900,22 @@ def production_aliment_post_save(sender, instance, created, **kwargs):
     quantite_produite_kg, scoped to instance.branche. If a formule is set,
     also debit each ingredient's StockIntrant proportionally — leniently,
     without blocking on negative stock (same tolerance as Consommation).
+
+    Costing (BR-request — direct entry is the primary flow): when this
+    replenishment adds stock (delta > 0), the feed's
+    StockIntrant.prix_moyen_pondere is refreshed by the standard weighted-
+    average formula, using:
+      - instance.prix_unitaire directly, for a bare/direct entry (no
+        formule) — the common case: "we just bought/received X kg at Y
+        DZD/kg";
+      - otherwise, when a formule is used, the cost implied by the current
+        PMP of each ingredient actually debited below (Σ qty×PMP / delta) —
+        so the operator can leave prix_unitaire at 0 for that path.
+    A cost of 0 (direct entry, no price known) or an ingredient with no PMP
+    yet simply skips the PMP update — the previous PMP is preserved, same
+    tolerance already used elsewhere for stock corrections. Decreases
+    (delta < 0, e.g. a downward edit) never touch PMP either, since
+    "un-mixing" a weighted average retroactively isn't meaningful.
     """
     from stock.models import StockIntrant, StockMouvement
 
@@ -916,34 +932,15 @@ def production_aliment_post_save(sender, instance, created, **kwargs):
     if delta == 0:
         return
 
-    # --- Credit the finished feed itself ---------------------------------
-    stock, _ = StockIntrant.objects.get_or_create(
-        branche=instance.branche,
-        intrant=instance.intrant_produit,
-        defaults={"quantite": Decimal("0"), "prix_moyen_pondere": Decimal("0")},
-    )
-    quantite_avant = stock.quantite
-    stock.quantite = stock.quantite + Decimal(str(delta))
-    stock.save(update_fields=["quantite"])
+    delta = Decimal(str(delta))
 
-    StockMouvement.objects.create(
-        branche=instance.branche,
-        intrant=instance.intrant_produit,
-        type_mouvement=StockMouvement.TYPE_ENTREE,
-        source="production_aliment",
-        quantite=abs(Decimal(str(delta))),
-        quantite_avant=quantite_avant,
-        quantite_apres=stock.quantite,
-        date_mouvement=instance.date,
-        reference_id=instance.pk,
-        reference_label=f"Production aliment — {instance.intrant_produit.designation} ({instance.date})",
-        created_by=instance.created_by,
-    )
-
-    # --- Optional: debit ingredients per formule, proportional to delta ---
+    # --- Optional: debit ingredients per formule, proportional to delta,
+    #     and tally their cost (at their current PMP) to imply a unit cost
+    #     for the finished feed below. ---------------------------------
+    cout_ingredients_total = Decimal("0")
     if instance.formule_id:
         for ligne in instance.formule.lignes.select_related("intrant").all():
-            qte_ingredient = (Decimal(str(delta)) / Decimal("100")) * ligne.proportion_kg
+            qte_ingredient = (delta / Decimal("100")) * ligne.proportion_kg
             if qte_ingredient == 0:
                 continue
             ing_stock, _ = StockIntrant.objects.get_or_create(
@@ -952,6 +949,10 @@ def production_aliment_post_save(sender, instance, created, **kwargs):
                 defaults={"quantite": Decimal("0"), "prix_moyen_pondere": Decimal("0")},
             )
             avant = ing_stock.quantite
+            if delta > 0:
+                # Cost of the ingredient actually consumed by this
+                # replenishment, valued at its own current PMP.
+                cout_ingredients_total += qte_ingredient * ing_stock.prix_moyen_pondere
             ing_stock.quantite = ing_stock.quantite - qte_ingredient
             ing_stock.save(update_fields=["quantite"])
 
@@ -972,10 +973,65 @@ def production_aliment_post_save(sender, instance, created, **kwargs):
                 created_by=instance.created_by,
             )
 
+    # --- Effective unit cost for this replenishment, if any --------------
+    prix_unitaire_effectif = None
+    if delta > 0:
+        if instance.formule_id:
+            if cout_ingredients_total > 0:
+                prix_unitaire_effectif = cout_ingredients_total / delta
+        elif instance.prix_unitaire and instance.prix_unitaire > 0:
+            prix_unitaire_effectif = instance.prix_unitaire
+
+    # --- Credit the finished feed itself, refreshing PMP when priced -----
+    stock, _ = StockIntrant.objects.get_or_create(
+        branche=instance.branche,
+        intrant=instance.intrant_produit,
+        defaults={"quantite": Decimal("0"), "prix_moyen_pondere": Decimal("0")},
+    )
+    quantite_avant = stock.quantite
+    stock.quantite = stock.quantite + delta
+
+    update_fields = ["quantite"]
+    if prix_unitaire_effectif is not None:
+        quantite_totale = quantite_avant + delta
+        if quantite_totale > 0:
+            stock.prix_moyen_pondere = round(
+                (
+                    (quantite_avant * stock.prix_moyen_pondere)
+                    + (delta * prix_unitaire_effectif)
+                )
+                / quantite_totale,
+                4,
+            )
+        else:
+            stock.prix_moyen_pondere = round(prix_unitaire_effectif, 4)
+        update_fields.append("prix_moyen_pondere")
+
+    stock.save(update_fields=update_fields)
+
+    StockMouvement.objects.create(
+        branche=instance.branche,
+        intrant=instance.intrant_produit,
+        type_mouvement=StockMouvement.TYPE_ENTREE,
+        source="production_aliment",
+        quantite=abs(delta),
+        quantite_avant=quantite_avant,
+        quantite_apres=stock.quantite,
+        date_mouvement=instance.date,
+        reference_id=instance.pk,
+        reference_label=f"Production aliment — {instance.intrant_produit.designation} ({instance.date})",
+        created_by=instance.created_by,
+    )
+
 
 @receiver(pre_delete, sender=ProductionAliment)
 def production_aliment_pre_delete(sender, instance, **kwargs):
-    """Reverse both the finished-feed credit and any ingredient debits."""
+    """Reverse both the finished-feed credit and any ingredient debits.
+
+    PMP is intentionally left untouched here — same tolerance as the rest
+    of the module: un-mixing a weighted average retroactively isn't
+    meaningful once later movements may already have used it.
+    """
     from stock.models import StockIntrant, StockMouvement
 
     stock, _ = StockIntrant.objects.get_or_create(

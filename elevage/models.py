@@ -906,6 +906,14 @@ class ProductionAliment(models.Model):
     to quantite_produite_kg — pure bookkeeping, never blocks the save if an
     ingredient's stock goes negative (mirrors the lenient pattern already
     used for Consommation/Mortalite stock corrections in signals.py).
+
+    Costing (BR-request): `prix_unitaire` is an optional per-kg cost, mostly
+    used on the direct entry (no `formule`) — a straight purchase/refill at a
+    known price. When set (> 0), the feed's StockIntrant.prix_moyen_pondere
+    is updated by the usual weighted-average formula. When a `formule` is
+    used instead, the unit cost is derived automatically from the current
+    PMP of each debited ingredient (so `prix_unitaire` can be left at 0) —
+    see elevage.signals.production_aliment_post_save for both paths.
     """
 
     branche = models.ForeignKey(
@@ -936,6 +944,21 @@ class ProductionAliment(models.Model):
         verbose_name="الكمية المصنّعة (كغ)",
         validators=[MinValueValidator(0.001)],
     )
+    prix_unitaire = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        default=Decimal("0"),
+        verbose_name="سعر الوحدة (د.ج/كغ) — اختياري",
+        validators=[MinValueValidator(0)],
+        help_text=(
+            "تكلفة الكيلوغرام الواحد من هذا التزويد. عند تركه 0 (الحالة "
+            "الافتراضية)، لا يُعاد حساب متوسط سعر مخزون هذا العلف — يبقى "
+            "PMP كما هو. هذا هو الحقل الأكثر استعمالاً عند الإضافة المباشرة "
+            "(بدون تركيبة). عند اختيار تركيبة، يمكن تركه 0 لأن التكلفة "
+            "تُشتق تلقائياً من أسعار مكوّناتها الحالية في المخزون (انظر "
+            "elevage.signals.production_aliment_post_save)."
+        ),
+    )
     notes = models.TextField(blank=True, verbose_name="ملاحظات")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -965,6 +988,13 @@ class ProductionAliment(models.Model):
 
     def __str__(self):
         return f"{self.intrant_produit.designation} +{self.quantite_produite_kg}kg ({self.date})"
+
+    @property
+    def montant_total(self):
+        """Cost of this replenishment, when a unit price was entered directly
+        (0 when prix_unitaire is 0 — e.g. formule-based entries priced from
+        their ingredients instead, see signals.py)."""
+        return self.quantite_produite_kg * self.prix_unitaire
 
 
 # ---------------------------------------------------------------------------
