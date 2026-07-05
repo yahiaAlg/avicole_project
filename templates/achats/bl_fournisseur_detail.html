@@ -306,7 +306,7 @@
             <i class="bx bxs-file-blank"></i>
             <span>{{ pj.get_type_document_display }}{% if pj.description %} — {{ pj.description }}{% endif %}</span>
           </a>
-          <span class="pj-item__meta">{{ pj.created_at|date:"d/m/Y" }} · {{ pj.uploaded_by.get_full_name|default:pj.uploaded_by.username|default:"—" }}</span>
+          <span class="pj-item__meta">{{ pj.created_at|date:"d/m/Y" }} · {% firstof pj.uploaded_by.get_full_name pj.uploaded_by.username "—" %}</span>
           <form method="post" action="{% url 'core:piece_jointe_delete' pj.pk %}" onsubmit="return confirm('حذف هذا المرفق؟');">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ request.path }}#pieces-jointes" />
