@@ -13,6 +13,9 @@
   <a href="{% url 'elevage:lot_list' %}" class="btn-ghost">
     <i class="bx bx-arrow-back"></i> الدفعات
   </a>
+  <a href="{% url 'elevage:lot_suivi_journalier' lot.pk %}" class="btn-ghost">
+    <i class="bx bxs-spreadsheet"></i> جدول التتبع اليومي
+  </a>
   {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
   <a href="{% url 'elevage:lot_edit' lot.pk %}" class="btn-ghost">
     <i class="bx bxs-pencil"></i> تعديل

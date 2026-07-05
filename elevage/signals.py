@@ -37,6 +37,8 @@ from elevage.models import (
     TransfertLot,
     RecolteOeufs,
     LotElevage,
+    ProductionAliment,
+    RetraitOeufs,
 )
 
 logger = logging.getLogger(__name__)
@@ -862,5 +864,273 @@ def recolte_oeufs_pre_delete(sender, instance, **kwargs):
         date_mouvement=instance.date,
         reference_id=instance.pk,
         reference_label=f"Annulation récolte œufs pk={instance.pk} (suppression)",
+        created_by=instance.created_by,
+    )
+
+
+# ---------------------------------------------------------------------------
+# ProductionAliment: credit the finished feed's StockIntrant, optionally
+# debit ingredient StockIntrants per FormuleAlimentLigne
+# ---------------------------------------------------------------------------
+#
+# NOTE: uses the source strings "production_aliment" / "retrait_oeufs" below.
+# stock.models.StockMouvement wasn't available in this workspace to confirm
+# its SOURCE_CHOICES — if that field enforces a strict choices list, add
+# these two source codes there (mirroring SOURCE_PONTE / SOURCE_CONSOMMATION).
+
+
+@receiver(pre_save, sender=ProductionAliment)
+def production_aliment_pre_save(sender, instance, **kwargs):
+    """Cache old quantite_produite_kg before save so post_save can diff it."""
+    if instance.pk:
+        try:
+            instance._old_quantite = ProductionAliment.objects.values_list(
+                "quantite_produite_kg", flat=True
+            ).get(pk=instance.pk)
+        except ProductionAliment.DoesNotExist:
+            instance._old_quantite = None
+    else:
+        instance._old_quantite = None
+
+
+@receiver(post_save, sender=ProductionAliment)
+def production_aliment_post_save(sender, instance, created, **kwargs):
+    """
+    Credit intrant_produit's StockIntrant by the (signed) delta of
+    quantite_produite_kg, scoped to instance.branche. If a formule is set,
+    also debit each ingredient's StockIntrant proportionally — leniently,
+    without blocking on negative stock (same tolerance as Consommation).
+    """
+    from stock.models import StockIntrant, StockMouvement
+
+    old_qty = getattr(instance, "_old_quantite", None)
+    delta = (
+        instance.quantite_produite_kg
+        if created
+        else (
+            instance.quantite_produite_kg - old_qty
+            if old_qty is not None
+            else Decimal("0")
+        )
+    )
+    if delta == 0:
+        return
+
+    # --- Credit the finished feed itself ---------------------------------
+    stock, _ = StockIntrant.objects.get_or_create(
+        branche=instance.branche,
+        intrant=instance.intrant_produit,
+        defaults={"quantite": Decimal("0"), "prix_moyen_pondere": Decimal("0")},
+    )
+    quantite_avant = stock.quantite
+    stock.quantite = stock.quantite + Decimal(str(delta))
+    stock.save(update_fields=["quantite"])
+
+    StockMouvement.objects.create(
+        branche=instance.branche,
+        intrant=instance.intrant_produit,
+        type_mouvement=StockMouvement.TYPE_ENTREE,
+        source="production_aliment",
+        quantite=abs(Decimal(str(delta))),
+        quantite_avant=quantite_avant,
+        quantite_apres=stock.quantite,
+        date_mouvement=instance.date,
+        reference_id=instance.pk,
+        reference_label=f"Production aliment — {instance.intrant_produit.designation} ({instance.date})",
+        created_by=instance.created_by,
+    )
+
+    # --- Optional: debit ingredients per formule, proportional to delta ---
+    if instance.formule_id:
+        for ligne in instance.formule.lignes.select_related("intrant").all():
+            qte_ingredient = (Decimal(str(delta)) / Decimal("100")) * ligne.proportion_kg
+            if qte_ingredient == 0:
+                continue
+            ing_stock, _ = StockIntrant.objects.get_or_create(
+                branche=instance.branche,
+                intrant=ligne.intrant,
+                defaults={"quantite": Decimal("0"), "prix_moyen_pondere": Decimal("0")},
+            )
+            avant = ing_stock.quantite
+            ing_stock.quantite = ing_stock.quantite - qte_ingredient
+            ing_stock.save(update_fields=["quantite"])
+
+            StockMouvement.objects.create(
+                branche=instance.branche,
+                intrant=ligne.intrant,
+                type_mouvement=StockMouvement.TYPE_SORTIE,
+                source="production_aliment",
+                quantite=abs(qte_ingredient),
+                quantite_avant=avant,
+                quantite_apres=ing_stock.quantite,
+                date_mouvement=instance.date,
+                reference_id=instance.pk,
+                reference_label=(
+                    f"Mélange {instance.formule.nom} pour "
+                    f"{instance.intrant_produit.designation} ({instance.date})"
+                ),
+                created_by=instance.created_by,
+            )
+
+
+@receiver(pre_delete, sender=ProductionAliment)
+def production_aliment_pre_delete(sender, instance, **kwargs):
+    """Reverse both the finished-feed credit and any ingredient debits."""
+    from stock.models import StockIntrant, StockMouvement
+
+    stock, _ = StockIntrant.objects.get_or_create(
+        branche=instance.branche,
+        intrant=instance.intrant_produit,
+        defaults={"quantite": Decimal("0"), "prix_moyen_pondere": Decimal("0")},
+    )
+    avant = stock.quantite
+    stock.quantite = stock.quantite - instance.quantite_produite_kg
+    stock.save(update_fields=["quantite"])
+
+    StockMouvement.objects.create(
+        branche=instance.branche,
+        intrant=instance.intrant_produit,
+        type_mouvement=StockMouvement.TYPE_SORTIE,
+        source="production_aliment",
+        quantite=instance.quantite_produite_kg,
+        quantite_avant=avant,
+        quantite_apres=stock.quantite,
+        date_mouvement=instance.date,
+        reference_id=instance.pk,
+        reference_label=f"Annulation production aliment pk={instance.pk} (suppression)",
+        created_by=instance.created_by,
+    )
+
+    if instance.formule_id:
+        for ligne in instance.formule.lignes.select_related("intrant").all():
+            qte_ingredient = (
+                instance.quantite_produite_kg / Decimal("100")
+            ) * ligne.proportion_kg
+            if qte_ingredient == 0:
+                continue
+            ing_stock, _ = StockIntrant.objects.get_or_create(
+                branche=instance.branche,
+                intrant=ligne.intrant,
+                defaults={"quantite": Decimal("0"), "prix_moyen_pondere": Decimal("0")},
+            )
+            avant_i = ing_stock.quantite
+            ing_stock.quantite = ing_stock.quantite + qte_ingredient
+            ing_stock.save(update_fields=["quantite"])
+
+            StockMouvement.objects.create(
+                branche=instance.branche,
+                intrant=ligne.intrant,
+                type_mouvement=StockMouvement.TYPE_ENTREE,
+                source="production_aliment",
+                quantite=qte_ingredient,
+                quantite_avant=avant_i,
+                quantite_apres=ing_stock.quantite,
+                date_mouvement=instance.date,
+                reference_id=instance.pk,
+                reference_label=f"Annulation mélange pk={instance.pk} (suppression)",
+                created_by=instance.created_by,
+            )
+
+
+# ---------------------------------------------------------------------------
+# RetraitOeufs: debit the egg StockProduitFini on save / restore on delete
+# (mirror image of recolte_oeufs_post_save above)
+# ---------------------------------------------------------------------------
+
+
+@receiver(pre_save, sender=RetraitOeufs)
+def retrait_oeufs_pre_save(sender, instance, **kwargs):
+    if instance.pk:
+        try:
+            instance._old_quantite = RetraitOeufs.objects.values_list(
+                "quantite_oeufs", flat=True
+            ).get(pk=instance.pk)
+        except RetraitOeufs.DoesNotExist:
+            instance._old_quantite = None
+    else:
+        instance._old_quantite = None
+
+
+@receiver(post_save, sender=RetraitOeufs)
+def retrait_oeufs_post_save(sender, instance, created, **kwargs):
+    """Decrease StockProduitFini (œufs) by the (signed) delta, scoped to branche."""
+    from stock.models import StockProduitFini, StockMouvement
+
+    produit = _get_produit_oeufs()
+    if not produit:
+        return
+
+    old_qty = getattr(instance, "_old_quantite", None)
+    delta = (
+        instance.quantite_oeufs
+        if created
+        else (
+            instance.quantite_oeufs - old_qty if old_qty is not None else 0
+        )
+    )
+    if delta == 0:
+        return
+
+    stock, _ = StockProduitFini.objects.get_or_create(
+        branche=instance.branche,
+        produit_fini=produit,
+        defaults={
+            "quantite": Decimal("0"),
+            "cout_moyen_production": Decimal("0"),
+            "seuil_alerte": Decimal("0"),
+        },
+    )
+    quantite_avant = stock.quantite
+    stock.quantite = stock.quantite - Decimal(str(delta))
+    stock.save(update_fields=["quantite", "derniere_mise_a_jour"])
+
+    StockMouvement.objects.create(
+        branche=instance.branche,
+        produit_fini=produit,
+        type_mouvement=StockMouvement.TYPE_SORTIE,
+        source="retrait_oeufs",
+        quantite=abs(Decimal(str(delta))),
+        quantite_avant=quantite_avant,
+        quantite_apres=stock.quantite,
+        date_mouvement=instance.date,
+        reference_id=instance.pk,
+        reference_label=f"Retrait œufs ({instance.get_motif_display()}) — {instance.date}",
+        created_by=instance.created_by,
+    )
+
+
+@receiver(pre_delete, sender=RetraitOeufs)
+def retrait_oeufs_pre_delete(sender, instance, **kwargs):
+    """Restore StockProduitFini (œufs) when a RetraitOeufs is deleted."""
+    from stock.models import StockProduitFini, StockMouvement
+
+    produit = _get_produit_oeufs()
+    if not produit:
+        return
+
+    stock, _ = StockProduitFini.objects.get_or_create(
+        branche=instance.branche,
+        produit_fini=produit,
+        defaults={
+            "quantite": Decimal("0"),
+            "cout_moyen_production": Decimal("0"),
+            "seuil_alerte": Decimal("0"),
+        },
+    )
+    quantite_avant = stock.quantite
+    stock.quantite = stock.quantite + Decimal(str(instance.quantite_oeufs))
+    stock.save(update_fields=["quantite", "derniere_mise_a_jour"])
+
+    StockMouvement.objects.create(
+        branche=instance.branche,
+        produit_fini=produit,
+        type_mouvement=StockMouvement.TYPE_ENTREE,
+        source="retrait_oeufs",
+        quantite=Decimal(str(instance.quantite_oeufs)),
+        quantite_avant=quantite_avant,
+        quantite_apres=stock.quantite,
+        date_mouvement=instance.date,
+        reference_id=instance.pk,
+        reference_label=f"Annulation retrait œufs pk={instance.pk} (suppression)",
         created_by=instance.created_by,
     )

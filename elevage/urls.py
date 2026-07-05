@@ -127,6 +127,29 @@ urlpatterns = [
         views.recolte_oeufs_delete,
         name="recolte_oeufs_delete",
     ),
+    # ── Suivi journalier (tableau d'accumulation) ───────────────────────
+    path(
+        "lots/<int:pk>/suivi/",
+        views.lot_suivi_journalier,
+        name="lot_suivi_journalier",
+    ),
+    # ── ProductionAliment (réapprovisionnement) ─────────────────────────
+    path(
+        "aliments/produire/",
+        views.production_aliment_create,
+        name="production_aliment_create",
+    ),
+    # ── RetraitOeufs ─────────────────────────────────────────────────────
+    path(
+        "recoltes-oeufs/retraits/creer/",
+        views.retrait_oeufs_create,
+        name="retrait_oeufs_create",
+    ),
+    path(
+        "lots/<int:lot_pk>/recoltes-oeufs/retraits/creer/",
+        views.retrait_oeufs_create,
+        name="retrait_oeufs_create_lot",
+    ),
     # ── AJAX ────────────────────────────────────────────────────────────
     path(
         "lots/<int:pk>/kpi.json",

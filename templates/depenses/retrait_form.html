@@ -119,11 +119,17 @@
                 <div class="form-row-2">
                   <div class="form-group">
                     <label class="form-label">نوع المستند</label>
-                    {{ pf.type_document }}
+                    <div class="input-wrapper">
+                      <i class="bx bx-file input-icon"></i>
+                      {{ pf.type_document }}
+                    </div>
                   </div>
                   <div class="form-group">
                     <label class="form-label">وصف</label>
-                    {{ pf.description }}
+                    <div class="input-wrapper">
+                      <i class="bx bx-comment-detail input-icon"></i>
+                      {{ pf.description }}
+                    </div>
                   </div>
                 </div>
                 {% if pf.DELETE %}
@@ -189,5 +195,32 @@
   [dir="rtl"] .input-icon { left:auto; right:13px; }
   [dir="rtl"] .input-wrapper input,[dir="rtl"] .input-wrapper select { padding:10px 40px 10px 12px; }
   [dir="rtl"] .form-actions-footer { flex-direction:row-reverse; }
+
+  /* Native browser chrome resets (see bl_fournisseur_form.html for the same pattern) */
+  .input-wrapper select {
+    appearance:none; -webkit-appearance:none; -moz-appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' fill='none' fill-rule='evenodd'/></svg>");
+    background-repeat:no-repeat;
+    background-position:left 14px center;
+    background-size:10px 6px;
+  }
+  [dir="rtl"] .input-wrapper select { background-position:right 14px center; }
+
+  .input-wrapper input[type="number"] { appearance:textfield; -moz-appearance:textfield; }
+  .input-wrapper input[type="number"]::-webkit-outer-spin-button,
+  .input-wrapper input[type="number"]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+
+  .input-wrapper input[type="date"]::-webkit-calendar-picker-indicator { filter:invert(.5); cursor:pointer; }
+
+  .checkbox-label input[type="checkbox"] {
+    appearance:none; -webkit-appearance:none;
+    width:15px; height:15px; border:1px solid var(--border); border-radius:4px;
+    position:relative; margin:0; cursor:pointer;
+  }
+  .checkbox-label input[type="checkbox"]:checked { background:var(--accent); border-color:var(--accent); }
+  .checkbox-label input[type="checkbox"]:checked::after {
+    content:""; position:absolute; left:4px; top:1px; width:4px; height:8px;
+    border:solid #fff; border-width:0 2px 2px 0; transform:rotate(45deg);
+  }
 </style>
 {% endblock %}

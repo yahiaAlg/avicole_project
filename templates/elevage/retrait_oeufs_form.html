@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
+{% block nav_lots %}active{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}{% if lot %}الدفعة : {{ lot.designation }}{% else %}سحب بيض من المخزون العام{% endif %}{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% if lot %}{% url 'elevage:lot_detail' lot.pk %}{% else %}{% url 'elevage:recolte_oeufs_list' %}{% endif %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> رجوع
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+  <div class="row justify-content-center">
+    <div class="col-xl-6 col-lg-8">
+
+      <div class="form-card">
+        <div class="form-card__header">
+          <div class="form-card__icon" style="background:rgba(124,58,237,.1);color:#7c3aed;">
+            <i class="bx bx-log-out-circle"></i>
+          </div>
+          <div>
+            <div class="form-card__title">{{ title }}</div>
+            <div class="form-card__sub">بيع مباشر، هدية، أو فقدان — خارج فواتير الزبائن الرسمية</div>
+          </div>
+        </div>
+
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {{ form.lot }}
+          {{ form.branche }}
+
+          {% if form.non_field_errors %}
+          <div class="form-errors-global">
+            <i class="bx bxs-error-circle"></i>
+            <div>{% for err in form.non_field_errors %}<div>{{ err }}</div>{% endfor %}</div>
+          </div>
+          {% endif %}
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.date.id_for_label }}">التاريخ <span class="required-star">*</span></label>
+                <div class="input-wrap">
+                  <i class="bx bxs-calendar input-icon"></i>
+                  {{ form.date }}
+                </div>
+                {% if form.date.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.date.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.quantite_oeufs.id_for_label }}">عدد البيض المسحوب <span class="required-star">*</span></label>
+                <div class="input-wrap">
+                  <i class="bx bxs-circle input-icon" style="color:#7c3aed;"></i>
+                  {{ form.quantite_oeufs }}
+                </div>
+                {% if form.quantite_oeufs.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.quantite_oeufs.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.motif.id_for_label }}">السبب <span class="required-star">*</span></label>
+                <div class="input-wrap">
+                  <i class="bx bxs-info-circle input-icon"></i>
+                  {{ form.motif }}
+                </div>
+                {% if form.motif.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.motif.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.destinataire.id_for_label }}">
+                  الجهة المستفيدة <span style="font-size:11px;color:var(--text-muted);font-weight:400;">— اختياري</span>
+                </label>
+                <div class="input-wrap">
+                  <i class="bx bxs-user input-icon"></i>
+                  {{ form.destinataire }}
+                </div>
+                {% if form.destinataire.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.destinataire.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="{{ form.notes.id_for_label }}">ملاحظات</label>
+            <div class="input-wrap input-wrap--textarea">
+              <i class="bx bx-note input-icon" style="top:14px;transform:none;"></i>
+              {{ form.notes }}
+            </div>
+            {% if form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.notes.errors|join:", " }}</div>{% endif %}
+          </div>
+
+          <div class="form-actions">
+            <a href="{% if lot %}{% url 'elevage:lot_detail' lot.pk %}{% else %}{% url 'elevage:recolte_oeufs_list' %}{% endif %}" class="btn-ghost">إلغاء</a>
+            <button type="submit" class="btn-primary">
+              <i class="bx bxs-save"></i> {{ action_label }}
+            </button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .form-card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;animation:fadeIn .3s ease; }
+  .form-card__header { display:flex;align-items:center;gap:14px;margin-bottom:24px;padding-bottom:18px;border-bottom:1px solid var(--border); }
+  .form-card__icon { width:44px;height:44px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0; }
+  .form-card__title { font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;color:var(--text-primary); }
+  .form-card__sub { font-size:12px;color:var(--text-muted);margin-top:2px; }
+  .form-group { margin-bottom:18px; }
+  .form-label { display:block;font-size:12px;font-weight:500;color:var(--text-secondary);letter-spacing:.03em;margin-bottom:6px; }
+  .required-star { color:#dc2626; }
+  .input-wrap { position:relative; }
+  .input-icon { position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none; }
+  .input-wrap input,.input-wrap select,.input-wrap textarea { width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13.5px;padding:11px 40px 11px 13px;transition:border-color .15s,box-shadow .15s;appearance:none;-webkit-appearance:none; }
+  .input-wrap textarea { padding-top:12px;resize:vertical;min-height:72px; }
+  .input-wrap input:focus,.input-wrap select:focus,.input-wrap textarea:focus { border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.15);outline:none; }
+  .input-wrap--textarea .input-icon { top:14px;transform:none; }
+  .field-error { display:flex;align-items:center;gap:5px;font-size:12px;color:#dc2626;margin-top:5px; }
+  .form-errors-global { display:flex;align-items:flex-start;gap:10px;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius-md);padding:12px 16px;margin-bottom:20px;font-size:13px;color:#dc2626; }
+  .form-actions { display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:18px;border-top:1px solid var(--border); }
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 20px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+</style>
+{% endblock %}

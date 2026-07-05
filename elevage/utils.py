@@ -281,3 +281,103 @@ def lots_a_transferer(branche=None) -> list:
         candidats = candidats.filter(branche=branche)
 
     return [lot for lot in candidats if lot.doit_etre_transfere]
+
+
+# ---------------------------------------------------------------------------
+# Daily accumulation table (paper-ledger style) — new feature
+# ---------------------------------------------------------------------------
+#
+# Reproduces the handwritten daily sheet (DATE / M / ALIMENT / OEFS / CUM /
+# SEM / STOK …) as one row per calendar day of the lot's life, with running
+# cumulative columns computed here rather than stored. Ambiguous columns
+# from the paper form (OBL, KL) aren't reproduced — everything below maps
+# to a concrete, already-modeled quantity:
+#   M       -> mortalité du jour
+#   ALIMENT -> aliment consommé ce jour-là (kg, catégorie ALIMENT)
+#   CUM (aliment) -> cumul aliment depuis l'ouverture du lot
+#   OEFS    -> œufs récoltés ce jour-là
+#   CUM (œufs) -> cumul œufs récoltés depuis l'ouverture
+#   RETRAIT -> œufs sortis ce jour-là (vente directe/don/perte — RetraitOeufs)
+#   STOCK   -> solde d'œufs = cumul récolté − cumul retiré (peut dépasser ce
+#              lot si des œufs d'autres lots partagent le même StockProduitFini
+#              — affiché à titre indicatif pour ce lot)
+#   SEM     -> numéro de semaine d'élevage (1 = jours 1-7, etc.)
+
+
+def get_lot_suivi_journalier(lot) -> list:
+    """
+    Build the day-by-day accumulation table for one lot, from
+    lot.date_ouverture through lot.date_fermeture (or today if still open).
+
+    Returns a list of dicts (one per calendar day, chronological order):
+        date, jour_numero, semaine, mortalite_jour, effectif_vivant_fin_jour,
+        aliment_jour_kg, aliment_cumul_kg,
+        oeufs_jour, oeufs_cumul, oeufs_retraits_jour, oeufs_stock
+    """
+    from django.db.models import Sum
+    from elevage.models import RetraitOeufs
+
+    date_fin = lot.date_fermeture or datetime.date.today()
+    date_debut = lot.date_ouverture
+    nb_jours = (date_fin - date_debut).days + 1
+    if nb_jours <= 0:
+        return []
+
+    # --- Pre-aggregate every source by date, once, to avoid N+1 queries ---
+    mortalite_par_jour = {
+        row["date"]: row["total"]
+        for row in lot.mortalites.values("date").annotate(total=Sum("nombre"))
+    }
+    aliment_par_jour = {
+        row["date"]: row["total"]
+        for row in lot.consommations.filter(intrant__categorie__code="ALIMENT")
+        .values("date")
+        .annotate(total=Sum("quantite"))
+    }
+    oeufs_par_jour = {
+        row["date"]: row["total"]
+        for row in lot.recoltes_oeufs.values("date").annotate(total=Sum("nombre_oeufs"))
+    }
+    retraits_par_jour = {
+        row["date"]: row["total"]
+        for row in RetraitOeufs.objects.filter(lot=lot)
+        .values("date")
+        .annotate(total=Sum("quantite_oeufs"))
+    }
+
+    effectif = lot.nombre_poussins_initial
+    aliment_cumul = Decimal("0")
+    oeufs_cumul = 0
+    oeufs_retraits_cumul = 0
+    rows = []
+
+    for i in range(nb_jours):
+        jour = date_debut + datetime.timedelta(days=i)
+
+        m = mortalite_par_jour.get(jour, 0)
+        a = aliment_par_jour.get(jour) or Decimal("0")
+        o = oeufs_par_jour.get(jour, 0)
+        r = retraits_par_jour.get(jour, 0)
+
+        effectif -= m
+        aliment_cumul += Decimal(str(a))
+        oeufs_cumul += o
+        oeufs_retraits_cumul += r
+
+        rows.append(
+            {
+                "date": jour,
+                "jour_numero": i + 1,
+                "semaine": i // 7 + 1,
+                "mortalite_jour": m,
+                "effectif_vivant_fin_jour": effectif,
+                "aliment_jour_kg": Decimal(str(a)),
+                "aliment_cumul_kg": aliment_cumul,
+                "oeufs_jour": o,
+                "oeufs_cumul": oeufs_cumul,
+                "oeufs_retraits_jour": r,
+                "oeufs_stock": oeufs_cumul - oeufs_retraits_cumul,
+            }
+        )
+
+    return rows

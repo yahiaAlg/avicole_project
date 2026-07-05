@@ -42,7 +42,9 @@ from elevage.forms import (
     LotFermetureForm,
     MortaliteForm,
     PeseeEchantillonForm,
+    ProductionAlimentForm,
     RecolteOeufsForm,
+    RetraitOeufsForm,
     TransfertLotForm,
 )
 from elevage.models import (
@@ -50,11 +52,14 @@ from elevage.models import (
     LotElevage,
     Mortalite,
     PeseeEchantillon,
+    ProductionAliment,
     RecolteOeufs,
+    RetraitOeufs,
     TransfertLot,
 )
 from elevage.utils import (
     get_lot_summary,
+    get_lot_suivi_journalier,
     lots_a_transferer,
     verifier_mortalite_anormale,
 )
@@ -1456,6 +1461,143 @@ def recolte_oeufs_list(request):
             "total_oeufs": total_oeufs,
             "active_branche": branche,
             "title": "جمع البيض",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def lot_suivi_journalier(request, pk):
+    """
+    Render the day-by-day accumulation table for one lot (paper-ledger
+    style): mortalité, aliment consommé (+ cumul), œufs récoltés/retirés
+    (+ cumul et solde) — see elevage.utils.get_lot_suivi_journalier.
+    """
+    lot = branche_object_or_404(request, LotElevage, pk=pk)
+    lignes = get_lot_suivi_journalier(lot)
+
+    return render(
+        request,
+        "elevage/lot_suivi_journalier.html",
+        {
+            "lot": lot,
+            "lignes": lignes,
+            "title": f"جدول التتبع اليومي — {lot.designation}",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+@require_branche_context
+def production_aliment_create(request):
+    """
+    Replenish a finished feed's stock (bare quantity, or via a
+    FormuleAliment which also debits ingredient Intrants — see signals.py).
+    Not tied to a single lot: feed is milled/bought for the whole branche
+    and then consumed per-lot via the existing Consommation flow.
+    """
+    branche = get_active_branche(request)
+
+    if request.method == "POST":
+        form = ProductionAlimentForm(request.POST, branche=branche)
+        if form.is_valid():
+            try:
+                production = form.save(commit=False)
+                if branche:
+                    production.branche = branche
+                production.created_by = request.user
+                production.save()  # triggers signal → stock entrée (+ ingrédients)
+
+                messages.success(
+                    request,
+                    f"تم تسجيل تزويد {production.quantite_produite_kg} كغ من "
+                    f"«{production.intrant_produit.designation}».",
+                )
+                logger.info(
+                    "ProductionAliment pk=%s created (intrant pk=%s, qte=%s) by '%s'.",
+                    production.pk,
+                    production.intrant_produit_id,
+                    production.quantite_produite_kg,
+                    request.user,
+                )
+                return redirect("elevage:dashboard")
+
+            except Exception as exc:
+                logger.exception("Error creating ProductionAliment: %s", exc)
+                messages.error(request, f"خطأ أثناء التسجيل: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        form = ProductionAlimentForm(branche=branche)
+
+    return render(
+        request,
+        "elevage/production_aliment_form.html",
+        {"form": form, "title": "تزويد/تصنيع علف", "action_label": "حفظ"},
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def retrait_oeufs_create(request, lot_pk=None):
+    """
+    Withdraw eggs from stock outside the formal BLClient sales flow: direct
+    truck sale, gift, or loss/breakage (RetraitOeufs — debits the same egg
+    StockProduitFini that RecolteOeufs credits, see signals.py).
+
+    `lot_pk` is optional: when given, the withdrawal is attributed to that
+    lot's daily table; otherwise it's just scoped to the active branche.
+    """
+    lot = None
+    if lot_pk is not None:
+        lot = branche_object_or_404(request, LotElevage, pk=lot_pk)
+    branche = lot.branche if lot else get_active_branche(request)
+
+    if request.method == "POST":
+        form = RetraitOeufsForm(request.POST, lot=lot, branche=branche)
+        if form.is_valid():
+            try:
+                retrait = form.save(commit=False)
+                if lot:
+                    retrait.lot = lot
+                    retrait.branche = lot.branche
+                elif branche:
+                    retrait.branche = branche
+                retrait.created_by = request.user
+                retrait.save()  # triggers signal → stock sortie + mouvement
+
+                messages.success(
+                    request,
+                    f"تم تسجيل سحب {retrait.quantite_oeufs} بيضة "
+                    f"({retrait.get_motif_display()}).",
+                )
+                logger.info(
+                    "RetraitOeufs pk=%s created (lot pk=%s, nombre=%s) by '%s'.",
+                    retrait.pk,
+                    lot.pk if lot else None,
+                    retrait.quantite_oeufs,
+                    request.user,
+                )
+                return redirect("elevage:lot_detail", pk=lot.pk) if lot else redirect(
+                    "elevage:recolte_oeufs_list"
+                )
+
+            except Exception as exc:
+                logger.exception("Error creating RetraitOeufs: %s", exc)
+                messages.error(request, f"خطأ أثناء التسجيل: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        import datetime
+
+        form = RetraitOeufsForm(lot=lot, branche=branche, initial={"date": datetime.date.today()})
+
+    return render(
+        request,
+        "elevage/retrait_oeufs_form.html",
+        {
+            "form": form,
+            "lot": lot,
+            "title": f"سحب بيض — {lot.designation}" if lot else "سحب بيض",
+            "action_label": "حفظ",
         },
     )
 

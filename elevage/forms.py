@@ -17,6 +17,9 @@ from elevage.models import (
     TransfertLot,
     RecolteOeufs,
     PeseeEchantillon,
+    ProductionAliment,
+    FormuleAliment,
+    RetraitOeufs,
 )
 from intrants.models import Intrant, CategorieIntrant, Batiment, Fournisseur
 from achats.models import BLFournisseur
@@ -476,3 +479,78 @@ class RecolteOeufsForm(forms.ModelForm):
                 "Impossible d'enregistrer une récolte d'œufs sur un lot fermé."
             )
         return cleaned
+
+
+class ProductionAlimentForm(forms.ModelForm):
+    """
+    Replenish a finished feed's stock: bare quantity fast-path, or via a
+    FormuleAliment recipe (in which case ingredient Intrants are also
+    debited — handled in signals.py, not here).
+    """
+
+    class Meta:
+        model = ProductionAliment
+        fields = ["branche", "date", "formule", "intrant_produit", "quantite_produite_kg", "notes"]
+        widgets = {
+            "date": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+            "quantite_produite_kg": forms.NumberInput(attrs={"step": "0.001", "min": "0.001"}),
+        }
+
+    def __init__(self, *args, branche=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["formule"].required = False
+        self.fields["formule"].queryset = FormuleAliment.objects.filter(actif=True)
+        self.fields["intrant_produit"].queryset = Intrant.objects.filter(
+            categorie__code="ALIMENT", actif=True
+        )
+        if branche:
+            self.fields["branche"].initial = branche
+            self.fields["branche"].widget = forms.HiddenInput()
+        if not self.initial.get("date"):
+            self.fields["date"].initial = datetime.date.today()
+
+    def clean(self):
+        cleaned = super().clean()
+        formule = cleaned.get("formule")
+        intrant_produit = cleaned.get("intrant_produit")
+        if formule and intrant_produit and formule.intrant_produit_id != intrant_produit.pk:
+            raise ValidationError(
+                "التركيبة المختارة تُنتج علفاً مختلفاً عن العلف المحدد."
+            )
+        return cleaned
+
+
+class RetraitOeufsForm(forms.ModelForm):
+    """
+    Withdraw eggs from stock outside the formal BLClient sales flow: direct
+    truck sale, gift, or loss/breakage. `lot` is optional and informational
+    only (see model docstring) — it lets the withdrawal show up on that
+    lot's daily table (utils.get_lot_suivi_journalier) without implying the
+    physical egg stock is split by lot.
+    """
+
+    class Meta:
+        model = RetraitOeufs
+        fields = ["branche", "lot", "date", "quantite_oeufs", "motif", "destinataire", "notes"]
+        widgets = {
+            "date": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+        }
+
+    def __init__(self, *args, lot=None, branche=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["destinataire"].required = False
+        self.fields["notes"].required = False
+        self.fields["lot"].required = False
+        self.fields["lot"].queryset = LotElevage.objects.all()
+        if lot:
+            self.fields["lot"].initial = lot
+            self.fields["lot"].widget = forms.HiddenInput()
+            self.fields["branche"].initial = lot.branche
+            self.fields["branche"].widget = forms.HiddenInput()
+        elif branche:
+            self.fields["branche"].initial = branche
+            self.fields["branche"].widget = forms.HiddenInput()
+        if not self.initial.get("date"):
+            self.fields["date"].initial = datetime.date.today()

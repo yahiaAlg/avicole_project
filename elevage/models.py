@@ -803,3 +803,242 @@ class RecolteOeufs(models.Model):
     @property
     def qualite(self):
         return self.pesee.qualite if self.pesee_id else None
+
+
+# ---------------------------------------------------------------------------
+# Aliment (feed) production / replenishment — new feature
+# ---------------------------------------------------------------------------
+#
+# Consommation already lets a lot consume any Intrant of category ALIMENT
+# directly (exact quantity, decrementing that Intrant's StockIntrant) — that
+# path stays unchanged and is what feeds the "ALIMENT" column of the daily
+# lot table below.
+#
+# What was missing: the *replenishment* side. A finished/mixed feed (e.g.
+# "Aliment démarrage") can be topped up either as a bare quantity (fast path,
+# no ingredient bookkeeping) or via a FormuleAliment recipe, in which case the
+# raw ingredient Intrants are optionally decremented proportionally. Both
+# paths simply increase the finished feed's own StockIntrant balance.
+
+
+class FormuleAliment(models.Model):
+    """
+    Optional feed recipe: which raw Intrant ingredients (and in what
+    proportion) go into one finished feed Intrant. Purely for traceability —
+    ProductionAliment can always be entered without one.
+    """
+
+    nom = models.CharField(max_length=150, verbose_name="اسم التركيبة")
+    intrant_produit = models.ForeignKey(
+        "intrants.Intrant",
+        on_delete=models.PROTECT,
+        related_name="formules_aliment",
+        verbose_name="العلف الناتج",
+        limit_choices_to={"categorie__code": "ALIMENT"},
+        help_text="العلف الجاهز الذي تُضاف إليه الكمية المصنّعة إلى المخزون.",
+    )
+    actif = models.BooleanField(default=True, verbose_name="نشطة")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "تركيبة علف"
+        verbose_name_plural = "تركيبات العلف"
+        ordering = ["nom"]
+
+    def __str__(self):
+        return self.nom
+
+    @property
+    def total_proportion_kg(self):
+        from django.db.models import Sum
+
+        return self.lignes.aggregate(total=Sum("proportion_kg"))["total"] or Decimal(
+            "0"
+        )
+
+
+class FormuleAlimentLigne(models.Model):
+    """
+    One ingredient line of a FormuleAliment, expressed as kg of that raw
+    Intrant per 100 kg of finished feed produced (proportion_kg / 100 gives
+    the ratio applied to whatever quantite_produite is entered).
+    """
+
+    formule = models.ForeignKey(
+        FormuleAliment,
+        on_delete=models.CASCADE,
+        related_name="lignes",
+        verbose_name="التركيبة",
+    )
+    intrant = models.ForeignKey(
+        "intrants.Intrant",
+        on_delete=models.PROTECT,
+        related_name="lignes_formule_aliment",
+        verbose_name="المدخل (مكوّن)",
+    )
+    proportion_kg = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        verbose_name="كغ لكل 100 كغ علف ناتج",
+        validators=[MinValueValidator(0.001)],
+    )
+
+    class Meta:
+        verbose_name = "مكوّن تركيبة"
+        verbose_name_plural = "مكوّنات التركيبة"
+        unique_together = ("formule", "intrant")
+        ordering = ["formule", "-proportion_kg"]
+
+    def __str__(self):
+        return f"{self.formule.nom} — {self.intrant.designation} ({self.proportion_kg} kg/100kg)"
+
+
+class ProductionAliment(models.Model):
+    """
+    Replenishment event for a finished feed Intrant: "we just milled/mixed
+    *quantite_produite_kg* of feed X". Always credits intrant_produit's own
+    StockIntrant (scoped to `branche`).
+
+    `formule` is optional (BR-request: "quantity added without specifying the
+    intrants milled into it"). When provided, each FormuleAlimentLigne is used
+    to also debit the corresponding raw-ingredient StockIntrant, proportional
+    to quantite_produite_kg — pure bookkeeping, never blocks the save if an
+    ingredient's stock goes negative (mirrors the lenient pattern already
+    used for Consommation/Mortalite stock corrections in signals.py).
+    """
+
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="productions_aliment",
+        verbose_name="الفرع",
+    )
+    date = models.DateField(verbose_name="تاريخ التصنيع/التزويد")
+    formule = models.ForeignKey(
+        FormuleAliment,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="productions",
+        verbose_name="التركيبة (اختياري)",
+    )
+    intrant_produit = models.ForeignKey(
+        "intrants.Intrant",
+        on_delete=models.PROTECT,
+        related_name="productions_aliment",
+        verbose_name="العلف المصنّع",
+        limit_choices_to={"categorie__code": "ALIMENT"},
+    )
+    quantite_produite_kg = models.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        verbose_name="الكمية المصنّعة (كغ)",
+        validators=[MinValueValidator(0.001)],
+    )
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="productions_aliment_enregistrees",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "تصنيع/تزويد علف"
+        verbose_name_plural = "عمليات تصنيع العلف"
+        ordering = ["-date"]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if (
+            self.formule_id
+            and self.intrant_produit_id
+            and self.formule.intrant_produit_id != self.intrant_produit_id
+        ):
+            raise ValidationError(
+                "التركيبة المختارة تُنتج علفاً مختلفاً عن العلف المحدد هنا."
+            )
+
+    def __str__(self):
+        return f"{self.intrant_produit.designation} +{self.quantite_produite_kg}kg ({self.date})"
+
+
+# ---------------------------------------------------------------------------
+# Egg withdrawals — new feature (accumulation via RecolteOeufs, withdrawal here)
+# ---------------------------------------------------------------------------
+
+
+class RetraitOeufs(models.Model):
+    """
+    Non-invoiced egg withdrawal from stock: sold directly off the truck to a
+    walk-in client, given away, or lost/discarded — anything that isn't a
+    formal BLClient sale (which already debits StockProduitFini on its own).
+
+    Always debits the same egg StockProduitFini that RecolteOeufs credits
+    (see signals._get_produit_oeufs), scoped to `branche`. `lot` is optional
+    and purely informational — it lets a withdrawal be attributed to (or
+    just noted against) a specific lot's daily table without pretending the
+    physical egg stock is split by lot.
+    """
+
+    MOTIF_CLIENT_CAMION = "client_camion"
+    MOTIF_DON = "don"
+    MOTIF_AUTRE = "autre"
+    MOTIF_CHOICES = [
+        (MOTIF_CLIENT_CAMION, "بيع مباشر (شاحنة/زبون)"),
+        (MOTIF_DON, "هدية / عيّنة مجانية"),
+        (MOTIF_AUTRE, "أخرى (فقدان، كسر...)"),
+    ]
+
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="retraits_oeufs",
+        verbose_name="الفرع",
+    )
+    lot = models.ForeignKey(
+        LotElevage,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="retraits_oeufs",
+        verbose_name="الدفعة (اختياري)",
+    )
+    date = models.DateField(verbose_name="تاريخ السحب")
+    quantite_oeufs = models.PositiveIntegerField(
+        verbose_name="عدد البيض المسحوب",
+        validators=[MinValueValidator(1)],
+    )
+    motif = models.CharField(
+        max_length=20,
+        choices=MOTIF_CHOICES,
+        default=MOTIF_CLIENT_CAMION,
+        verbose_name="السبب",
+    )
+    destinataire = models.CharField(
+        max_length=150,
+        blank=True,
+        verbose_name="الجهة المستفيدة",
+        help_text="اسم الزبون أو المستفيد (اختياري).",
+    )
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="retraits_oeufs_enregistres",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "سحب بيض"
+        verbose_name_plural = "عمليات سحب البيض"
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"-{self.quantite_oeufs} œufs ({self.get_motif_display()}) — {self.date}"
