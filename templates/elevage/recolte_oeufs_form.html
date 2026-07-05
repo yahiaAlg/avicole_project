@@ -72,6 +72,28 @@
             </div>
           </div>
 
+          <!-- Saisie par plateaux (calcule عدد البيض تلقائياً) -->
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label" for="id_nombre_plateaux_helper">أو أدخل عدد الصواني</label>
+                <div class="input-wrap">
+                  <i class="bx bxs-grid input-icon" style="color:#ea580c;"></i>
+                  <input type="number" id="id_nombre_plateaux_helper" min="0" step="1" placeholder="مثال: 37">
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label" for="id_oeufs_hors_plateau_helper">+ بيض خارج الصينية</label>
+                <div class="input-wrap">
+                  <i class="bx bxs-circle input-icon" style="color:#ea580c;"></i>
+                  <input type="number" id="id_oeufs_hors_plateau_helper" min="0" max="29" step="1" placeholder="0">
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Pesée de référence -->
           <div class="form-group">
             <label class="form-label" for="{{ form.pesee.id_for_label }}">
@@ -140,8 +162,31 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+  const PLATEAU_SIZE = 30;
   const nombreInput = document.querySelector('[name="nombre_oeufs"]');
-  if (nombreInput) nombreInput.focus();
+  const plateauxInput = document.getElementById('id_nombre_plateaux_helper');
+  const horsInput = document.getElementById('id_oeufs_hors_plateau_helper');
+  if (!nombreInput) return;
+
+  nombreInput.focus();
+
+  function fromPlateaux() {
+    const p = parseInt(plateauxInput.value, 10) || 0;
+    const h = parseInt(horsInput.value, 10) || 0;
+    nombreInput.value = p * PLATEAU_SIZE + h;
+  }
+  if (plateauxInput && horsInput) {
+    plateauxInput.addEventListener('input', fromPlateaux);
+    horsInput.addEventListener('input', fromPlateaux);
+
+    function fromNombre() {
+      const n = parseInt(nombreInput.value, 10) || 0;
+      plateauxInput.value = Math.floor(n / PLATEAU_SIZE);
+      horsInput.value = n % PLATEAU_SIZE;
+    }
+    nombreInput.addEventListener('input', fromNombre);
+    fromNombre(); // initial sync (edit mode)
+  }
 });
 </script>
 {% endblock %}

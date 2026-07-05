@@ -1019,6 +1019,14 @@ class RetraitOeufs(models.Model):
     and purely informational — it lets a withdrawal be attributed to (or
     just noted against) a specific lot's daily table without pretending the
     physical egg stock is split by lot.
+
+    If `client` is set (motif=client_camion), the create view auto-generates
+    a formal BLClient + BLClientLigne for this quantity (see
+    views.retrait_oeufs_create) and links it via `bl_genere`. In that case
+    THIS record no longer debits stock itself — signals.retrait_oeufs_post_save
+    / _pre_delete skip their own stock movement whenever `bl_genere_id` is
+    set, since the BLClientLigne's own signal already owns that debit. This
+    avoids double-deducting the same eggs from two signals.
     """
 
     MOTIF_CLIENT_CAMION = "client_camion"
@@ -1055,11 +1063,29 @@ class RetraitOeufs(models.Model):
         default=MOTIF_CLIENT_CAMION,
         verbose_name="السبب",
     )
+    client = models.ForeignKey(
+        "clients.Client",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="retraits_oeufs",
+        verbose_name="العميل",
+        help_text="اختر عميلاً مسجلاً لإنشاء وصل تسليم (BL) رسمي بهذه الكمية تلقائياً.",
+    )
+    bl_genere = models.OneToOneField(
+        "clients.BLClient",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        editable=False,
+        related_name="retrait_oeufs_origine",
+        verbose_name="وصل التسليم المُنشأ",
+    )
     destinataire = models.CharField(
         max_length=150,
         blank=True,
         verbose_name="الجهة المستفيدة",
-        help_text="اسم الزبون أو المستفيد (اختياري).",
+        help_text="اسم الزبون أو المستفيد إن لم يكن عميلاً مسجلاً (اختياري).",
     )
     notes = models.TextField(blank=True, verbose_name="ملاحظات")
     created_by = models.ForeignKey(

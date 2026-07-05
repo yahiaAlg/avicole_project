@@ -55,7 +55,7 @@ def _get_produit_oeufs():
     """
     from production.models import ProduitFini
 
-    qs = ProduitFini.objects.filter(type_produit=ProduitFini.TYPE_OEUFS, actif=True)
+    qs = ProduitFini.objects.filter(type_produit__code="OEUFS", actif=True)
     produit = qs.first()
     if qs.count() > 1:
         logger.warning(
@@ -1109,8 +1109,17 @@ def retrait_oeufs_pre_save(sender, instance, **kwargs):
 
 @receiver(post_save, sender=RetraitOeufs)
 def retrait_oeufs_post_save(sender, instance, created, **kwargs):
-    """Decrease StockProduitFini (œufs) by the (signed) delta, scoped to branche."""
+    """Decrease StockProduitFini (œufs) by the (signed) delta, scoped to branche.
+
+    Skipped entirely when `bl_genere_id` is set: the withdrawal was turned
+    into a formal BLClient sale (see views.retrait_oeufs_create), and that
+    BL's own BLClientLigne signal already debits the same stock — debiting
+    here too would deduct the eggs twice.
+    """
     from stock.models import StockProduitFini, StockMouvement
+
+    if instance.bl_genere_id:
+        return
 
     produit = _get_produit_oeufs()
     if not produit:
@@ -1157,8 +1166,14 @@ def retrait_oeufs_post_save(sender, instance, created, **kwargs):
 
 @receiver(pre_delete, sender=RetraitOeufs)
 def retrait_oeufs_pre_delete(sender, instance, **kwargs):
-    """Restore StockProduitFini (œufs) when a RetraitOeufs is deleted."""
+    """Restore StockProduitFini (œufs) when a RetraitOeufs is deleted.
+
+    Skipped when `bl_genere_id` is set — see retrait_oeufs_post_save.
+    """
     from stock.models import StockProduitFini, StockMouvement
+
+    if instance.bl_genere_id:
+        return
 
     produit = _get_produit_oeufs()
     if not produit:

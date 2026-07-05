@@ -773,23 +773,40 @@ def intrant_stock_json(request, pk):
     """
     from django.http import JsonResponse
 
-    branche = get_active_branche(request)
     intrant = get_object_or_404(Intrant, pk=pk)
-    try:
-        stock = intrant.stocks.get(branche=branche)
+
+    # Si l'appel provient du formulaire Consommation (?lot=<pk>), la branche
+    # à vérifier DOIT être celle du lot — pas la branche active en session.
+    # consommation_create() valide le stock via lot.branche ; utiliser
+    # get_active_branche(request) ici pouvait donc vérifier une branche
+    # différente de celle réellement utilisée à l'enregistrement, et
+    # afficher à tort « aucune quantité disponible » alors que lot.branche
+    # avait du stock (ou l'inverse).
+    lot_pk = request.GET.get("lot")
+    if lot_pk:
+        from elevage.models import LotElevage
+
+        lot = get_object_or_404(LotElevage, pk=lot_pk)
+        branche = lot.branche
+    else:
+        branche = get_active_branche(request)
+
+    if branche is not None:
+        stock = intrant.stocks.filter(branche=branche).first()
         data = {
-            "quantite": float(stock.quantite),
-            "prix_moyen_pondere": float(stock.prix_moyen_pondere),
+            "quantite": float(stock.quantite) if stock else 0,
+            "prix_moyen_pondere": float(stock.prix_moyen_pondere) if stock else 0,
             "unite_mesure": intrant.unite_mesure.libelle,
-            "en_alerte": stock.en_alerte,
+            "en_alerte": intrant.en_alerte(branche),
             "seuil_alerte": float(intrant.seuil_alerte),
         }
-    except Exception:
+    else:
+        # Vue Globale (branche=None) : total agrégé, comme intrant_list().
         data = {
-            "quantite": 0,
+            "quantite": float(intrant.quantite_en_stock(None)),
             "prix_moyen_pondere": 0,
             "unite_mesure": intrant.unite_mesure.libelle,
-            "en_alerte": True,
+            "en_alerte": intrant.en_alerte(None),
             "seuil_alerte": float(intrant.seuil_alerte),
         }
     return JsonResponse(data)

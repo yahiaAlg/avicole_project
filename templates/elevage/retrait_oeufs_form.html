@@ -63,6 +63,28 @@
             </div>
           </div>
 
+          <!-- Saisie par plateaux (calcule عدد البيض المسحوب تلقائياً) -->
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label" for="id_nombre_plateaux_helper">أو أدخل عدد الصواني</label>
+                <div class="input-wrap">
+                  <i class="bx bxs-grid input-icon" style="color:#7c3aed;"></i>
+                  <input type="number" id="id_nombre_plateaux_helper" min="0" step="1" placeholder="مثال: 5">
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label" for="id_oeufs_hors_plateau_helper">+ بيض خارج الصينية</label>
+                <div class="input-wrap">
+                  <i class="bx bxs-circle input-icon" style="color:#7c3aed;"></i>
+                  <input type="number" id="id_oeufs_hors_plateau_helper" min="0" max="29" step="1" placeholder="0">
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="row g-3">
             <div class="col-md-6">
               <div class="form-group">
@@ -76,8 +98,23 @@
             </div>
             <div class="col-md-6">
               <div class="form-group">
+                <label class="form-label" for="{{ form.client.id_for_label }}">
+                  العميل <span style="font-size:11px;color:var(--text-muted);font-weight:400;">— اختياري، ينشئ وصل تسليم تلقائياً</span>
+                </label>
+                <div class="input-wrap">
+                  <i class="bx bxs-user-badge input-icon" style="color:#7c3aed;"></i>
+                  {{ form.client }}
+                </div>
+                {% if form.client.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.client.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="form-group">
                 <label class="form-label" for="{{ form.destinataire.id_for_label }}">
-                  الجهة المستفيدة <span style="font-size:11px;color:var(--text-muted);font-weight:400;">— اختياري</span>
+                  اسم آخر <span style="font-size:11px;color:var(--text-muted);font-weight:400;">— إن لم يكن عميلاً مسجلاً</span>
                 </label>
                 <div class="input-wrap">
                   <i class="bx bxs-user input-icon"></i>
@@ -135,4 +172,42 @@
   .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
   .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const PLATEAU_SIZE = 30;
+  const nombreInput = document.querySelector('[name="quantite_oeufs"]');
+  const plateauxInput = document.getElementById('id_nombre_plateaux_helper');
+  const horsInput = document.getElementById('id_oeufs_hors_plateau_helper');
+  if (!nombreInput || !plateauxInput || !horsInput) return;
+
+  function fromPlateaux() {
+    const p = parseInt(plateauxInput.value, 10) || 0;
+    const h = parseInt(horsInput.value, 10) || 0;
+    nombreInput.value = p * PLATEAU_SIZE + h;
+  }
+  plateauxInput.addEventListener('input', fromPlateaux);
+  horsInput.addEventListener('input', fromPlateaux);
+
+  function fromNombre() {
+    const n = parseInt(nombreInput.value, 10) || 0;
+    plateauxInput.value = Math.floor(n / PLATEAU_SIZE);
+    horsInput.value = n % PLATEAU_SIZE;
+  }
+  nombreInput.addEventListener('input', fromNombre);
+  fromNombre(); // initial sync (edit mode)
+
+  // Picking a registered client implies a direct sale (server enforces this
+  // too — see RetraitOeufsForm.clean).
+  const clientSelect = document.querySelector('[name="client"]');
+  const motifSelect = document.querySelector('[name="motif"]');
+  if (clientSelect && motifSelect) {
+    clientSelect.addEventListener('change', function () {
+      if (clientSelect.value) motifSelect.value = 'client_camion';
+    });
+  }
+});
+</script>
 {% endblock %}

@@ -136,7 +136,7 @@
 </div>
 
 {# Stash AJAX URL base for JS — use a data attribute on a hidden element #}
-<span id="js-stock-url-base" data-url="{% url 'intrants:intrant_stock_json' 0 %}" style="display:none;"></span>
+<span id="js-stock-url-base" data-url="{% url 'intrants:intrant_stock_json' 0 %}" data-lot="{{ lot.pk }}" style="display:none;"></span>
 {% endblock %}
 
 {% block extra_css %}
@@ -293,7 +293,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     stockCaption.innerHTML = '<i class="bx bx-loader-circle" style="animation:spin .8s linear infinite;font-size:13px;"></i> جارٍ التحقق من المخزون…';
 
-    fetch(urlBase + intrantPk + '/stock.json', {
+    const lotPk = document.getElementById('js-stock-url-base').dataset.lot;
+    fetch(urlBase + intrantPk + '/stock.json?lot=' + encodeURIComponent(lotPk), {
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
     .then(function (r) { return r.json(); })

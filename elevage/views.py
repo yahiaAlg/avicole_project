@@ -20,6 +20,7 @@ State changes (close lot, delete mortality/consumption) are POST-only.
 """
 
 import logging
+from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -1694,25 +1695,85 @@ def retrait_oeufs_create(request, lot_pk=None):
         form = RetraitOeufsForm(request.POST, lot=lot, branche=branche)
         if form.is_valid():
             try:
-                retrait = form.save(commit=False)
-                if lot:
-                    retrait.lot = lot
-                    retrait.branche = lot.branche
-                elif branche:
-                    retrait.branche = branche
-                retrait.created_by = request.user
-                retrait.save()  # triggers signal → stock sortie + mouvement
+                with transaction.atomic():
+                    retrait = form.save(commit=False)
+                    if lot:
+                        retrait.lot = lot
+                        retrait.branche = lot.branche
+                    elif branche:
+                        retrait.branche = branche
+                    retrait.created_by = request.user
 
-                messages.success(
-                    request,
-                    f"تم تسجيل سحب {retrait.quantite_oeufs} بيضة "
-                    f"({retrait.get_motif_display()}).",
-                )
+                    bl = None
+                    if (
+                        retrait.client_id
+                        and retrait.motif == RetraitOeufs.MOTIF_CLIENT_CAMION
+                    ):
+                        from clients.models import BLClient, BLClientLigne
+                        from elevage.signals import _get_produit_oeufs
+                        import uuid
+
+                        produit = _get_produit_oeufs()
+                        if not produit:
+                            raise RuntimeError(
+                                "لا يوجد منتج نهائي «بيض» نشط في الكتالوج — "
+                                "تعذّر إنشاء وصل التسليم. راجع كتالوج المنتجات النهائية."
+                            )
+
+                        # NOTE: reference scheme is a placeholder (date + short
+                        # unique suffix) since no shared BL numbering helper was
+                        # available here — swap for the farm's real sequence
+                        # generator (clients app) if one exists.
+                        reference = (
+                            f"BLC-OEUFS-{retrait.branche.code}-"
+                            f"{retrait.date:%Y%m%d}-{uuid.uuid4().hex[:6].upper()}"
+                        )
+                        bl = BLClient.objects.create(
+                            reference=reference,
+                            branche=retrait.branche,
+                            client=retrait.client,
+                            date_bl=retrait.date,
+                            statut=BLClient.STATUT_LIVRE,
+                            notes=(
+                                f"مُنشأ تلقائياً من سحب بيض "
+                                f"({retrait.get_motif_display()})."
+                            ),
+                            created_by=request.user,
+                        )
+                        BLClientLigne.objects.create(
+                            bl=bl,
+                            produit_fini=produit,
+                            quantite=Decimal(retrait.quantite_oeufs),
+                            prix_unitaire=produit.prix_vente_defaut,
+                        )
+                        # bl_genere is set BEFORE retrait.save() below so that
+                        # signals.retrait_oeufs_post_save sees it already and
+                        # skips its own stock debit — BLClientLigne's signal
+                        # (triggered above) is the single source of truth for
+                        # the stock movement in this path.
+                        retrait.bl_genere = bl
+
+                    retrait.save()  # triggers signal → stock sortie + mouvement
+                    # (skipped automatically above when bl_genere is set)
+
+                if bl:
+                    messages.success(
+                        request,
+                        f"تم تسجيل سحب {retrait.quantite_oeufs} بيضة "
+                        f"وإنشاء وصل تسليم {bl.reference} للعميل {retrait.client.nom}.",
+                    )
+                else:
+                    messages.success(
+                        request,
+                        f"تم تسجيل سحب {retrait.quantite_oeufs} بيضة "
+                        f"({retrait.get_motif_display()}).",
+                    )
                 logger.info(
-                    "RetraitOeufs pk=%s created (lot pk=%s, nombre=%s) by '%s'.",
+                    "RetraitOeufs pk=%s created (lot pk=%s, nombre=%s, bl=%s) by '%s'.",
                     retrait.pk,
                     lot.pk if lot else None,
                     retrait.quantite_oeufs,
+                    bl.reference if bl else None,
                     request.user,
                 )
                 return (

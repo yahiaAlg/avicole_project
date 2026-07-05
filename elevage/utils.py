@@ -315,7 +315,7 @@ def get_lot_suivi_journalier(lot) -> list:
         oeufs_jour, oeufs_cumul, oeufs_retraits_jour, oeufs_stock
     """
     from django.db.models import Sum
-    from elevage.models import RetraitOeufs
+    from elevage.models import RetraitOeufs, RecolteOeufs
 
     date_fin = lot.date_fermeture or datetime.date.today()
     date_debut = lot.date_ouverture
@@ -363,6 +363,7 @@ def get_lot_suivi_journalier(lot) -> list:
         aliment_cumul += Decimal(str(a))
         oeufs_cumul += o
         oeufs_retraits_cumul += r
+        oeufs_stock = oeufs_cumul - oeufs_retraits_cumul
 
         rows.append(
             {
@@ -376,7 +377,11 @@ def get_lot_suivi_journalier(lot) -> list:
                 "oeufs_jour": o,
                 "oeufs_cumul": oeufs_cumul,
                 "oeufs_retraits_jour": r,
-                "oeufs_stock": oeufs_cumul - oeufs_retraits_cumul,
+                "oeufs_retraits_jour_plateaux": r // RecolteOeufs.PLATEAU_SIZE,
+                "oeufs_retraits_jour_hors_plateau": r % RecolteOeufs.PLATEAU_SIZE,
+                "oeufs_stock": oeufs_stock,
+                "oeufs_stock_plateaux": oeufs_stock // RecolteOeufs.PLATEAU_SIZE,
+                "oeufs_stock_hors_plateau": oeufs_stock % RecolteOeufs.PLATEAU_SIZE,
             }
         )
 

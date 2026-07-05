@@ -26,6 +26,7 @@ from elevage.models import (
 )
 from intrants.models import Intrant, CategorieIntrant, Batiment, Fournisseur
 from achats.models import BLFournisseur
+from clients.models import Client
 
 
 class LotElevageForm(forms.ModelForm):
@@ -658,6 +659,12 @@ class RetraitOeufsForm(forms.ModelForm):
     only (see model docstring) — it lets the withdrawal show up on that
     lot's daily table (utils.get_lot_suivi_journalier) without implying the
     physical egg stock is split by lot.
+
+    If `client` is set, the create view (views.retrait_oeufs_create) auto-
+    generates a formal BLClient + line for this quantity — see
+    RetraitOeufs.bl_genere / signals.retrait_oeufs_post_save for how stock
+    is kept single-sourced in that case. `destinataire` stays free-text for
+    withdrawals with no registered client (gifts, losses, walk-ins).
     """
 
     class Meta:
@@ -668,6 +675,7 @@ class RetraitOeufsForm(forms.ModelForm):
             "date",
             "quantite_oeufs",
             "motif",
+            "client",
             "destinataire",
             "notes",
         ]
@@ -678,6 +686,11 @@ class RetraitOeufsForm(forms.ModelForm):
 
     def __init__(self, *args, lot=None, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["client"].required = False
+        self.fields["client"].queryset = Client.objects.filter(actif=True).order_by(
+            "nom"
+        )
+        self.fields["client"].empty_label = "— بدون عميل مسجل —"
         self.fields["destinataire"].required = False
         self.fields["notes"].required = False
         self.fields["lot"].required = False
@@ -692,3 +705,14 @@ class RetraitOeufsForm(forms.ModelForm):
             self.fields["branche"].widget = forms.HiddenInput()
         if not self.initial.get("date"):
             self.fields["date"].initial = datetime.date.today()
+
+    def clean(self):
+        cleaned = super().clean()
+        client = cleaned.get("client")
+        motif = cleaned.get("motif")
+        if client and motif != RetraitOeufs.MOTIF_CLIENT_CAMION:
+            raise ValidationError(
+                "لا يمكن ربط عميل مسجل إلا مع السبب «بيع مباشر (شاحنة/زبون)» "
+                "— سينشئ هذا وصل تسليم رسمي للعميل."
+            )
+        return cleaned
