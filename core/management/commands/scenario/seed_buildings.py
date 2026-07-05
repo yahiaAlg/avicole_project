@@ -1,8 +1,8 @@
 """
 management/commands/seed_buildings.py
 
-Peuplement rapide du parc réel de bâtiments (Batiment), pour éviter la
-saisie manuelle via STOCK → Bâtiments → Nouveau bâtiment.
+Peuplement rapide des bâtiments (Batiment) du scénario fresh-start, pour
+éviter la saisie manuelle via STOCK → Bâtiments → Nouveau bâtiment.
 
 ⚠️ Contrairement à Fournisseur / Client / Intrant (Phase 0, catalogue
 global), les Bâtiments sont rattachés à une Branche (BR-BRA-01) — c'est
@@ -10,14 +10,14 @@ pour cela qu'ils ne sont PAS inclus dans `seed_phase0` et sont peuplés
 séparément ici, une fois la branche connue.
 
 Utilisation :
-    # Peuplement complet (les 5 bâtiments), branche par défaut STF
+    # Peuplement complet (les 4 bâtiments du scénario), branche par défaut STF
     python manage.py seed_buildings
 
     # Cibler une branche précise (code Branche)
     python manage.py seed_buildings --branche STF
 
     # Un seul bâtiment
-    python manage.py seed_buildings --only "Bâtiment 01"
+    python manage.py seed_buildings --only "Bâtiment A"
 
     # Supprimer puis recréer (échoue si des lots/mouvements y sont rattachés)
     python manage.py seed_buildings --clear
@@ -28,12 +28,11 @@ Utilisation :
     3. python manage.py seed_buildings    ← ce script (Bâtiments)
     4. Lancer Phase 1 — Achats Intrants (BLF-2026-0001 …)
 
-Bâtiments créés (parc réel de la ferme — branche STF) :
-    BAT-1 — Bâtiment 01 : poulailler,  capacité 40 000
-    BAT-2 — Bâtiment 02 : poulailler,  capacité 40 000
-    BAT-3 — Bâtiment 03 : poulailler,  capacité 40 000
-    BAT-4 — Bâtiment 04 : poulailler,  capacité 40 000
-    BAT-5 — حاضنة        : poussiniere, capacité 50 000  ← requis pour le lot
+Bâtiments créés (scenario_avicole_full_cycle_fresh_start.md §0.3) :
+    BAT-1 — Bâtiment A     : poussiniere, capacité 5 000  ← requis pour le lot
+    BAT-2 — Bâtiment B     : poulailler,  capacité 4 000  (optionnel)
+    BAT-3 — Bâtiment C     : poulailler,  capacité 6 000  (optionnel)
+    BAT-4 — Dépôt Aliments : entrepot                       (optionnel)
 
 Idempotent : utilise get_or_create sur (nom, branche).
 """
@@ -47,17 +46,40 @@ DEFAULT_BRANCHE_CODE = "STF"
 
 # Format : (nom, type_batiment, capacite, categorie_stockage, description)
 BATIMENT_DATA = [
-    ("Bâtiment 01", "poulailler", 40000, "", ""),
-    ("Bâtiment 02", "poulailler", 40000, "", ""),
-    ("Bâtiment 03", "poulailler", 40000, "", ""),
-    ("Bâtiment 04", "poulailler", 40000, "", ""),
-    ("حاضنة", "poussiniere", 50000, "", ""),
+    (
+        "Bâtiment A",
+        "poussiniere",
+        5000,
+        "",
+        "الحظيرة الرئيسية — تهوية ميكانيكية",
+    ),
+    (
+        "Bâtiment B",
+        "poulailler",
+        4000,
+        "",
+        "الحظيرة الثانوية — تهوية طبيعية",
+    ),
+    (
+        "Bâtiment C",
+        "poulailler",
+        6000,
+        "",
+        "حظيرة جديدة — عزل مُحسَّن",
+    ),
+    (
+        "Dépôt Aliments",
+        "entrepot",
+        None,
+        "",
+        "مستودع تخزين الأعلاف والمدخلات",
+    ),
 ]
 
 
 class Command(BaseCommand):
     help = (
-        "Peuplement rapide du parc réel de bâtiments (Batiment) "
+        "Peuplement rapide des bâtiments (Batiment) du scénario fresh-start "
         "pour une branche donnée (défaut : branche «STF» créée par seed_db_minimal)."
     )
 
@@ -78,7 +100,7 @@ class Command(BaseCommand):
             metavar="NOM",
             help=(
                 "Ne créer qu'un seul bâtiment, désigné par son nom exact "
-                "(ex : «Bâtiment 01»). Par défaut, les 5 bâtiments sont créés."
+                "(ex : «Bâtiment A»). Par défaut, les 4 bâtiments sont créés."
             ),
         )
         parser.add_argument(
@@ -86,7 +108,7 @@ class Command(BaseCommand):
             action="store_true",
             help=(
                 "Supprime d'abord les bâtiments de cette branche portant les "
-                "noms ci-dessus, avant de les recréer. Échouera si des lots "
+                "noms du scénario, avant de les recréer. Échouera si des lots "
                 "ou mouvements y sont déjà rattachés (PROTECT)."
             ),
         )
@@ -119,7 +141,7 @@ class Command(BaseCommand):
             if not data:
                 noms = ", ".join(f"«{row[0]}»" for row in BATIMENT_DATA)
                 raise CommandError(
-                    f"Bâtiment «{only}» introuvable dans le parc défini. "
+                    f"Bâtiment «{only}» introuvable dans le scénario. "
                     f"Noms disponibles : {noms}."
                 )
 

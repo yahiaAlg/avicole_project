@@ -13,13 +13,10 @@ management/commands/seed_db_minimal.py
     • ParametrageElevage     — إعدادات التربية الافتراضية (pk=1)
     • Users (4)              — admin / gerant / operateur1 / comptable
                                (operateur1 مرتبط إلزامياً بالفرع — BR-BRA-02)
-    • CategorieIntrant      — ALIMENT / POUSSIN / MEDICAMENT / VACCIN /
-                              VITAMINE / ANTIBIOTIQUE / DESINFECTANT / AUTRE
-    • TypeFournisseur       — ALIMENTS / POUSSINS / MEDICAMENTS / SERVICES / AUTRE /
-                              PLATEAU (fournisseurs de plateaux/alvéoles à œufs)
+    • CategorieIntrant      — ALIMENT / POUSSIN / MEDICAMENT / AUTRE
+    • TypeFournisseur       — ALIMENTS / POUSSINS / MEDICAMENTS / SERVICES / AUTRE
     • UniteMesure           — KG / SAC / UNITE / LITRE / FLACON / DOSE / ML / G /
-                              PLATEAU / CAISSE / PAQUET / SAC100 (sac 100 kg —
-                              maïs, soja, phosphate, CMV) (partagée Intrant + ProduitFini)
+                              PLATEAU / CAISSE / PAQUET (partagée Intrant + ProduitFini)
     • TypeClient            — GROSSISTE / DETAILLANT / RESTAURATION / PARTICULIER / AUTRE
     • TypeProduitFini       — VOLAILLE_VIVANTE / CARCASSE / DECOUPE / ABATS /
                               OEUFS / FERTILISANT / AUTRE
@@ -318,50 +315,22 @@ class Command(BaseCommand):
             ),
             dict(
                 code="MEDICAMENT",
-                libelle="دواء / بيطري (أخرى)",
+                libelle="دواء / بيطري",
                 consommable_en_lot=True,
                 ordre=3,
-                actif=True,
-            ),
-            dict(
-                code="VACCIN",
-                libelle="لقاح (شرب / حقن)",
-                consommable_en_lot=True,
-                ordre=4,
-                actif=True,
-            ),
-            dict(
-                code="VITAMINE",
-                libelle="فيتامينات / مقويات",
-                consommable_en_lot=True,
-                ordre=5,
-                actif=True,
-            ),
-            dict(
-                code="ANTIBIOTIQUE",
-                libelle="مضاد حيوي",
-                consommable_en_lot=True,
-                ordre=6,
-                actif=True,
-            ),
-            dict(
-                code="DESINFECTANT",
-                libelle="مطهر / تعقيم",
-                consommable_en_lot=True,
-                ordre=7,
                 actif=True,
             ),
             dict(
                 code="AUTRE",
                 libelle="مدخل آخر",
                 consommable_en_lot=False,
-                ordre=8,
+                ordre=4,
                 actif=True,
             ),
         ]
         for s in seeds:
             CategorieIntrant.objects.get_or_create(code=s["code"], defaults=s)
-        self._log("CategorieIntrant (8)", True)
+        self._log("CategorieIntrant (4)", True)
 
     def _seed_types_fournisseur(self):
         from intrants.models import TypeFournisseur
@@ -372,11 +341,10 @@ class Command(BaseCommand):
             dict(code="MEDICAMENTS", libelle="أدوية / بيطريين", ordre=3, actif=True),
             dict(code="SERVICES", libelle="خدمات", ordre=4, actif=True),
             dict(code="AUTRE", libelle="أخرى", ordre=5, actif=True),
-            dict(code="PLATEAU", libelle="صينية البيض الكرطونية", ordre=0, actif=True),
         ]
         for s in seeds:
             TypeFournisseur.objects.get_or_create(code=s["code"], defaults=s)
-        self._log("TypeFournisseur (6)", True)
+        self._log("TypeFournisseur (5)", True)
 
     def _seed_unites_mesure(self):
         from intrants.models import UniteMesure
@@ -393,11 +361,10 @@ class Command(BaseCommand):
             dict(code="PLATEAU", libelle="صينية", ordre=9, actif=True),
             dict(code="CAISSE", libelle="صندوق", ordre=10, actif=True),
             dict(code="PAQUET", libelle="طرد", ordre=11, actif=True),
-            dict(code="SAC100", libelle="كيس (100 كغ)", ordre=12, actif=True),
         ]
         for s in seeds:
             UniteMesure.objects.get_or_create(code=s["code"], defaults=s)
-        self._log("UniteMesure (12)", True)
+        self._log("UniteMesure (11)", True)
 
     def _seed_types_client(self):
         from clients.models import TypeClient
@@ -405,7 +372,9 @@ class Command(BaseCommand):
         seeds = [
             dict(code="GROSSISTE", libelle="تاجر جملة", ordre=1, actif=True),
             dict(code="DETAILLANT", libelle="تاجر تجزئة", ordre=2, actif=True),
-            dict(code="RESTAURATION", libelle="مطاعم / فندقة", ordre=3, actif=True),
+            dict(
+                code="RESTAURATION", libelle="مطاعم / فندقة", ordre=3, actif=True
+            ),
             dict(code="PARTICULIER", libelle="فرد", ordre=4, actif=True),
             dict(code="AUTRE", libelle="أخرى", ordre=5, actif=True),
         ]

@@ -14,14 +14,24 @@ management/commands/seed_phase0.py
     3. Bâtiments                          ← تُنشأ يدوياً (branch-scoped, لا يوجد مصنع افتراضي)
     4. لانطلاق سيناريو الدورة : Phase 1 — Achats Intrants (BLF-2026-0001 …)
 
-ما يتم إنشاؤه (مطابق لـ scenario_avicole_full_cycle_fresh_start.md §Phase 0) :
-    • Fournisseur (5)  — CCA / ONAB / Sanofi / Proxi-Aliments / Techno-Avicole
-    • Client (5)       — Marché de Gros / Boucherie Amrane / Restaurant Le Palmier /
-                          Épicerie Centrale Azazga / Grossiste Alger Sud
-    • Intrant (13)     — Poussin Ross 308, Aliments (démarrage/croissance/finition),
-                          Vaccins (Newcastle/Gumboro), Amoxicilline, Vitamines,
-                          Poussine ISA Brown, Aliments Pré-Ponte/Ponte,
-                          Poussin Cobb 500, Litière
+ما يتم إنشاؤه (بيانات حقيقية للمزرعة — سطيف) :
+    • Fournisseur (8)  — ONAB, عبد الحكيم, kamel el eulma, Sanvital,
+                          Vétérinaire Tarek, SARL EL-REDHOUANE, Kavim Rachid,
+                          Khabchache Moussa
+    • Client (4)       — IDIR AMBULANT BEJAIA, samir bejia, MOUHAMAD KALAI,
+                          ETS BOUAOUDIA
+    • Intrant (49)     — كتاكيت, أعلاف (MAIS/SOJA/Phosphate/CMV×2/Sanvital),
+                          répartis désormais sur 5 catégories dédiées :
+                          VACCIN (Variant, NDIB, LTI, ND, H120, D78, H9, H5,
+                          EDS), VITAMINE (Watervit, Bplus, Vit C, Ultravit,
+                          Anylite C, Artimix, Respimint, Stressvit,
+                          Vitaprol, Ossebiotic, Selevit), ANTIBIOTIQUE
+                          (neomeriol, Tylan, Amoxy, Doxatrim, Tetracycline,
+                          Colivet, Neomycine, Hepadyn, Sogecoli, Amoxid,
+                          Ampicoli, Phosfomycine), DESINFECTANT (acide,
+                          Desinfectant), MEDICAMENT (Aldekol, mastersorb,
+                          Amprol, Piperazine, Toxidren, Zinc, Lumans,
+                          Vemarom)
 
 ما لا يتم إنشاؤه هنا (يُسجَّل يدوياً عبر الواجهة — branch-scoped) :
     • Bâtiments (STOCK › Bâtiments › Nouveau) — nécessitent une Branche explicite
@@ -108,7 +118,7 @@ class Command(BaseCommand):
     # ------------------------------------------------------------------
 
     def _seed_fournisseurs(self):
-        """FOURN-1 → FOURN-5 (scenario §0.1)."""
+        """Catalogue réel des fournisseurs de la ferme (Sétif)."""
         from intrants.models import Fournisseur, TypeFournisseur
 
         def type_(code):
@@ -122,45 +132,65 @@ class Command(BaseCommand):
 
         specs = [
             dict(
-                nom="Couvoirs du Centre — CCA",
-                type_principal=type_("POUSSINS"),
-                adresse="Zone Agro-industrielle, Blida",
-                wilaya="Blida",
-                telephone="025 55 66 77",
-                nif="009000000002",
-                rc="09/00-0000002 B 02",
-            ),
-            dict(
-                nom="ONAB Setifien",
+                nom="ONAB",
                 type_principal=type_("ALIMENTS"),
-                adresse="Route de Boghni, Setifien",
-                wilaya="Setifien",
-                telephone="026 12 34 56",
-                nif="099000000001",
-                rc="16/00-0000001 B 01",
+                adresse="بجاية",
+                wilaya="بجاية",
             ),
             dict(
-                nom="Sanofi Algérie (Vétérinaire)",
+                nom="عبد الحكيم",
+                type_principal=type_("AUTRE"),
+                adresse="بجاية",
+                wilaya="sétif",
+                telephone="0561799337",
+                telephone_2="0561910005",
+            ),
+            dict(
+                nom="kamel el eulma",
+                type_principal=type_("ALIMENTS"),
+                adresse="العلمة",
+                wilaya="sétif",
+                telephone="0770222235",
+                telephone_2="0550850996",
+            ),
+            dict(
+                nom="Sanvital",
+                type_principal=type_("ALIMENTS"),
+                adresse="rue des aures ihdadden 06000",
+                wilaya="bejaia",
+                telephone="034169315",
+                email="sanvital2001@yahoo.fr",
+                nif="000106010578946",
+                rc="01b183808",
+            ),
+            dict(
+                nom="Vétérinaire Tarek",
                 type_principal=type_("MEDICAMENTS"),
-                adresse="Rue Hassiba Ben Bouali, Alger",
-                wilaya="Alger",
-                telephone="021 99 00 11",
-                nif="016000000003",
-                rc="16/00-0000003 B 03",
+                adresse="setif",
+                wilaya="setif",
+                telephone="0661318376",
             ),
             dict(
-                nom="Proxi-Aliments Boumerdès",
+                nom="SARL EL-REDHOUANE",
+                type_principal=type_("POUSSINS"),
+                adresse="SIDI OKBA",
+                wilaya="biskra",
+                telephone="0550901192",
+                telephone_2="0550981180",
+            ),
+            dict(
+                nom="Kavim Rachid",
+                type_principal=type_("PLATEAU"),
+                wilaya="mostghanem",
+                telephone="0660799530",
+                telephone_2="0550203468",
+            ),
+            dict(
+                nom="Khabchache Moussa",
                 type_principal=type_("ALIMENTS"),
-                adresse="Zone Industrielle, Boumerdès",
-                wilaya="Boumerdès",
-                telephone="024 81 22 33",
-            ),
-            dict(
-                nom="Techno-Avicole Services",
-                type_principal=type_("SERVICES"),
-                adresse="Rue des Frères Bouadou, Birtouta, Alger",
-                wilaya="Alger",
-                telephone="021 30 40 50",
+                adresse="ouricia",
+                wilaya="setif",
+                telephone="0661565493",
             ),
         ]
         created_count = 0
@@ -174,7 +204,7 @@ class Command(BaseCommand):
         return objs
 
     def _seed_clients(self):
-        """CLI-1 → CLI-5 (scenario §0.2)."""
+        """Catalogue réel des clients de la ferme (Sétif)."""
         from clients.models import Client, TypeClient
 
         def type_client(code):
@@ -188,39 +218,44 @@ class Command(BaseCommand):
 
         specs = [
             dict(
-                nom="Marché de Gros Setifien",
+                nom="IDIR AMBULANT BEJAIA",
                 type_client=type_client("GROSSISTE"),
-                wilaya="Setifien",
-                telephone="0555 11 22 33",
-                plafond_credit=Decimal("500000.00"),
+                adresse="bejaia",
+                wilaya="bejaia",
+                telephone="0770914240",
+                telephone_2="0658059900",
+                email="idirkarim2@gmail.com",
+                rc="97A0910402-06/00",
+                plafond_credit=Decimal("2000000.00"),
+                actif=True,
             ),
             dict(
-                nom="Boucherie Amrane & Fils",
-                type_client=type_client("DETAILLANT"),
-                wilaya="Setifien",
-                telephone="0660 33 44 55",
-                plafond_credit=Decimal("200000.00"),
-            ),
-            dict(
-                nom="Restaurant Le Palmier",
-                type_client=type_client("RESTAURATION"),
-                wilaya="Setifien",
-                telephone="0770 22 33 44",
-                plafond_credit=Decimal("150000.00"),
-            ),
-            dict(
-                nom="Épicerie Centrale Azazga",
-                type_client=type_client("DETAILLANT"),
-                wilaya="Setifien",
-                telephone="0555 44 55 66",
-                plafond_credit=Decimal("80000.00"),
-            ),
-            dict(
-                nom="Grossiste Alger Sud",
+                nom="samir bejia",
                 type_client=type_client("GROSSISTE"),
-                wilaya="Alger",
-                telephone="021 88 77 66",
-                plafond_credit=Decimal("1000000.00"),
+                adresse="بجاية",
+                telephone="0550041172",
+                plafond_credit=Decimal("0.00"),
+                actif=False,
+            ),
+            dict(
+                nom="MOUHAMAD KALAI",
+                type_client=type_client("DETAILLANT"),
+                adresse="حشمي حي 50 مسكن اجتماعي عمارة 5 حصة 01 و 02",
+                wilaya="sétif",
+                telephone="0550680684",
+                rc="533792221-19/00",
+                plafond_credit=Decimal("0.00"),
+                notes="يسمى نذير",
+                actif=True,
+            ),
+            dict(
+                nom="ETS BOUAOUDIA",
+                type_client=type_client("GROSSISTE"),
+                adresse="cite douaniere ighil ouazzoug",
+                wilaya="bejaia",
+                telephone="0550041172",
+                plafond_credit=Decimal("0.00"),
+                actif=True,
             ),
         ]
         created_count = 0
@@ -231,7 +266,7 @@ class Command(BaseCommand):
         self._log(f"Client ({len(specs)})", created_count > 0)
 
     def _seed_intrants(self, fournisseurs):
-        """INT-1 → INT-10 (scenario §0.4)."""
+        """Catalogue reel des intrants de la ferme (Setif)."""
         from intrants.models import Intrant, CategorieIntrant, UniteMesure
 
         def cat(code):
@@ -252,124 +287,409 @@ class Command(BaseCommand):
                     "exécutez d'abord 'python manage.py seed_db_minimal'."
                 )
 
-        cca = fournisseurs["Couvoirs du Centre — CCA"]
-        onab = fournisseurs["ONAB Setifien"]
-        sanofi = fournisseurs["Sanofi Algérie (Vétérinaire)"]
+        onab = fournisseurs["ONAB"]
+        kamel = fournisseurs["kamel el eulma"]
+        sanvital = fournisseurs["Sanvital"]
+        tarek = fournisseurs["Vétérinaire Tarek"]
 
         specs = [
+            # -- Poussins ------------------------------------------------
             dict(
-                designation="كتكوت روس 308 (يوم واحد)",
+                designation="كتاكتاكيت",
                 categorie=cat("POUSSIN"),
-                stade=Intrant.STADE_TOUS,
+                stade=Intrant.STADE_DEMARRAGE,
                 unite_mesure=unite("UNITE"),
                 seuil_alerte=Decimal("100"),
-                fournisseurs=[cca],
+                fournisseurs=[onab],
+            ),
+            # -- Aliments (sacs de 100 kg -- mais, soja, phosphate, CMV) -
+            dict(
+                designation="MAIS ARG",
+                categorie=cat("ALIMENT"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("SAC100"),
+                seuil_alerte=Decimal("200"),
+                fournisseurs=[kamel, onab],
             ),
             dict(
-                designation="علف البداية — الطور الأول (0–14 يوم)",
+                designation="SOJA",
                 categorie=cat("ALIMENT"),
-                stade=Intrant.STADE_DEMARRAGE,
-                unite_mesure=unite("SAC"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("SAC100"),
+                seuil_alerte=Decimal("50"),
+                fournisseurs=[kamel, onab],
+            ),
+            dict(
+                designation="Phosphate",
+                categorie=cat("ALIMENT"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("SAC100"),
                 seuil_alerte=Decimal("10"),
-                fournisseurs=[onab],
+                fournisseurs=[kamel],
             ),
             dict(
-                designation="علف النمو — الطور الثاني (15–28 يوم)",
+                designation="CMV  PONDEUSE 1.5%",
                 categorie=cat("ALIMENT"),
-                # tous — le lot reste en Poussinière tout le cycle (voir
-                # scenario §0.4, note INT-3) : stade=croissance le rendrait
-                # invisible dans ConsommationForm pour un lot en poussinière.
                 stade=Intrant.STADE_TOUS,
-                unite_mesure=unite("SAC"),
-                seuil_alerte=Decimal("15"),
-                fournisseurs=[onab],
+                unite_mesure=unite("SAC100"),
+                seuil_alerte=Decimal("1"),
+                fournisseurs=[sanvital],
             ),
             dict(
-                designation="علف التسمين — الطور الثالث (29 يوم فأكثر)",
+                designation="CMV FUTURE PONDEUSE PFP 1.25%",
                 categorie=cat("ALIMENT"),
-                stade=Intrant.STADE_TOUS,  # même raison que ci-dessus
-                unite_mesure=unite("SAC"),
-                seuil_alerte=Decimal("20"),
-                fournisseurs=[onab],
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("SAC100"),
+                seuil_alerte=Decimal("1"),
+                fournisseurs=[sanvital],
             ),
             dict(
-                designation="لقاح نيوكاسل (هيتشنر B1)",
+                designation="SANVITAL VITASTART VOLAILE 0.3125%",
+                categorie=cat("ALIMENT"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("SAC100"),
+                seuil_alerte=Decimal("1"),
+                fournisseurs=[sanvital],
+            ),
+            # -- Medicaments / veterinaire --------------------------------
+            dict(
+                designation="Watervit",
+                categorie=cat("VITAMINE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Bplus",
+                categorie=cat("VITAMINE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="neomeriol",
+                categorie=cat("ANTIBIOTIQUE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("KG"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="acide",
+                categorie=cat("DESINFECTANT"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Aldekol",
                 categorie=cat("MEDICAMENT"),
                 stade=Intrant.STADE_TOUS,
                 unite_mesure=unite("DOSE"),
-                seuil_alerte=Decimal("500"),
-                fournisseurs=[sanofi],
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
             ),
             dict(
-                designation="لقاح غامبورو (IBD متوسط)",
+                designation="mastersorb",
                 categorie=cat("MEDICAMENT"),
                 stade=Intrant.STADE_TOUS,
                 unite_mesure=unite("DOSE"),
-                seuil_alerte=Decimal("500"),
-                fournisseurs=[sanofi],
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
             ),
             dict(
-                designation="أموكسيسيلين 50% مسحوق",
-                categorie=cat("MEDICAMENT"),
+                designation="Tylan",
+                categorie=cat("ANTIBIOTIQUE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("KG"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Vit C",
+                categorie=cat("VITAMINE"),
                 stade=Intrant.STADE_TOUS,
                 unite_mesure=unite("G"),
-                seuil_alerte=Decimal("200"),
-                fournisseurs=[sanofi],
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            # -- Medicaments / vitamines / desinfectants (extension) -----
+            dict(
+                designation="Ultravit",
+                categorie=cat("VITAMINE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
             ),
             dict(
-                designation="فيتامينات + إلكتروليتات (مركّب)",
+                designation="Amoxy",
+                categorie=cat("ANTIBIOTIQUE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("KG"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Anylite C",
+                categorie=cat("VITAMINE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Doxatrim",
+                categorie=cat("ANTIBIOTIQUE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Artimix",
+                categorie=cat("VITAMINE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Respimint",
+                categorie=cat("VITAMINE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Amprol",
                 categorie=cat("MEDICAMENT"),
                 stade=Intrant.STADE_TOUS,
                 unite_mesure=unite("LITRE"),
-                seuil_alerte=Decimal("5"),
-                fournisseurs=[sanofi],
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
             ),
             dict(
-                designation="كتكوت دجاج بياض ISA Brown (يوم واحد)",
-                categorie=cat("POUSSIN"),
+                designation="Piperazine",
+                categorie=cat("MEDICAMENT"),
                 stade=Intrant.STADE_TOUS,
-                unite_mesure=unite("UNITE"),
-                seuil_alerte=Decimal("100"),
-                fournisseurs=[cca],
+                unite_mesure=unite("KG"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
             ),
             dict(
-                designation="علف ما قبل الإنتاج — Pré-Ponte (15–18 أسبوع)",
-                categorie=cat("ALIMENT"),
-                # demarrage : la pondeuse est encore en Poussinière à cet âge
-                # (transfert au point de ponte, ~126 j — cf. scenario §5.6).
-                stade=Intrant.STADE_DEMARRAGE,
-                unite_mesure=unite("SAC"),
-                seuil_alerte=Decimal("10"),
-                fournisseurs=[onab],
-            ),
-            dict(
-                designation="علف الإنتاج — Ponte (عالي الكالسيوم)",
-                categorie=cat("ALIMENT"),
-                # ⚠️ CRITIQUE : stade=croissance et NON stade=ponte. Le
-                # mapping LotElevage.stade_intrant_attendu ne renvoie jamais
-                # STADE_PONTE (Poulailler → STADE_CROISSANCE uniquement) ;
-                # un intrant en stade=ponte serait donc INVISIBLE dans
-                # ConsommationForm une fois le lot transféré au poulailler.
-                stade=Intrant.STADE_CROISSANCE,
-                unite_mesure=unite("SAC"),
-                seuil_alerte=Decimal("15"),
-                fournisseurs=[onab],
-            ),
-            dict(
-                designation="كتكوت كوب 500 (يوم واحد)",
-                categorie=cat("POUSSIN"),
+                designation="Stressvit",
+                categorie=cat("VITAMINE"),
                 stade=Intrant.STADE_TOUS,
-                unite_mesure=unite("UNITE"),
-                seuil_alerte=Decimal("100"),
-                fournisseurs=[cca],
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
             ),
             dict(
-                designation="فراش (نشارة خشب)",
-                categorie=cat("AUTRE"),
+                designation="Vitaprol",
+                categorie=cat("VITAMINE"),
                 stade=Intrant.STADE_TOUS,
-                unite_mesure=unite("SAC"),
-                seuil_alerte=Decimal("20"),
-                fournisseurs=[],  # laissé vide, comme dans le scénario
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Ossebiotic",
+                categorie=cat("VITAMINE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Desinfectant",
+                categorie=cat("DESINFECTANT"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("LITRE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Tetracycline",
+                categorie=cat("ANTIBIOTIQUE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("KG"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Colivet",
+                categorie=cat("ANTIBIOTIQUE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Neomycine",
+                categorie=cat("ANTIBIOTIQUE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("LITRE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Hepadyn",
+                categorie=cat("ANTIBIOTIQUE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("LITRE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Sogecoli",
+                categorie=cat("ANTIBIOTIQUE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Toxidren",
+                categorie=cat("MEDICAMENT"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Amoxid",
+                categorie=cat("ANTIBIOTIQUE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("KG"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Ampicoli",
+                categorie=cat("ANTIBIOTIQUE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("KG"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Zinc",
+                categorie=cat("MEDICAMENT"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("KG"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Lumans",
+                categorie=cat("MEDICAMENT"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Phosfomycine",
+                categorie=cat("ANTIBIOTIQUE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("KG"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Vemarom",
+                categorie=cat("MEDICAMENT"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("LITRE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="Selevit",
+                categorie=cat("VITAMINE"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            # -- Vaccins buvables (oraux) ----------------------------------
+            dict(
+                designation="Variant",
+                categorie=cat("VACCIN"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="NDIB",
+                categorie=cat("VACCIN"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="LTI",
+                categorie=cat("VACCIN"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="ND",
+                categorie=cat("VACCIN"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="H120",
+                categorie=cat("VACCIN"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="D78",
+                categorie=cat("VACCIN"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            # -- Vaccins injectables ---------------------------------------
+            dict(
+                designation="H9",
+                categorie=cat("VACCIN"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="H5",
+                categorie=cat("VACCIN"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
+            ),
+            dict(
+                designation="EDS",
+                categorie=cat("VACCIN"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("DOSE"),
+                seuil_alerte=Decimal("0"),
+                fournisseurs=[tarek],
             ),
         ]
 
@@ -390,7 +710,7 @@ class Command(BaseCommand):
                 obj.fournisseurs.set(m2m_fournisseurs)
             if created:
                 created_count += 1
-        self._log(f"Intrant ({len(specs)})", created_count > 0)
+        self._log(f"Intrant ({len(specs)})", created_count > 0)  # 49 total
 
     # ------------------------------------------------------------------
 
