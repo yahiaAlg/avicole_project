@@ -5,6 +5,8 @@ Forms for company information, multi-branch management (v1.4, §3.5), and
 user profile management.
 """
 
+from __future__ import annotations
+
 from django import forms
 from django.db.models import Q
 from django.contrib.auth.models import User
