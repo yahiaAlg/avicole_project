@@ -20,6 +20,40 @@ from django.core.validators import MinValueValidator
 from django.conf import settings
 
 # ---------------------------------------------------------------------------
+# Dynamic category table (replaces hardcoded choice tuple)
+# ---------------------------------------------------------------------------
+
+
+class TypeClient(models.Model):
+    """
+    User-manageable client types.
+    Seeded: GROSSISTE, DETAILLANT, RESTAURATION, PARTICULIER, AUTRE.
+
+    The `code` field is the stable programmatic key. Administrators may add
+    types but should NOT rename the five seed codes.
+    """
+
+    code = models.CharField(
+        max_length=30,
+        unique=True,
+        verbose_name="الرمز",
+        help_text="مفتاح ثابت: GROSSISTE, DETAILLANT, RESTAURATION, "
+        "PARTICULIER, AUTRE — لا تعيد تسميته.",
+    )
+    libelle = models.CharField(max_length=150, verbose_name="التسمية")
+    ordre = models.PositiveSmallIntegerField(default=0, verbose_name="ترتيب العرض")
+    actif = models.BooleanField(default=True, verbose_name="نشط")
+
+    class Meta:
+        verbose_name = "نوع العميل"
+        verbose_name_plural = "أنواع العملاء"
+        ordering = ["ordre", "libelle"]
+
+    def __str__(self):
+        return self.libelle
+
+
+# ---------------------------------------------------------------------------
 # Client master record
 # ---------------------------------------------------------------------------
 
@@ -30,6 +64,10 @@ class Client(models.Model):
     and Paiement Client.
 
     Clients are soft-deleted via `actif = False`; never hard-deleted.
+
+    `type_client` is a FK to TypeClient.  Business-logic guards that
+    previously compared type_client == "grossiste" must now compare
+    type_client.code == "GROSSISTE" (stable seed code).
     """
 
     nom = models.CharField(max_length=255, verbose_name="اسم العميل")
@@ -43,17 +81,10 @@ class Client(models.Model):
     contact_nom = models.CharField(
         max_length=150, verbose_name="اسم جهة الاتصال", blank=True
     )
-    TYPE_CHOICES = [
-        ("grossiste", "تاجر جملة"),
-        ("detaillant", "تاجر تجزئة"),
-        ("restauration", "مطاعم / فندقة"),
-        ("particulier", "فرد"),
-        ("autre", "أخرى"),
-    ]
-    type_client = models.CharField(
-        max_length=20,
-        choices=TYPE_CHOICES,
-        default="grossiste",
+    type_client = models.ForeignKey(
+        TypeClient,
+        on_delete=models.PROTECT,
+        related_name="clients",
         verbose_name="نوع العميل",
     )
     plafond_credit = models.DecimalField(

@@ -54,6 +54,7 @@ from production.forms import (
     TraitementFertilisantForm,
 )
 from production.models import (
+    TypeProduitFini,
     ProduitFini,
     ProductionRecord,
     ProductionLigne,
@@ -116,7 +117,7 @@ def produit_fini_list(request):
       ?actif=0             — include inactive products (default: active only)
       ?q=<search>          — search by designation
     """
-    qs = ProduitFini.objects.order_by("type_produit", "designation")
+    qs = ProduitFini.objects.order_by("type_produit__ordre", "designation")
 
     actif_param = request.GET.get("actif", "1")
     if actif_param != "0":
@@ -124,7 +125,7 @@ def produit_fini_list(request):
 
     type_produit = request.GET.get("type_produit", "")
     if type_produit:
-        qs = qs.filter(type_produit=type_produit)
+        qs = qs.filter(type_produit__code=type_produit)
 
     q = request.GET.get("q", "").strip()
     if q:
@@ -140,7 +141,9 @@ def produit_fini_list(request):
             "q": q,
             "type_produit": type_produit,
             "actif_param": actif_param,
-            "type_choices": ProduitFini.TYPE_CHOICES,
+            "type_choices": TypeProduitFini.objects.filter(actif=True).order_by(
+                "ordre", "libelle"
+            ),
             "title": "كتالوج — المنتجات النهائية",
         },
     )
@@ -580,8 +583,8 @@ def production_record_detail(request, pk):
         ),
         pk=pk,
     )
-    lignes = record.lignes.select_related("produit_fini").order_by(
-        "produit_fini__type_produit"
+    lignes = record.lignes.select_related("produit_fini", "produit_fini__type_produit").order_by(
+        "produit_fini__type_produit__ordre"
     )
 
     rendement = None
@@ -922,7 +925,7 @@ def production_dashboard(request):
         stock_produits_qs = stock_produits_qs.filter(branche=branche)
     stock_produits = list(
         stock_produits_qs.order_by(
-            "produit_fini__type_produit", "produit_fini__designation"
+            "produit_fini__type_produit__ordre", "produit_fini__designation"
         )
     )
     valeur_stock_total = sum(float(s.valeur_stock) for s in stock_produits)
@@ -1441,7 +1444,7 @@ def produit_fini_stock_json(request, pk):
         data = {
             "quantite": float(stock.quantite),
             "cout_moyen_production": float(stock.cout_moyen_production),
-            "unite_mesure": produit.unite_mesure,
+            "unite_mesure": produit.unite_mesure.libelle,
             "en_alerte": stock.en_alerte,
             "seuil_alerte": float(stock.seuil_alerte),
             "prix_vente_defaut": float(produit.prix_vente_defaut),
@@ -1450,7 +1453,7 @@ def produit_fini_stock_json(request, pk):
         data = {
             "quantite": 0.0,
             "cout_moyen_production": 0.0,
-            "unite_mesure": produit.unite_mesure,
+            "unite_mesure": produit.unite_mesure.libelle,
             "en_alerte": True,
             "seuil_alerte": 0.0,
             "prix_vente_defaut": float(produit.prix_vente_defaut),
@@ -1487,7 +1490,7 @@ def produit_fini_detail_json(request, pk):
         return JsonResponse(
             {
                 "quantite": float(stock),
-                "unite_mesure": p.unite_mesure,
+                "unite_mesure": p.unite_mesure.libelle,
                 "prix_vente_defaut": float(p.prix_vente_defaut),
                 "cout_moyen_production": cmp,
             }
@@ -1572,7 +1575,7 @@ def production_dashboard_charts_json(request):
 
     # ── 2. Stock par produit fini ─────────────────────────────────────────
     stocks_qs = StockProduitFini.objects.select_related(
-        "produit_fini", "branche"
+        "produit_fini", "produit_fini__unite_mesure", "branche"
     ).filter(produit_fini__actif=True)
     if branche is not None:
         stocks_qs = stocks_qs.filter(branche=branche)
@@ -1580,18 +1583,17 @@ def production_dashboard_charts_json(request):
     stock_labels = [s.produit_fini.designation for s in stocks]
     stock_quantities = [float(s.quantite) for s in stocks]
     stock_alertes = [s.en_alerte for s in stocks]
-    stock_unites = [s.produit_fini.unite_mesure for s in stocks]
+    stock_unites = [s.produit_fini.unite_mesure.libelle for s in stocks]
 
     # ── 3. Production par type de produit (quantités produites totales) ──
     type_totals = defaultdict(float)
-    type_display = dict(ProduitFini.TYPE_CHOICES)
     lignes_qs = ProductionLigne.objects.select_related(
-        "produit_fini", "production"
+        "produit_fini", "produit_fini__type_produit", "production"
     ).filter(production__statut=ProductionRecord.STATUT_VALIDE)
     if branche is not None:
         lignes_qs = lignes_qs.filter(production__branche=branche)
     for ligne in lignes_qs:
-        type_totals[ligne.produit_fini.get_type_produit_display()] += float(
+        type_totals[ligne.produit_fini.type_produit.libelle] += float(
             ligne.quantite
         )
 

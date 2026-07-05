@@ -4,6 +4,8 @@ intrants/models.py
 Master-data for the farm:
   - CategorieIntrant   : dynamic intrant categories (seeded via data migration)
   - TypeFournisseur    : dynamic supplier types    (seeded via data migration)
+  - UniteMesure        : dynamic units of measure   (seeded via data migration)
+                         shared by Intrant (here) and ProduitFini (production)
   - Fournisseur        : supplier records
   - Batiment           : physical poultry buildings
   - Intrant            : input-goods catalogue
@@ -65,6 +67,36 @@ class TypeFournisseur(models.Model):
     class Meta:
         verbose_name = "نوع المورد"
         verbose_name_plural = "أنواع الموردين"
+        ordering = ["ordre", "libelle"]
+
+    def __str__(self):
+        return self.libelle
+
+
+class UniteMesure(models.Model):
+    """
+    Shared unit-of-measure master, used by both Intrant (this app) and
+    ProduitFini (production app) — a single table so "kg" means the same
+    row everywhere rather than two parallel hardcoded choice lists.
+
+    Seeded: KG, SAC, UNITE, LITRE, FLACON, DOSE, ML, G, PLATEAU, CAISSE,
+    PAQUET. The `code` field is the stable programmatic key; administrators
+    may add units but should not rename the seed codes.
+    """
+
+    code = models.CharField(
+        max_length=20,
+        unique=True,
+        verbose_name="الرمز",
+        help_text="مفتاح ثابت (مثال: KG, SAC, UNITE) — لا تعيد تسميته.",
+    )
+    libelle = models.CharField(max_length=100, verbose_name="التسمية")
+    ordre = models.PositiveSmallIntegerField(default=0, verbose_name="ترتيب العرض")
+    actif = models.BooleanField(default=True, verbose_name="نشط")
+
+    class Meta:
+        verbose_name = "وحدة قياس"
+        verbose_name_plural = "وحدات القياس"
         ordering = ["ordre", "libelle"]
 
     def __str__(self):
@@ -315,18 +347,11 @@ class Intrant(models.Model):
     `categorie` is a FK to CategorieIntrant.  Business-logic guards that
     previously compared categorie == "aliment" / "medicament" must now
     compare categorie.code == "ALIMENT" / "MEDICAMENT" (stable seed codes).
-    """
 
-    UNITE_CHOICES = [
-        ("kg", "كيلوغرام (كغ)"),
-        ("sac", "كيس (25 كغ)"),
-        ("unite", "وحدة / رأس"),
-        ("litre", "لتر"),
-        ("flacon", "قارورة"),
-        ("dose", "جرعة"),
-        ("ml", "مليلتر (مل)"),
-        ("g", "غرام (غ)"),
-    ]
+    `unite_mesure` is a FK to UniteMesure (shared with production.ProduitFini).
+    Code that previously compared unite_mesure == "kg" must now compare
+    unite_mesure.code == "KG".
+    """
 
     STADE_DEMARRAGE = "demarrage"
     STADE_CROISSANCE = "croissance"
@@ -353,11 +378,11 @@ class Intrant(models.Model):
         verbose_name="مرحلة الاستخدام",
         help_text="يحدد ما إذا كان هذا المدخل مخصصاً للكتاكيت (حضانة) أو الدجاج البالغ (نمو/بيّاض).",
     )
-    unite_mesure = models.CharField(
-        max_length=20,
-        choices=UNITE_CHOICES,
+    unite_mesure = models.ForeignKey(
+        UniteMesure,
+        on_delete=models.PROTECT,
+        related_name="intrants",
         verbose_name="وحدة القياس",
-        default="kg",
     )
     # Suppliers that provide this intrant (informational M2M)
     fournisseurs = models.ManyToManyField(

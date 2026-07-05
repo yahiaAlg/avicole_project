@@ -19,6 +19,7 @@ from django.forms import inlineformset_factory, BaseInlineFormSet
 from django.core.exceptions import ValidationError
 
 from clients.models import (
+    TypeClient,
     Client,
     BLClient,
     BLClientLigne,
@@ -59,6 +60,10 @@ class ClientForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 2}),
             "plafond_credit": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["type_client"].queryset = TypeClient.objects.filter(actif=True)
 
 
 # ---------------------------------------------------------------------------
@@ -739,17 +744,9 @@ class PrixMarcheForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Limit to egg-type products only (TYPE_OEUFS) when that constant exists.
-        try:
-            from production.models import ProduitFini
+        # Limit to egg-type products only.
+        from production.models import ProduitFini
 
-            self.fields["produit_fini"].queryset = ProduitFini.objects.filter(
-                type_produit=ProduitFini.TYPE_OEUFS
-            ).order_by("designation")
-        except Exception:
-            # Fallback: show all active products if the constant isn't available.
-            from production.models import ProduitFini as PF
-
-            self.fields["produit_fini"].queryset = PF.objects.filter(
-                actif=True
-            ).order_by("designation")
+        self.fields["produit_fini"].queryset = ProduitFini.objects.filter(
+            actif=True, type_produit__code="OEUFS"
+        ).order_by("designation")

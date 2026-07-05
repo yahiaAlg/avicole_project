@@ -138,6 +138,150 @@ def appliquer_reglement_fifo(reglement):
 
 
 # ---------------------------------------------------------------------------
+# Admin-only cascade delete — Facture + BLs + Règlements (destructive)
+# ---------------------------------------------------------------------------
+
+
+def supprimer_facture_fournisseur_cascade(facture):
+    """
+    ADMIN-ONLY hard delete: remove a FactureFournisseur together with every
+    BL it includes and every ReglementFournisseur that allocated money to
+    it — a full undo of an invoice cycle, for correcting mistakes.
+
+    This intentionally bypasses two rules enforced everywhere else in the
+    app, so the caller (the view) MUST verify the requesting user is an
+    admin before calling this:
+      - BR-BLF-02 / BR-FAF-03 : a Facturé BL is normally locked — here it
+        is deleted outright.
+      - BR-REG-06 : règlements are normally immutable after creation — here
+        any règlement that touched this facture is deleted outright.
+
+    Side effects (everything stays scoped to its own branche — BR-BRA-01):
+      1. For every ReglementFournisseur that has at least one
+         AllocationReglement pointing at `facture`:
+           - Any OTHER allocations of that same règlement (i.e. money it
+             also paid toward a DIFFERENT facture) are removed too, and
+             that other facture's montant_regle / reste_a_payer / statut
+             are recalculated — since the cash behind that allocation no
+             longer exists in the system once the règlement is gone. This
+             is logged as a BR-REG-06 override so it can be audited.
+           - Its AcompteFournisseur (surplus), if any, is deleted.
+           - The règlement itself is deleted.
+      2. For every BLFournisseur included in `facture`:
+           - Its RECU stock entry is reversed (StockIntrant decreased,
+             corrective StockMouvement SORTIE logged — see
+             achats.signals.annuler_entrees_stock_bl).
+           - The BL is deleted (cascades to its lignes).
+      3. `facture` itself is deleted last.
+
+    Wrapped in a single DB transaction — either the whole cascade succeeds
+    or none of it is applied.
+
+    Args:
+        facture (FactureFournisseur): The invoice to delete, with everything
+            it created.
+
+    Returns:
+        dict: {
+            "facture_reference": str,
+            "bls_references": list[str],
+            "reglements_references": list[str],
+            "factures_tierces_impactees": list[str],
+        }
+    """
+    from django.db import transaction
+    from achats.models import (
+        AllocationReglement,
+        ReglementFournisseur,
+        AcompteFournisseur,
+    )
+    from achats.signals import annuler_entrees_stock_bl
+
+    summary = {
+        "facture_reference": facture.reference,
+        "bls_references": [],
+        "reglements_references": [],
+        "factures_tierces_impactees": [],
+    }
+
+    with transaction.atomic():
+        # 1. Règlements that paid (any part of) this facture.
+        reglement_ids = list(
+            AllocationReglement.objects.filter(facture=facture)
+            .values_list("reglement_id", flat=True)
+            .distinct()
+        )
+        reglements = list(
+            ReglementFournisseur.objects.filter(pk__in=reglement_ids)
+        )
+
+        for reglement in reglements:
+            # 1a. Allocations of this règlement to OTHER factures also
+            #     vanish with it — recompute those factures' soldes.
+            autres_allocations = list(
+                reglement.allocations.exclude(facture=facture).select_related(
+                    "facture"
+                )
+            )
+            for alloc in autres_allocations:
+                autre_facture = alloc.facture
+                autre_facture.montant_regle = max(
+                    Decimal("0"), autre_facture.montant_regle - alloc.montant_alloue
+                )
+                alloc.delete()
+                autre_facture.recalculer_solde()
+                summary["factures_tierces_impactees"].append(autre_facture.reference)
+                logger.warning(
+                    "BR-REG-06 override: suppression cascade de la facture %s a "
+                    "retiré %s DZD alloués par le règlement pk=%s à la facture "
+                    "tierce %s (solde recalculé).",
+                    facture.reference,
+                    alloc.montant_alloue,
+                    reglement.pk,
+                    autre_facture.reference,
+                )
+
+            # 1b. Overpayment credit created by this règlement, if any.
+            try:
+                reglement.acompte.delete()
+            except AcompteFournisseur.DoesNotExist:
+                pass
+
+            # 1c. Remaining allocations (the ones pointing at `facture`).
+            reglement.allocations.all().delete()
+
+            summary["reglements_references"].append(
+                f"{reglement.montant} DZD ({reglement.date_reglement})"
+            )
+            reglement.delete()
+
+        # 2. BLs included in the facture: reverse stock, then delete.
+        bls = list(
+            facture.bls.select_related("branche").prefetch_related(
+                "lignes__intrant"
+            )
+        )
+        for bl in bls:
+            annuler_entrees_stock_bl(bl)
+            summary["bls_references"].append(bl.reference)
+            bl.delete()
+
+        # 3. The facture itself.
+        facture.delete()
+
+    logger.info(
+        "ADMIN CASCADE DELETE: facture %s supprimée avec %d BL(s) et %d "
+        "règlement(s). %d facture(s) tierce(s) impactée(s) : %s.",
+        summary["facture_reference"],
+        len(summary["bls_references"]),
+        len(summary["reglements_references"]),
+        len(summary["factures_tierces_impactees"]),
+        summary["factures_tierces_impactees"],
+    )
+    return summary
+
+
+# ---------------------------------------------------------------------------
 # Weighted-average cost  (Prix Moyen Pondéré)
 # ---------------------------------------------------------------------------
 

@@ -217,6 +217,141 @@ def appliquer_paiement_client(paiement, allocations: list[dict]) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Admin-only cascade delete — Facture + BLs + Paiements (destructive)
+# ---------------------------------------------------------------------------
+
+
+def supprimer_facture_client_cascade(facture):
+    """
+    ADMIN-ONLY hard delete: remove a FactureClient together with every BL it
+    includes and every PaiementClient that allocated money to it — a full
+    undo of an invoice cycle, for correcting mistakes.
+
+    This intentionally bypasses two rules enforced everywhere else in the
+    app, so the caller (the view) MUST verify the requesting user is an
+    admin before calling this:
+      - BR-BLC-03 : a Facturé BL is normally locked — here it is deleted
+        outright.
+      - PaiementClientAllocation immutability : paiements are normally
+        never edited after creation — here any paiement that touched this
+        facture is deleted outright.
+
+    Side effects (everything stays scoped to its own branche — BR-BRA-01):
+      1. For every PaiementClient that has at least one
+         PaiementClientAllocation pointing at `facture`:
+           - Any OTHER allocations of that same paiement (i.e. money it
+             also paid toward a DIFFERENT facture — either from FIFO or a
+             manual multi-invoice selection) are removed too, and that
+             other facture's montant_regle / reste_a_payer / statut are
+             recalculated, since the cash behind that allocation no longer
+             exists in the system once the paiement is gone. Logged so it
+             can be audited.
+           - The paiement itself is deleted (there is no client-side
+             "acompte" surplus model to worry about, unlike the supplier
+             side).
+      2. For every BLClient included in `facture`:
+           - Its LIVRE stock decrease is reversed (StockProduitFini
+             increased back, corrective StockMouvement ENTREE logged — see
+             clients.signals.annuler_sortie_stock_bl_client).
+           - The BL is deleted (cascades to its lignes).
+      3. `facture` itself is deleted last.
+
+    Wrapped in a single DB transaction — either the whole cascade succeeds
+    or none of it is applied.
+
+    Args:
+        facture (FactureClient): The invoice to delete, with everything it
+            created.
+
+    Returns:
+        dict: {
+            "facture_reference": str,
+            "bls_references": list[str],
+            "paiements_references": list[str],
+            "factures_tierces_impactees": list[str],
+        }
+    """
+    from django.db import transaction
+    from clients.models import PaiementClientAllocation, PaiementClient
+    from clients.signals import annuler_sortie_stock_bl_client
+
+    summary = {
+        "facture_reference": facture.reference,
+        "bls_references": [],
+        "paiements_references": [],
+        "factures_tierces_impactees": [],
+    }
+
+    with transaction.atomic():
+        # 1. Paiements that paid (any part of) this facture.
+        paiement_ids = list(
+            PaiementClientAllocation.objects.filter(facture=facture)
+            .values_list("paiement_id", flat=True)
+            .distinct()
+        )
+        paiements = list(PaiementClient.objects.filter(pk__in=paiement_ids))
+
+        for paiement in paiements:
+            # 1a. Allocations of this paiement to OTHER factures also
+            #     vanish with it — recompute those factures' soldes.
+            autres_allocations = list(
+                paiement.allocations.exclude(facture=facture).select_related(
+                    "facture"
+                )
+            )
+            for alloc in autres_allocations:
+                autre_facture = alloc.facture
+                autre_facture.montant_regle = max(
+                    Decimal("0"), autre_facture.montant_regle - alloc.montant_alloue
+                )
+                alloc.delete()
+                autre_facture.recalculer_solde()
+                summary["factures_tierces_impactees"].append(autre_facture.reference)
+                logger.warning(
+                    "Suppression cascade de la facture %s a retiré %s DZD "
+                    "alloués par le paiement pk=%s à la facture tierce %s "
+                    "(solde recalculé).",
+                    facture.reference,
+                    alloc.montant_alloue,
+                    paiement.pk,
+                    autre_facture.reference,
+                )
+
+            # 1b. Remaining allocations (the ones pointing at `facture`).
+            paiement.allocations.all().delete()
+
+            summary["paiements_references"].append(
+                f"{paiement.montant} DZD ({paiement.date_paiement})"
+            )
+            paiement.delete()
+
+        # 2. BLs included in the facture: reverse stock, then delete.
+        bls = list(
+            facture.bls.select_related("branche").prefetch_related(
+                "lignes__produit_fini"
+            )
+        )
+        for bl in bls:
+            annuler_sortie_stock_bl_client(bl)
+            summary["bls_references"].append(bl.reference)
+            bl.delete()
+
+        # 3. The facture itself.
+        facture.delete()
+
+    logger.info(
+        "ADMIN CASCADE DELETE: facture client %s supprimée avec %d BL(s) et "
+        "%d paiement(s). %d facture(s) tierce(s) impactée(s) : %s.",
+        summary["facture_reference"],
+        len(summary["bls_references"]),
+        len(summary["paiements_references"]),
+        len(summary["factures_tierces_impactees"]),
+        summary["factures_tierces_impactees"],
+    )
+    return summary
+
+
+# ---------------------------------------------------------------------------
 # Sequential reference generators
 # ---------------------------------------------------------------------------
 

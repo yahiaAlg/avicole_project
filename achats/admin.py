@@ -350,6 +350,27 @@ class FactureFournisseurAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
             base += ["reference", "branche", "fournisseur", "bls", "type_facture"]
         return base
 
+    # -----------------------------------------------------------------
+    # Cascade delete — a plain .delete() would hit ProtectedError because
+    # AllocationReglement.facture/.reglement and AcompteFournisseur.reglement
+    # are all on_delete=PROTECT. Route Django admin's delete actions through
+    # the same admin-only cascade used by the app's own "Supprimer" button
+    # (achats.utils.supprimer_facture_fournisseur_cascade), which also
+    # deletes the invoice's BLs, reverses their stock entries, and deletes
+    # any règlement that paid it (BR-REG-06 override, by design).
+    # -----------------------------------------------------------------
+
+    def delete_model(self, request, obj):
+        from achats.utils import supprimer_facture_fournisseur_cascade
+
+        supprimer_facture_fournisseur_cascade(obj)
+
+    def delete_queryset(self, request, queryset):
+        from achats.utils import supprimer_facture_fournisseur_cascade
+
+        for facture in queryset:
+            supprimer_facture_fournisseur_cascade(facture)
+
 
 # ---------------------------------------------------------------------------
 # ReglementFournisseur — export-only; immutable after creation

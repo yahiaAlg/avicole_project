@@ -28,12 +28,14 @@ from django.forms import inlineformset_factory
 from django.core.exceptions import ValidationError
 
 from production.models import (
+    TypeProduitFini,
     ProduitFini,
     ProductionRecord,
     ProductionLigne,
     CollecteFertilisant,
     TraitementFertilisant,
 )
+from intrants.models import UniteMesure
 from elevage.models import LotElevage, ParametrageElevage
 
 
@@ -52,6 +54,13 @@ class ProduitFiniForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 2}),
             "prix_vente_defaut": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["type_produit"].queryset = TypeProduitFini.objects.filter(
+            actif=True
+        )
+        self.fields["unite_mesure"].queryset = UniteMesure.objects.filter(actif=True)
 
 
 class ProductionRecordForm(forms.ModelForm):
@@ -288,7 +297,7 @@ class TraitementFertilisantForm(forms.ModelForm):
         from core.models import Branche
 
         self.fields["produit_fini"].queryset = ProduitFini.objects.filter(
-            actif=True, type_produit=ProduitFini.TYPE_FERTILISANT
+            actif=True, type_produit__code="FERTILISANT"
         )
         self.fields["branche"].queryset = Branche.objects.filter(actif=True).order_by(
             "nom"

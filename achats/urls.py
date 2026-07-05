@@ -79,6 +79,11 @@ urlpatterns = [
         views.facture_fournisseur_toggle_litige,
         name="facture_fournisseur_toggle_litige",
     ),
+    path(
+        "factures/<int:pk>/supprimer/",
+        views.facture_fournisseur_delete,
+        name="facture_fournisseur_delete",
+    ),
     # ── Règlement Fournisseur ───────────────────────────────────────────
     path(
         "reglements/",

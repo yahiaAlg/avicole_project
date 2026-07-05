@@ -14,8 +14,9 @@ Import notes:
   - Batiment: uses `id` as the import key; `categorie_stockage` is only
     meaningful when `type_batiment` = entrepot (enforced by model.clean()).
     v1.4: `branche` is required (BR-BRA-01) and resolved via Branche.code.
-  - IntrantResource resolves `categorie` via CategorieIntrant.code for
-    human-friendly CSV headers. v1.4: StockIntrant is now one row per
+  - IntrantResource resolves `categorie` via CategorieIntrant.code and
+    `unite_mesure` via UniteMesure.code for human-friendly CSV headers.
+    v1.4: StockIntrant is now one row per
     (branche, intrant) pair (BR-BRA-07), so `quantite_en_stock`/`en_alerte`
     became methods on the model (optional `branche` arg) instead of
     properties; exported here via dehydrate as the Vue Globale total
@@ -28,6 +29,7 @@ from import_export.widgets import ForeignKeyWidget, ManyToManyWidget, BooleanWid
 from intrants.models import (
     CategorieIntrant,
     TypeFournisseur,
+    UniteMesure,
     CategorieQualite,
     Fournisseur,
     Batiment,
@@ -76,6 +78,32 @@ class TypeFournisseurResource(resources.ModelResource):
 
     class Meta:
         model = TypeFournisseur
+        skip_unchanged = True
+        report_skipped = False
+        import_id_fields = ["code"]
+        fields = [
+            "id",
+            "code",
+            "libelle",
+            "ordre",
+            "actif",
+        ]
+        export_order = fields
+
+
+# ---------------------------------------------------------------------------
+# UniteMesure
+# ---------------------------------------------------------------------------
+
+
+class UniteMesureResource(resources.ModelResource):
+    """
+    Import / export of the shared unit-of-measure master table.
+    `code` is the natural import key — same rationale as CategorieIntrant.
+    """
+
+    class Meta:
+        model = UniteMesure
         skip_unchanged = True
         report_skipped = False
         import_id_fields = ["code"]
@@ -232,6 +260,11 @@ class IntrantResource(resources.ModelResource):
         column_name="categorie_code",
         attribute="categorie",
         widget=ForeignKeyWidget(CategorieIntrant, field="code"),
+    )
+    unite_mesure = fields.Field(
+        column_name="unite_mesure_code",
+        attribute="unite_mesure",
+        widget=ForeignKeyWidget(UniteMesure, field="code"),
     )
 
     # M2M — export only; use the admin UI to manage supplier associations

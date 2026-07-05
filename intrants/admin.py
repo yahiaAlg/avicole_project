@@ -2,7 +2,7 @@
 intrants/admin.py
 
 Admin registration for master-data tables:
-  CategorieIntrant, TypeFournisseur, Fournisseur, Batiment, Intrant
+  CategorieIntrant, TypeFournisseur, UniteMesure, Fournisseur, Batiment, Intrant
 """
 
 from django.contrib import admin
@@ -14,6 +14,7 @@ from core.admin import BrancheScopedAdminMixin
 from intrants.models import (
     CategorieIntrant,
     TypeFournisseur,
+    UniteMesure,
     CategorieQualite,
     Fournisseur,
     Batiment,
@@ -22,6 +23,7 @@ from intrants.models import (
 from intrants.resources import (
     CategorieIntrantResource,
     TypeFournisseurResource,
+    UniteMesureResource,
     FournisseurResource,
     BatimentResource,
     IntrantResource,
@@ -58,6 +60,26 @@ class TypeFournisseurAdmin(ImportExportModelAdmin):
     search_fields = ("code", "libelle")
     list_editable = ("ordre", "actif")
     ordering = ("ordre", "libelle")
+
+
+@admin.register(UniteMesure)
+class UniteMesureAdmin(ImportExportModelAdmin):
+    resource_class = UniteMesureResource
+
+    list_display = ("libelle", "code", "ordre", "actif")
+    list_filter = ("actif",)
+    search_fields = ("code", "libelle")
+    list_editable = ("ordre", "actif")
+    ordering = ("ordre", "libelle")
+
+    def get_readonly_fields(self, request, obj=None):
+        # Seed codes must not be renamed
+        if obj and obj.code in (
+            "KG", "SAC", "UNITE", "LITRE", "FLACON", "DOSE", "ML", "G",
+            "PLATEAU", "CAISSE", "PAQUET",
+        ):
+            return ("code",)
+        return ()
 
 
 @admin.register(CategorieQualite)
@@ -221,6 +243,7 @@ class IntrantAdmin(ImportExportModelAdmin):
     list_filter = ("categorie", "stade", "unite_mesure", "actif")
     search_fields = ("designation", "notes")
     filter_horizontal = ("fournisseurs",)
+    autocomplete_fields = ("categorie", "unite_mesure")
     readonly_fields = ("quantite_en_stock", "statut_alerte", "created_at", "updated_at")
 
     fieldsets = (

@@ -11,6 +11,7 @@ from intrants.models import (
     CategorieIntrant,
     CategorieQualite,
     TypeFournisseur,
+    UniteMesure,
     Fournisseur,
     Batiment,
     Intrant,
@@ -163,6 +164,7 @@ class IntrantForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["categorie"].queryset = CategorieIntrant.objects.filter(actif=True)
+        self.fields["unite_mesure"].queryset = UniteMesure.objects.filter(actif=True)
         self.fields["fournisseurs"].queryset = Fournisseur.objects.filter(
             actif=True
         ).order_by("nom")
@@ -175,10 +177,10 @@ class IntrantForm(forms.ModelForm):
         """
         new_unit = self.cleaned_data["unite_mesure"]
         if self.instance and self.instance.pk:
-            original_unit = Intrant.objects.values_list("unite_mesure", flat=True).get(
-                pk=self.instance.pk
-            )
-            if original_unit != new_unit:
+            original_unit_id = Intrant.objects.values_list(
+                "unite_mesure_id", flat=True
+            ).get(pk=self.instance.pk)
+            if original_unit_id != new_unit.pk:
                 # Check whether any stock movement exists.
                 from stock.models import StockMouvement
 

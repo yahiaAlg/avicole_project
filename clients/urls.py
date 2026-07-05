@@ -122,6 +122,11 @@ urlpatterns = [
         views.facture_client_print,
         name="facture_client_print",
     ),
+    path(
+        "factures/<int:pk>/supprimer/",
+        views.facture_client_delete,
+        name="facture_client_delete",
+    ),
     # ── Paiement Client ──────────────────────────────────────────────────
     path(
         "paiements/",

@@ -15,6 +15,11 @@ management/commands/seed_db_minimal.py
                                (operateur1 مرتبط إلزامياً بالفرع — BR-BRA-02)
     • CategorieIntrant      — ALIMENT / POUSSIN / MEDICAMENT / AUTRE
     • TypeFournisseur       — ALIMENTS / POUSSINS / MEDICAMENTS / SERVICES / AUTRE
+    • UniteMesure           — KG / SAC / UNITE / LITRE / FLACON / DOSE / ML / G /
+                              PLATEAU / CAISSE / PAQUET (partagée Intrant + ProduitFini)
+    • TypeClient            — GROSSISTE / DETAILLANT / RESTAURATION / PARTICULIER / AUTRE
+    • TypeProduitFini       — VOLAILLE_VIVANTE / CARCASSE / DECOUPE / ABATS /
+                              OEUFS / FERTILISANT / AUTRE
     • CategorieDepense      — SALAIRES / ENERGIE / MAINTENANCE / TRANSPORT /
                               VETERINAIRE / FOURNITURES / TAXES / DIVERS
     • CategorieQualite (8)  — 4 tranches oiseaux + 4 tranches œufs
@@ -76,6 +81,9 @@ class Command(BaseCommand):
         self._seed_users(branches)
         self._seed_categories_intrant()
         self._seed_types_fournisseur()
+        self._seed_unites_mesure()
+        self._seed_types_client()
+        self._seed_types_produit()
         self._seed_categories_depense()
         self._seed_categories_qualite()
         self._seed_produits_finis()
@@ -101,15 +109,24 @@ class Command(BaseCommand):
 
     def _clear(self):
         self.stdout.write(self.style.WARNING("  Suppression des données de base…"))
-        from intrants.models import CategorieIntrant, CategorieQualite, TypeFournisseur
+        from intrants.models import (
+            CategorieIntrant,
+            CategorieQualite,
+            TypeFournisseur,
+            UniteMesure,
+        )
         from depenses.models import CategorieDepense
-        from production.models import ProduitFini
+        from production.models import ProduitFini, TypeProduitFini
         from core.models import CompanyInfo, UserProfile, Branche
         from elevage.models import ParametrageElevage
-        from clients.models import PrixMarche
+        from clients.models import PrixMarche, TypeClient
 
         PrixMarche.objects.all().delete()
+        # ProduitFini must go before TypeProduitFini/UniteMesure (both PROTECT).
         ProduitFini.objects.all().delete()
+        TypeProduitFini.objects.all().delete()
+        UniteMesure.objects.all().delete()
+        TypeClient.objects.all().delete()
         CategorieQualite.objects.all().delete()
         CategorieDepense.objects.all().delete()
         CategorieIntrant.objects.all().delete()
@@ -329,6 +346,58 @@ class Command(BaseCommand):
             TypeFournisseur.objects.get_or_create(code=s["code"], defaults=s)
         self._log("TypeFournisseur (5)", True)
 
+    def _seed_unites_mesure(self):
+        from intrants.models import UniteMesure
+
+        seeds = [
+            dict(code="KG", libelle="كيلوغرام (كغ)", ordre=1, actif=True),
+            dict(code="SAC", libelle="كيس (25 كغ)", ordre=2, actif=True),
+            dict(code="UNITE", libelle="وحدة / رأس", ordre=3, actif=True),
+            dict(code="LITRE", libelle="لتر", ordre=4, actif=True),
+            dict(code="FLACON", libelle="قارورة", ordre=5, actif=True),
+            dict(code="DOSE", libelle="جرعة", ordre=6, actif=True),
+            dict(code="ML", libelle="مليلتر (مل)", ordre=7, actif=True),
+            dict(code="G", libelle="غرام (غ)", ordre=8, actif=True),
+            dict(code="PLATEAU", libelle="صينية", ordre=9, actif=True),
+            dict(code="CAISSE", libelle="صندوق", ordre=10, actif=True),
+            dict(code="PAQUET", libelle="طرد", ordre=11, actif=True),
+        ]
+        for s in seeds:
+            UniteMesure.objects.get_or_create(code=s["code"], defaults=s)
+        self._log("UniteMesure (11)", True)
+
+    def _seed_types_client(self):
+        from clients.models import TypeClient
+
+        seeds = [
+            dict(code="GROSSISTE", libelle="تاجر جملة", ordre=1, actif=True),
+            dict(code="DETAILLANT", libelle="تاجر تجزئة", ordre=2, actif=True),
+            dict(
+                code="RESTAURATION", libelle="مطاعم / فندقة", ordre=3, actif=True
+            ),
+            dict(code="PARTICULIER", libelle="فرد", ordre=4, actif=True),
+            dict(code="AUTRE", libelle="أخرى", ordre=5, actif=True),
+        ]
+        for s in seeds:
+            TypeClient.objects.get_or_create(code=s["code"], defaults=s)
+        self._log("TypeClient (5)", True)
+
+    def _seed_types_produit(self):
+        from production.models import TypeProduitFini
+
+        seeds = [
+            dict(code="VOLAILLE_VIVANTE", libelle="دواجن حية", ordre=1, actif=True),
+            dict(code="CARCASSE", libelle="ذبيحة كاملة", ordre=2, actif=True),
+            dict(code="DECOUPE", libelle="قطع", ordre=3, actif=True),
+            dict(code="ABATS", libelle="مخلفات الذبح", ordre=4, actif=True),
+            dict(code="OEUFS", libelle="بيض", ordre=5, actif=True),
+            dict(code="FERTILISANT", libelle="سماد معالج", ordre=6, actif=True),
+            dict(code="AUTRE", libelle="أخرى", ordre=7, actif=True),
+        ]
+        for s in seeds:
+            TypeProduitFini.objects.get_or_create(code=s["code"], defaults=s)
+        self._log("TypeProduitFini (7)", True)
+
     def _seed_categories_depense(self):
         from depenses.models import CategorieDepense
 
@@ -486,53 +555,58 @@ class Command(BaseCommand):
         self._log("CategorieQualite (8 — 4 oiseaux + 4 oeufs)", True)
 
     def _seed_produits_finis(self):
-        from production.models import ProduitFini
+        from production.models import ProduitFini, TypeProduitFini
+        from intrants.models import UniteMesure
 
+        # type_produit / unite below are the stable seed codes resolved to
+        # FK objects just below — see _seed_types_produit / _seed_unites_mesure.
         specs = [
             dict(
                 designation="دجاج حي (الوزن الكامل)",
-                type_produit="volaille_vivante",
-                unite="unite",
+                type_produit="VOLAILLE_VIVANTE",
+                unite="UNITE",
                 prix=480,
             ),
             dict(
                 designation="جثة كاملة منزوعة الأحشاء",
-                type_produit="carcasse",
-                unite="kg",
+                type_produit="CARCASSE",
+                unite="KG",
                 prix=750,
             ),
-            dict(designation="صدر دجاج", type_produit="decoupe", unite="kg", prix=1100),
-            dict(designation="فخذ كامل", type_produit="decoupe", unite="kg", prix=780),
-            dict(designation="جناح دجاج", type_produit="decoupe", unite="kg", prix=620),
-            dict(designation="كبد دجاج", type_produit="abats", unite="kg", prix=420),
-            dict(designation="قانصة دجاج", type_produit="abats", unite="kg", prix=350),
+            dict(designation="صدر دجاج", type_produit="DECOUPE", unite="KG", prix=1100),
+            dict(designation="فخذ كامل", type_produit="DECOUPE", unite="KG", prix=780),
+            dict(designation="جناح دجاج", type_produit="DECOUPE", unite="KG", prix=620),
+            dict(designation="كبد دجاج", type_produit="ABATS", unite="KG", prix=420),
+            dict(designation="قانصة دجاج", type_produit="ABATS", unite="KG", prix=350),
             # ── Oeufs ─────────────────────────────────────────────────────────
             dict(
                 designation="صينية بيض (30 بيضة)",
-                type_produit=ProduitFini.TYPE_OEUFS,
-                unite="plateau",
+                type_produit="OEUFS",
+                unite="PLATEAU",
                 prix=350,
             ),
             # ── Fertilisants ──────────────────────────────────────────────────
             dict(
                 designation="سماد دواجن معالج (مجفف)",
-                type_produit="fertilisant",
-                unite="kg",
+                type_produit="FERTILISANT",
+                unite="KG",
                 prix=28,
             ),
             dict(
                 designation="سماد دواجن خام (غير معالج)",
-                type_produit="fertilisant",
-                unite="kg",
+                type_produit="FERTILISANT",
+                unite="KG",
                 prix=12,
             ),
         ]
+        types_par_code = {t.code: t for t in TypeProduitFini.objects.all()}
+        unites_par_code = {u.code: u for u in UniteMesure.objects.all()}
         for s in specs:
             ProduitFini.objects.get_or_create(
                 designation=s["designation"],
                 defaults=dict(
-                    type_produit=s["type_produit"],
-                    unite_mesure=s["unite"],
+                    type_produit=types_par_code[s["type_produit"]],
+                    unite_mesure=unites_par_code[s["unite"]],
                     prix_vente_defaut=Decimal(str(s["prix"])),
                     actif=True,
                 ),

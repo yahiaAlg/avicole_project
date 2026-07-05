@@ -5,6 +5,8 @@ Import-export resources for the production module.
 
 Import policy:
   ProduitFini          — import supported (catalogue maintenance).
+                          `type_produit` resolved via TypeProduitFini.code,
+                          `unite_mesure` via UniteMesure.code.
   ProductionRecord     — import limited to BROUILLON records only.
                           Importing a VALIDE record would bypass the post_save
                           signal that writes StockProduitFini entries.
@@ -27,12 +29,39 @@ from import_export.widgets import ForeignKeyWidget
 from django.contrib.auth.models import User
 
 from production.models import (
+    TypeProduitFini,
     ProduitFini,
     ProductionRecord,
     ProductionLigne,
 )
+from intrants.models import UniteMesure
 from elevage.models import LotElevage
 from core.models import Branche
+
+# ---------------------------------------------------------------------------
+# TypeProduitFini
+# ---------------------------------------------------------------------------
+
+
+class TypeProduitFiniResource(resources.ModelResource):
+    """
+    Import / export of finished-product types.
+    `code` is the natural import key — same rationale as CategorieIntrant.
+    """
+
+    class Meta:
+        model = TypeProduitFini
+        skip_unchanged = True
+        report_skipped = False
+        import_id_fields = ["code"]
+        fields = [
+            "id",
+            "code",
+            "libelle",
+            "ordre",
+            "actif",
+        ]
+        export_order = fields
 
 # ---------------------------------------------------------------------------
 # ProduitFini
@@ -52,6 +81,16 @@ class ProduitFiniResource(resources.ModelResource):
     branch's balance — not exposed here, as it requires a branche argument).
     """
 
+    type_produit = fields.Field(
+        column_name="type_produit_code",
+        attribute="type_produit",
+        widget=ForeignKeyWidget(TypeProduitFini, field="code"),
+    )
+    unite_mesure = fields.Field(
+        column_name="unite_mesure_code",
+        attribute="unite_mesure",
+        widget=ForeignKeyWidget(UniteMesure, field="code"),
+    )
     quantite_en_stock = fields.Field(
         column_name="quantite_en_stock",
         attribute="quantite_en_stock",

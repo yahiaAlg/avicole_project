@@ -57,6 +57,7 @@ from clients.forms import (
     PrixMarcheForm,
 )
 from clients.models import (
+    TypeClient,
     BLClient,
     BLClientLigne,
     Client,
@@ -141,7 +142,7 @@ def client_list(request):
 
     type_client = request.GET.get("type_client", "")
     if type_client:
-        qs = qs.filter(type_client=type_client)
+        qs = qs.filter(type_client__code=type_client)
 
     q = request.GET.get("q", "").strip()
     if q:
@@ -159,7 +160,9 @@ def client_list(request):
         "clients/client_list.html",
         {
             "page": page,
-            "type_choices": Client.TYPE_CHOICES,
+            "type_choices": TypeClient.objects.filter(actif=True).order_by(
+                "ordre", "libelle"
+            ),
             "actif_param": actif_param,
             "q": q,
             "type_client_filter": type_client,
@@ -1044,6 +1047,14 @@ def facture_client_detail(request, pk):
         "-paiement__date_paiement"
     )
 
+    # Same admin pattern used elsewhere in this file (bl_client_detail) —
+    # controls visibility of the cascade-delete button (facture + its BLs +
+    # its paiements).
+    is_admin = request.user.is_superuser or (
+        hasattr(request.user, "userprofile")
+        and request.user.userprofile.role == "admin"
+    )
+
     return render(
         request,
         "clients/facture_client_detail.html",
@@ -1051,6 +1062,7 @@ def facture_client_detail(request, pk):
             "facture": facture,
             "bls": bls,
             "allocations": allocations,
+            "is_admin": is_admin,
             "title": f"فاتورة — {facture.reference}",
         },
     )
@@ -1087,6 +1099,66 @@ def facture_client_print(request, pk):
             "company": company,
         },
     )
+
+
+# ===========================================================================
+# FactureClient — Delete (cascade, admin-only)
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def facture_client_delete(request, pk):
+    """
+    ADMIN-ONLY hard delete: remove a FactureClient together with every BL it
+    includes and every PaiementClient that paid it.
+
+    This intentionally bypasses BR-BLC-03 (BL lock) and the normal
+    immutability of PaiementClient/PaiementClientAllocation — restricted to
+    admins (is_superuser or userprofile.role=="admin") and POST-only. See
+    clients.utils.supprimer_facture_client_cascade for the full cascade and
+    its side effects, including on OTHER invoices a shared paiement also
+    paid.
+    """
+    is_admin = request.user.is_superuser or (
+        hasattr(request.user, "userprofile")
+        and request.user.userprofile.role == "admin"
+    )
+
+    if not is_admin:
+        messages.error(request, "غير مسموح: هذا الإجراء متاح للمدراء فقط.")
+        return redirect("clients:facture_client_detail", pk=pk)
+
+    facture = branche_object_or_404(request, FactureClient, pk=pk)
+
+    from clients.utils import supprimer_facture_client_cascade
+
+    try:
+        summary = supprimer_facture_client_cascade(facture)
+    except Exception as exc:
+        logger.exception("Error deleting FactureClient pk=%s: %s", pk, exc)
+        messages.error(request, f"خطأ أثناء الحذف: {exc}")
+        return redirect("clients:facture_client_detail", pk=pk)
+
+    msg = (
+        f"تم حذف الفاتورة {summary['facture_reference']} نهائيًا مع "
+        f"{len(summary['bls_references'])} وصل تسليم و "
+        f"{len(summary['paiements_references'])} دفعة مرتبطة."
+    )
+    if summary["factures_tierces_impactees"]:
+        autres = ", ".join(sorted(set(summary["factures_tierces_impactees"])))
+        msg += (
+            f" تنبيه: تأثرت فواتير أخرى ({autres}) لأنها شاركت في نفس "
+            "الدفعات المحذوفة — يرجى مراجعة أرصدتها."
+        )
+    messages.success(request, msg)
+    logger.info(
+        "FactureClient %s deleted (admin cascade) by '%s'. Summary: %s",
+        summary["facture_reference"],
+        request.user,
+        summary,
+    )
+    return redirect("clients:facture_client_list")
 
 
 # ===========================================================================
@@ -1987,12 +2059,8 @@ def fiche_dettes_client(request, pk):
     produits_disponibles = (
         ProduitFini.objects.filter(
             lignes_bl_client__bl__client=client,
-            type_produit=ProduitFini.TYPE_OEUFS,
+            type_produit__code="OEUFS",
         )
-        .distinct()
-        .order_by("designation")
-        if hasattr(ProduitFini, "TYPE_OEUFS")
-        else ProduitFini.objects.filter(lignes_bl_client__bl__client=client)
         .distinct()
         .order_by("designation")
     )
@@ -2040,12 +2108,9 @@ def prix_marche_list(request):
         qs = qs.filter(date__lte=date_fin_str)
 
     # Product list for filter — egg products only where possible
-    try:
-        produits = ProduitFini.objects.filter(
-            type_produit=ProduitFini.TYPE_OEUFS
-        ).order_by("designation")
-    except Exception:
-        produits = ProduitFini.objects.all().order_by("designation")
+    produits = ProduitFini.objects.filter(
+        type_produit__code="OEUFS"
+    ).order_by("designation")
 
     page = _paginate(qs, request.GET.get("page"))
 

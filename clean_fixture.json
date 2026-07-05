@@ -1,0 +1,1630 @@
+[
+  {
+    "model": "auth.user",
+    "pk": 1,
+    "fields": {
+      "password": "pbkdf2_sha256$600000$MtovK7itKogJdZQrFsS8ak$n0EYlxVMNkFDqeedb0snda8whtN55111uWOWyb9fvNU=",
+      "last_login": "2026-07-03T21:00:56.798Z",
+      "is_superuser": true,
+      "username": "admin",
+      "first_name": "Karim",
+      "last_name": "Meziani",
+      "email": "admin@avicole.dz",
+      "is_staff": true,
+      "is_active": true,
+      "date_joined": "2026-07-01T10:16:09.856Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": 2,
+    "fields": {
+      "password": "pbkdf2_sha256$600000$hktgTVrWDMcZZu6hdbYLjH$bma1gy/EyJPj0SyaFA87RCHxXV+CmX0rFKo1xMhmQyI=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "gerant",
+      "first_name": "Lynda",
+      "last_name": "Aoudia",
+      "email": "gerant@avicole.dz",
+      "is_staff": true,
+      "is_active": true,
+      "date_joined": "2026-07-01T10:16:09.967Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": 3,
+    "fields": {
+      "password": "pbkdf2_sha256$600000$RnKGFcp7HWxg0lfY1AcRId$9Ft20tlbV1NOuZ2l0kpNbsfA2wQ38X7n6BOMg1G/3l4=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "chef_stf",
+      "first_name": "Rachid",
+      "last_name": "Belkacem",
+      "email": "chef.stf@avicole.dz",
+      "is_staff": true,
+      "is_active": true,
+      "date_joined": "2026-07-01T10:16:10.067Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": 4,
+    "fields": {
+      "password": "pbkdf2_sha256$600000$0CADZ3tOOFE7dlPwEpe7Wt$paCsDvAACWD/QqxC4a4WRUnbsFQ0ggKDVmoXS1iie7g=",
+      "last_login": "2026-07-03T20:30:10.755Z",
+      "is_superuser": false,
+      "username": "operateur1",
+      "first_name": "Samir",
+      "last_name": "Boudiaf",
+      "email": "op1@avicole.dz",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-07-01T10:16:10.167Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": 5,
+    "fields": {
+      "password": "pbkdf2_sha256$600000$Jbm8ZBAGDbIYQsA8urBiaz$t4KukNorj8LQkBSEzsZ2dPOZeVRoI8qZ3/baImMqZDA=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "chef_bba",
+      "first_name": "Fatiha",
+      "last_name": "Cherif",
+      "email": "chef.bba@avicole.dz",
+      "is_staff": true,
+      "is_active": true,
+      "date_joined": "2026-07-01T10:16:10.266Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": 6,
+    "fields": {
+      "password": "pbkdf2_sha256$600000$k4QsQ7vrKiUfsYwACPl4QL$WCo7MYbJVVzO7LuHrS0w3S4TSrCnx1bxCS3BlWQL/yU=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "comptable",
+      "first_name": "Nadia",
+      "last_name": "Hamdi",
+      "email": "comptable@avicole.dz",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-07-01T10:16:10.365Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "core.companyinfo",
+    "pk": 1,
+    "fields": {
+      "nom": "Élevage Avicole Setifien",
+      "adresse": "Zone Industrielle, Route Nationale 12",
+      "wilaya": "Setifien",
+      "telephone": "0555 123 456",
+      "telephone_2": "0770 987 654",
+      "email": "contact@avicole-to.dz",
+      "nif": "099123456789012",
+      "rc": "16/00-1234567 B 12",
+      "ai": "16123456789",
+      "nis": "099123456789012345",
+      "logo": "",
+      "pied_de_page": "Merci de votre confiance — Élevage Avicole Setifien\nTél : 0555 123 456 | Email : contact@avicole-to.dz",
+      "regime_fiscal": "reel",
+      "assujetti_tva": true,
+      "taux_tva": "19.00",
+      "tap": "16970099123456",
+      "rib": "00799999000123456789 12",
+      "banque": "BNA — Agence Setifien Centre",
+      "devise": "DZD",
+      "format_date": "DD/MM/YYYY",
+      "prefixe_bl_client": "BLC",
+      "prefixe_bl_fournisseur": "BLF",
+      "prefixe_facture_client": "FAC",
+      "prefixe_facture_fournisseur": "FRN"
+    }
+  },
+  {
+    "model": "core.branche",
+    "pk": 1,
+    "fields": {
+      "nom": "الفرع الرئيسي — سطيف",
+      "code": "STF",
+      "wilaya": "Setifien",
+      "adresse": "Zone Industrielle, Route Nationale 12",
+      "telephone": "0555 123 456",
+      "chef_de_branche": ["chef_stf"],
+      "actif": true,
+      "created_at": "2026-07-01T10:16:09.848Z"
+    }
+  },
+  {
+    "model": "core.userprofile",
+    "pk": 1,
+    "fields": {
+      "user": ["admin"],
+      "role": "admin",
+      "branche": null,
+      "telephone": "",
+      "notes": "",
+      "created_at": "2026-07-01T10:16:09.966Z",
+      "updated_at": "2026-07-01T10:16:09.966Z"
+    }
+  },
+  {
+    "model": "core.userprofile",
+    "pk": 2,
+    "fields": {
+      "user": ["gerant"],
+      "role": "manager",
+      "branche": null,
+      "telephone": "",
+      "notes": "",
+      "created_at": "2026-07-01T10:16:10.066Z",
+      "updated_at": "2026-07-01T10:16:10.066Z"
+    }
+  },
+  {
+    "model": "core.userprofile",
+    "pk": 3,
+    "fields": {
+      "user": ["chef_stf"],
+      "role": "chef_branche",
+      "branche": 1,
+      "telephone": "",
+      "notes": "",
+      "created_at": "2026-07-01T10:16:10.166Z",
+      "updated_at": "2026-07-01T10:16:10.166Z"
+    }
+  },
+  {
+    "model": "core.userprofile",
+    "pk": 4,
+    "fields": {
+      "user": ["operateur1"],
+      "role": "operateur",
+      "branche": 1,
+      "telephone": "",
+      "notes": "",
+      "created_at": "2026-07-01T10:16:10.265Z",
+      "updated_at": "2026-07-01T10:16:10.265Z"
+    }
+  },
+  {
+    "model": "core.userprofile",
+    "pk": 6,
+    "fields": {
+      "user": ["comptable"],
+      "role": "comptable",
+      "branche": null,
+      "telephone": "",
+      "notes": "",
+      "created_at": "2026-07-01T10:16:10.463Z",
+      "updated_at": "2026-07-01T10:16:10.463Z"
+    }
+  },
+  {
+    "model": "intrants.categorieintrant",
+    "pk": 1,
+    "fields": {
+      "code": "ALIMENT",
+      "libelle": "علف",
+      "consommable_en_lot": true,
+      "ordre": 1,
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.categorieintrant",
+    "pk": 2,
+    "fields": {
+      "code": "POUSSIN",
+      "libelle": "كتكوت",
+      "consommable_en_lot": false,
+      "ordre": 2,
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.categorieintrant",
+    "pk": 3,
+    "fields": {
+      "code": "MEDICAMENT",
+      "libelle": "دواء / بيطري",
+      "consommable_en_lot": true,
+      "ordre": 3,
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.categorieintrant",
+    "pk": 4,
+    "fields": {
+      "code": "AUTRE",
+      "libelle": "مدخل آخر",
+      "consommable_en_lot": false,
+      "ordre": 4,
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.typefournisseur",
+    "pk": 1,
+    "fields": {
+      "code": "ALIMENTS",
+      "libelle": "أعلاف",
+      "ordre": 1,
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.typefournisseur",
+    "pk": 2,
+    "fields": {
+      "code": "POUSSINS",
+      "libelle": "كتاكيت",
+      "ordre": 2,
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.typefournisseur",
+    "pk": 3,
+    "fields": {
+      "code": "MEDICAMENTS",
+      "libelle": "أدوية / بيطريين",
+      "ordre": 3,
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.typefournisseur",
+    "pk": 4,
+    "fields": {
+      "code": "SERVICES",
+      "libelle": "خدمات",
+      "ordre": 4,
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.typefournisseur",
+    "pk": 5,
+    "fields": {
+      "code": "AUTRE",
+      "libelle": "أخرى",
+      "ordre": 5,
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.typefournisseur",
+    "pk": 7,
+    "fields": {
+      "code": "PLATEAU",
+      "libelle": "صينية البيض الكرطونية",
+      "ordre": 0,
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.categoriequalite",
+    "pk": 1,
+    "fields": {
+      "code": "S",
+      "libelle": "Petit (S)",
+      "type_pesee": "oiseaux",
+      "poids_min": "1400.00",
+      "poids_max": "1800.00",
+      "ordre": 1,
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.categoriequalite",
+    "pk": 2,
+    "fields": {
+      "code": "STANDARD",
+      "libelle": "Standard",
+      "type_pesee": "oiseaux",
+      "poids_min": "1800.00",
+      "poids_max": "2200.00",
+      "ordre": 2,
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.categoriequalite",
+    "pk": 3,
+    "fields": {
+      "code": "L",
+      "libelle": "Grand (L)",
+      "type_pesee": "oiseaux",
+      "poids_min": "2200.00",
+      "poids_max": "2600.00",
+      "ordre": 3,
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.categoriequalite",
+    "pk": 4,
+    "fields": {
+      "code": "XL",
+      "libelle": "Très grand (XL)",
+      "type_pesee": "oiseaux",
+      "poids_min": "2600.00",
+      "poids_max": "3500.00",
+      "ordre": 4,
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.categoriequalite",
+    "pk": 5,
+    "fields": {
+      "code": "S",
+      "libelle": "Petit (S)",
+      "type_pesee": "oeufs",
+      "poids_min": "43.00",
+      "poids_max": "53.00",
+      "ordre": 1,
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.categoriequalite",
+    "pk": 6,
+    "fields": {
+      "code": "M",
+      "libelle": "Moyen (M)",
+      "type_pesee": "oeufs",
+      "poids_min": "53.00",
+      "poids_max": "63.00",
+      "ordre": 2,
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.categoriequalite",
+    "pk": 7,
+    "fields": {
+      "code": "L",
+      "libelle": "Grand (L)",
+      "type_pesee": "oeufs",
+      "poids_min": "63.00",
+      "poids_max": "73.00",
+      "ordre": 3,
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.categoriequalite",
+    "pk": 8,
+    "fields": {
+      "code": "XL",
+      "libelle": "Très grand (XL)",
+      "type_pesee": "oeufs",
+      "poids_min": "73.00",
+      "poids_max": "90.00",
+      "ordre": 4,
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.fournisseur",
+    "pk": 1,
+    "fields": {
+      "nom": "ONAB",
+      "adresse": "بجاية",
+      "wilaya": "بجاية",
+      "telephone": "",
+      "telephone_2": "",
+      "email": "",
+      "nif": "",
+      "rc": "",
+      "contact_nom": "",
+      "type_principal": 1,
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-02T11:13:21.796Z",
+      "updated_at": "2026-07-02T11:13:21.796Z"
+    }
+  },
+  {
+    "model": "intrants.fournisseur",
+    "pk": 2,
+    "fields": {
+      "nom": "عبد الحكيم",
+      "adresse": "بجاية",
+      "wilaya": "sétif",
+      "telephone": "0561799337",
+      "telephone_2": "0561910005",
+      "email": "",
+      "nif": "",
+      "rc": "",
+      "contact_nom": "",
+      "type_principal": 5,
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T13:01:23.347Z",
+      "updated_at": "2026-07-04T13:08:17.974Z"
+    }
+  },
+  {
+    "model": "intrants.fournisseur",
+    "pk": 3,
+    "fields": {
+      "nom": "kamel el eulma",
+      "adresse": "العلمة",
+      "wilaya": "sétif",
+      "telephone": "0770222235",
+      "telephone_2": "0550850996",
+      "email": "",
+      "nif": "",
+      "rc": "",
+      "contact_nom": "",
+      "type_principal": 1,
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T13:01:23.459Z",
+      "updated_at": "2026-07-04T13:01:23.459Z"
+    }
+  },
+  {
+    "model": "intrants.fournisseur",
+    "pk": 4,
+    "fields": {
+      "nom": "Sanvital",
+      "adresse": "rue des aures ihdadden 06000",
+      "wilaya": "bejaia",
+      "telephone": "034169315",
+      "telephone_2": "",
+      "email": "sanvital2001@yahoo.fr",
+      "nif": "000106010578946",
+      "rc": "01b183808",
+      "contact_nom": "",
+      "type_principal": 1,
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T15:35:11.330Z",
+      "updated_at": "2026-07-04T15:35:11.330Z"
+    }
+  },
+  {
+    "model": "intrants.fournisseur",
+    "pk": 5,
+    "fields": {
+      "nom": "Vétérinaire Tarek",
+      "adresse": "setif",
+      "wilaya": "setif",
+      "telephone": "0661318376",
+      "telephone_2": "",
+      "email": "",
+      "nif": "",
+      "rc": "",
+      "contact_nom": "",
+      "type_principal": 3,
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T15:44:30.711Z",
+      "updated_at": "2026-07-04T15:56:24.560Z"
+    }
+  },
+  {
+    "model": "intrants.fournisseur",
+    "pk": 6,
+    "fields": {
+      "nom": "SARL EL-REDHOUANE",
+      "adresse": "SIDI OKBA",
+      "wilaya": "biskra",
+      "telephone": "0550901192",
+      "telephone_2": "0550981180",
+      "email": "",
+      "nif": "",
+      "rc": "",
+      "contact_nom": "",
+      "type_principal": 2,
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T16:17:15.798Z",
+      "updated_at": "2026-07-04T16:17:15.798Z"
+    }
+  },
+  {
+    "model": "intrants.fournisseur",
+    "pk": 7,
+    "fields": {
+      "nom": "Kavim Rachid",
+      "adresse": "",
+      "wilaya": "mostghanem",
+      "telephone": "0660799530",
+      "telephone_2": "0550203468",
+      "email": "",
+      "nif": "",
+      "rc": "",
+      "contact_nom": "",
+      "type_principal": 7,
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T16:22:18.600Z",
+      "updated_at": "2026-07-04T16:22:47.406Z"
+    }
+  },
+  {
+    "model": "intrants.fournisseur",
+    "pk": 8,
+    "fields": {
+      "nom": "Khabchache Moussa",
+      "adresse": "ouricia",
+      "wilaya": "setif",
+      "telephone": "0661565493",
+      "telephone_2": "",
+      "email": "",
+      "nif": "",
+      "rc": "",
+      "contact_nom": "",
+      "type_principal": 1,
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T16:38:09.952Z",
+      "updated_at": "2026-07-04T16:38:09.952Z"
+    }
+  },
+  {
+    "model": "intrants.batiment",
+    "pk": 5,
+    "fields": {
+      "nom": "Bâtiment 01",
+      "branche": 1,
+      "type_batiment": "poulailler",
+      "categorie_stockage": "",
+      "capacite": 40000,
+      "description": "",
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.batiment",
+    "pk": 6,
+    "fields": {
+      "nom": "Bâtiment 02",
+      "branche": 1,
+      "type_batiment": "poulailler",
+      "categorie_stockage": "",
+      "capacite": 40000,
+      "description": "",
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.batiment",
+    "pk": 7,
+    "fields": {
+      "nom": "Bâtiment 03",
+      "branche": 1,
+      "type_batiment": "poulailler",
+      "categorie_stockage": "",
+      "capacite": 40000,
+      "description": "",
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.batiment",
+    "pk": 8,
+    "fields": {
+      "nom": "Bâtiment 04",
+      "branche": 1,
+      "type_batiment": "poulailler",
+      "categorie_stockage": "",
+      "capacite": 40000,
+      "description": "",
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.batiment",
+    "pk": 9,
+    "fields": {
+      "nom": "حاضنة",
+      "branche": 1,
+      "type_batiment": "poussiniere",
+      "categorie_stockage": "",
+      "capacite": 50000,
+      "description": "",
+      "actif": true
+    }
+  },
+  {
+    "model": "intrants.intrant",
+    "pk": 1,
+    "fields": {
+      "designation": "كتاكتاكيت",
+      "categorie": 2,
+      "stade": "demarrage",
+      "unite_mesure": "unite",
+      "seuil_alerte": "100.000",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-03T20:16:40.314Z",
+      "updated_at": "2026-07-03T20:16:40.314Z",
+      "fournisseurs": [1]
+    }
+  },
+  {
+    "model": "intrants.intrant",
+    "pk": 2,
+    "fields": {
+      "designation": "MAIS ARG",
+      "categorie": 1,
+      "stade": "tous",
+      "unite_mesure": "sac100",
+      "seuil_alerte": "200.000",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T15:22:59.121Z",
+      "updated_at": "2026-07-04T15:24:15.208Z",
+      "fournisseurs": [3, 1]
+    }
+  },
+  {
+    "model": "intrants.intrant",
+    "pk": 3,
+    "fields": {
+      "designation": "SOJA",
+      "categorie": 1,
+      "stade": "tous",
+      "unite_mesure": "sac100",
+      "seuil_alerte": "50.000",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T15:24:01.454Z",
+      "updated_at": "2026-07-04T15:24:01.454Z",
+      "fournisseurs": [3, 1]
+    }
+  },
+  {
+    "model": "intrants.intrant",
+    "pk": 4,
+    "fields": {
+      "designation": "Phosphate",
+      "categorie": 1,
+      "stade": "tous",
+      "unite_mesure": "sac100",
+      "seuil_alerte": "10.000",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T15:30:15.474Z",
+      "updated_at": "2026-07-04T15:30:15.474Z",
+      "fournisseurs": [3]
+    }
+  },
+  {
+    "model": "intrants.intrant",
+    "pk": 5,
+    "fields": {
+      "designation": "CMV  PONDEUSE 1.5%",
+      "categorie": 1,
+      "stade": "tous",
+      "unite_mesure": "sac100",
+      "seuil_alerte": "1.000",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T15:36:00.359Z",
+      "updated_at": "2026-07-04T15:41:42.343Z",
+      "fournisseurs": [4]
+    }
+  },
+  {
+    "model": "intrants.intrant",
+    "pk": 6,
+    "fields": {
+      "designation": "CMV FUTURE PONDEUSE PFP 1.25%",
+      "categorie": 1,
+      "stade": "tous",
+      "unite_mesure": "sac100",
+      "seuil_alerte": "1.000",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T15:39:55.229Z",
+      "updated_at": "2026-07-04T15:39:55.229Z",
+      "fournisseurs": [4]
+    }
+  },
+  {
+    "model": "intrants.intrant",
+    "pk": 7,
+    "fields": {
+      "designation": "SANVITAL VITASTART VOLAILE 0.3125%",
+      "categorie": 1,
+      "stade": "tous",
+      "unite_mesure": "sac100",
+      "seuil_alerte": "1.000",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T15:41:27.004Z",
+      "updated_at": "2026-07-04T15:41:27.004Z",
+      "fournisseurs": [4]
+    }
+  },
+  {
+    "model": "intrants.intrant",
+    "pk": 8,
+    "fields": {
+      "designation": "Watervit",
+      "categorie": 3,
+      "stade": "tous",
+      "unite_mesure": "dose",
+      "seuil_alerte": "0.000",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T15:46:16.685Z",
+      "updated_at": "2026-07-04T15:46:16.685Z",
+      "fournisseurs": [5]
+    }
+  },
+  {
+    "model": "intrants.intrant",
+    "pk": 9,
+    "fields": {
+      "designation": "Bplus",
+      "categorie": 3,
+      "stade": "tous",
+      "unite_mesure": "dose",
+      "seuil_alerte": "0.000",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T15:46:38.621Z",
+      "updated_at": "2026-07-04T15:46:38.621Z",
+      "fournisseurs": [5]
+    }
+  },
+  {
+    "model": "intrants.intrant",
+    "pk": 10,
+    "fields": {
+      "designation": "neomeriol",
+      "categorie": 3,
+      "stade": "tous",
+      "unite_mesure": "kg",
+      "seuil_alerte": "0.000",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T15:47:01.432Z",
+      "updated_at": "2026-07-04T15:47:01.432Z",
+      "fournisseurs": [5]
+    }
+  },
+  {
+    "model": "intrants.intrant",
+    "pk": 11,
+    "fields": {
+      "designation": "acide",
+      "categorie": 3,
+      "stade": "tous",
+      "unite_mesure": "dose",
+      "seuil_alerte": "0.000",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T15:47:56.213Z",
+      "updated_at": "2026-07-04T15:47:56.213Z",
+      "fournisseurs": [5]
+    }
+  },
+  {
+    "model": "intrants.intrant",
+    "pk": 12,
+    "fields": {
+      "designation": "Aldekol",
+      "categorie": 3,
+      "stade": "tous",
+      "unite_mesure": "dose",
+      "seuil_alerte": "0.000",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T15:48:33.433Z",
+      "updated_at": "2026-07-04T15:48:33.433Z",
+      "fournisseurs": [5]
+    }
+  },
+  {
+    "model": "intrants.intrant",
+    "pk": 13,
+    "fields": {
+      "designation": "mastersorb",
+      "categorie": 3,
+      "stade": "tous",
+      "unite_mesure": "dose",
+      "seuil_alerte": "0.000",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T15:49:02.500Z",
+      "updated_at": "2026-07-04T15:49:02.500Z",
+      "fournisseurs": [5]
+    }
+  },
+  {
+    "model": "intrants.intrant",
+    "pk": 14,
+    "fields": {
+      "designation": "Tylan",
+      "categorie": 3,
+      "stade": "tous",
+      "unite_mesure": "kg",
+      "seuil_alerte": "0.000",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T15:49:36.329Z",
+      "updated_at": "2026-07-04T15:50:16.682Z",
+      "fournisseurs": [5]
+    }
+  },
+  {
+    "model": "intrants.intrant",
+    "pk": 15,
+    "fields": {
+      "designation": "Vit C",
+      "categorie": 3,
+      "stade": "tous",
+      "unite_mesure": "g",
+      "seuil_alerte": "0.000",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T15:50:00.377Z",
+      "updated_at": "2026-07-04T15:50:00.377Z",
+      "fournisseurs": [5]
+    }
+  },
+  {
+    "model": "stock.stockintrant",
+    "pk": 1,
+    "fields": {
+      "branche": 1,
+      "intrant": 1,
+      "quantite": "0.000",
+      "prix_moyen_pondere": "32.0000",
+      "derniere_mise_a_jour": "2026-07-05T03:57:22.628Z"
+    }
+  },
+  {
+    "model": "stock.stockintrant",
+    "pk": 2,
+    "fields": {
+      "branche": 1,
+      "intrant": 2,
+      "quantite": "0.000",
+      "prix_moyen_pondere": "0.0000",
+      "derniere_mise_a_jour": "2026-07-04T15:22:59.126Z"
+    }
+  },
+  {
+    "model": "stock.stockintrant",
+    "pk": 3,
+    "fields": {
+      "branche": 1,
+      "intrant": 3,
+      "quantite": "0.000",
+      "prix_moyen_pondere": "0.0000",
+      "derniere_mise_a_jour": "2026-07-04T15:24:01.457Z"
+    }
+  },
+  {
+    "model": "stock.stockintrant",
+    "pk": 4,
+    "fields": {
+      "branche": 1,
+      "intrant": 4,
+      "quantite": "0.000",
+      "prix_moyen_pondere": "0.0000",
+      "derniere_mise_a_jour": "2026-07-04T15:30:15.478Z"
+    }
+  },
+  {
+    "model": "stock.stockintrant",
+    "pk": 5,
+    "fields": {
+      "branche": 1,
+      "intrant": 5,
+      "quantite": "0.000",
+      "prix_moyen_pondere": "0.0000",
+      "derniere_mise_a_jour": "2026-07-04T15:36:00.363Z"
+    }
+  },
+  {
+    "model": "stock.stockintrant",
+    "pk": 6,
+    "fields": {
+      "branche": 1,
+      "intrant": 6,
+      "quantite": "0.000",
+      "prix_moyen_pondere": "0.0000",
+      "derniere_mise_a_jour": "2026-07-04T15:39:55.233Z"
+    }
+  },
+  {
+    "model": "stock.stockintrant",
+    "pk": 7,
+    "fields": {
+      "branche": 1,
+      "intrant": 7,
+      "quantite": "0.000",
+      "prix_moyen_pondere": "0.0000",
+      "derniere_mise_a_jour": "2026-07-04T15:41:27.009Z"
+    }
+  },
+  {
+    "model": "stock.stockintrant",
+    "pk": 8,
+    "fields": {
+      "branche": 1,
+      "intrant": 8,
+      "quantite": "0.000",
+      "prix_moyen_pondere": "0.0000",
+      "derniere_mise_a_jour": "2026-07-04T15:46:16.690Z"
+    }
+  },
+  {
+    "model": "stock.stockintrant",
+    "pk": 9,
+    "fields": {
+      "branche": 1,
+      "intrant": 9,
+      "quantite": "0.000",
+      "prix_moyen_pondere": "0.0000",
+      "derniere_mise_a_jour": "2026-07-04T15:46:38.624Z"
+    }
+  },
+  {
+    "model": "stock.stockintrant",
+    "pk": 10,
+    "fields": {
+      "branche": 1,
+      "intrant": 10,
+      "quantite": "0.000",
+      "prix_moyen_pondere": "0.0000",
+      "derniere_mise_a_jour": "2026-07-04T15:47:01.437Z"
+    }
+  },
+  {
+    "model": "stock.stockintrant",
+    "pk": 11,
+    "fields": {
+      "branche": 1,
+      "intrant": 11,
+      "quantite": "0.000",
+      "prix_moyen_pondere": "0.0000",
+      "derniere_mise_a_jour": "2026-07-04T15:47:56.216Z"
+    }
+  },
+  {
+    "model": "stock.stockintrant",
+    "pk": 12,
+    "fields": {
+      "branche": 1,
+      "intrant": 12,
+      "quantite": "0.000",
+      "prix_moyen_pondere": "0.0000",
+      "derniere_mise_a_jour": "2026-07-04T15:48:33.437Z"
+    }
+  },
+  {
+    "model": "stock.stockintrant",
+    "pk": 13,
+    "fields": {
+      "branche": 1,
+      "intrant": 13,
+      "quantite": "0.000",
+      "prix_moyen_pondere": "0.0000",
+      "derniere_mise_a_jour": "2026-07-04T15:49:02.503Z"
+    }
+  },
+  {
+    "model": "stock.stockintrant",
+    "pk": 14,
+    "fields": {
+      "branche": 1,
+      "intrant": 14,
+      "quantite": "0.000",
+      "prix_moyen_pondere": "0.0000",
+      "derniere_mise_a_jour": "2026-07-04T15:49:36.331Z"
+    }
+  },
+  {
+    "model": "stock.stockintrant",
+    "pk": 15,
+    "fields": {
+      "branche": 1,
+      "intrant": 15,
+      "quantite": "0.000",
+      "prix_moyen_pondere": "0.0000",
+      "derniere_mise_a_jour": "2026-07-04T15:50:00.380Z"
+    }
+  },
+  {
+    "model": "stock.stockproduitfini",
+    "pk": 1,
+    "fields": {
+      "branche": 1,
+      "produit_fini": 1,
+      "quantite": "0.000",
+      "cout_moyen_production": "0.0000",
+      "seuil_alerte": "0.000",
+      "derniere_mise_a_jour": "2026-07-01T10:16:10.501Z"
+    }
+  },
+  {
+    "model": "stock.stockproduitfini",
+    "pk": 3,
+    "fields": {
+      "branche": 1,
+      "produit_fini": 2,
+      "quantite": "0.000",
+      "cout_moyen_production": "0.0000",
+      "seuil_alerte": "0.000",
+      "derniere_mise_a_jour": "2026-07-01T10:16:10.505Z"
+    }
+  },
+  {
+    "model": "stock.stockproduitfini",
+    "pk": 5,
+    "fields": {
+      "branche": 1,
+      "produit_fini": 3,
+      "quantite": "0.000",
+      "cout_moyen_production": "0.0000",
+      "seuil_alerte": "0.000",
+      "derniere_mise_a_jour": "2026-07-01T10:16:10.509Z"
+    }
+  },
+  {
+    "model": "stock.stockproduitfini",
+    "pk": 7,
+    "fields": {
+      "branche": 1,
+      "produit_fini": 4,
+      "quantite": "0.000",
+      "cout_moyen_production": "0.0000",
+      "seuil_alerte": "0.000",
+      "derniere_mise_a_jour": "2026-07-01T10:16:10.513Z"
+    }
+  },
+  {
+    "model": "stock.stockproduitfini",
+    "pk": 9,
+    "fields": {
+      "branche": 1,
+      "produit_fini": 5,
+      "quantite": "0.000",
+      "cout_moyen_production": "0.0000",
+      "seuil_alerte": "0.000",
+      "derniere_mise_a_jour": "2026-07-01T10:16:10.517Z"
+    }
+  },
+  {
+    "model": "stock.stockproduitfini",
+    "pk": 11,
+    "fields": {
+      "branche": 1,
+      "produit_fini": 6,
+      "quantite": "0.000",
+      "cout_moyen_production": "0.0000",
+      "seuil_alerte": "0.000",
+      "derniere_mise_a_jour": "2026-07-01T10:16:10.521Z"
+    }
+  },
+  {
+    "model": "stock.stockproduitfini",
+    "pk": 13,
+    "fields": {
+      "branche": 1,
+      "produit_fini": 7,
+      "quantite": "0.000",
+      "cout_moyen_production": "0.0000",
+      "seuil_alerte": "0.000",
+      "derniere_mise_a_jour": "2026-07-01T10:16:10.525Z"
+    }
+  },
+  {
+    "model": "stock.stockproduitfini",
+    "pk": 15,
+    "fields": {
+      "branche": 1,
+      "produit_fini": 8,
+      "quantite": "0.000",
+      "cout_moyen_production": "0.0000",
+      "seuil_alerte": "0.000",
+      "derniere_mise_a_jour": "2026-07-01T10:16:10.529Z"
+    }
+  },
+  {
+    "model": "stock.stockproduitfini",
+    "pk": 17,
+    "fields": {
+      "branche": 1,
+      "produit_fini": 9,
+      "quantite": "0.000",
+      "cout_moyen_production": "0.0000",
+      "seuil_alerte": "0.000",
+      "derniere_mise_a_jour": "2026-07-01T10:16:10.533Z"
+    }
+  },
+  {
+    "model": "stock.stockproduitfini",
+    "pk": 19,
+    "fields": {
+      "branche": 1,
+      "produit_fini": 10,
+      "quantite": "0.000",
+      "cout_moyen_production": "0.0000",
+      "seuil_alerte": "0.000",
+      "derniere_mise_a_jour": "2026-07-01T10:16:10.537Z"
+    }
+  },
+  {
+    "model": "stock.stockproduitfini",
+    "pk": 21,
+    "fields": {
+      "branche": 1,
+      "produit_fini": 11,
+      "quantite": "0.000",
+      "cout_moyen_production": "0.0000",
+      "seuil_alerte": "0.000",
+      "derniere_mise_a_jour": "2026-07-04T16:33:33.197Z"
+    }
+  },
+  {
+    "model": "stock.stockproduitfini",
+    "pk": 22,
+    "fields": {
+      "branche": 1,
+      "produit_fini": 12,
+      "quantite": "0.000",
+      "cout_moyen_production": "0.0000",
+      "seuil_alerte": "0.000",
+      "derniere_mise_a_jour": "2026-07-04T16:35:08.812Z"
+    }
+  },
+  {
+    "model": "stock.stockmouvement",
+    "pk": 1,
+    "fields": {
+      "branche": 1,
+      "intrant": 1,
+      "produit_fini": null,
+      "type_mouvement": "entree",
+      "source": "bl_fournisseur",
+      "quantite": "2000.000",
+      "quantite_avant": "0.000",
+      "quantite_apres": "2000.000",
+      "date_mouvement": "2026-07-03",
+      "reference_id": 1,
+      "reference_label": "BLFSTF-2026-0001",
+      "notes": "",
+      "created_by": ["admin"],
+      "created_at": "2026-07-03T20:49:14.983Z"
+    }
+  },
+  {
+    "model": "stock.stockmouvement",
+    "pk": 2,
+    "fields": {
+      "branche": 1,
+      "intrant": 1,
+      "produit_fini": null,
+      "type_mouvement": "sortie",
+      "source": "bl_fournisseur",
+      "quantite": "2000.000",
+      "quantite_avant": "2000.000",
+      "quantite_apres": "0.000",
+      "date_mouvement": "2026-07-05",
+      "reference_id": 1,
+      "reference_label": "Annulation BLFSTF-2026-0001 (suppression admin)",
+      "notes": "",
+      "created_by": null,
+      "created_at": "2026-07-05T03:57:22.629Z"
+    }
+  },
+  {
+    "model": "elevage.parametrageelevage",
+    "pk": 1,
+    "fields": {
+      "age_transfert_poussiniere_jours": 21,
+      "age_maturite_vente_jours": 35
+    }
+  },
+  {
+    "model": "elevage.lotelevage",
+    "pk": 1,
+    "fields": {
+      "designation": "B02 - Lot Juillet",
+      "date_ouverture": "2026-07-01",
+      "date_fermeture": null,
+      "statut": "ouvert",
+      "nombre_poussins_initial": 37997,
+      "fournisseur_poussins": 6,
+      "bl_fournisseur_poussins": null,
+      "batiment": 6,
+      "branche": 1,
+      "souche": "BOVINS/BROWN?",
+      "notes": "",
+      "lot_parent": null,
+      "created_by": ["admin"],
+      "created_at": "2026-07-04T16:53:35.402Z",
+      "updated_at": "2026-07-04T16:53:35.402Z"
+    }
+  },
+  {
+    "model": "elevage.mortalite",
+    "pk": 1,
+    "fields": {
+      "lot": 1,
+      "date": "2026-07-01",
+      "nombre": 3,
+      "cause": "",
+      "notes": "",
+      "created_at": "2026-07-04T16:55:51.487Z"
+    }
+  },
+  {
+    "model": "production.produitfini",
+    "pk": 1,
+    "fields": {
+      "designation": "دجاج حي (الوزن الكامل)",
+      "type_produit": "volaille_vivante",
+      "unite_mesure": "unite",
+      "prix_vente_defaut": "480.00",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-01T10:16:10.498Z",
+      "updated_at": "2026-07-01T10:16:10.498Z"
+    }
+  },
+  {
+    "model": "production.produitfini",
+    "pk": 2,
+    "fields": {
+      "designation": "جثة كاملة منزوعة الأحشاء",
+      "type_produit": "carcasse",
+      "unite_mesure": "kg",
+      "prix_vente_defaut": "750.00",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-01T10:16:10.503Z",
+      "updated_at": "2026-07-01T10:16:10.503Z"
+    }
+  },
+  {
+    "model": "production.produitfini",
+    "pk": 3,
+    "fields": {
+      "designation": "صدر دجاج",
+      "type_produit": "decoupe",
+      "unite_mesure": "kg",
+      "prix_vente_defaut": "1100.00",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-01T10:16:10.507Z",
+      "updated_at": "2026-07-01T10:16:10.507Z"
+    }
+  },
+  {
+    "model": "production.produitfini",
+    "pk": 4,
+    "fields": {
+      "designation": "فخذ كامل",
+      "type_produit": "decoupe",
+      "unite_mesure": "kg",
+      "prix_vente_defaut": "780.00",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-01T10:16:10.511Z",
+      "updated_at": "2026-07-01T10:16:10.511Z"
+    }
+  },
+  {
+    "model": "production.produitfini",
+    "pk": 5,
+    "fields": {
+      "designation": "جناح دجاج",
+      "type_produit": "decoupe",
+      "unite_mesure": "kg",
+      "prix_vente_defaut": "620.00",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-01T10:16:10.515Z",
+      "updated_at": "2026-07-01T10:16:10.515Z"
+    }
+  },
+  {
+    "model": "production.produitfini",
+    "pk": 6,
+    "fields": {
+      "designation": "كبد دجاج",
+      "type_produit": "abats",
+      "unite_mesure": "kg",
+      "prix_vente_defaut": "420.00",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-01T10:16:10.519Z",
+      "updated_at": "2026-07-01T10:16:10.519Z"
+    }
+  },
+  {
+    "model": "production.produitfini",
+    "pk": 7,
+    "fields": {
+      "designation": "قانصة دجاج",
+      "type_produit": "abats",
+      "unite_mesure": "kg",
+      "prix_vente_defaut": "350.00",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-01T10:16:10.523Z",
+      "updated_at": "2026-07-01T10:16:10.523Z"
+    }
+  },
+  {
+    "model": "production.produitfini",
+    "pk": 8,
+    "fields": {
+      "designation": "بيض الاستهلاك (صفيحة 30 بيضة )",
+      "type_produit": "oeufs",
+      "unite_mesure": "plateau",
+      "prix_vente_defaut": "350.00",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-01T10:16:10.527Z",
+      "updated_at": "2026-07-04T16:36:17.898Z"
+    }
+  },
+  {
+    "model": "production.produitfini",
+    "pk": 9,
+    "fields": {
+      "designation": "سماد دواجن معالج (مجفف)",
+      "type_produit": "fertilisant",
+      "unite_mesure": "kg",
+      "prix_vente_defaut": "28.00",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-01T10:16:10.531Z",
+      "updated_at": "2026-07-01T10:16:10.531Z"
+    }
+  },
+  {
+    "model": "production.produitfini",
+    "pk": 10,
+    "fields": {
+      "designation": "سماد دواجن خام (غير معالج)",
+      "type_produit": "fertilisant",
+      "unite_mesure": "kg",
+      "prix_vente_defaut": "12.00",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-01T10:16:10.535Z",
+      "updated_at": "2026-07-01T10:16:10.535Z"
+    }
+  },
+  {
+    "model": "production.produitfini",
+    "pk": 11,
+    "fields": {
+      "designation": "دجاجة بياضة مستقبلية (future pondeuse)",
+      "type_produit": "volaille_vivante",
+      "unite_mesure": "unite",
+      "prix_vente_defaut": "0.00",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T16:33:33.191Z",
+      "updated_at": "2026-07-04T16:33:33.191Z"
+    }
+  },
+  {
+    "model": "production.produitfini",
+    "pk": 12,
+    "fields": {
+      "designation": "دجاجة بياضة منتهية الانتاج (poulet reformé)",
+      "type_produit": "volaille_vivante",
+      "unite_mesure": "unite",
+      "prix_vente_defaut": "0.00",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T16:35:08.809Z",
+      "updated_at": "2026-07-04T16:35:08.809Z"
+    }
+  },
+  {
+    "model": "clients.client",
+    "pk": 1,
+    "fields": {
+      "nom": "IDIR AMBULANT BEJAIA",
+      "adresse": "bejaia",
+      "wilaya": "bejaia",
+      "telephone": "0770914240",
+      "telephone_2": "0658059900",
+      "email": "idirkarim2@gmail.com",
+      "nif": "",
+      "rc": "97A0910402-06/00",
+      "contact_nom": "",
+      "type_client": "grossiste",
+      "plafond_credit": "2000000.00",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-02T11:06:16.526Z",
+      "updated_at": "2026-07-04T16:04:16.113Z"
+    }
+  },
+  {
+    "model": "clients.client",
+    "pk": 2,
+    "fields": {
+      "nom": "samir bejia",
+      "adresse": "بجاية",
+      "wilaya": "",
+      "telephone": "0550041172",
+      "telephone_2": "",
+      "email": "",
+      "nif": "",
+      "rc": "",
+      "contact_nom": "",
+      "type_client": "grossiste",
+      "plafond_credit": "0.00",
+      "actif": false,
+      "notes": "",
+      "created_at": "2026-07-02T14:31:57.264Z",
+      "updated_at": "2026-07-04T16:02:34.549Z"
+    }
+  },
+  {
+    "model": "clients.client",
+    "pk": 3,
+    "fields": {
+      "nom": "MOUHAMAD KALAI",
+      "adresse": "حشمي حي 50 مسكن اجتماعي عمارة 5 حصة 01 و 02",
+      "wilaya": "sétif",
+      "telephone": "0550680684",
+      "telephone_2": "",
+      "email": "",
+      "nif": "",
+      "rc": "533792221-19/00",
+      "contact_nom": "",
+      "type_client": "detaillant",
+      "plafond_credit": "0.00",
+      "actif": true,
+      "notes": "يسمى نذير",
+      "created_at": "2026-07-02T14:37:54.765Z",
+      "updated_at": "2026-07-04T16:07:18.150Z"
+    }
+  },
+  {
+    "model": "clients.client",
+    "pk": 4,
+    "fields": {
+      "nom": "ETS BOUAOUDIA",
+      "adresse": "cite douaniere ighil ouazzoug",
+      "wilaya": "bejaia",
+      "telephone": "0550041172",
+      "telephone_2": "",
+      "email": "",
+      "nif": "",
+      "rc": "",
+      "contact_nom": "",
+      "type_client": "grossiste",
+      "plafond_credit": "0.00",
+      "actif": true,
+      "notes": "",
+      "created_at": "2026-07-04T16:01:47.646Z",
+      "updated_at": "2026-07-04T16:01:47.646Z"
+    }
+  },
+  {
+    "model": "depenses.categoriedepense",
+    "pk": 1,
+    "fields": {
+      "code": "SALAIRES",
+      "libelle": "الرواتب والأجور",
+      "description": "رواتب العمال والعمال اليوميين",
+      "actif": true,
+      "ordre": 1,
+      "created_at": "2026-07-01T10:16:10.481Z"
+    }
+  },
+  {
+    "model": "depenses.categoriedepense",
+    "pk": 2,
+    "fields": {
+      "code": "ENERGIE",
+      "libelle": "الطاقة (كهرباء / غاز)",
+      "description": "فواتير الكهرباء والغاز ووقود التدفئة",
+      "actif": true,
+      "ordre": 2,
+      "created_at": "2026-07-01T10:16:10.482Z"
+    }
+  },
+  {
+    "model": "depenses.categoriedepense",
+    "pk": 3,
+    "fields": {
+      "code": "MAINTENANCE",
+      "libelle": "الصيانة والإصلاحات",
+      "description": "إصلاح المعدات والمباني",
+      "actif": true,
+      "ordre": 3,
+      "created_at": "2026-07-01T10:16:10.483Z"
+    }
+  },
+  {
+    "model": "depenses.categoriedepense",
+    "pk": 4,
+    "fields": {
+      "code": "TRANSPORT",
+      "libelle": "النقل والوقود",
+      "description": "وقود مركبات التوصيل",
+      "actif": true,
+      "ordre": 4,
+      "created_at": "2026-07-01T10:16:10.484Z"
+    }
+  },
+  {
+    "model": "depenses.categoriedepense",
+    "pk": 5,
+    "fields": {
+      "code": "VETERINAIRE",
+      "libelle": "المصاريف البيطرية",
+      "description": "أتعاب البيطريين (باستثناء الأدوية)",
+      "actif": true,
+      "ordre": 5,
+      "created_at": "2026-07-01T10:16:10.485Z"
+    }
+  },
+  {
+    "model": "depenses.categoriedepense",
+    "pk": 6,
+    "fields": {
+      "code": "FOURNITURES",
+      "libelle": "اللوازم والتغليف",
+      "description": "أكياس، صناديق، تغليف، لوازم مكتبية",
+      "actif": true,
+      "ordre": 6,
+      "created_at": "2026-07-01T10:16:10.486Z"
+    }
+  },
+  {
+    "model": "depenses.categoriedepense",
+    "pk": 7,
+    "fields": {
+      "code": "TAXES",
+      "libelle": "الضرائب والرسوم",
+      "description": "الضرائب المحلية، الرسوم التجارية، الحقوق المتنوعة",
+      "actif": true,
+      "ordre": 7,
+      "created_at": "2026-07-01T10:16:10.487Z"
+    }
+  },
+  {
+    "model": "depenses.categoriedepense",
+    "pk": 8,
+    "fields": {
+      "code": "DIVERS",
+      "libelle": "مصاريف متنوعة",
+      "description": "كل مصروف غير مشمول في الفئات أعلاه",
+      "actif": true,
+      "ordre": 8,
+      "created_at": "2026-07-01T10:16:10.488Z"
+    }
+  }
+]

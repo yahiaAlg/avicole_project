@@ -27,6 +27,11 @@ Business rules enforced here:
              belongs to exactly one Branche, and the StockIntrant row credited
              on RECU is the one for THAT branche (BR-BRA-07: stock is keyed
              by (branche, intrant), not by intrant alone).
+
+Also exposes ``annuler_entrees_stock_bl`` (not a signal — a helper called
+directly by achats.utils.supprimer_facture_fournisseur_cascade) which
+reverses the stock entry made for a BL when an admin hard-deletes a
+FactureFournisseur along with its BLs and règlements.
 """
 
 import logging
@@ -205,6 +210,77 @@ def traiter_entrees_stock_bl(instance):
 
     # Mark so the post_save signal skips duplicate processing in the same cycle.
     instance._stock_already_processed = True
+
+
+def annuler_entrees_stock_bl(instance):
+    """
+    ADMIN-ONLY reversal counterpart to ``traiter_entrees_stock_bl``.
+
+    Decreases StockIntrant.quantite back down and logs a corrective
+    StockMouvement (SORTIE) for every ligne of a BL that previously
+    triggered a stock entry (i.e. was RECU/FACTURE). Called exclusively by
+    ``achats.utils.supprimer_facture_fournisseur_cascade`` right before the
+    BL itself is deleted, as part of an admin-triggered hard delete of a
+    FactureFournisseur (and everything it created).
+
+    NOTE: the weighted-average cost (PMP) is intentionally NOT recomputed
+    backwards — this mirrors the existing reversal pattern used elsewhere
+    in the project (e.g. Consommation/LivraisonPartielle deletion), since
+    unwinding a weighted average exactly is not generally possible once
+    further movements have happened on top of it. Only the quantity is
+    restored, with a full audit trail via StockMouvement.
+    """
+    from stock.models import StockIntrant, StockMouvement
+
+    lignes = instance.lignes.select_related("intrant").all()
+
+    for ligne in lignes:
+        intrant = ligne.intrant
+
+        stock, _ = StockIntrant.objects.get_or_create(
+            branche=instance.branche,
+            intrant=intrant,
+            defaults={"quantite": Decimal("0"), "prix_moyen_pondere": Decimal("0")},
+        )
+
+        quantite_avant = stock.quantite
+        stock.quantite = stock.quantite - ligne.quantite
+        stock.save(update_fields=["quantite", "derniere_mise_a_jour"])
+
+        if stock.quantite < 0:
+            logger.warning(
+                "Stock négatif après annulation (suppression admin) du BL "
+                "pk=%s (%s): intrant pk=%s quantite=%s (branche=%s).",
+                instance.pk,
+                instance.reference,
+                intrant.pk,
+                stock.quantite,
+                instance.branche.code,
+            )
+
+        StockMouvement.objects.create(
+            branche=instance.branche,
+            intrant=intrant,
+            type_mouvement=StockMouvement.TYPE_SORTIE,
+            source=StockMouvement.SOURCE_BL_FOURNISSEUR,
+            quantite=ligne.quantite,
+            quantite_avant=quantite_avant,
+            quantite_apres=stock.quantite,
+            date_mouvement=datetime.date.today(),
+            reference_id=instance.pk,
+            reference_label=f"Annulation {instance.reference} (suppression admin)",
+            created_by=None,
+        )
+
+        logger.info(
+            "Stock reversal (admin delete): intrant pk=%s -%s → %s (PMP inchangé, "
+            "branche=%s). BL %s.",
+            intrant.pk,
+            ligne.quantite,
+            stock.quantite,
+            instance.branche.code,
+            instance.reference,
+        )
 
 
 @receiver(post_save, sender=BLFournisseur)

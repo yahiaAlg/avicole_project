@@ -2,7 +2,7 @@
 production/admin.py
 
 Admin registration for the production module:
-  ProduitFini, ProductionRecord, ProductionLigne
+  TypeProduitFini, ProduitFini, ProductionRecord, ProductionLigne
 """
 
 from django.contrib import admin
@@ -12,6 +12,7 @@ from import_export.admin import ImportExportModelAdmin
 
 from core.admin import BrancheScopedAdminMixin
 from production.models import (
+    TypeProduitFini,
     ProduitFini,
     ProductionRecord,
     ProductionLigne,
@@ -19,6 +20,7 @@ from production.models import (
     TraitementFertilisant,
 )
 from production.resources import (
+    TypeProduitFiniResource,
     ProduitFiniResource,
     ProductionRecordResource,
     ProductionLigneResource,
@@ -78,6 +80,31 @@ def valider_productions(modeladmin, request, queryset):
 
 
 # ---------------------------------------------------------------------------
+# TypeProduitFini
+# ---------------------------------------------------------------------------
+
+
+@admin.register(TypeProduitFini)
+class TypeProduitFiniAdmin(ImportExportModelAdmin):
+    resource_class = TypeProduitFiniResource
+
+    list_display = ("libelle", "code", "ordre", "actif")
+    list_filter = ("actif",)
+    search_fields = ("code", "libelle")
+    list_editable = ("ordre", "actif")
+    ordering = ("ordre", "libelle")
+
+    def get_readonly_fields(self, request, obj=None):
+        # Seed codes must not be renamed
+        if obj and obj.code in (
+            "VOLAILLE_VIVANTE", "CARCASSE", "DECOUPE", "ABATS", "OEUFS",
+            "FERTILISANT", "AUTRE",
+        ):
+            return ("code",)
+        return ()
+
+
+# ---------------------------------------------------------------------------
 # ProduitFini
 # ---------------------------------------------------------------------------
 
@@ -96,6 +123,7 @@ class ProduitFiniAdmin(ImportExportModelAdmin):
     )
     list_filter = ("type_produit", "unite_mesure", "actif")
     search_fields = ("designation", "notes")
+    autocomplete_fields = ("type_produit", "unite_mesure")
     readonly_fields = ("quantite_en_stock", "created_at", "updated_at")
     list_editable = ("actif",)
 

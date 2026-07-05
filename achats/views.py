@@ -785,6 +785,14 @@ def facture_fournisseur_detail(request, pk):
         "reglement__date_reglement"
     )
 
+    # Determine admin status: staff OR profile role == "admin" (same pattern
+    # as bl_fournisseur_detail) — controls visibility of the cascade-delete
+    # button (facture + its BLs + its règlements).
+    try:
+        is_admin = request.user.is_staff or request.user.profile.role == "admin"
+    except Exception:
+        is_admin = request.user.is_staff
+
     return render(
         request,
         "achats/facture_fournisseur_detail.html",
@@ -792,6 +800,7 @@ def facture_fournisseur_detail(request, pk):
             "facture": facture,
             "bls": bls,
             "allocations": allocations,
+            "is_admin": is_admin,
             "title": f"فاتورة {facture.reference}",
         },
     )
@@ -867,6 +876,66 @@ def facture_fournisseur_toggle_litige(request, pk):
         request.user,
     )
     return redirect("achats:facture_fournisseur_detail", pk=pk)
+
+
+# ===========================================================================
+# Facture Fournisseur — Delete (cascade, admin-only)
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def facture_fournisseur_delete(request, pk):
+    """
+    ADMIN-ONLY hard delete: remove a FactureFournisseur together with every
+    BL it includes and every ReglementFournisseur that paid it.
+
+    This intentionally bypasses BR-FAF-03/BR-BLF-02 (BL lock) and BR-REG-06
+    (règlement immutability) — restricted to admins (is_staff or
+    profile.role=="admin") and POST-only. See
+    achats.utils.supprimer_facture_fournisseur_cascade for the full cascade
+    and its side effects, including on OTHER invoices a shared règlement
+    also paid.
+    """
+    try:
+        is_admin = request.user.is_staff or request.user.profile.role == "admin"
+    except Exception:
+        is_admin = request.user.is_staff
+
+    if not is_admin:
+        messages.error(request, "غير مسموح: هذا الإجراء متاح للمدراء فقط.")
+        return redirect("achats:facture_fournisseur_detail", pk=pk)
+
+    facture = branche_object_or_404(request, FactureFournisseur, pk=pk)
+
+    from achats.utils import supprimer_facture_fournisseur_cascade
+
+    try:
+        summary = supprimer_facture_fournisseur_cascade(facture)
+    except Exception as exc:
+        logger.exception("Error deleting FactureFournisseur pk=%s: %s", pk, exc)
+        messages.error(request, f"خطأ أثناء الحذف: {exc}")
+        return redirect("achats:facture_fournisseur_detail", pk=pk)
+
+    msg = (
+        f"تم حذف الفاتورة {summary['facture_reference']} نهائيًا مع "
+        f"{len(summary['bls_references'])} وصل استلام و "
+        f"{len(summary['reglements_references'])} تسوية مرتبطة."
+    )
+    if summary["factures_tierces_impactees"]:
+        autres = ", ".join(sorted(set(summary["factures_tierces_impactees"])))
+        msg += (
+            f" تنبيه: تأثرت فواتير أخرى ({autres}) لأنها شاركت في نفس "
+            "التسويات المحذوفة — يرجى مراجعة أرصدتها."
+        )
+    messages.success(request, msg)
+    logger.info(
+        "FactureFournisseur %s deleted (admin cascade) by '%s'. Summary: %s",
+        summary["facture_reference"],
+        request.user,
+        summary,
+    )
+    return redirect("achats:facture_fournisseur_list")
 
 
 # ===========================================================================

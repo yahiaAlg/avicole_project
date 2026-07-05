@@ -175,40 +175,49 @@ class Command(BaseCommand):
 
     def _seed_clients(self):
         """CLI-1 → CLI-5 (scenario §0.2)."""
-        from clients.models import Client
+        from clients.models import Client, TypeClient
+
+        def type_client(code):
+            try:
+                return TypeClient.objects.get(code=code)
+            except TypeClient.DoesNotExist:
+                raise CommandError(
+                    f"TypeClient '{code}' introuvable — "
+                    "exécutez d'abord 'python manage.py seed_db_minimal'."
+                )
 
         specs = [
             dict(
                 nom="Marché de Gros Setifien",
-                type_client="grossiste",
+                type_client=type_client("GROSSISTE"),
                 wilaya="Setifien",
                 telephone="0555 11 22 33",
                 plafond_credit=Decimal("500000.00"),
             ),
             dict(
                 nom="Boucherie Amrane & Fils",
-                type_client="detaillant",
+                type_client=type_client("DETAILLANT"),
                 wilaya="Setifien",
                 telephone="0660 33 44 55",
                 plafond_credit=Decimal("200000.00"),
             ),
             dict(
                 nom="Restaurant Le Palmier",
-                type_client="restauration",
+                type_client=type_client("RESTAURATION"),
                 wilaya="Setifien",
                 telephone="0770 22 33 44",
                 plafond_credit=Decimal("150000.00"),
             ),
             dict(
                 nom="Épicerie Centrale Azazga",
-                type_client="detaillant",
+                type_client=type_client("DETAILLANT"),
                 wilaya="Setifien",
                 telephone="0555 44 55 66",
                 plafond_credit=Decimal("80000.00"),
             ),
             dict(
                 nom="Grossiste Alger Sud",
-                type_client="grossiste",
+                type_client=type_client("GROSSISTE"),
                 wilaya="Alger",
                 telephone="021 88 77 66",
                 plafond_credit=Decimal("1000000.00"),
@@ -223,7 +232,7 @@ class Command(BaseCommand):
 
     def _seed_intrants(self, fournisseurs):
         """INT-1 → INT-10 (scenario §0.4)."""
-        from intrants.models import Intrant, CategorieIntrant
+        from intrants.models import Intrant, CategorieIntrant, UniteMesure
 
         def cat(code):
             try:
@@ -231,6 +240,15 @@ class Command(BaseCommand):
             except CategorieIntrant.DoesNotExist:
                 raise CommandError(
                     f"CategorieIntrant '{code}' introuvable — "
+                    "exécutez d'abord 'python manage.py seed_db_minimal'."
+                )
+
+        def unite(code):
+            try:
+                return UniteMesure.objects.get(code=code)
+            except UniteMesure.DoesNotExist:
+                raise CommandError(
+                    f"UniteMesure '{code}' introuvable — "
                     "exécutez d'abord 'python manage.py seed_db_minimal'."
                 )
 
@@ -243,7 +261,7 @@ class Command(BaseCommand):
                 designation="كتكوت روس 308 (يوم واحد)",
                 categorie=cat("POUSSIN"),
                 stade=Intrant.STADE_TOUS,
-                unite_mesure="unite",
+                unite_mesure=unite("UNITE"),
                 seuil_alerte=Decimal("100"),
                 fournisseurs=[cca],
             ),
@@ -251,7 +269,7 @@ class Command(BaseCommand):
                 designation="علف البداية — الطور الأول (0–14 يوم)",
                 categorie=cat("ALIMENT"),
                 stade=Intrant.STADE_DEMARRAGE,
-                unite_mesure="sac",
+                unite_mesure=unite("SAC"),
                 seuil_alerte=Decimal("10"),
                 fournisseurs=[onab],
             ),
@@ -262,7 +280,7 @@ class Command(BaseCommand):
                 # scenario §0.4, note INT-3) : stade=croissance le rendrait
                 # invisible dans ConsommationForm pour un lot en poussinière.
                 stade=Intrant.STADE_TOUS,
-                unite_mesure="sac",
+                unite_mesure=unite("SAC"),
                 seuil_alerte=Decimal("15"),
                 fournisseurs=[onab],
             ),
@@ -270,7 +288,7 @@ class Command(BaseCommand):
                 designation="علف التسمين — الطور الثالث (29 يوم فأكثر)",
                 categorie=cat("ALIMENT"),
                 stade=Intrant.STADE_TOUS,  # même raison que ci-dessus
-                unite_mesure="sac",
+                unite_mesure=unite("SAC"),
                 seuil_alerte=Decimal("20"),
                 fournisseurs=[onab],
             ),
@@ -278,7 +296,7 @@ class Command(BaseCommand):
                 designation="لقاح نيوكاسل (هيتشنر B1)",
                 categorie=cat("MEDICAMENT"),
                 stade=Intrant.STADE_TOUS,
-                unite_mesure="dose",
+                unite_mesure=unite("DOSE"),
                 seuil_alerte=Decimal("500"),
                 fournisseurs=[sanofi],
             ),
@@ -286,7 +304,7 @@ class Command(BaseCommand):
                 designation="لقاح غامبورو (IBD متوسط)",
                 categorie=cat("MEDICAMENT"),
                 stade=Intrant.STADE_TOUS,
-                unite_mesure="dose",
+                unite_mesure=unite("DOSE"),
                 seuil_alerte=Decimal("500"),
                 fournisseurs=[sanofi],
             ),
@@ -294,7 +312,7 @@ class Command(BaseCommand):
                 designation="أموكسيسيلين 50% مسحوق",
                 categorie=cat("MEDICAMENT"),
                 stade=Intrant.STADE_TOUS,
-                unite_mesure="g",
+                unite_mesure=unite("G"),
                 seuil_alerte=Decimal("200"),
                 fournisseurs=[sanofi],
             ),
@@ -302,7 +320,7 @@ class Command(BaseCommand):
                 designation="فيتامينات + إلكتروليتات (مركّب)",
                 categorie=cat("MEDICAMENT"),
                 stade=Intrant.STADE_TOUS,
-                unite_mesure="litre",
+                unite_mesure=unite("LITRE"),
                 seuil_alerte=Decimal("5"),
                 fournisseurs=[sanofi],
             ),
@@ -310,7 +328,7 @@ class Command(BaseCommand):
                 designation="كتكوت دجاج بياض ISA Brown (يوم واحد)",
                 categorie=cat("POUSSIN"),
                 stade=Intrant.STADE_TOUS,
-                unite_mesure="unite",
+                unite_mesure=unite("UNITE"),
                 seuil_alerte=Decimal("100"),
                 fournisseurs=[cca],
             ),
@@ -320,7 +338,7 @@ class Command(BaseCommand):
                 # demarrage : la pondeuse est encore en Poussinière à cet âge
                 # (transfert au point de ponte, ~126 j — cf. scenario §5.6).
                 stade=Intrant.STADE_DEMARRAGE,
-                unite_mesure="sac",
+                unite_mesure=unite("SAC"),
                 seuil_alerte=Decimal("10"),
                 fournisseurs=[onab],
             ),
@@ -333,7 +351,7 @@ class Command(BaseCommand):
                 # un intrant en stade=ponte serait donc INVISIBLE dans
                 # ConsommationForm une fois le lot transféré au poulailler.
                 stade=Intrant.STADE_CROISSANCE,
-                unite_mesure="sac",
+                unite_mesure=unite("SAC"),
                 seuil_alerte=Decimal("15"),
                 fournisseurs=[onab],
             ),
@@ -341,7 +359,7 @@ class Command(BaseCommand):
                 designation="كتكوت كوب 500 (يوم واحد)",
                 categorie=cat("POUSSIN"),
                 stade=Intrant.STADE_TOUS,
-                unite_mesure="unite",
+                unite_mesure=unite("UNITE"),
                 seuil_alerte=Decimal("100"),
                 fournisseurs=[cca],
             ),
@@ -349,7 +367,7 @@ class Command(BaseCommand):
                 designation="فراش (نشارة خشب)",
                 categorie=cat("AUTRE"),
                 stade=Intrant.STADE_TOUS,
-                unite_mesure="sac",
+                unite_mesure=unite("SAC"),
                 seuil_alerte=Decimal("20"),
                 fournisseurs=[],  # laissé vide, comme dans le scénario
             ),

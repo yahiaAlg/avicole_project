@@ -28,8 +28,8 @@
       </div>
       <select name="type_client" class="filter-select" id="filter-type">
         <option value="">كل الأنواع</option>
-        {% for val, label in type_choices %}
-        <option value="{{ val }}" {% if type_client_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% for t in type_choices %}
+        <option value="{{ t.code }}" {% if type_client_filter == t.code %}selected{% endif %}>{{ t.libelle }}</option>
         {% endfor %}
       </select>
       <select name="actif" class="filter-select" id="filter-actif">
@@ -70,7 +70,7 @@
               <div style="font-size:11.5px;color:var(--text-muted);margin-top:1px;">{{ client.contact_nom }}</div>
               {% endif %}
             </td>
-            <td><span class="pill-neutral">{{ client.get_type_client_display }}</span></td>
+            <td><span class="pill-neutral">{{ client.type_client.libelle }}</span></td>
             <td style="color:var(--text-secondary);font-size:12.5px;">{{ client.wilaya|default:"—" }}</td>
             <td style="font-size:12.5px;color:var(--text-secondary);">{{ client.telephone|default:"—" }}</td>
             <td>

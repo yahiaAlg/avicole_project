@@ -775,7 +775,7 @@ def intrant_stock_json(request, pk):
         data = {
             "quantite": float(stock.quantite),
             "prix_moyen_pondere": float(stock.prix_moyen_pondere),
-            "unite_mesure": intrant.unite_mesure,
+            "unite_mesure": intrant.unite_mesure.libelle,
             "en_alerte": stock.en_alerte,
             "seuil_alerte": float(intrant.seuil_alerte),
         }
@@ -783,7 +783,7 @@ def intrant_stock_json(request, pk):
         data = {
             "quantite": 0,
             "prix_moyen_pondere": 0,
-            "unite_mesure": intrant.unite_mesure,
+            "unite_mesure": intrant.unite_mesure.libelle,
             "en_alerte": True,
             "seuil_alerte": float(intrant.seuil_alerte),
         }
@@ -801,7 +801,9 @@ def fournisseur_intrants_json(request, pk):
     fournisseur = get_object_or_404(Fournisseur, pk=pk)
     intrants = list(
         fournisseur.intrants.filter(actif=True)
-        .values("id", "designation", "unite_mesure", "categorie__libelle")
+        .values(
+            "id", "designation", "unite_mesure__libelle", "categorie__libelle"
+        )
         .order_by("designation")
     )
     return JsonResponse({"intrants": intrants})
@@ -850,7 +852,7 @@ def intrant_create_ajax(request):
                 "pk": intrant.pk,
                 "designation": intrant.designation,
                 "label": str(intrant),
-                "unite_mesure": intrant.unite_mesure,
+                "unite_mesure": intrant.unite_mesure.libelle,
                 "categorie": intrant.categorie.libelle,
             }
         )

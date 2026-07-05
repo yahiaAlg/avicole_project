@@ -226,6 +226,35 @@
       </div>
       {% endif %}
 
+      <!-- Cascade delete — admin only, danger zone -->
+      {% if is_admin %}
+      <div class="danger-zone-card">
+        <div class="danger-zone-card__title"><i class="bx bxs-trash"></i> حذف نهائي (المدراء فقط)</div>
+        <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px;">
+          حذف هذه الفاتورة سيحذف أيضًا <strong>{{ bls.count }}</strong> وصل تسليم مضمّن (ويعكس حركة المخزون
+          الناتجة عنه)، وأي <strong>{{ allocations.count }}</strong> دفعة ساهمت في دفعها. هذا الإجراء
+          <strong style="color:#dc2626;">نهائي ولا يمكن التراجع عنه</strong>.
+        </p>
+        <button class="btn-danger" id="facture-delete-toggle-btn">
+          <i class="bx bxs-trash"></i> حذف الفاتورة نهائيًا
+        </button>
+        <!-- Inline confirmation panel -->
+        <div class="confirm-panel" id="facture-delete-confirm" style="display:none;">
+          <div class="confirm-panel__text">
+            تأكيد الحذف النهائي للفاتورة <strong>{{ facture.reference }}</strong>، وصولاتها المضمّنة،
+            وأي دفعات مرتبطة بها. لا يمكن التراجع عن هذا الإجراء.
+          </div>
+          <form method="post" action="{% url 'clients:facture_client_delete' facture.pk %}" id="facture-delete-form">
+            {% csrf_token %}
+            <div class="confirm-panel__actions">
+              <button type="button" class="btn-ghost btn-sm" id="facture-delete-cancel">إلغاء</button>
+              <button type="submit" class="btn-danger btn-sm">تأكيد الحذف النهائي</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      {% endif %}
+
     </div>
   </div>
 </div>
@@ -278,7 +307,55 @@
   .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
   .btn-sm { padding: 7px 13px; font-size: 12.5px; }
   .btn-full { width:100%;justify-content:center; }
+
+  /* Danger zone — admin cascade delete */
+  .danger-zone-card {
+    background: rgba(239,68,68,.04); border: 1px solid rgba(239,68,68,.16);
+    border-radius: var(--radius-lg); padding: 16px 18px;
+  }
+  .danger-zone-card__title {
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 12px;
+    color: #dc2626; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .btn-danger {
+    background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.22);
+    color: #dc2626; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px;
+    border-radius: var(--radius-md); padding: 9px 14px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s;
+  }
+  .btn-danger:hover { background: rgba(239,68,68,.18); }
+  .confirm-panel {
+    margin-top: 12px; padding: 12px; background: var(--bg-raised, var(--bg-base));
+    border: 1px solid var(--border-strong); border-radius: var(--radius-md);
+  }
+  .confirm-panel__text { font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; }
+  .confirm-panel__actions { display: flex; gap: 8px; justify-content: flex-start; }
 </style>
 {% endblock %}
 
-{% block extra_js %}{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  function wireConfirmToggle(toggleId, panelId, cancelId) {
+    const toggleBtn = document.getElementById(toggleId);
+    const confirmPanel = document.getElementById(panelId);
+    const cancelBtn = document.getElementById(cancelId);
+
+    if (toggleBtn && confirmPanel) {
+      toggleBtn.addEventListener('click', function () {
+        confirmPanel.style.display = confirmPanel.style.display === 'none' ? 'block' : 'none';
+      });
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', function () {
+          confirmPanel.style.display = 'none';
+        });
+      }
+    }
+  }
+
+  wireConfirmToggle('facture-delete-toggle-btn', 'facture-delete-confirm', 'facture-delete-cancel');
+});
+</script>
+{% endblock %}

@@ -3,6 +3,10 @@ production/models.py
 
 Captures the transformation of live birds from a lot into finished products
 (produits finis) and their entry into finished-goods stock.
+
+  - TypeProduitFini : dynamic finished-product types (seeded via data migration)
+  - ProduitFini     : finished-goods catalogue (unite_mesure FK lives on
+                      intrants.UniteMesure, shared with intrants.Intrant)
 """
 
 from django.db import models
@@ -10,49 +14,63 @@ from django.core.validators import MinValueValidator
 from django.conf import settings
 
 
+class TypeProduitFini(models.Model):
+    """
+    User-manageable finished-product types.
+    Seeded: VOLAILLE_VIVANTE, CARCASSE, DECOUPE, ABATS, OEUFS, FERTILISANT,
+    AUTRE.
+
+    The `code` field is the stable programmatic key used in business-logic
+    guards (e.g. TraitementFertilisant.produit_fini is restricted to the
+    FERTILISANT type via limit_choices_to={"type_produit__code": "FERTILISANT"}).
+    Administrators may add types but should NOT rename the seven seed codes.
+    """
+
+    code = models.CharField(
+        max_length=30,
+        unique=True,
+        verbose_name="الرمز",
+        help_text="مفتاح ثابت: VOLAILLE_VIVANTE, CARCASSE, DECOUPE, ABATS, "
+        "OEUFS, FERTILISANT, AUTRE — لا تعيد تسميته.",
+    )
+    libelle = models.CharField(max_length=150, verbose_name="التسمية")
+    ordre = models.PositiveSmallIntegerField(default=0, verbose_name="ترتيب العرض")
+    actif = models.BooleanField(default=True, verbose_name="نشط")
+
+    class Meta:
+        verbose_name = "نوع منتج نهائي"
+        verbose_name_plural = "أنواع المنتجات النهائية"
+        ordering = ["ordre", "libelle"]
+
+    def __str__(self):
+        return self.libelle
+
+
 class ProduitFini(models.Model):
     """
     Catalogue of all finished product types the farm can produce.
     Stock balance is maintained in stock.StockProduitFini (one-to-one).
+
+    `type_produit` is a FK to TypeProduitFini.  Business-logic guards that
+    previously compared type_produit == "fertilisant" must now compare
+    type_produit.code == "FERTILISANT" (stable seed code).
+
+    `unite_mesure` is a FK to intrants.UniteMesure (shared with
+    intrants.Intrant).  Code that previously compared unite_mesure == "kg"
+    must now compare unite_mesure.code == "KG".
     """
 
-    TYPE_VOLAILLE_VIVANTE = "volaille_vivante"
-    TYPE_CARCASSE = "carcasse"
-    TYPE_DECOUPE = "decoupe"
-    TYPE_ABATS = "abats"
-    TYPE_OEUFS = "oeufs"
-    TYPE_FERTILISANT = "fertilisant"
-    TYPE_AUTRE = "autre"
-
-    TYPE_CHOICES = [
-        (TYPE_VOLAILLE_VIVANTE, "دواجن حية"),
-        (TYPE_CARCASSE, "ذبيحة كاملة"),
-        (TYPE_DECOUPE, "قطع"),
-        (TYPE_ABATS, "مخلفات الذبح"),
-        (TYPE_OEUFS, "بيض"),
-        (TYPE_FERTILISANT, "سماد معالج"),
-        (TYPE_AUTRE, "أخرى"),
-    ]
-
-    UNITE_CHOICES = [
-        ("unite", "وحدة / رأس"),
-        ("kg", "كيلوغرام (كغ)"),
-        ("plateau", "صينية"),
-        ("caisse", "صندوق"),
-        ("paquet", "طرد"),
-    ]
-
     designation = models.CharField(max_length=255, verbose_name="التسمية")
-    type_produit = models.CharField(
-        max_length=30,
-        choices=TYPE_CHOICES,
-        default=TYPE_VOLAILLE_VIVANTE,
+    type_produit = models.ForeignKey(
+        TypeProduitFini,
+        on_delete=models.PROTECT,
+        related_name="produits_finis",
         verbose_name="نوع المنتج",
     )
-    unite_mesure = models.CharField(
-        max_length=20,
-        choices=UNITE_CHOICES,
-        default="unite",
+    unite_mesure = models.ForeignKey(
+        "intrants.UniteMesure",
+        on_delete=models.PROTECT,
+        related_name="produits_finis",
         verbose_name="وحدة القياس",
     )
     prix_vente_defaut = models.DecimalField(
@@ -70,10 +88,10 @@ class ProduitFini(models.Model):
     class Meta:
         verbose_name = "منتج نهائي"
         verbose_name_plural = "المنتجات النهائية"
-        ordering = ["type_produit", "designation"]
+        ordering = ["type_produit__ordre", "designation"]
 
     def __str__(self):
-        return f"{self.get_type_produit_display()} — {self.designation}"
+        return f"{self.type_produit.libelle} — {self.designation}"
 
     @property
     def quantite_en_stock(self):
@@ -398,7 +416,7 @@ class TraitementFertilisant(models.Model):
         on_delete=models.PROTECT,
         related_name="traitements_fertilisant",
         verbose_name="المنتج النهائي (السماد)",
-        limit_choices_to={"type_produit": ProduitFini.TYPE_FERTILISANT},
+        limit_choices_to={"type_produit__code": "FERTILISANT"},
     )
     quantite_obtenue_kg = models.DecimalField(
         max_digits=12,

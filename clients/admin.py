@@ -2,15 +2,18 @@
 clients/admin.py
 
 Admin registration for the client AR cycle:
-  Client, BLClient, BLClientLigne, FactureClient,
+  TypeClient, Client, BLClient, BLClientLigne, FactureClient,
   PaiementClient, PaiementClientAllocation
 """
 
 from django.contrib import admin
 from django.utils.html import format_html
 
+from import_export.admin import ImportExportModelAdmin
+
 from core.admin import BrancheScopedAdminMixin
 from clients.models import (
+    TypeClient,
     Client,
     BLClient,
     BLClientLigne,
@@ -21,6 +24,19 @@ from clients.models import (
     VoyageLivraison,
     LivraisonPartielle,
     PrixMarche,
+)
+from clients.resources import (
+    TypeClientResource,
+    ClientResource,
+    BLClientResource,
+    BLClientLigneResource,
+    FactureClientResource,
+    PaiementClientResource,
+    PaiementClientAllocationResource,
+    AbonnementClientResource,
+    VoyageLivraisonResource,
+    LivraisonPartielleResource,
+    PrixMarcheResource,
 )
 
 # ---------------------------------------------------------------------------
@@ -89,12 +105,37 @@ class FactureAllocationInline(admin.TabularInline):
 
 
 # ---------------------------------------------------------------------------
+# TypeClient
+# ---------------------------------------------------------------------------
+
+
+@admin.register(TypeClient)
+class TypeClientAdmin(ImportExportModelAdmin):
+    resource_classes = [TypeClientResource]
+
+    list_display = ("libelle", "code", "ordre", "actif")
+    list_filter = ("actif",)
+    search_fields = ("code", "libelle")
+    list_editable = ("ordre", "actif")
+    ordering = ("ordre", "libelle")
+
+    def get_readonly_fields(self, request, obj=None):
+        # Seed codes must not be renamed
+        if obj and obj.code in (
+            "GROSSISTE", "DETAILLANT", "RESTAURATION", "PARTICULIER", "AUTRE",
+        ):
+            return ("code",)
+        return ()
+
+
+# ---------------------------------------------------------------------------
 # Client
 # ---------------------------------------------------------------------------
 
 
 @admin.register(Client)
-class ClientAdmin(admin.ModelAdmin):
+class ClientAdmin(ImportExportModelAdmin):
+    resource_classes = [ClientResource]
     list_display = (
         "nom",
         "type_client",
@@ -106,6 +147,7 @@ class ClientAdmin(admin.ModelAdmin):
     )
     list_filter = ("actif", "type_client", "wilaya")
     search_fields = ("nom", "nif", "rc", "telephone", "email")
+    autocomplete_fields = ("type_client",)
     readonly_fields = (
         "created_at",
         "updated_at",
@@ -158,7 +200,7 @@ class ClientAdmin(admin.ModelAdmin):
 
     @admin.display(description="Créance globale (DZD)")
     def creance_globale_dzd(self, obj):
-        val = obj.creance_globale
+        val = obj.creance_globale()
         if val > 0:
             return format_html(
                 '<span style="color:red;font-weight:bold">{} DZD</span>', f"{val:,.2f}"
@@ -176,7 +218,8 @@ class ClientAdmin(admin.ModelAdmin):
 
 
 @admin.register(BLClient)
-class BLClientAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
+class BLClientAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
+    resource_classes = [BLClientResource]
     list_display = (
         "reference",
         "branche",
@@ -246,7 +289,14 @@ class BLClientAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         base = list(self.readonly_fields)
         if obj and obj.est_verrouille:
-            base += ["reference", "branche", "client", "date_bl", "adresse_livraison", "statut"]
+            base += [
+                "reference",
+                "branche",
+                "client",
+                "date_bl",
+                "adresse_livraison",
+                "statut",
+            ]
         return base
 
     def has_delete_permission(self, request, obj=None):
@@ -256,7 +306,8 @@ class BLClientAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(BLClientLigne)
-class BLClientLigneAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
+class BLClientLigneAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
+    resource_classes = [BLClientLigneResource]
     branche_lookup = "bl__branche"
 
     list_display = (
@@ -282,7 +333,8 @@ class BLClientLigneAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(FactureClient)
-class FactureClientAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
+class FactureClientAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
+    resource_classes = [FactureClientResource]
     list_display = (
         "reference",
         "branche",
@@ -389,6 +441,27 @@ class FactureClientAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
             base += ["reference", "branche", "client", "bls", "taux_tva"]
         return base
 
+    # -----------------------------------------------------------------
+    # Cascade delete — a plain .delete() would hit ProtectedError because
+    # PaiementClientAllocation.facture/.paiement are both on_delete=PROTECT.
+    # Route Django admin's delete actions through the same admin-only
+    # cascade used by the app's own "Supprimer" button
+    # (clients.utils.supprimer_facture_client_cascade), which also deletes
+    # the invoice's BLs, reverses their stock effect, and deletes any
+    # paiement that paid it.
+    # -----------------------------------------------------------------
+
+    def delete_model(self, request, obj):
+        from clients.utils import supprimer_facture_client_cascade
+
+        supprimer_facture_client_cascade(obj)
+
+    def delete_queryset(self, request, queryset):
+        from clients.utils import supprimer_facture_client_cascade
+
+        for facture in queryset:
+            supprimer_facture_client_cascade(facture)
+
 
 # ---------------------------------------------------------------------------
 # PaiementClient
@@ -396,7 +469,8 @@ class FactureClientAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(PaiementClient)
-class PaiementClientAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
+class PaiementClientAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
+    resource_classes = [PaiementClientResource]
     list_display = (
         "branche",
         "client",
@@ -483,7 +557,11 @@ class PaiementClientAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(PaiementClientAllocation)
-class PaiementClientAllocationAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
+class PaiementClientAllocationAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
+    # Export-only — has_add_permission below blocks the import button too,
+    # since these allocations are only ever created via clean() on the model
+    # (BR-FAC-03) and are immutable afterwards.
+    resource_classes = [PaiementClientAllocationResource]
     branche_lookup = "paiement__branche"
 
     list_display = ("paiement", "facture", "montant_alloue")
@@ -520,7 +598,8 @@ class LivraisonPartielleInline(admin.TabularInline):
 
 
 @admin.register(AbonnementClient)
-class AbonnementClientAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
+class AbonnementClientAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
+    resource_classes = [AbonnementClientResource]
     list_display = (
         "branche",
         "client",
@@ -602,7 +681,8 @@ class AbonnementClientAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(VoyageLivraison)
-class VoyageLivraisonAdmin(admin.ModelAdmin):
+class VoyageLivraisonAdmin(ImportExportModelAdmin):
+    resource_classes = [VoyageLivraisonResource]
     list_display = (
         "date_voyage",
         "chauffeur",
@@ -633,7 +713,8 @@ class VoyageLivraisonAdmin(admin.ModelAdmin):
 
 
 @admin.register(LivraisonPartielle)
-class LivraisonPartielleAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
+class LivraisonPartielleAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
+    resource_classes = [LivraisonPartielleResource]
     branche_lookup = "abonnement__branche"
 
     list_display = ("abonnement", "voyage", "date", "quantite_livree")
@@ -678,7 +759,8 @@ class LivraisonPartielleAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(PrixMarche)
-class PrixMarcheAdmin(admin.ModelAdmin):
+class PrixMarcheAdmin(ImportExportModelAdmin):
+    resource_classes = [PrixMarcheResource]
     list_display = (
         "date",
         "produit_fini",

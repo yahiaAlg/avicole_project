@@ -44,10 +44,16 @@ Business rules enforced here:
              the one for THAT branche (stock is keyed by (branche, produit
              fini), not by produit fini alone). LivraisonPartielle has no
              stored branche — it inherits it from its parent abonnement.
+
+Also exposes ``annuler_sortie_stock_bl_client`` (not a signal — a helper
+called directly by clients.utils.supprimer_facture_client_cascade) which
+reverses the stock decrease made for a BL Client when an admin hard-deletes
+a FactureClient along with its BLs and paiements.
 """
 
 import logging
 from decimal import Decimal, ROUND_HALF_UP
+import datetime
 
 from django.db.models.signals import post_save, pre_save, m2m_changed, pre_delete
 from django.dispatch import receiver
@@ -132,6 +138,67 @@ def bl_client_post_save(sender, instance, created, **kwargs):
             reference_label=instance.reference,
             reference_id=instance.pk,
             branche=instance.branche,
+        )
+
+
+def annuler_sortie_stock_bl_client(instance):
+    """
+    ADMIN-ONLY reversal counterpart to ``_appliquer_sortie_stock_produit_fini``.
+
+    Increases StockProduitFini.quantite back up and logs a corrective
+    StockMouvement (ENTREE) for every ligne of a BL Client that previously
+    triggered a stock decrease (i.e. was LIVRE/FACTURE). Called exclusively
+    by ``clients.utils.supprimer_facture_client_cascade`` right before the
+    BL itself is deleted, as part of an admin-triggered hard delete of a
+    FactureClient (and everything it created).
+
+    Mirrors the existing ``livraison_partielle_pre_delete`` reversal pattern
+    (same direction of correction, same source category kept for audit
+    continuity).
+    """
+    from stock.models import StockProduitFini, StockMouvement
+
+    lignes = instance.lignes.select_related("produit_fini").all()
+
+    for ligne in lignes:
+        produit_fini = ligne.produit_fini
+
+        stock, _ = StockProduitFini.objects.get_or_create(
+            branche=instance.branche,
+            produit_fini=produit_fini,
+            defaults={
+                "quantite": Decimal("0"),
+                "cout_moyen_production": Decimal("0"),
+                "seuil_alerte": Decimal("0"),
+            },
+        )
+
+        quantite_avant = stock.quantite
+        stock.quantite = stock.quantite + ligne.quantite
+        stock.save(update_fields=["quantite", "derniere_mise_a_jour"])
+
+        StockMouvement.objects.create(
+            branche=instance.branche,
+            produit_fini=produit_fini,
+            type_mouvement=StockMouvement.TYPE_ENTREE,
+            source=StockMouvement.SOURCE_BL_CLIENT,
+            quantite=ligne.quantite,
+            quantite_avant=quantite_avant,
+            quantite_apres=stock.quantite,
+            date_mouvement=datetime.date.today(),
+            reference_id=instance.pk,
+            reference_label=f"Annulation {instance.reference} (suppression admin)",
+            created_by=None,
+        )
+
+        logger.info(
+            "Stock reversal (admin delete): produit_fini pk=%s +%s → %s "
+            "(branche=%s). BL Client %s.",
+            produit_fini.pk,
+            ligne.quantite,
+            stock.quantite,
+            instance.branche.code,
+            instance.reference,
         )
 
 
