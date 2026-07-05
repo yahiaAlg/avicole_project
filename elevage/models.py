@@ -304,7 +304,13 @@ class LotElevage(models.Model):
     def stade_intrant_attendu(self):
         """
         Maps the lot's current building type to the Intrant.stade it should
-        be consuming. Poulailler covers both grow-out and laying birds —
+        be consuming. Only two finished feeds actually exist in the catalogue
+        — "Aliment Démarrage Poussin" (STADE_DEMARRAGE) and "Aliment Ponte
+        Poule" (STADE_PONTE); there is no STADE_CROISSANCE feed. Poulailler
+        lots (grow-out/laying, past the poussinière stage) therefore map to
+        STADE_PONTE, the only finished feed available to them — mapping them
+        to STADE_CROISSANCE left the consumption dropdown empty for every
+        poulailler lot since nothing in the catalogue carries that stade.
         ConsommationForm narrows further by also allowing STADE_TOUS items.
         """
         from intrants.models import Batiment, Intrant
@@ -313,7 +319,7 @@ class LotElevage(models.Model):
             return Intrant.STADE_TOUS
         mapping = {
             Batiment.TYPE_POUSSINIERE: Intrant.STADE_DEMARRAGE,
-            Batiment.TYPE_POULAILLER: Intrant.STADE_CROISSANCE,
+            Batiment.TYPE_POULAILLER: Intrant.STADE_PONTE,
         }
         return mapping.get(self.batiment.type_batiment, Intrant.STADE_TOUS)
 

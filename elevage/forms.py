@@ -186,7 +186,11 @@ class MortaliteForm(forms.ModelForm):
 
 class ConsommationForm(forms.ModelForm):
     """
-    Record daily feed or medicine consumption attributed to a lot.
+    Record daily feed consumption attributed to a lot.
+
+    Intrant choices are restricted to catégorie ALIMENT (finished feed only)
+    — médicaments, vaccins, vitamines, antibiotiques and désinfectants are
+    also `consommable_en_lot`, but they aren't feed and don't belong here.
 
     Business rules enforced here:
       BR-LOT-03  : lot must be open.
@@ -213,11 +217,25 @@ class ConsommationForm(forms.ModelForm):
         if branche:
             lot_qs = lot_qs.filter(branche=branche)
         self.fields["lot"].queryset = lot_qs
-        # Only consumable intrants (feed, medicine) are allowed.
+        # This form is for FEED only — médicaments / vaccins / vitamines /
+        # antibiotiques / désinfectants are consommable_en_lot=True too (they
+        # can be attributed to a lot), but they don't belong in *this*
+        # dropdown: it only lists what a lot eats, i.e. catégorie ALIMENT.
         intrant_qs = Intrant.objects.filter(
-            categorie__consommable_en_lot=True,
+            categorie__code="ALIMENT",
             actif=True,
         ).select_related("categorie")
+        # A lot only ever consumes a *finished* feed (e.g. "Aliment Démarrage
+        # Poussin") — never a raw ingredient (MAIS, SOJA, Phosphate, CMV…)
+        # that only exists to be milled into one via
+        # FormuleAliment/ProductionAliment. Both share the same ALIMENT
+        # catégorie, so raw ingredients are told apart here as "any ALIMENT
+        # intrant that appears as a FormuleAlimentLigne component somewhere"
+        # and excluded from this dropdown.
+        raw_ingredient_ids = FormuleAlimentLigne.objects.values_list(
+            "intrant_id", flat=True
+        ).distinct()
+        intrant_qs = intrant_qs.exclude(pk__in=raw_ingredient_ids)
         if lot:
             # Narrow further to the lot's current life-stage (chicks vs grown
             # birds) — items flagged STADE_TOUS remain available everywhere.
@@ -245,7 +263,13 @@ class ConsommationForm(forms.ModelForm):
             )
 
         if intrant and quantite:
-            stock_dispo = intrant.quantite_en_stock
+            # v1.4 (BR-BRA-07): Intrant.quantite_en_stock() takes an optional
+            # `branche` — omitting it sums stock across every branch, but a
+            # Consommation can only ever draw from its own lot's branche, so
+            # it must be passed explicitly here.
+            stock_dispo = intrant.quantite_en_stock(
+                branche=lot.branche if lot else None
+            )
             # On update, add back the already-recorded quantity.
             if self.instance and self.instance.pk:
                 if self.instance.intrant_id == intrant.pk:
@@ -518,20 +542,45 @@ class FormuleAlimentLigneForm(forms.ModelForm):
             "proportion_kg": forms.NumberInput(attrs={"step": "0.001", "min": "0.001"}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, parent_formule=None, **kwargs):
         super().__init__(*args, **kwargs)
-        # Ingredients are raw intrants — excluding ALIMENT avoids a feed
-        # recipe nonsensically listing another finished feed as its own
-        # component.
-        self.fields["intrant"].queryset = Intrant.objects.filter(actif=True).exclude(
-            categorie__code="ALIMENT"
+        # Ingredients can be ANY active intrant — including raw feed
+        # components (MAIS, SOJA, Phosphate, CMV…), which are themselves
+        # catégorie ALIMENT — EXCEPT another *finished* feed (an intrant
+        # already produced by some FormuleAliment), since that would let a
+        # recipe list a finished feed as its own component. Excluding the
+        # whole ALIMENT category here was the bug: it hid every raw
+        # ingredient too, leaving only vitamines/médicaments/vaccins in the
+        # dropdown.
+        excluded_ids = set(
+            FormuleAliment.objects.exclude(
+                pk=parent_formule.pk if parent_formule and parent_formule.pk else None
+            ).values_list("intrant_produit_id", flat=True)
         )
+        if parent_formule and parent_formule.intrant_produit_id:
+            excluded_ids.add(parent_formule.intrant_produit_id)
+        self.fields["intrant"].queryset = Intrant.objects.filter(actif=True).exclude(
+            pk__in=excluded_ids
+        )
+
+
+class FormuleAlimentLigneFormSetBase(forms.BaseInlineFormSet):
+    """Feeds `parent_formule` (the FormuleAliment being edited/created) down
+    to every child FormuleAlimentLigneForm so it can exclude that recipe's
+    own output feed from its ingredient choices — see
+    FormuleAlimentLigneForm.__init__."""
+
+    def get_form_kwargs(self, index):
+        kwargs = super().get_form_kwargs(index)
+        kwargs["parent_formule"] = self.instance
+        return kwargs
 
 
 FormuleAlimentLigneFormSet = inlineformset_factory(
     FormuleAliment,
     FormuleAlimentLigne,
     form=FormuleAlimentLigneForm,
+    formset=FormuleAlimentLigneFormSetBase,
     extra=3,
     can_delete=True,
 )
@@ -560,7 +609,9 @@ class ProductionAlimentForm(forms.ModelForm):
         widgets = {
             "date": forms.DateInput(attrs={"type": "date"}),
             "notes": forms.Textarea(attrs={"rows": 2}),
-            "quantite_produite_kg": forms.NumberInput(attrs={"step": "0.001", "min": "0.001"}),
+            "quantite_produite_kg": forms.NumberInput(
+                attrs={"step": "0.001", "min": "0.001"}
+            ),
             "prix_unitaire": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
         }
 
@@ -574,8 +625,7 @@ class ProductionAlimentForm(forms.ModelForm):
         self.fields["prix_unitaire"].required = False
         self.fields["prix_unitaire"].label = "سعر الوحدة (د.ج/كغ) — اختياري"
         self.fields["prix_unitaire"].help_text = (
-            "اترك 0 إن كنت تستعمل تركيبة — تُحسب التكلفة تلقائياً من "
-            "مكوّناتها."
+            "اترك 0 إن كنت تستعمل تركيبة — تُحسب التكلفة تلقائياً من " "مكوّناتها."
         )
         if branche:
             self.fields["branche"].initial = branche
@@ -590,7 +640,11 @@ class ProductionAlimentForm(forms.ModelForm):
         cleaned = super().clean()
         formule = cleaned.get("formule")
         intrant_produit = cleaned.get("intrant_produit")
-        if formule and intrant_produit and formule.intrant_produit_id != intrant_produit.pk:
+        if (
+            formule
+            and intrant_produit
+            and formule.intrant_produit_id != intrant_produit.pk
+        ):
             raise ValidationError(
                 "التركيبة المختارة تُنتج علفاً مختلفاً عن العلف المحدد."
             )
@@ -608,7 +662,15 @@ class RetraitOeufsForm(forms.ModelForm):
 
     class Meta:
         model = RetraitOeufs
-        fields = ["branche", "lot", "date", "quantite_oeufs", "motif", "destinataire", "notes"]
+        fields = [
+            "branche",
+            "lot",
+            "date",
+            "quantite_oeufs",
+            "motif",
+            "destinataire",
+            "notes",
+        ]
         widgets = {
             "date": forms.DateInput(attrs={"type": "date"}),
             "notes": forms.Textarea(attrs={"rows": 2}),

@@ -93,7 +93,8 @@
             <div id="lignes-container">
               {% for lform in formset %}
               <div class="ligne-row {% if lform.non_field_errors %}has-error{% endif %}" data-ligne-row>
-                {% if lform.instance.pk %}{{ lform.id }}{% endif %}
+                {{ lform.id }}
+                {{ lform.DELETE }}
                 <div class="ligne-field ligne-field--intrant">
                   {{ lform.intrant }}
                   {% if lform.intrant.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ lform.intrant.errors|join:", " }}</div>{% endif %}
@@ -103,12 +104,9 @@
                   {% if lform.proportion_kg.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ lform.proportion_kg.errors|join:", " }}</div>{% endif %}
                 </div>
                 <div class="ligne-field ligne-field--del">
-                  {% if lform.DELETE %}
-                  <label class="del-check" title="حذف هذا المكوّن">
-                    {{ lform.DELETE }}
+                  <button type="button" class="remove-ligne-btn" title="حذف هذا المكوّن">
                     <i class="bx bxs-trash"></i>
-                  </label>
-                  {% endif %}
+                  </button>
                 </div>
               </div>
               {% endfor %}
@@ -117,9 +115,15 @@
             <!-- Hidden template for JS-cloned new rows -->
             <template id="empty-ligne-template">
               <div class="ligne-row" data-ligne-row>
+                {{ formset.empty_form.id }}
+                {{ formset.empty_form.DELETE }}
                 <div class="ligne-field ligne-field--intrant">{{ formset.empty_form.intrant }}</div>
                 <div class="ligne-field ligne-field--qte">{{ formset.empty_form.proportion_kg }}</div>
-                <div class="ligne-field ligne-field--del"></div>
+                <div class="ligne-field ligne-field--del">
+                  <button type="button" class="remove-ligne-btn" title="حذف هذا المكوّن">
+                    <i class="bx bxs-trash"></i>
+                  </button>
+                </div>
               </div>
             </template>
           </div>
@@ -177,11 +181,12 @@
   .ligne-field--del { width:34px;display:flex;align-items:center;justify-content:center;padding-top:8px; }
   .ligne-row select, .ligne-row input[type="number"] { width:100%;background:var(--bg-app, var(--bg-surface));border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13px;padding:9px 11px; }
   .ligne-row select:focus, .ligne-row input[type="number"]:focus { border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.15);outline:none; }
-  .del-check { display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--radius-sm);cursor:pointer;color:#dc2626;transition:background .12s; }
-  .del-check:hover { background:rgba(239,68,68,.08); }
-  .del-check input { display:none; }
-  .del-check input:checked ~ i { color:#7c3aed; }
-  .ligne-row.marked-delete { opacity:.4; }
+  /* Deletion is handled entirely via JS (remove-ligne-btn) — the real Django
+     DELETE checkbox stays in the DOM only so an existing row's id can be
+     paired with a hidden DELETE=on input at removal time; never shown. */
+  input[name$="-DELETE"] { display:none; }
+  .remove-ligne-btn { display:flex;align-items:center;justify-content:center;width:32px;height:32px;border:none;border-radius:var(--radius-sm);background:transparent;cursor:pointer;color:#dc2626;transition:background .12s; }
+  .remove-ligne-btn:hover { background:rgba(239,68,68,.08); }
 </style>
 {% endblock %}
 
@@ -192,8 +197,10 @@ document.addEventListener('DOMContentLoaded', function () {
   const addBtn = document.getElementById('add-ligne');
   const totalForms = document.getElementById('id_{{ formset.prefix }}-TOTAL_FORMS');
   const emptyTemplate = document.getElementById('empty-ligne-template');
+  if (!container || !totalForms) return;
 
-  if (addBtn && container && totalForms && emptyTemplate) {
+  /* ── Add new line ── */
+  if (addBtn && emptyTemplate) {
     addBtn.addEventListener('click', function () {
       const formIndex = parseInt(totalForms.value, 10);
       const html = emptyTemplate.innerHTML.replace(/__prefix__/g, formIndex);
@@ -204,11 +211,30 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Visually grey out a row when its "delete" checkbox is ticked.
-  container.addEventListener('change', function (e) {
-    if (e.target.matches('input[type="checkbox"][name$="-DELETE"]')) {
-      const row = e.target.closest('[data-ligne-row]');
-      if (row) row.classList.toggle('marked-delete', e.target.checked);
+  /* ── Remove line — the row disappears entirely (no grey/half-opacity
+     "marked for deletion" state). A saved row (non-empty "-id" hidden
+     input) can't be pulled out of the DOM outright or its hidden id/
+     DELETE inputs would never reach the server; instead we tick the
+     already-rendered (display:none) DELETE checkbox and hide the row —
+     visually identical to a real removal, but still submits correctly so
+     Django deletes it server-side. An unsaved row (blank "-id") never
+     reached the DB, so there's nothing to mark: just decrement
+     TOTAL_FORMS and drop it from the DOM. ── */
+  container.addEventListener('click', function (e) {
+    const btn = e.target.closest('.remove-ligne-btn');
+    if (!btn) return;
+    const row = btn.closest('[data-ligne-row]');
+    if (!row) return;
+
+    const idInput = row.querySelector('input[name$="-id"]');
+    const deleteChk = row.querySelector('input[name$="-DELETE"]');
+
+    if (idInput && idInput.value && deleteChk) {
+      deleteChk.checked = true;
+      row.style.display = 'none';
+    } else {
+      totalForms.value = Math.max(0, parseInt(totalForms.value, 10) - 1);
+      row.remove();
     }
   });
 });

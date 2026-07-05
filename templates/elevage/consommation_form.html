@@ -258,8 +258,9 @@ document.addEventListener('DOMContentLoaded', function () {
   const uniteSuffix   = document.getElementById('unite-suffix');
   const submitBtn     = document.getElementById('submit-btn');
 
-  /* Build base URL: replace trailing '0' segment from the template URL */
-  const urlBase = document.getElementById('js-stock-url-base').dataset.url.replace('/0/', '/');
+  /* Build base URL: strip the trailing '0/stock.json' placeholder segment
+     from the template URL, leaving just the path up to the pk. */
+  const urlBase = document.getElementById('js-stock-url-base').dataset.url.replace('/0/stock.json', '/');
 
   let currentStock = null;
   let currentUnite = '';

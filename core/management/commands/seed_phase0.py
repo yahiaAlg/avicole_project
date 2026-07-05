@@ -20,8 +20,11 @@ management/commands/seed_phase0.py
                           Khabchache Moussa
     • Client (4)       — IDIR AMBULANT BEJAIA, samir bejia, MOUHAMAD KALAI,
                           ETS BOUAOUDIA
-    • Intrant (49)     — كتاكيت, أعلاف (MAIS/SOJA/Phosphate/CMV×2/Sanvital),
-                          répartis désormais sur 5 catégories dédiées :
+    • Intrant (51)     — كتاكيت, أعلاف خام (MAIS/SOJA/Phosphate/CMV×2/Sanvital)
+                          + علفان جاهزان (Aliment Démarrage Poussin،
+                          Aliment Ponte Poule) يُصنَّعان داخلياً عبر
+                          ProductionAliment, répartis désormais sur 5
+                          catégories dédiées :
                           VACCIN (Variant, NDIB, LTI, ND, H120, D78, H9, H5,
                           EDS), VITAMINE (Watervit, Bplus, Vit C, Ultravit,
                           Anylite C, Artimix, Respimint, Stressvit,
@@ -32,6 +35,10 @@ management/commands/seed_phase0.py
                           Desinfectant), MEDICAMENT (Aldekol, mastersorb,
                           Amprol, Piperazine, Toxidren, Zinc, Lumans,
                           Vemarom)
+    • FormuleAliment (2) — « Démarrage Poussin — standard » et
+                          « Ponte Poule — standard », composées uniquement
+                          de matières premières (MAIS/SOJA/Phosphate/CMV/
+                          Sanvital) — jamais de l'aliment fini lui-même.
 
 ما لا يتم إنشاؤه هنا (يُسجَّل يدوياً عبر الواجهة — branch-scoped) :
     • Bâtiments (STOCK › Bâtiments › Nouveau) — nécessitent une Branche explicite
@@ -85,7 +92,8 @@ class Command(BaseCommand):
 
         fournisseurs = self._seed_fournisseurs()
         self._seed_clients()
-        self._seed_intrants(fournisseurs)
+        intrants = self._seed_intrants(fournisseurs)
+        self._seed_formules_aliment(intrants)
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -107,7 +115,9 @@ class Command(BaseCommand):
         )
         from intrants.models import Intrant, Fournisseur
         from clients.models import Client
+        from elevage.models import FormuleAliment
 
+        FormuleAliment.objects.all().delete()
         Intrant.objects.all().delete()
         Fournisseur.objects.all().delete()
         Client.objects.all().delete()
@@ -350,6 +360,24 @@ class Command(BaseCommand):
                 unite_mesure=unite("SAC100"),
                 seuil_alerte=Decimal("1"),
                 fournisseurs=[sanvital],
+            ),
+            # -- Aliments finis (produits en interne via ProductionAliment,
+            #    voir _seed_formules_aliment ci-dessous) -------------------
+            dict(
+                designation="Aliment Démarrage Poussin",
+                categorie=cat("ALIMENT"),
+                stade=Intrant.STADE_DEMARRAGE,
+                unite_mesure=unite("SAC100"),
+                seuil_alerte=Decimal("100"),
+                fournisseurs=[],
+            ),
+            dict(
+                designation="Aliment Ponte Poule",
+                categorie=cat("ALIMENT"),
+                stade=Intrant.STADE_PONTE,
+                unite_mesure=unite("SAC100"),
+                seuil_alerte=Decimal("100"),
+                fournisseurs=[],
             ),
             # -- Medicaments / veterinaire --------------------------------
             dict(
@@ -694,6 +722,7 @@ class Command(BaseCommand):
         ]
 
         created_count = 0
+        objs = {}
         for s in specs:
             m2m_fournisseurs = s.pop("fournisseurs")
             obj, created = Intrant.objects.get_or_create(
@@ -710,7 +739,83 @@ class Command(BaseCommand):
                 obj.fournisseurs.set(m2m_fournisseurs)
             if created:
                 created_count += 1
-        self._log(f"Intrant ({len(specs)})", created_count > 0)  # 49 total
+            objs[s["designation"]] = obj
+        self._log(f"Intrant ({len(specs)})", created_count > 0)  # 51 total
+        return objs
+
+    def _seed_formules_aliment(self, intrants):
+        """Recettes de départ pour les deux alimenents finis semés ci-dessus.
+
+        Chaque FormuleAlimentLigne référence un intrant MATIÈRE PREMIÈRE
+        (maïs, soja, phosphate, CMV/prémix) — jamais l'aliment fini
+        (`intrant_produit`) lui-même : une formule qui se contiendrait comme
+        ingrédient créerait une boucle de stock incohérente (on décompterait
+        le produit fini de son propre stock au moment même où on le
+        crédite). `unique_together = (formule, intrant)` empêcherait de
+        toute façon un doublon, mais on évite ici jusqu'à la possibilité de
+        se tromper de sens.
+        """
+        from elevage.models import FormuleAliment, FormuleAlimentLigne
+
+        mais = intrants["MAIS ARG"]
+        soja = intrants["SOJA"]
+        phosphate = intrants["Phosphate"]
+        cmv_pondeuse = intrants["CMV  PONDEUSE 1.5%"]
+        cmv_pre_pondeuse = intrants["CMV FUTURE PONDEUSE PFP 1.25%"]
+        vitastart = intrants["SANVITAL VITASTART VOLAILE 0.3125%"]
+        aliment_poussin = intrants["Aliment Démarrage Poussin"]
+        aliment_poule = intrants["Aliment Ponte Poule"]
+
+        specs = [
+            dict(
+                nom="Démarrage Poussin — standard",
+                intrant_produit=aliment_poussin,
+                lignes=[
+                    (mais, Decimal("56.000")),
+                    (soja, Decimal("30.000")),
+                    (phosphate, Decimal("3.000")),
+                    (vitastart, Decimal("0.3125")),
+                ],
+            ),
+            dict(
+                nom="Ponte Poule — standard",
+                intrant_produit=aliment_poule,
+                lignes=[
+                    (mais, Decimal("58.000")),
+                    (soja, Decimal("22.000")),
+                    (phosphate, Decimal("4.000")),
+                    (cmv_pondeuse, Decimal("1.500")),
+                    (cmv_pre_pondeuse, Decimal("1.250")),
+                ],
+            ),
+        ]
+
+        created_count = 0
+        for s in specs:
+            # Safety net matching FormuleAliment.clean()-style expectations:
+            # never let the produced feed sneak into its own ingredient list.
+            lignes = [
+                (ingredient, qte)
+                for ingredient, qte in s["lignes"]
+                if ingredient.pk != s["intrant_produit"].pk
+            ]
+
+            formule, created = FormuleAliment.objects.get_or_create(
+                nom=s["nom"],
+                defaults=dict(
+                    intrant_produit=s["intrant_produit"],
+                    actif=True,
+                ),
+            )
+            for ingredient, proportion_kg in lignes:
+                FormuleAlimentLigne.objects.get_or_create(
+                    formule=formule,
+                    intrant=ingredient,
+                    defaults=dict(proportion_kg=proportion_kg),
+                )
+            if created:
+                created_count += 1
+        self._log(f"FormuleAliment ({len(specs)})", created_count > 0)
 
     # ------------------------------------------------------------------
 

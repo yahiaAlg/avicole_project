@@ -53,6 +53,7 @@ from elevage.forms import (
 from elevage.models import (
     Consommation,
     FormuleAliment,
+    FormuleAlimentLigne,
     LotElevage,
     Mortalite,
     PeseeEchantillon,
@@ -993,11 +994,23 @@ def consommation_list(request):
     if branche is not None:
         lots = lots.filter(branche=branche)
     lots = lots.order_by("-date_ouverture")
-    intrants = (
-        Intrant.objects.filter(categorie__consommable_en_lot=True, actif=True)
-        .select_related("categorie")
-        .order_by("designation")
-    )
+    intrants = Intrant.objects.filter(
+        categorie__consommable_en_lot=True, actif=True
+    ).select_related("categorie")
+    # Same rule as ConsommationForm: within catégorie ALIMENT, only the
+    # finished feeds (Aliment Démarrage Poussin / Aliment Ponte Poule) are
+    # ever actually consumed by a lot — raw ingredients only exist to be
+    # milled into one via FormuleAliment, so they're excluded from this
+    # filter too (they'd otherwise list options that never occur in the
+    # Consommation table, since the model itself won't let a lot consume
+    # them, or that would drop this filter out of sync with what the
+    # create form even offers).
+    raw_ingredient_ids = FormuleAlimentLigne.objects.values_list(
+        "intrant_id", flat=True
+    ).distinct()
+    intrants = intrants.exclude(
+        categorie__code="ALIMENT", pk__in=raw_ingredient_ids
+    ).order_by("designation")
 
     return render(
         request,
@@ -1505,9 +1518,11 @@ def formule_aliment_list(request):
     List feed recipes (FormuleAliment). Not branche-scoped — a recipe is a
     shared reference/catalogue entry, same as FormuleAliment itself.
     """
-    formules = FormuleAliment.objects.select_related("intrant_produit").prefetch_related(
-        "lignes__intrant"
-    ).order_by("nom")
+    formules = (
+        FormuleAliment.objects.select_related("intrant_produit")
+        .prefetch_related("lignes__intrant")
+        .order_by("nom")
+    )
 
     return render(
         request,
@@ -1546,9 +1561,12 @@ def formule_aliment_create(request):
                     formset.instance = formule
                     formset.save()
                 messages.success(
-                    request, f"تم إنشاء التركيبة « {formule.nom} ». يمكنك اختيارها الآن."
+                    request,
+                    f"تم إنشاء التركيبة « {formule.nom} ». يمكنك اختيارها الآن.",
                 )
-                logger.info("FormuleAliment pk=%s created by '%s'.", formule.pk, request.user)
+                logger.info(
+                    "FormuleAliment pk=%s created by '%s'.", formule.pk, request.user
+                )
                 return redirect(next_url)
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
         else:
@@ -1584,7 +1602,9 @@ def formule_aliment_edit(request, pk):
                 form.save()
                 formset.save()
             messages.success(request, f"تم تحديث التركيبة « {formule.nom} ».")
-            logger.info("FormuleAliment pk=%s updated by '%s'.", formule.pk, request.user)
+            logger.info(
+                "FormuleAliment pk=%s updated by '%s'.", formule.pk, request.user
+            )
             return redirect(next_url)
         messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
@@ -1695,8 +1715,10 @@ def retrait_oeufs_create(request, lot_pk=None):
                     retrait.quantite_oeufs,
                     request.user,
                 )
-                return redirect("elevage:lot_detail", pk=lot.pk) if lot else redirect(
-                    "elevage:recolte_oeufs_list"
+                return (
+                    redirect("elevage:lot_detail", pk=lot.pk)
+                    if lot
+                    else redirect("elevage:recolte_oeufs_list")
                 )
 
             except Exception as exc:
@@ -1707,7 +1729,9 @@ def retrait_oeufs_create(request, lot_pk=None):
     else:
         import datetime
 
-        form = RetraitOeufsForm(lot=lot, branche=branche, initial={"date": datetime.date.today()})
+        form = RetraitOeufsForm(
+            lot=lot, branche=branche, initial={"date": datetime.date.today()}
+        )
 
     return render(
         request,
