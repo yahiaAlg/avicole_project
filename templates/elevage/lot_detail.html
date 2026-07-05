@@ -295,9 +295,14 @@
         <div class="section-header">
           <span class="section-eyebrow"><i class="bx bxs-droplet" style="font-size:12px;color:var(--accent-text);"></i> الاستهلاكات</span>
           {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
-          <a href="{% url 'elevage:consommation_create' lot.pk %}" class="btn-ghost btn-sm">
-            <i class="bx bx-plus"></i> إدخال
-          </a>
+          <div style="display:flex;gap:8px;">
+            <a href="{% url 'elevage:production_aliment_create' %}" class="btn-ghost btn-sm" title="تزويد مخزون العلف">
+              <i class="bx bxs-package"></i> تزويد المخزون
+            </a>
+            <a href="{% url 'elevage:consommation_create' lot.pk %}" class="btn-ghost btn-sm">
+              <i class="bx bx-plus"></i> إدخال
+            </a>
+          </div>
           {% endif %}
         </div>
         {% if consommations_page.object_list %}

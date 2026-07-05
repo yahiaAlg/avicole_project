@@ -133,6 +133,22 @@ urlpatterns = [
         views.lot_suivi_journalier,
         name="lot_suivi_journalier",
     ),
+    # ── FormuleAliment (recettes d'aliment) ─────────────────────────────
+    path(
+        "formules-aliment/",
+        views.formule_aliment_list,
+        name="formule_aliment_list",
+    ),
+    path(
+        "formules-aliment/creer/",
+        views.formule_aliment_create,
+        name="formule_aliment_create",
+    ),
+    path(
+        "formules-aliment/<int:pk>/modifier/",
+        views.formule_aliment_edit,
+        name="formule_aliment_edit",
+    ),
     # ── ProductionAliment (réapprovisionnement) ─────────────────────────
     path(
         "aliments/produire/",

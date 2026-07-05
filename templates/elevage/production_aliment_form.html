@@ -93,13 +93,20 @@
             <label class="form-label" for="{{ form.formule.id_for_label }}">
               التركيبة <span style="font-size:11px;color:var(--text-muted);font-weight:400;">— اختياري</span>
             </label>
-            <div class="input-wrap">
-              <i class="bx bx-dna input-icon"></i>
-              {{ form.formule }}
+            <div style="display:flex;gap:8px;align-items:stretch;">
+              <div class="input-wrap" style="flex:1;">
+                <i class="bx bx-dna input-icon"></i>
+                {{ form.formule }}
+              </div>
+              <a href="{% url 'elevage:formule_aliment_create' %}?next={{ request.path|urlencode }}"
+                 class="btn-ghost" style="white-space:nowrap;" title="إنشاء تركيبة جديدة">
+                <i class="bx bx-plus"></i> تركيبة جديدة
+              </a>
             </div>
             <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
               إن اخترت تركيبة، تُخصم مكوّناتها (المدخلات الخام) من المخزون تلقائياً بنسبتها من الكمية المدخلة أعلاه.
               اتركها فارغة لإضافة الكمية مباشرة إلى مخزون العلف دون تتبع المكوّنات.
+              لا تظهر أي تركيبة في القائمة؟ <a href="{% url 'elevage:formule_aliment_list' %}">إدارة التركيبات</a>.
             </div>
             {% if form.formule.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.formule.errors|join:", " }}</div>{% endif %}
           </div>

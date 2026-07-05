@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
+{% block nav_lots %}active{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}تركيبة تُحدّد مكوّناتها الخام ونسبها لكل 100 كغ علف ناتج{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{{ next_url }}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> رجوع
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+  <div class="row justify-content-center">
+    <div class="col-xl-8 col-lg-10">
+
+      <div class="form-card">
+        <div class="form-card__header">
+          <div class="form-card__icon" style="background:rgba(124,58,237,.1);color:#7c3aed;">
+            <i class="bx bx-dna"></i>
+          </div>
+          <div>
+            <div class="form-card__title">{{ title }}</div>
+            <div class="form-card__sub">تُستعمل هذه التركيبة عند تزويد/تصنيع علف لخصم مكوّناتها تلقائياً من المخزون</div>
+          </div>
+        </div>
+
+        <form method="post" novalidate>
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ next_url }}">
+          {{ formset.management_form }}
+
+          {% if form.non_field_errors or formset.non_form_errors %}
+          <div class="form-errors-global">
+            <i class="bx bxs-error-circle"></i>
+            <div>
+              {% for err in form.non_field_errors %}<div>{{ err }}</div>{% endfor %}
+              {% for err in formset.non_form_errors %}<div>{{ err }}</div>{% endfor %}
+            </div>
+          </div>
+          {% endif %}
+
+          <div class="row g-3">
+            <div class="col-md-7">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.nom.id_for_label }}">اسم التركيبة <span class="required-star">*</span></label>
+                <div class="input-wrap">
+                  <i class="bx bx-tag input-icon"></i>
+                  {{ form.nom }}
+                </div>
+                {% if form.nom.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.nom.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+            <div class="col-md-5">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.intrant_produit.id_for_label }}">العلف الناتج <span class="required-star">*</span></label>
+                <div class="input-wrap">
+                  <i class="bx bxs-package input-icon"></i>
+                  {{ form.intrant_produit }}
+                </div>
+                {% if form.intrant_produit.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.intrant_produit.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-wrap">
+              {{ form.actif }}
+              <span>نشطة — تظهر في قائمة اختيار التركيبات عند التزويد</span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="{{ form.notes.id_for_label }}">ملاحظات</label>
+            <div class="input-wrap input-wrap--textarea">
+              <i class="bx bx-note input-icon" style="top:14px;transform:none;"></i>
+              {{ form.notes }}
+            </div>
+          </div>
+
+          <!-- Ingredient lines -->
+          <div class="lignes-section">
+            <div class="lignes-header">
+              <span class="section-eyebrow">المكوّنات (كغ لكل 100 كغ علف ناتج)</span>
+              <button type="button" id="add-ligne" class="btn-ghost" style="font-size:12px;padding:7px 12px;">
+                <i class="bx bx-plus"></i> إضافة مكوّن
+              </button>
+            </div>
+
+            <div id="lignes-container">
+              {% for lform in formset %}
+              <div class="ligne-row {% if lform.non_field_errors %}has-error{% endif %}" data-ligne-row>
+                {% if lform.instance.pk %}{{ lform.id }}{% endif %}
+                <div class="ligne-field ligne-field--intrant">
+                  {{ lform.intrant }}
+                  {% if lform.intrant.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ lform.intrant.errors|join:", " }}</div>{% endif %}
+                </div>
+                <div class="ligne-field ligne-field--qte">
+                  {{ lform.proportion_kg }}
+                  {% if lform.proportion_kg.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ lform.proportion_kg.errors|join:", " }}</div>{% endif %}
+                </div>
+                <div class="ligne-field ligne-field--del">
+                  {% if lform.DELETE %}
+                  <label class="del-check" title="حذف هذا المكوّن">
+                    {{ lform.DELETE }}
+                    <i class="bx bxs-trash"></i>
+                  </label>
+                  {% endif %}
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+
+            <!-- Hidden template for JS-cloned new rows -->
+            <template id="empty-ligne-template">
+              <div class="ligne-row" data-ligne-row>
+                <div class="ligne-field ligne-field--intrant">{{ formset.empty_form.intrant }}</div>
+                <div class="ligne-field ligne-field--qte">{{ formset.empty_form.proportion_kg }}</div>
+                <div class="ligne-field ligne-field--del"></div>
+              </div>
+            </template>
+          </div>
+
+          <div class="form-actions">
+            <a href="{{ next_url }}" class="btn-ghost">إلغاء</a>
+            <button type="submit" class="btn-primary">
+              <i class="bx bxs-save"></i> {{ action_label }}
+            </button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .form-card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;animation:fadeIn .3s ease; }
+  .form-card__header { display:flex;align-items:center;gap:14px;margin-bottom:24px;padding-bottom:18px;border-bottom:1px solid var(--border); }
+  .form-card__icon { width:44px;height:44px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0; }
+  .form-card__title { font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;color:var(--text-primary); }
+  .form-card__sub { font-size:12px;color:var(--text-muted);margin-top:2px; }
+  .form-group { margin-bottom:18px; }
+  .form-label { display:block;font-size:12px;font-weight:500;color:var(--text-secondary);letter-spacing:.03em;margin-bottom:6px; }
+  .required-star { color:#dc2626; }
+  .input-wrap { position:relative; }
+  .input-icon { position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none; }
+  .input-wrap input,.input-wrap select,.input-wrap textarea { width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13.5px;padding:11px 40px 11px 13px;transition:border-color .15s,box-shadow .15s;appearance:none;-webkit-appearance:none; }
+  .input-wrap textarea { padding-top:12px;resize:vertical;min-height:64px; }
+  .input-wrap input:focus,.input-wrap select:focus,.input-wrap textarea:focus { border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.15);outline:none; }
+  .input-wrap--textarea .input-icon { top:14px;transform:none; }
+  .field-error { display:flex;align-items:center;gap:5px;font-size:12px;color:#dc2626;margin-top:5px; }
+  .form-errors-global { display:flex;align-items:flex-start;gap:10px;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius-md);padding:12px 16px;margin-bottom:20px;font-size:13px;color:#dc2626; }
+  .form-actions { display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:18px;border-top:1px solid var(--border); }
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 20px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+
+  .checkbox-wrap { display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);cursor:pointer; }
+  .checkbox-wrap input { width:16px;height:16px;accent-color:var(--accent);cursor:pointer; }
+
+  .section-eyebrow { font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted); }
+  .lignes-section { margin-top:6px;margin-bottom:20px;padding-top:18px;border-top:1px solid var(--border); }
+  .lignes-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:12px; }
+  #lignes-container { display:flex;flex-direction:column;gap:8px; }
+  .ligne-row { display:flex;gap:8px;align-items:flex-start;padding:8px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg-surface); }
+  .ligne-row.has-error { border-color:rgba(239,68,68,.4); }
+  .ligne-field { display:flex;flex-direction:column; }
+  .ligne-field--intrant { flex:1; }
+  .ligne-field--qte { width:170px; }
+  .ligne-field--del { width:34px;display:flex;align-items:center;justify-content:center;padding-top:8px; }
+  .ligne-row select, .ligne-row input[type="number"] { width:100%;background:var(--bg-app, var(--bg-surface));border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13px;padding:9px 11px; }
+  .ligne-row select:focus, .ligne-row input[type="number"]:focus { border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.15);outline:none; }
+  .del-check { display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--radius-sm);cursor:pointer;color:#dc2626;transition:background .12s; }
+  .del-check:hover { background:rgba(239,68,68,.08); }
+  .del-check input { display:none; }
+  .del-check input:checked ~ i { color:#7c3aed; }
+  .ligne-row.marked-delete { opacity:.4; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const container = document.getElementById('lignes-container');
+  const addBtn = document.getElementById('add-ligne');
+  const totalForms = document.getElementById('id_{{ formset.prefix }}-TOTAL_FORMS');
+  const emptyTemplate = document.getElementById('empty-ligne-template');
+
+  if (addBtn && container && totalForms && emptyTemplate) {
+    addBtn.addEventListener('click', function () {
+      const formIndex = parseInt(totalForms.value, 10);
+      const html = emptyTemplate.innerHTML.replace(/__prefix__/g, formIndex);
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = html.trim();
+      container.appendChild(wrapper.firstElementChild);
+      totalForms.value = formIndex + 1;
+    });
+  }
+
+  // Visually grey out a row when its "delete" checkbox is ticked.
+  container.addEventListener('change', function (e) {
+    if (e.target.matches('input[type="checkbox"][name$="-DELETE"]')) {
+      const row = e.target.closest('[data-ligne-row]');
+      if (row) row.classList.toggle('marked-delete', e.target.checked);
+    }
+  });
+});
+</script>
+{% endblock %}

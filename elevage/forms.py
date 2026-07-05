@@ -10,6 +10,7 @@ from decimal import Decimal
 from django import forms
 from django.core.exceptions import ValidationError
 from django.db.models import Q
+from django.forms import inlineformset_factory
 
 from elevage.models import (
     LotElevage,
@@ -20,6 +21,7 @@ from elevage.models import (
     PeseeEchantillon,
     ProductionAliment,
     FormuleAliment,
+    FormuleAlimentLigne,
     RetraitOeufs,
 )
 from intrants.models import Intrant, CategorieIntrant, Batiment, Fournisseur
@@ -480,6 +482,59 @@ class RecolteOeufsForm(forms.ModelForm):
                 "Impossible d'enregistrer une récolte d'œufs sur un lot fermé."
             )
         return cleaned
+
+
+class FormuleAlimentForm(forms.ModelForm):
+    """
+    Create/edit a feed recipe (which finished feed it produces + its
+    ingredient lines, handled separately by FormuleAlimentLigneFormSet
+    below). This is what populates the "التركيبة" dropdown on
+    ProductionAlimentForm — that dropdown has nothing to show until at
+    least one FormuleAliment exists.
+    """
+
+    class Meta:
+        model = FormuleAliment
+        fields = ["nom", "intrant_produit", "actif", "notes"]
+        widgets = {
+            "notes": forms.Textarea(attrs={"rows": 2}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["intrant_produit"].queryset = Intrant.objects.filter(
+            categorie__code="ALIMENT", actif=True
+        )
+        self.fields["notes"].required = False
+
+
+class FormuleAlimentLigneForm(forms.ModelForm):
+    """One ingredient row of a FormuleAliment (kg per 100kg produced)."""
+
+    class Meta:
+        model = FormuleAlimentLigne
+        fields = ["intrant", "proportion_kg"]
+        widgets = {
+            "proportion_kg": forms.NumberInput(attrs={"step": "0.001", "min": "0.001"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Ingredients are raw intrants — excluding ALIMENT avoids a feed
+        # recipe nonsensically listing another finished feed as its own
+        # component.
+        self.fields["intrant"].queryset = Intrant.objects.filter(actif=True).exclude(
+            categorie__code="ALIMENT"
+        )
+
+
+FormuleAlimentLigneFormSet = inlineformset_factory(
+    FormuleAliment,
+    FormuleAlimentLigne,
+    form=FormuleAlimentLigneForm,
+    extra=3,
+    can_delete=True,
+)
 
 
 class ProductionAlimentForm(forms.ModelForm):

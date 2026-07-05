@@ -28,6 +28,7 @@ from django.db import transaction
 from django.db.models import Q, Sum
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from core.views import (
@@ -38,6 +39,8 @@ from core.views import (
 )
 from elevage.forms import (
     ConsommationForm,
+    FormuleAlimentForm,
+    FormuleAlimentLigneFormSet,
     LotElevageForm,
     LotFermetureForm,
     MortaliteForm,
@@ -49,6 +52,7 @@ from elevage.forms import (
 )
 from elevage.models import (
     Consommation,
+    FormuleAliment,
     LotElevage,
     Mortalite,
     PeseeEchantillon,
@@ -68,6 +72,7 @@ logger = logging.getLogger(__name__)
 
 LOGIN_URL = "core:login"
 PER_PAGE = 25
+SUIVI_PER_PAGE = 31  # ≈ un mois par page pour le tableau de suivi journalier
 
 
 # ---------------------------------------------------------------------------
@@ -1473,15 +1478,129 @@ def lot_suivi_journalier(request, pk):
     (+ cumul et solde) — see elevage.utils.get_lot_suivi_journalier.
     """
     lot = branche_object_or_404(request, LotElevage, pk=pk)
-    lignes = get_lot_suivi_journalier(lot)
+
+    # get_lot_suivi_journalier returns chronological (oldest → newest) rows
+    # so the running cumulative columns build up correctly. For display we
+    # reverse to most-recent-first — a lot can span hundreds of days, so
+    # without this the operator would have to page all the way through
+    # ancient history before reaching what happened this week.
+    lignes = list(reversed(get_lot_suivi_journalier(lot)))
+    page = _paginate(lignes, request.GET.get("page"), per_page=SUIVI_PER_PAGE)
 
     return render(
         request,
         "elevage/lot_suivi_journalier.html",
         {
             "lot": lot,
+            "page": page,
             "lignes": lignes,
             "title": f"جدول التتبع اليومي — {lot.designation}",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def formule_aliment_list(request):
+    """
+    List feed recipes (FormuleAliment). Not branche-scoped — a recipe is a
+    shared reference/catalogue entry, same as FormuleAliment itself.
+    """
+    formules = FormuleAliment.objects.select_related("intrant_produit").prefetch_related(
+        "lignes__intrant"
+    ).order_by("nom")
+
+    return render(
+        request,
+        "elevage/formule_aliment_list.html",
+        {"formules": formules, "title": "تركيبات العلف"},
+    )
+
+
+def _safe_next_url(request, default):
+    """Only follow an internal ?next= — never an open redirect."""
+    next_url = request.GET.get("next") or request.POST.get("next")
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return next_url
+    return default
+
+
+@login_required(login_url=LOGIN_URL)
+def formule_aliment_create(request):
+    """
+    Create a feed recipe with its ingredient lines. Reached mainly from the
+    "+" shortcut on ProductionAlimentForm's التركيبة field, since that
+    dropdown is empty (and unusable) until at least one recipe exists here.
+    """
+    next_url = _safe_next_url(request, "elevage:formule_aliment_list")
+
+    if request.method == "POST":
+        form = FormuleAlimentForm(request.POST)
+        if form.is_valid():
+            formule = form.save(commit=False)
+            formset = FormuleAlimentLigneFormSet(request.POST, instance=formule)
+            if formset.is_valid():
+                with transaction.atomic():
+                    formule.save()
+                    formset.instance = formule
+                    formset.save()
+                messages.success(
+                    request, f"تم إنشاء التركيبة « {formule.nom} ». يمكنك اختيارها الآن."
+                )
+                logger.info("FormuleAliment pk=%s created by '%s'.", formule.pk, request.user)
+                return redirect(next_url)
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+        else:
+            formset = FormuleAlimentLigneFormSet(request.POST)
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        form = FormuleAlimentForm()
+        formset = FormuleAlimentLigneFormSet()
+
+    return render(
+        request,
+        "elevage/formule_aliment_form.html",
+        {
+            "form": form,
+            "formset": formset,
+            "title": "تركيبة علف جديدة",
+            "action_label": "حفظ التركيبة",
+            "next_url": next_url,
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def formule_aliment_edit(request, pk):
+    formule = get_object_or_404(FormuleAliment, pk=pk)
+    next_url = _safe_next_url(request, "elevage:formule_aliment_list")
+
+    if request.method == "POST":
+        form = FormuleAlimentForm(request.POST, instance=formule)
+        formset = FormuleAlimentLigneFormSet(request.POST, instance=formule)
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                form.save()
+                formset.save()
+            messages.success(request, f"تم تحديث التركيبة « {formule.nom} ».")
+            logger.info("FormuleAliment pk=%s updated by '%s'.", formule.pk, request.user)
+            return redirect(next_url)
+        messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        form = FormuleAlimentForm(instance=formule)
+        formset = FormuleAlimentLigneFormSet(instance=formule)
+
+    return render(
+        request,
+        "elevage/formule_aliment_form.html",
+        {
+            "form": form,
+            "formset": formset,
+            "formule": formule,
+            "title": f"تعديل التركيبة — {formule.nom}",
+            "action_label": "حفظ التعديلات",
+            "next_url": next_url,
         },
     )
 
