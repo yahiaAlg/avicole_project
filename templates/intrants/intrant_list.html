@@ -136,13 +136,13 @@
     {% if page.has_other_pages %}
     <div class="pagination-bar">
       {% if page.has_previous %}
-        <a href="?q={{ q }}&afficher={{ afficher }}&categorie={{ categorie_pk }}&alerte={% if en_alerte_filter %}1{% endif %}&page={{ page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
+        <a href="?q={{ q }}&afficher={{ afficher }}&categorie={{ categorie_pk|default_if_none:"" }}&alerte={% if en_alerte_filter %}1{% endif %}&page={{ page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
       {% else %}
         <span class="page-btn page-btn--disabled"><i class="bx bx-chevron-left"></i></span>
       {% endif %}
       <span class="page-info">صفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
       {% if page.has_next %}
-        <a href="?q={{ q }}&afficher={{ afficher }}&categorie={{ categorie_pk }}&alerte={% if en_alerte_filter %}1{% endif %}&page={{ page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
+        <a href="?q={{ q }}&afficher={{ afficher }}&categorie={{ categorie_pk|default_if_none:"" }}&alerte={% if en_alerte_filter %}1{% endif %}&page={{ page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
       {% else %}
         <span class="page-btn page-btn--disabled"><i class="bx bx-chevron-right"></i></span>
       {% endif %}
@@ -171,7 +171,7 @@
   </div>
 
   <!-- Confirm toggle panel -->
-  <div id="confirm-toggle-panel" class="confirm-panel" style="display:none;">
+  <div id="confirm-toggle-panel" class="confirm-panel hidden">
     <div class="confirm-panel__inner">
       <div class="confirm-panel__icon" id="confirm-icon"><i class="bx bx-block"></i></div>
       <div>
@@ -249,8 +249,8 @@
   .empty-state__title { font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px; }
   .empty-state__body { font-size:13px; }
 
-  .confirm-panel { position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:500;display:flex !important;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s ease; }
-  .confirm-panel[style*="display:none"] { display:none !important; }
+  .confirm-panel { position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s ease; }
+  .confirm-panel.hidden { display:none !important; }
   .confirm-panel__inner { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;max-width:420px;width:100%;display:flex;flex-direction:column;gap:16px;box-shadow:0 8px 32px rgba(0,0,0,.14); }
   .confirm-panel__icon { width:44px;height:44px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:20px;background:rgba(239,68,68,.1);color:#dc2626; }
   .confirm-panel__icon.activate { background:rgba(34,197,94,.12);color:var(--accent-text); }
@@ -273,6 +273,12 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+  // Built from Django's url tag (with a placeholder pk) so this never
+  // drifts out of sync with the real URLconf prefix — see the 404 caused
+  // by a previously hardcoded '/parametres/intrants/...' path that didn't
+  // match where the intrants app is actually mounted.
+  const toggleUrlTemplate = "{% url 'intrants:intrant_toggle_active' 0 %}";
+
   // Auto-submit on select/checkbox change
   ['filter-afficher', 'filter-categorie'].forEach(function (id) {
     const el = document.getElementById(id);
@@ -299,7 +305,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const libelle  = btn.dataset.libelle;
       const isActive = btn.dataset.active === 'true';
       libelleSpan.textContent = libelle;
-      form.action = '/parametres/intrants/' + pk + '/activer/';
+      form.action = toggleUrlTemplate.replace('/0/', '/' + pk + '/');
       if (isActive) {
         panelIcon.className = 'confirm-panel__icon';
         panelIcon.innerHTML = '<i class="bx bx-block"></i>';
@@ -315,12 +321,12 @@ document.addEventListener('DOMContentLoaded', function () {
         submitBtn.textContent = 'تفعيل';
         submitBtn.className = 'btn-success';
       }
-      panel.style.display = '';
+      panel.classList.remove('hidden');
     });
   });
 
-  cancelBtn.addEventListener('click', function () { panel.style.display = 'none'; });
-  panel.addEventListener('click', function (e) { if (e.target === panel) panel.style.display = 'none'; });
+  cancelBtn.addEventListener('click', function () { panel.classList.add('hidden'); });
+  panel.addEventListener('click', function (e) { if (e.target === panel) panel.classList.add('hidden'); });
 });
 </script>
 {% endblock %}

@@ -589,8 +589,13 @@ def intrant_list(request):
 
     # Category filter
     categorie_pk = request.GET.get("categorie")
-    if categorie_pk:
-        qs = qs.filter(categorie_id=categorie_pk)
+    if categorie_pk in (None, "", "None"):
+        categorie_pk = None
+    else:
+        try:
+            qs = qs.filter(categorie_id=int(categorie_pk))
+        except (TypeError, ValueError):
+            categorie_pk = None
 
     # Search
     q = request.GET.get("q", "").strip()
@@ -801,9 +806,7 @@ def fournisseur_intrants_json(request, pk):
     fournisseur = get_object_or_404(Fournisseur, pk=pk)
     intrants = list(
         fournisseur.intrants.filter(actif=True)
-        .values(
-            "id", "designation", "unite_mesure__libelle", "categorie__libelle"
-        )
+        .values("id", "designation", "unite_mesure__libelle", "categorie__libelle")
         .order_by("designation")
     )
     return JsonResponse({"intrants": intrants})

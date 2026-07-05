@@ -75,8 +75,17 @@ class UniteMesureAdmin(ImportExportModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         # Seed codes must not be renamed
         if obj and obj.code in (
-            "KG", "SAC", "UNITE", "LITRE", "FLACON", "DOSE", "ML", "G",
-            "PLATEAU", "CAISSE", "PAQUET",
+            "KG",
+            "SAC",
+            "UNITE",
+            "LITRE",
+            "FLACON",
+            "DOSE",
+            "ML",
+            "G",
+            "PLATEAU",
+            "CAISSE",
+            "PAQUET",
         ):
             return ("code",)
         return ()
@@ -135,7 +144,19 @@ class BatimentAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     autocomplete_fields = ("branche",)
 
     fieldsets = (
-        (None, {"fields": ("nom", "branche", "type_batiment", "categorie_stockage", "capacite", "actif")}),
+        (
+            None,
+            {
+                "fields": (
+                    "nom",
+                    "branche",
+                    "type_batiment",
+                    "categorie_stockage",
+                    "capacite",
+                    "actif",
+                )
+            },
+        ),
         ("Description", {"fields": ("description",), "classes": ("collapse",)}),
     )
 
@@ -250,7 +271,13 @@ class IntrantAdmin(ImportExportModelAdmin):
         (
             "Catalogue",
             {
-                "fields": ("designation", "categorie", "stade", "unite_mesure", "actif"),
+                "fields": (
+                    "designation",
+                    "categorie",
+                    "stade",
+                    "unite_mesure",
+                    "actif",
+                ),
             },
         ),
         (
@@ -278,4 +305,4 @@ class IntrantAdmin(ImportExportModelAdmin):
 
     @admin.display(description="Alerte stock", boolean=True)
     def statut_alerte(self, obj):
-        return obj.en_alerte
+        return obj.en_alerte()
