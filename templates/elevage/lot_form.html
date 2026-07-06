@@ -106,6 +106,13 @@
                 <option value="">— اختر سلالة من الكتالوج —</option>
               </select>
             </div>
+            <div id="stock-zero-notice" class="soft-notice" style="display:none;">
+              <i class="bx bxs-info-circle"></i>
+              <span>رصيد هذه السلالة 0 حالياً — سجّل وصل استلام جديد لتحديث المخزون قبل المتابعة.</span>
+              <a id="stock-zero-notice-link" href="#" target="_blank" rel="noopener" class="soft-notice__btn">
+                <i class="bx bx-plus"></i> وصل استلام جديد
+              </a>
+            </div>
           </div>
 
           <div class="row g-3">
@@ -270,6 +277,42 @@
   .input-wrap input:focus ~ .input-icon,
   .input-wrap select:focus ~ .input-icon { color: var(--accent-text); }
   .input-wrap--textarea .input-icon { top: 14px; transform: none; right: 13px; left: auto; }
+  .input-wrap input[readonly] {
+    background: var(--bg-hover, rgba(148,163,184,.12));
+    color: var(--text-muted);
+    cursor: not-allowed;
+  }
+
+  .soft-notice {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 10px 12px;
+    background: rgba(217,119,6,.09);
+    border: 1px solid rgba(217,119,6,.3);
+    border-radius: var(--radius-md);
+    font-size: 12.5px;
+    color: #92400e;
+  }
+  .soft-notice i { font-size: 15px; flex-shrink: 0; }
+  .soft-notice span { flex: 1 1 auto; }
+  .soft-notice__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    background: #d97706;
+    color: #fff;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background .15s;
+  }
+  .soft-notice__btn:hover { background: #b45309; color: #fff; }
 
   .field-error {
     display: flex; align-items: center; gap: 5px;
@@ -336,6 +379,10 @@ document.addEventListener('DOMContentLoaded', function () {
   const poussinCatalogueSelect = document.getElementById('id_poussin_catalogue');
   const BL_URL = "{% url 'elevage:bl_fournisseur_poussins_json' %}";
   const LOT_PK = "{% if lot %}{{ lot.pk }}{% endif %}";
+  const stockZeroNotice = document.getElementById('stock-zero-notice');
+  const stockZeroNoticeLink = document.getElementById('stock-zero-notice-link');
+  const BL_CREATE_URL = "{% url 'achats:bl_fournisseur_create' %}";
+  const BL_CREATE_FOR_FOURNISSEUR_URL_BASE = "{% url 'achats:bl_fournisseur_create_for_fournisseur' fournisseur_pk=999999999 %}";
 
   if (!designationInput || !dateOuvertureInput || !batimentSelect || !nombreInput) return;
 
@@ -376,11 +423,37 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function updateNombrePoussinsDefault() {
     const item = poussinsCatalogue.find(function (p) { return String(p.id) === poussinCatalogueSelect.value; });
-    if (!item) return;
+    if (!item) {
+      nombreInput.readOnly = false;
+      nombreInput.title = '';
+      if (stockZeroNotice) stockZeroNotice.style.display = 'none';
+      return;
+    }
     const meta = batimentsMeta[batimentSelect.value];
     let suggestion = item.stock;
     if (meta && meta.capacite) suggestion = Math.min(suggestion, meta.capacite);
     nombreInput.value = Math.floor(suggestion);
+
+    // Stock is 0 (or the catalogue item carries no balance at all) — lock the
+    // field at 0 instead of letting the user type a positive number, which
+    // would drive this Intrant's StockIntrant negative once the lot is saved.
+    if (item.stock <= 0) {
+      nombreInput.value = 0;
+      nombreInput.readOnly = true;
+      nombreInput.title = 'الرصيد الحالي 0 — لا يمكن إدخال عدد أكبر من الرصيد المتوفر.';
+      if (stockZeroNotice && stockZeroNoticeLink) {
+        const fournisseurId = fournisseurSelect ? fournisseurSelect.value : '';
+        const baseUrl = fournisseurId
+          ? BL_CREATE_FOR_FOURNISSEUR_URL_BASE.replace('999999999', fournisseurId)
+          : BL_CREATE_URL;
+        stockZeroNoticeLink.href = baseUrl + '?intrant=' + encodeURIComponent(item.id);
+        stockZeroNotice.style.display = 'flex';
+      }
+    } else {
+      nombreInput.readOnly = false;
+      nombreInput.title = '';
+      if (stockZeroNotice) stockZeroNotice.style.display = 'none';
+    }
   }
 
   // ── Fournisseur filtering (by the chosen catalogue chick's suppliers) ──
@@ -467,7 +540,10 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   if (fournisseurSelect) {
-    fournisseurSelect.addEventListener('change', loadBlOptions);
+    fournisseurSelect.addEventListener('change', function () {
+      loadBlOptions();
+      updateNombrePoussinsDefault();
+    });
   }
 });
 </script>

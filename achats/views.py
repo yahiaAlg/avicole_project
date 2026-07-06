@@ -262,7 +262,19 @@ def bl_fournisseur_create(request, fournisseur_pk=None):
         if fournisseur:
             form.fields["fournisseur"].widget = forms.HiddenInput()
             form.fields["fournisseur"].initial = fournisseur
-        formset = BLFournisseurLigneFormSet(prefix="lignes")
+
+        # Pre-fill the first line's intrant when redirected here for a
+        # specific item (e.g. the "0 stock" quick-action on the lot_form's
+        # chick catalogue picker) — ?intrant=<Intrant pk>.
+        lignes_initial = None
+        intrant_pk = request.GET.get("intrant")
+        if intrant_pk:
+            from intrants.models import Intrant as IntrantModel
+
+            if IntrantModel.objects.filter(pk=intrant_pk, actif=True).exists():
+                lignes_initial = [{"intrant": intrant_pk}]
+
+        formset = BLFournisseurLigneFormSet(prefix="lignes", initial=lignes_initial)
         pj_formset = build_piece_jointe_formset(
             BLFournisseurPieceJointeFormSet, request, prefix="pj"
         )
