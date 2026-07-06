@@ -167,6 +167,28 @@ urlpatterns = [
         views.paiement_client_ajouter_piece_jointe,
         name="paiement_client_ajouter_piece_jointe",
     ),
+    # POST-only: admin cascade delete
+    path(
+        "paiements/<int:pk>/supprimer/",
+        views.paiement_client_delete,
+        name="paiement_client_delete",
+    ),
+    # ── Acompte Client (prepayments) ──────────────────────────────────────
+    path(
+        "acomptes/",
+        views.acompte_client_list,
+        name="acompte_client_list",
+    ),
+    path(
+        "acomptes/<int:pk>/",
+        views.acompte_client_detail,
+        name="acompte_client_detail",
+    ),
+    path(
+        "acomptes/<int:pk>/ajouter-piece-jointe/",
+        views.acompte_client_ajouter_piece_jointe,
+        name="acompte_client_ajouter_piece_jointe",
+    ),
     # ── Fiche des dettes client ──────────────────────────────────────────
     path(
         "clients/<int:pk>/fiche-dettes/",

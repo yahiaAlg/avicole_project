@@ -397,6 +397,14 @@ def facture_client_bls_changed(sender, instance, action, **kwargs):
         montant_ttc=montant_ttc,
         reste_a_payer=montant_ttc,
     )
+    # Keep the in-memory instance in sync with the UPDATE above so the
+    # prepayment consumption step below (and recalculer_solde inside it)
+    # operates on the current, not stale, figures.
+    db_instance.montant_ht = montant_ht
+    db_instance.montant_tva = montant_tva
+    db_instance.montant_ttc = montant_ttc
+    db_instance.reste_a_payer = montant_ttc
+    db_instance.montant_regle = Decimal("0")
 
     logger.info(
         "FactureClient pk=%s (BLS linked): "
@@ -418,6 +426,16 @@ def facture_client_bls_changed(sender, instance, action, **kwargs):
             db_instance.pk,
             locked_count,
         )
+
+    # Prepayment consumption: if this client is holding unused advances
+    # (AcompteClient, created from a prior payment's unallocated surplus)
+    # in this same branche, consume them against this brand-new invoice
+    # automatically, oldest advance first — mirrors achats' BR-REG-07 so a
+    # client who pre-pays doesn't need a fresh manual allocation for every
+    # subsequent facture.
+    from clients.utils import consommer_acomptes_client_fifo
+
+    consommer_acomptes_client_fifo(db_instance)
 
 
 # ---------------------------------------------------------------------------

@@ -85,6 +85,28 @@
         </div>
       </div>
 
+      {% if acompte %}
+      <div class="card" style="margin-bottom:16px;border-color:#f59e0b;">
+        <div class="card-header-row">
+          <div class="section-eyebrow" style="color:#b45309;"><i class="bx bxs-bank"></i> دفعة مسبقة (Acompte)</div>
+          <span class="pill-{% if acompte.utilise %}success{% else %}warning{% endif %}">
+            {% if acompte.utilise %}مستهلكة بالكامل{% else %}متاحة جزئياً{% endif %}
+          </span>
+        </div>
+        <div style="padding:16px 18px;font-size:13px;color:var(--text-secondary);">
+          تم تحويل <strong>{{ acompte.montant|floatformat:0 }} DZD</strong> من هذه الدفعة إلى دفعة مسبقة
+          بتاريخ {{ acompte.date|date:"d/m/Y" }}. المتبقي منها
+          <strong style="color:{% if acompte.montant_restant > 0 %}#b45309{% else %}#15803d{% endif %};">{{ acompte.montant_restant|floatformat:0 }} DZD</strong>
+          — سيُخصم تلقائياً من الفواتير القادمة لهذا العميل، فاتورة تلو الأخرى.
+          <div style="margin-top:10px;">
+            <a href="{% url 'clients:acompte_client_detail' acompte.pk %}" class="btn-ghost btn-sm">
+              <i class="bx bx-show"></i> تفاصيل الدفعة المسبقة
+            </a>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
       <!-- Allocations table -->
       <div class="card">
         <div class="card-header-row">
@@ -262,6 +284,24 @@
           {% endif %}
         </div>
       </div>
+
+      {% if is_admin %}
+      <!-- Admin-only: cascade delete -->
+      <div class="card" style="border-color:#dc2626;">
+        <div class="card-header-row">
+          <div class="section-eyebrow" style="color:#dc2626;"><i class="bx bxs-trash"></i> منطقة الخطر</div>
+        </div>
+        <div style="padding:16px;">
+          <form method="post" action="{% url 'clients:paiement_client_delete' paiement.pk %}"
+                onsubmit="return confirm('هل أنت متأكد من حذف هذه الدفعة نهائيًا؟ سيتم عكس كل التخصيصات المرتبطة بها (وأي دفعة مسبقة ناتجة عنها)، وهذا الإجراء لا يمكن التراجع عنه.');">
+            {% csrf_token %}
+            <button type="submit" class="btn-ghost btn-full" style="border-color:#dc2626;color:#dc2626;">
+              <i class="bx bx-trash"></i> حذف الدفعة نهائيًا
+            </button>
+          </form>
+        </div>
+      </div>
+      {% endif %}
 
     </div>
   </div>

@@ -603,6 +603,138 @@ class PaiementClientAllocation(models.Model):
 
 
 # ---------------------------------------------------------------------------
+# Acompte Client — prepayment / overpayment surplus
+# ---------------------------------------------------------------------------
+
+
+class AcompteClient(models.Model):
+    """
+    A client-side prepayment / overpayment surplus, mirroring
+    AcompteFournisseur on the supplier side.
+
+    Created automatically right after a PaiementClient is recorded and its
+    allocations (manual or FIFO fallback) are applied, whenever some amount
+    remains unattributed to any invoice (paiement.solde_non_alloue > 0) —
+    e.g. a client who pays in advance before any facture exists, or pays
+    more than their current debt.
+
+    Unlike ReglementFournisseur (fully FIFO-automatic), a PaiementClient's
+    allocation is manual (BR-FAC-03); the leftover is captured here in one
+    shot right after that manual step, rather than inside a FIFO loop.
+
+    Consumed automatically, oldest-first, against every new FactureClient
+    created for the same client + branche thereafter (see
+    clients.utils.consommer_acomptes_client_fifo, called from the
+    m2m_changed signal on FactureClient.bls — mirrors BR-REG-07).
+    """
+
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.PROTECT,
+        related_name="acomptes",
+        verbose_name="العميل",
+    )
+    # v1.4 — branch-scoped like every other AR document (BR-BRA-01); synced
+    # from `paiement.branche` in save() so callers never need to pass it.
+    branche = models.ForeignKey(
+        "core.Branche",
+        on_delete=models.PROTECT,
+        related_name="acomptes_client",
+        verbose_name="الفرع",
+    )
+    paiement = models.OneToOneField(
+        PaiementClient,
+        on_delete=models.CASCADE,
+        related_name="acompte",
+        verbose_name="الدفع",
+    )
+    montant = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name="المبلغ الأصلي (د.ج)",
+        validators=[MinValueValidator(0.01)],
+    )
+    montant_restant = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name="المبلغ المتبقي (د.ج)",
+        help_text="يُنقص تلقائياً كلما استُهلك من أجل فاتورة جديدة.",
+    )
+    date = models.DateField(verbose_name="التاريخ")
+    utilise = models.BooleanField(
+        default=False,
+        verbose_name="مستهلكة بالكامل",
+        help_text="يصبح True تلقائياً عندما montant_restant يصل إلى 0.",
+    )
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    # v1.5 — proof documents, attached after the fact (no create/edit view —
+    # these rows are only ever created automatically).
+    pieces_jointes = GenericRelation(PieceJointe, related_query_name="acompte_client")
+
+    class Meta:
+        verbose_name = "دفعة مسبقة (عميل)"
+        verbose_name_plural = "الدفعات المسبقة (العملاء)"
+        ordering = ["-date", "-created_at"]
+
+    def __str__(self):
+        return (
+            f"دفعة مسبقة — {self.client.nom} : "
+            f"{self.montant_restant}/{self.montant} DZD"
+        )
+
+    def save(self, *args, **kwargs):
+        # Keep client/branche in sync with the originating paiement so
+        # callers never need to pass them explicitly.
+        if self.paiement_id:
+            if not self.client_id:
+                self.client_id = self.paiement.client_id
+            if not self.branche_id:
+                self.branche_id = self.paiement.branche_id
+        super().save(*args, **kwargs)
+
+
+class AllocationAcompteClient(models.Model):
+    """
+    Immutable line: portion of one AcompteClient consumed by one
+    FactureClient. Created exclusively by
+    clients.utils.consommer_acomptes_client_fifo. Never edited after
+    creation.
+    """
+
+    acompte = models.ForeignKey(
+        AcompteClient,
+        on_delete=models.PROTECT,
+        related_name="allocations",
+        verbose_name="الدفعة المسبقة",
+    )
+    facture = models.ForeignKey(
+        FactureClient,
+        on_delete=models.PROTECT,
+        related_name="allocations_acompte",
+        verbose_name="الفاتورة",
+    )
+    montant_alloue = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name="المبلغ المخصص (د.ج)",
+        validators=[MinValueValidator(0.01)],
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "تخصيص دفعة مسبقة (عميل)"
+        verbose_name_plural = "تخصيصات الدفعات المسبقة (العملاء)"
+
+    def __str__(self):
+        return (
+            f"{self.acompte} → {self.facture.reference} : "
+            f"{self.montant_alloue} DZD"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Abonnement Client — recurring/metered deliveries (mainly fertilizer, but
 # usable for any ProduitFini sold on a recurring/quota basis)
 # ---------------------------------------------------------------------------

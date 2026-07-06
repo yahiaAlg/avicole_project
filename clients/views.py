@@ -53,6 +53,7 @@ from clients.forms import (
     FactureClientPieceJointeFormSet,
     PaiementClientForm,
     PaiementClientPieceJointeFormSet,
+    AcompteClientPieceJointeFormSet,
     get_allocation_forms,
     AbonnementClientForm,
     VoyageLivraisonForm,
@@ -67,6 +68,7 @@ from clients.models import (
     FactureClient,
     PaiementClient,
     PaiementClientAllocation,
+    AcompteClient,
     AbonnementClient,
     VoyageLivraison,
     LivraisonPartielle,
@@ -1393,6 +1395,12 @@ def paiement_client_create(request, client_pk=None):
                                 f"({result['allocations_creees']} facture(s))."
                             )
 
+                    if result.get("surplus"):
+                        mode_label += (
+                            f" تم تحويل {result['surplus']} دج غير مخصصة إلى دفعة "
+                            "مسبقة، ستُخصم تلقائياً من الفواتير القادمة."
+                        )
+
                     messages.success(
                         request,
                         f"تم تسجيل دفعة بقيمة {paiement.montant} دج لـ « {paiement.client.nom} ». {mode_label}",
@@ -1469,11 +1477,22 @@ def paiement_client_detail(request, pk):
     allocations = paiement.allocations.select_related("facture").order_by(
         "facture__reference"
     )
+    try:
+        acompte = paiement.acompte
+    except AcompteClient.DoesNotExist:
+        acompte = None
     pieces_jointes = paiement.pieces_jointes.select_related("uploaded_by").order_by(
         "-created_at"
     )
     pj_formset = build_piece_jointe_formset(
         PaiementClientPieceJointeFormSet, request, instance=paiement, prefix="pj"
+    )
+
+    # Admin status controls visibility of the cascade-delete button — same
+    # pattern as facture_client_detail.
+    is_admin = request.user.is_superuser or (
+        hasattr(request.user, "userprofile")
+        and request.user.userprofile.role == "admin"
     )
 
     return render(
@@ -1482,11 +1501,71 @@ def paiement_client_detail(request, pk):
         {
             "paiement": paiement,
             "allocations": allocations,
+            "acompte": acompte,
             "pieces_jointes": pieces_jointes,
             "pj_formset": pj_formset,
+            "is_admin": is_admin,
             "title": f"دفعة — {paiement.client.nom} — {paiement.date_paiement}",
         },
     )
+
+
+# ===========================================================================
+# PaiementClient — Delete (cascade, admin-only)
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def paiement_client_delete(request, pk):
+    """
+    ADMIN-ONLY hard delete: remove a PaiementClient and reverse every side
+    effect it produced (facture allocations, and anything its AcompteClient
+    went on to fund).
+
+    This intentionally bypasses the normal immutability of
+    PaiementClient/PaiementClientAllocation — restricted to admins
+    (is_superuser or userprofile.role=="admin") and POST-only. See
+    clients.utils.supprimer_paiement_client_cascade for the full cascade.
+    """
+    is_admin = request.user.is_superuser or (
+        hasattr(request.user, "userprofile")
+        and request.user.userprofile.role == "admin"
+    )
+
+    if not is_admin:
+        messages.error(request, "غير مسموح: هذا الإجراء متاح للمدراء فقط.")
+        return redirect("clients:paiement_client_detail", pk=pk)
+
+    paiement = branche_object_or_404(request, PaiementClient, pk=pk)
+
+    from clients.utils import supprimer_paiement_client_cascade
+
+    try:
+        summary = supprimer_paiement_client_cascade(paiement)
+    except Exception as exc:
+        logger.exception("Error deleting PaiementClient pk=%s: %s", pk, exc)
+        messages.error(request, f"خطأ أثناء الحذف: {exc}")
+        return redirect("clients:paiement_client_detail", pk=pk)
+
+    msg = (
+        f"تم حذف الدفعة ({summary['paiement_montant']} دج — "
+        f"{summary['client_nom']}) نهائيًا."
+    )
+    if summary["factures_impactees"]:
+        autres = ", ".join(sorted(set(summary["factures_impactees"])))
+        msg += f" تنبيه: تم تحديث أرصدة الفواتير التالية: {autres}."
+    if summary["acompte_supprime"]:
+        msg += " كما تم حذف الدفعة المقدمة الناتجة عن هذه الدفعة."
+    messages.success(request, msg)
+    logger.info(
+        "PaiementClient (%s DZD, %s) deleted (admin cascade) by '%s'. Summary: %s",
+        summary["paiement_montant"],
+        summary["client_nom"],
+        request.user,
+        summary,
+    )
+    return redirect("clients:paiement_client_list")
 
 
 # ===========================================================================
@@ -1545,6 +1624,109 @@ def paiement_client_print(request, pk):
             "company": company,
         },
     )
+
+
+# ===========================================================================
+# Acompte Client — List (created automatically from payment surplus)
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def acompte_client_list(request):
+    """
+    List prepayments (AcompteClient), created automatically whenever a
+    PaiementClient leaves an unallocated balance.
+    """
+    branche = get_active_branche(request)
+    qs = AcompteClient.objects.select_related("client", "branche", "paiement").order_by(
+        "-date", "-created_at"
+    )
+    if branche is not None:
+        qs = qs.filter(branche=branche)
+
+    client_pk = request.GET.get("client", "")
+    if client_pk:
+        qs = qs.filter(client_id=client_pk)
+
+    disponible_seulement = request.GET.get("disponible", "") == "1"
+    if disponible_seulement:
+        qs = qs.filter(montant_restant__gt=0)
+
+    page = _paginate(qs, request.GET.get("page"))
+    clients = Client.objects.filter(actif=True).order_by("nom")
+
+    return render(
+        request,
+        "clients/acompte_client_list.html",
+        {
+            "page": page,
+            "clients": clients,
+            "client_filter": client_pk,
+            "disponible_seulement": disponible_seulement,
+            "active_branche": branche,
+            "title": "الدفعات المسبقة للعملاء",
+        },
+    )
+
+
+# ===========================================================================
+# Acompte Client — Detail
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def acompte_client_detail(request, pk):
+    acompte = branche_object_or_404(
+        request,
+        AcompteClient.objects.select_related("client", "branche", "paiement"),
+        pk=pk,
+    )
+    pieces_jointes = acompte.pieces_jointes.select_related("uploaded_by").order_by(
+        "-created_at"
+    )
+    pj_formset = build_piece_jointe_formset(
+        AcompteClientPieceJointeFormSet, request, instance=acompte, prefix="pj"
+    )
+    # Every facture this advance has (fully or partially) paid for.
+    allocations = acompte.allocations.select_related("facture").order_by(
+        "facture__date_facture"
+    )
+    return render(
+        request,
+        "clients/acompte_client_detail.html",
+        {
+            "acompte": acompte,
+            "allocations": allocations,
+            "montant_consomme": acompte.montant - acompte.montant_restant,
+            "pieces_jointes": pieces_jointes,
+            "pj_formset": pj_formset,
+            "active_branche": get_active_branche(request),
+            "title": f"دفعة مسبقة — {acompte.client.nom}",
+        },
+    )
+
+
+# ===========================================================================
+# Acompte Client — Ajouter des pièces jointes
+#
+# AcompteClient rows are created automatically (no create/edit view of
+# their own), so proof documents are attached after the fact here.
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def acompte_client_ajouter_piece_jointe(request, pk):
+    acompte = branche_object_or_404(request, AcompteClient, pk=pk)
+    pj_formset = build_piece_jointe_formset(
+        AcompteClientPieceJointeFormSet, request, instance=acompte, prefix="pj"
+    )
+    if pj_formset.is_valid():
+        pj_formset.save()
+        messages.success(request, "تم إضافة المرفقات.")
+    else:
+        messages.error(request, "يرجى تصحيح الأخطاء في المرفقات.")
+    return redirect("clients:acompte_client_detail", pk=pk)
 
 
 # ===========================================================================
@@ -1663,6 +1845,7 @@ def client_solde_json(request, pk):
 
     data = {
         "creance_globale": float(solde["creance_globale"]),
+        "acompte_disponible": float(solde["acompte_disponible"]),
         "nb_factures_ouvertes": solde["factures_ouvertes"].count(),
         "nb_factures_retard": solde["nb_factures_retard"],
         "depasse_plafond": solde["depasse_plafond"],

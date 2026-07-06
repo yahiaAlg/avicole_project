@@ -763,3 +763,4 @@ class PrixMarcheForm(forms.ModelForm):
 BLClientPieceJointeFormSet = make_piece_jointe_formset(extra=1)
 FactureClientPieceJointeFormSet = make_piece_jointe_formset(extra=1)
 PaiementClientPieceJointeFormSet = make_piece_jointe_formset(extra=1)
+AcompteClientPieceJointeFormSet = make_piece_jointe_formset(extra=1)

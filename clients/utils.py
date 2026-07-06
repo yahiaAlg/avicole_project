@@ -91,9 +91,10 @@ def appliquer_paiement_client_fifo(paiement) -> dict:
         )
 
     if montant_restant > 0:
+        creer_acompte_client_si_surplus(paiement, montant_restant)
         logger.info(
             "appliquer_paiement_client_fifo: paiement pk=%s surplus %s DZD "
-            "(aucune facture ouverte restante dans la branche %s).",
+            "stocké comme AcompteClient (branche %s).",
             paiement.pk,
             montant_restant,
             paiement.branche.code,
@@ -210,10 +211,265 @@ def appliquer_paiement_client(paiement, allocations: list[dict]) -> dict:
         montant_alloue_total,
     )
 
+    # BR-FAC-03 leaves the choice of which invoices to pay to the user —
+    # whatever they didn't attribute becomes a prepayment (AcompteClient)
+    # instead of sitting idle, so the client doesn't need to come back and
+    # manually allocate it once a new facture exists.
+    surplus = montant_disponible - montant_alloue_total
+    if surplus > 0:
+        creer_acompte_client_si_surplus(paiement, surplus)
+
     return {
         "allocations_creees": allocations_creees,
         "montant_alloue_total": montant_alloue_total,
+        "surplus": surplus,
     }
+
+
+def creer_acompte_client_si_surplus(paiement, surplus):
+    """
+    Store *surplus* (the portion of `paiement` not attributed to any
+    invoice) as an AcompteClient — a prepayment that
+    consommer_acomptes_client_fifo will draw down automatically against the
+    client's next facture(s), oldest first.
+
+    Idempotency guard: PaiementClient.paiement is a OneToOneField on
+    AcompteClient, so this is a no-op if one already exists for this
+    paiement (defensive — callers should only invoke this once per
+    paiement).
+
+    Args:
+        paiement (PaiementClient): The payment that produced the surplus.
+        surplus (Decimal): Amount left unallocated (> 0).
+
+    Returns:
+        AcompteClient | None
+    """
+    from clients.models import AcompteClient
+
+    if surplus <= 0:
+        return None
+
+    existing = getattr(paiement, "acompte", None)
+    if existing is not None:
+        logger.warning(
+            "creer_acompte_client_si_surplus: paiement pk=%s already has an "
+            "AcompteClient — skipping.",
+            paiement.pk,
+        )
+        return existing
+
+    acompte = AcompteClient.objects.create(
+        client=paiement.client,
+        branche=paiement.branche,
+        paiement=paiement,
+        montant=surplus,
+        montant_restant=surplus,
+        date=paiement.date_paiement,
+        notes=(
+            f"Surplus automatique depuis le paiement du "
+            f"{paiement.date_paiement} — {paiement.montant} DZD total."
+        ),
+    )
+    logger.info(
+        "Surplus of %s DZD stored as AcompteClient for %s (branche=%s).",
+        surplus,
+        paiement.client.nom,
+        paiement.branche.code,
+    )
+    return acompte
+
+
+# ---------------------------------------------------------------------------
+# Prepayment consumption engine (mirrors achats.utils.consommer_acomptes_fifo)
+# ---------------------------------------------------------------------------
+
+
+def consommer_acomptes_client_fifo(facture):
+    """
+    Draw down unused AcompteClient advances (prepayments / overpayment
+    surplus) against a freshly-created facture, oldest advance first
+    (FIFO), scoped to the SAME client + branche (BR-BRA-01) — mirrors
+    achats.utils.consommer_acomptes_fifo but for the client AR cycle.
+
+    Typical flow this enables: a client pays in advance (e.g. a cheque
+    handed over before any facture exists), the whole amount becomes one
+    AcompteClient (see creer_acompte_client_si_surplus). Each time a new
+    facture for that client is created afterwards, this function is called
+    (from the m2m_changed signal, right after montant_ttc is computed) and
+    consumes the advance(s) automatically, one invoice at a time, until the
+    advance is exhausted.
+
+    For every dinar consumed:
+      - An immutable AllocationAcompteClient record is created (audit trail).
+      - The acompte's montant_restant is decremented; `utilise` flips to
+        True once it reaches 0.
+      - facture.montant_regle is increased and recalculer_solde() is called.
+
+    Called inside the same DB transaction as facture creation.
+
+    Args:
+        facture (FactureClient): The freshly-created invoice (its
+            montant_ttc/reste_a_payer must already be set).
+    """
+    from clients.models import AcompteClient, AllocationAcompteClient
+
+    if facture.reste_a_payer <= 0:
+        return
+
+    acomptes = AcompteClient.objects.filter(
+        client=facture.client,
+        branche=facture.branche,
+        montant_restant__gt=0,
+    ).order_by("date", "pk")
+
+    montant_a_couvrir = facture.reste_a_payer
+
+    for acompte in acomptes:
+        if montant_a_couvrir <= 0:
+            break
+
+        montant_a_consommer = min(acompte.montant_restant, montant_a_couvrir)
+        if montant_a_consommer <= 0:
+            continue
+
+        AllocationAcompteClient.objects.create(
+            acompte=acompte,
+            facture=facture,
+            montant_alloue=montant_a_consommer,
+        )
+
+        acompte.montant_restant = acompte.montant_restant - montant_a_consommer
+        acompte.utilise = acompte.montant_restant <= 0
+        acompte.save(update_fields=["montant_restant", "utilise"])
+
+        facture.montant_regle = facture.montant_regle + montant_a_consommer
+        montant_a_couvrir -= montant_a_consommer
+
+        logger.info(
+            "Prepayment: consumed %s DZD from acompte pk=%s for %s to pay "
+            "facture %s. Acompte remaining: %s DZD.",
+            montant_a_consommer,
+            acompte.pk,
+            facture.client.nom,
+            facture.reference,
+            acompte.montant_restant,
+        )
+
+    if facture.montant_regle > 0:
+        facture.recalculer_solde()
+
+
+# ---------------------------------------------------------------------------
+# Admin-only cascade delete — Paiement (destructive)
+# ---------------------------------------------------------------------------
+
+
+def supprimer_paiement_client_cascade(paiement):
+    """
+    ADMIN-ONLY hard delete: remove a PaiementClient and reverse every side
+    effect it produced — its manual/FIFO allocations to factures, and
+    (if it created one) everything its AcompteClient went on to fund via
+    consommer_acomptes_client_fifo, possibly on invoices created well after
+    this payment. Mirrors
+    achats.utils.supprimer_reglement_fournisseur_cascade.
+
+    The caller (the view) MUST verify the requesting user is an admin
+    before calling this — payments are normally immutable after creation.
+
+    Side effects, all within one DB transaction:
+      1. Every PaiementClientAllocation this payment made to a facture is
+         removed; that facture's montant_regle / reste_a_payer / statut
+         are recalculated.
+      2. If this payment produced an AcompteClient (surplus / prepayment),
+         everything THAT acompte went on to fund is reversed the same way
+         (facture balances recalculated), then the acompte itself is
+         deleted (cascades automatically with the paiement too, but done
+         explicitly here so the funded factures are recalculated first).
+      3. The paiement itself is deleted.
+
+    Note: unlike supprimer_facture_client_cascade, this never touches BLs
+    or stock — a paiement never created any stock movement.
+
+    Args:
+        paiement (PaiementClient): The payment to delete.
+
+    Returns:
+        dict: {
+            "paiement_montant": Decimal,
+            "client_nom": str,
+            "factures_impactees": list[str],
+            "acompte_supprime": bool,
+        }
+    """
+    from django.db import transaction
+    from clients.models import AcompteClient
+
+    summary = {
+        "paiement_montant": paiement.montant,
+        "client_nom": paiement.client.nom,
+        "factures_impactees": [],
+        "acompte_supprime": False,
+    }
+
+    with transaction.atomic():
+        # 1. Direct allocations this paiement made.
+        for alloc in list(paiement.allocations.select_related("facture")):
+            autre_facture = alloc.facture
+            autre_facture.montant_regle = max(
+                Decimal("0"), autre_facture.montant_regle - alloc.montant_alloue
+            )
+            alloc.delete()
+            autre_facture.recalculer_solde()
+            summary["factures_impactees"].append(autre_facture.reference)
+            logger.warning(
+                "Suppression du paiement pk=%s a retiré %s DZD alloués à la "
+                "facture %s (solde recalculé).",
+                paiement.pk,
+                alloc.montant_alloue,
+                autre_facture.reference,
+            )
+
+        # 2. Overpayment / prepayment credit created by this paiement.
+        try:
+            acompte = paiement.acompte
+        except AcompteClient.DoesNotExist:
+            acompte = None
+
+        if acompte is not None:
+            for alloc in list(
+                acompte.allocations.select_related("facture")
+            ):
+                autre_facture = alloc.facture
+                autre_facture.montant_regle = max(
+                    Decimal("0"), autre_facture.montant_regle - alloc.montant_alloue
+                )
+                alloc.delete()
+                autre_facture.recalculer_solde()
+                summary["factures_impactees"].append(autre_facture.reference)
+                logger.warning(
+                    "Suppression du paiement pk=%s a retiré %s DZD consommés "
+                    "depuis son acompte sur la facture %s (solde recalculé).",
+                    paiement.pk,
+                    alloc.montant_alloue,
+                    autre_facture.reference,
+                )
+            acompte.delete()
+            summary["acompte_supprime"] = True
+
+        # 3. The paiement itself.
+        paiement.delete()
+
+    logger.info(
+        "ADMIN CASCADE DELETE: paiement (%s DZD, %s) supprimé. %d facture(s) "
+        "impactée(s) : %s. Acompte supprimé : %s.",
+        summary["paiement_montant"],
+        summary["client_nom"],
+        len(summary["factures_impactees"]),
+        summary["factures_impactees"],
+        summary["acompte_supprime"],
+    )
+    return summary
 
 
 # ---------------------------------------------------------------------------
@@ -325,6 +581,26 @@ def supprimer_facture_client_cascade(facture):
             )
             paiement.delete()
 
+        # 1c. This facture may itself have been paid (in whole or in part)
+        #     from an AcompteClient belonging to a DIFFERENT paiement (one
+        #     that did not touch it via PaiementClientAllocation at all).
+        #     Give that money back to the advance.
+        for alloc in list(facture.allocations_acompte.select_related("acompte")):
+            source_acompte = alloc.acompte
+            source_acompte.montant_restant = (
+                source_acompte.montant_restant + alloc.montant_alloue
+            )
+            source_acompte.utilise = source_acompte.montant_restant <= 0
+            source_acompte.save(update_fields=["montant_restant", "utilise"])
+            alloc.delete()
+            logger.info(
+                "Suppression de la facture %s : %s DZD restitués à "
+                "l'acompte pk=%s.",
+                facture.reference,
+                alloc.montant_alloue,
+                source_acompte.pk,
+            )
+
         # 2. BLs included in the facture: reverse stock, then delete.
         bls = list(
             facture.bls.select_related("branche").prefetch_related(
@@ -416,7 +692,7 @@ def get_client_solde(client, branche=None) -> dict:
         client (Client): The client instance.
         branche (Branche | None): Scope to one branch; omit for Vue Globale.
     """
-    from clients.models import FactureClient, PaiementClient
+    from clients.models import FactureClient, PaiementClient, AcompteClient
     from django.db.models import Sum
 
     factures_ouvertes = FactureClient.objects.filter(
@@ -428,10 +704,12 @@ def get_client_solde(client, branche=None) -> dict:
     ).order_by("date_facture", "pk")
 
     paiements_qs = PaiementClient.objects.filter(client=client)
+    acomptes_qs = AcompteClient.objects.filter(client=client, montant_restant__gt=0)
 
     if branche is not None:
         factures_ouvertes = factures_ouvertes.filter(branche=branche)
         paiements_qs = paiements_qs.filter(branche=branche)
+        acomptes_qs = acomptes_qs.filter(branche=branche)
 
     # creance_globale is now a method on Client (takes an optional branche)
     # since it has to aggregate across branch-scoped FactureClient rows.
@@ -440,6 +718,10 @@ def get_client_solde(client, branche=None) -> dict:
     total_paiements = paiements_qs.aggregate(total=Sum("montant"))["total"] or Decimal(
         "0"
     )
+
+    acompte_disponible = acomptes_qs.aggregate(total=Sum("montant_restant"))[
+        "total"
+    ] or Decimal("0")
 
     today = datetime.date.today()
     nb_factures_retard = factures_ouvertes.filter(date_echeance__lt=today).count()
@@ -454,6 +736,7 @@ def get_client_solde(client, branche=None) -> dict:
         "creance_globale": creance_globale,
         "factures_ouvertes": factures_ouvertes,
         "total_paiements": total_paiements,
+        "acompte_disponible": acompte_disponible,
         "nb_factures_retard": nb_factures_retard,
         "depasse_plafond": depasse_plafond,
     }

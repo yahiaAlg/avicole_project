@@ -20,6 +20,8 @@ from clients.models import (
     FactureClient,
     PaiementClient,
     PaiementClientAllocation,
+    AcompteClient,
+    AllocationAcompteClient,
     AbonnementClient,
     VoyageLivraison,
     LivraisonPartielle,
@@ -557,8 +559,28 @@ class PaiementClientAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
             )
         return self.readonly_fields
 
-    def has_delete_permission(self, request, obj=None):
-        return False
+    # -----------------------------------------------------------------
+    # Cascade delete — admins may remove a paiement to correct a mistake
+    # (wrong client/amount/mode). A plain .delete() would hit
+    # ProtectedError because PaiementClientAllocation.paiement/.facture
+    # are on_delete=PROTECT, and would also silently leave a linked
+    # AcompteClient (and anything it funded) inconsistent. Route through
+    # the same admin-only cascade used by the app's own "Supprimer" button
+    # (clients.utils.supprimer_paiement_client_cascade), which reverses
+    # every allocation (direct or via its acompte) and recalculates the
+    # affected factures first.
+    # -----------------------------------------------------------------
+
+    def delete_model(self, request, obj):
+        from clients.utils import supprimer_paiement_client_cascade
+
+        supprimer_paiement_client_cascade(obj)
+
+    def delete_queryset(self, request, queryset):
+        from clients.utils import supprimer_paiement_client_cascade
+
+        for paiement in queryset:
+            supprimer_paiement_client_cascade(paiement)
 
 
 @admin.register(PaiementClientAllocation)
@@ -573,6 +595,90 @@ class PaiementClientAllocationAdmin(BrancheScopedAdminMixin, ImportExportModelAd
     list_filter = ("paiement__client", "paiement__branche")
     search_fields = ("paiement__client__nom", "facture__reference")
     readonly_fields = ("paiement", "facture", "montant_alloue")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Acompte Client (prepayments) — created automatically, never via admin
+# ---------------------------------------------------------------------------
+
+
+class AllocationAcompteClientInline(admin.TabularInline):
+    """Show which factures an AcompteClient has funded (read-only)."""
+
+    model = AllocationAcompteClient
+    extra = 0
+    fields = ("facture", "montant_alloue", "created_at")
+    readonly_fields = ("facture", "montant_alloue", "created_at")
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AcompteClient)
+class AcompteClientAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
+    list_display = (
+        "branche",
+        "client",
+        "date",
+        "montant_dzd",
+        "montant_restant_dzd",
+        "utilise",
+        "paiement",
+    )
+    list_filter = ("branche", "client", "utilise", "date")
+    search_fields = ("client__nom", "notes")
+    date_hierarchy = "date"
+    readonly_fields = (
+        "client",
+        "branche",
+        "paiement",
+        "montant",
+        "montant_restant",
+        "date",
+        "utilise",
+        "created_at",
+        "updated_at",
+    )
+    inlines = (AllocationAcompteClientInline, PieceJointeInline)
+    autocomplete_fields = ("branche", "client", "paiement")
+
+    @admin.display(description="Montant (DZD)")
+    def montant_dzd(self, obj):
+        return f"{obj.montant:,.2f}"
+
+    @admin.display(description="Restant (DZD)")
+    def montant_restant_dzd(self, obj):
+        val = obj.montant_restant
+        colour = "#2e7d32" if val <= 0 else "#b45309"
+        return format_html(
+            '<span style="color:{}">{}</span>', colour, f"{val:,.2f}"
+        )
+
+    def has_add_permission(self, request):
+        # Only ever created automatically (payment surplus).
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AllocationAcompteClient)
+class AllocationAcompteClientAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
+    branche_lookup = "acompte__branche"
+    list_display = ("acompte", "facture", "montant_alloue", "created_at")
+    list_filter = ("acompte__branche", "acompte__client")
+    search_fields = ("acompte__client__nom", "facture__reference")
+    readonly_fields = ("acompte", "facture", "montant_alloue", "created_at")
 
     def has_add_permission(self, request):
         return False

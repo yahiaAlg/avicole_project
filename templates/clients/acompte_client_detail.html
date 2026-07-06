@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}دفعة مسبقة — {{ acompte.client.nom }} — Élevage Avicole{% endblock %}
+
+{% block nav_paiements_clients %}active{% endblock %}
+
+{% block page_title %}دفعة مسبقة — {{ acompte.client.nom }}{% endblock %}
+{% block page_sub_text %}{{ acompte.date|date:"d/m/Y" }} · {{ acompte.montant|floatformat:0 }} DZD{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'clients:acompte_client_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> العودة إلى الدفعات المسبقة
+  </a>
+  <a href="{% url 'clients:paiement_client_detail' acompte.paiement_id %}" class="btn-ghost">
+    <i class="bx bxs-wallet"></i> الدفعة الأصلية
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+  <div class="detail-grid">
+
+    <div class="detail-main">
+
+      <!-- Header card -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bxs-bank"></i> معلومات الدفعة المسبقة</div>
+          {% if acompte.utilise %}<span class="pill-success">مستهلكة بالكامل</span>
+          {% else %}<span class="pill-warning">متاحة جزئياً</span>{% endif %}
+        </div>
+        <div class="card-body-grid">
+          <div class="info-row">
+            <span class="info-label">العميل</span>
+            <span class="info-value">
+              <a href="{% url 'clients:client_detail' acompte.client.pk %}" style="color:var(--accent-text);text-decoration:none;font-weight:500;">{{ acompte.client.nom }}</a>
+            </span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">الفرع</span>
+            <span class="info-value">{{ acompte.branche.nom }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">التاريخ</span>
+            <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ acompte.date|date:"d/m/Y" }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">المبلغ الأصلي</span>
+            <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;">{{ acompte.montant|floatformat:0 }} DZD</span>
+          </div>
+          {% if acompte.notes %}
+          <div class="info-row info-row--full">
+            <span class="info-label">ملاحظات</span>
+            <span class="info-value" style="color:var(--text-muted);font-size:12.5px;white-space:pre-line;">{{ acompte.notes }}</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Consumption history -->
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bx-file"></i> سجل الاستهلاك (الفواتير المدفوعة منها)</div>
+          <span style="font-size:12px;color:var(--text-muted);">{{ allocations|length }} فاتورة</span>
+        </div>
+
+        {% if allocations %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>الفاتورة</th>
+                <th>تاريخ الفاتورة</th>
+                <th style="text-align:right;">المبلغ المستهلك</th>
+                <th>تاريخ الاستهلاك</th>
+                <th style="text-align:right;">الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for alloc in allocations %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td>
+                  <a href="{% url 'clients:facture_client_detail' alloc.facture.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;">{{ alloc.facture.reference }}</a>
+                </td>
+                <td style="font-size:12px;color:var(--text-muted);">{{ alloc.facture.date_facture|date:"d/m/Y" }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">{{ alloc.montant_alloue|floatformat:0 }} DZD</td>
+                <td style="font-size:12px;color:var(--text-muted);">{{ alloc.created_at|date:"d/m/Y H:i" }}</td>
+                <td>
+                  <div class="actions-cell">
+                    <a href="{% url 'clients:facture_client_detail' alloc.facture.pk %}" class="action-btn" title="عرض الفاتورة"><i class="bx bx-show"></i></a>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div style="padding:32px 16px;text-align:center;color:var(--text-muted);">
+          <i class="bx bx-file" style="font-size:26px;display:block;margin-bottom:10px;color:var(--border-strong);"></i>
+          <div style="font-size:13px;">لم تُستهلك هذه الدفعة المسبقة بعد.</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Pièces jointes -->
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bx-paperclip"></i> المرفقات / وثائق الإثبات</div>
+        </div>
+        <div style="padding:16px 18px;">
+          {% if pieces_jointes %}
+          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+            {% for pj in pieces_jointes %}
+            <a href="{{ pj.fichier.url }}" target="_blank" style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);text-decoration:none;">
+              <i class="bx bxs-file-blank"></i> {{ pj.get_type_document_display }} — {{ pj.description|default:pj.fichier.name }}
+            </a>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">لا توجد مرفقات بعد.</div>
+          {% endif %}
+
+          <form method="post" enctype="multipart/form-data" action="{% url 'clients:acompte_client_ajouter_piece_jointe' acompte.pk %}">
+            {% csrf_token %}
+            {{ pj_formset.management_form }}
+            {% for pj_form in pj_formset %}
+            <div style="display:grid;grid-template-columns:2fr 1fr 1.4fr;gap:10px;margin-bottom:{% if not forloop.last %}10px{% else %}0{% endif %};">
+              {% for hfield in pj_form.hidden_fields %}{{ hfield }}{% endfor %}
+              {{ pj_form.fichier }}
+              {{ pj_form.type_document }}
+              {{ pj_form.description }}
+            </div>
+            {% for err in pj_form.fichier.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            {% endfor %}
+            <button type="submit" class="btn-ghost btn-sm" style="margin-top:10px;">
+              <i class="bx bx-upload"></i> رفع المرفق
+            </button>
+          </form>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right: summary -->
+    <div class="detail-side">
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bxs-coin"></i> ملخص</div>
+        </div>
+        <div style="padding:20px;display:flex;flex-direction:column;gap:0;">
+          <div class="total-row">
+            <span class="total-label">المبلغ الأصلي</span>
+            <span class="total-val" style="font-size:16px;font-weight:800;color:var(--text-primary);">{{ acompte.montant|floatformat:0 }} DZD</span>
+          </div>
+          <div class="total-row total-row--divider">
+            <span class="total-label">المستهلك</span>
+            <span class="total-val" style="color:#15803d;">{{ montant_consomme|floatformat:0 }} DZD</span>
+          </div>
+          <div class="total-row total-row--highlight">
+            <span class="total-label" style="font-weight:700;">المتبقي</span>
+            <span class="total-val" style="font-size:18px;font-weight:800;color:{% if acompte.montant_restant > 0 %}#b45309{% else %}#15803d{% endif %};">{{ acompte.montant_restant|floatformat:0 }} DZD</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bxs-group"></i> Client</div>
+        </div>
+        <div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;">
+          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);">{{ acompte.client.nom }}</div>
+          <a href="{% url 'clients:client_detail' acompte.client.pk %}" class="btn-ghost btn-sm btn-full">
+            <i class="bx bx-user"></i> ملف العميل
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .detail-grid { display: grid; grid-template-columns: 1fr 288px; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
+  .detail-main { display: flex; flex-direction: column; }
+  .detail-side { display: flex; flex-direction: column; gap: 16px; }
+
+  .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 16px; }
+  .card-header-row { padding: 14px 18px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .section-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+
+  .card-body-grid { display: grid; grid-template-columns: 1fr 1fr; }
+  .info-row { display: flex; flex-direction: column; gap: 3px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+  .info-row--full { grid-column: 1 / -1; }
+  .info-label { font-size: 11px; font-weight: 500; color: var(--text-muted); letter-spacing: .03em; text-transform: uppercase; }
+  .info-value { font-size: 13.5px; color: var(--text-secondary); }
+
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th { padding: 10px 14px; font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: left; background: var(--bg-base); }
+  .data-table tbody td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .table-row { animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i) * 35ms); }
+  .table-row:hover td { background: var(--bg-hover); }
+
+  .actions-cell { display: flex; gap: 4px; justify-content: flex-end; }
+  .action-btn { width: 30px; height: 30px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: transparent; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--text-muted); cursor: pointer; transition: all .15s; text-decoration: none; }
+  .action-btn:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+
+  .total-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .total-row:last-child { border-bottom: none; }
+  .total-row--divider { border-top: 2px solid var(--border-strong); border-bottom: 2px solid var(--border-strong); padding: 12px 0; margin: 4px 0; }
+  .total-row--highlight { background: var(--accent-dim); margin: 0 -20px; padding: 12px 20px; border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+  .total-label { font-size: 13px; color: var(--text-secondary); }
+  .total-val { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px; color: var(--text-primary); }
+
+  .pill-success,.pill-warning { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;font-family:'Inter',sans-serif; }
+  .pill-success { background:rgba(34,197,94,.14);color:#15803d; }
+  .pill-warning { background:rgba(245,158,11,.14);color:#b45309; }
+
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+  .btn-sm { padding: 7px 13px; font-size: 12.5px; }
+  .btn-full { width: 100%; justify-content: center; }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);} }
+</style>
+{% endblock %}
+
+{% block extra_js %}{% endblock %}
