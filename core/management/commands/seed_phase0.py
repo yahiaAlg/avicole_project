@@ -20,7 +20,7 @@ management/commands/seed_phase0.py
                           Khabchache Moussa
     • Client (4)       — IDIR AMBULANT BEJAIA, samir bejia, MOUHAMAD KALAI,
                           ETS BOUAOUDIA
-    • Intrant (51)     — كتاكيت, أعلاف خام (MAIS/SOJA/Phosphate/CMV×2/Sanvital)
+    • Intrant (53)     — poussins (ISA Brown/Lohmann Brown/Bovans Brown), أعلاف خام (MAIS/SOJA/Phosphate/CMV×2/Sanvital)
                           + علفان جاهزان (Aliment Démarrage Poussin،
                           Aliment Ponte Poule) يُصنَّعان داخلياً عبر
                           ProductionAliment, répartis désormais sur 5
@@ -304,8 +304,25 @@ class Command(BaseCommand):
 
         specs = [
             # -- Poussins ------------------------------------------------
+            # -- Poussins (races pondeuses réellement utilisées en Algérie) --
             dict(
-                designation="كتاكتاكيت",
+                designation="Poussin ISA Brown",
+                categorie=cat("POUSSIN"),
+                stade=Intrant.STADE_DEMARRAGE,
+                unite_mesure=unite("UNITE"),
+                seuil_alerte=Decimal("100"),
+                fournisseurs=[onab],
+            ),
+            dict(
+                designation="Poussin Lohmann Brown",
+                categorie=cat("POUSSIN"),
+                stade=Intrant.STADE_DEMARRAGE,
+                unite_mesure=unite("UNITE"),
+                seuil_alerte=Decimal("100"),
+                fournisseurs=[onab],
+            ),
+            dict(
+                designation="Poussin Bovans Brown",
                 categorie=cat("POUSSIN"),
                 stade=Intrant.STADE_DEMARRAGE,
                 unite_mesure=unite("UNITE"),
@@ -740,7 +757,7 @@ class Command(BaseCommand):
             if created:
                 created_count += 1
             objs[s["designation"]] = obj
-        self._log(f"Intrant ({len(specs)})", created_count > 0)  # 51 total
+        self._log(f"Intrant ({len(specs)})", created_count > 0)  # 53 total
         return objs
 
     def _seed_formules_aliment(self, intrants):

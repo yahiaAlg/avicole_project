@@ -28,8 +28,13 @@
           </div>
         </div>
 
-        <form method="post" novalidate>
+        <form method="post" novalidate id="lot-form">
           {% csrf_token %}
+
+          <!-- Data for the JS pre-population below (désignation / souche / -->
+          <!-- fournisseur / BL / nombre_poussins_initial helpers).         -->
+          {{ poussins_catalogue|json_script:"poussins-catalogue-data" }}
+          {{ batiments_meta|json_script:"batiments-meta-data" }}
 
           {% if form.non_field_errors %}
           <div class="form-errors-global">
@@ -86,6 +91,20 @@
                 <div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.batiment.errors|join:", " }}</div>
                 {% endif %}
               </div>
+            </div>
+          </div>
+
+          <!-- Chick catalogue picker — pre-populates souche, filters -->
+          <!-- fournisseur/BL, and suggests nombre_poussins_initial (JS)   -->
+          <div class="form-group">
+            <label class="form-label" for="id_poussin_catalogue">
+              اختيار من كتالوج الكتاكيت <span style="font-size:11px;color:var(--text-muted);font-weight:400;">— اختياري، يملأ الحقول أدناه تلقائياً</span>
+            </label>
+            <div class="input-wrap">
+              <i class="bx bxs-category input-icon"></i>
+              <select id="id_poussin_catalogue">
+                <option value="">— اختر سلالة من الكتالوج —</option>
+              </select>
             </div>
           </div>
 
@@ -296,6 +315,160 @@ document.addEventListener('DOMContentLoaded', function () {
   /* Focus the first focusable input */
   const first = document.querySelector('.input-wrap input, .input-wrap select');
   if (first) first.focus();
+
+  // ── JS pre-population: désignation / souche / fournisseur / BL / -------
+  // ── nombre_poussins_initial helpers ------------------------------------
+  const MOIS_FR = [
+    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+  ];
+
+  const poussinsCatalogue = JSON.parse(document.getElementById('poussins-catalogue-data').textContent);
+  const batimentsMeta = JSON.parse(document.getElementById('batiments-meta-data').textContent);
+
+  const designationInput = document.querySelector('[name="designation"]');
+  const dateOuvertureInput = document.querySelector('[name="date_ouverture"]');
+  const batimentSelect = document.querySelector('[name="batiment"]');
+  const nombreInput = document.querySelector('[name="nombre_poussins_initial"]');
+  const soucheInput = document.querySelector('[name="souche"]');
+  const fournisseurSelect = document.querySelector('[name="fournisseur_poussins"]');
+  const blSelect = document.querySelector('[name="bl_fournisseur_poussins"]');
+  const poussinCatalogueSelect = document.getElementById('id_poussin_catalogue');
+  const BL_URL = "{% url 'elevage:bl_fournisseur_poussins_json' %}";
+  const LOT_PK = "{% if lot %}{{ lot.pk }}{% endif %}";
+
+  if (!designationInput || !dateOuvertureInput || !batimentSelect || !nombreInput) return;
+
+  // 1) Default date_ouverture to the 1st of the current month (create only —
+  //    on edit the field already carries the lot's real opening date).
+  if (!dateOuvertureInput.value) {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    dateOuvertureInput.value = `${yyyy}-${mm}-01`;
+  }
+
+  // 2) Populate the chick-catalogue picker.
+  if (poussinCatalogueSelect) {
+    poussinsCatalogue.forEach(function (p) {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.designation + ' — رصيد ' + Math.floor(p.stock);
+      poussinCatalogueSelect.appendChild(opt);
+    });
+  }
+
+  // Track manual edits so auto-fill never clobbers something the user
+  // deliberately typed themselves.
+  let designationManuallyEdited = false;
+  let soucheManuallyEdited = false;
+  designationInput.addEventListener('input', function () { designationManuallyEdited = true; });
+  if (soucheInput) soucheInput.addEventListener('input', function () { soucheManuallyEdited = true; });
+
+  function buildDesignation() {
+    if (designationManuallyEdited) return;
+    const meta = batimentsMeta[batimentSelect.value];
+    if (!meta || !dateOuvertureInput.value) return;
+    const d = new Date(dateOuvertureInput.value + 'T00:00:00');
+    if (isNaN(d.getTime())) return;
+    designationInput.value = 'Lot ' + MOIS_FR[d.getMonth()] + ' ' + d.getFullYear() + ' — ' + meta.nom;
+  }
+
+  function updateNombrePoussinsDefault() {
+    const item = poussinsCatalogue.find(function (p) { return String(p.id) === poussinCatalogueSelect.value; });
+    if (!item) return;
+    const meta = batimentsMeta[batimentSelect.value];
+    let suggestion = item.stock;
+    if (meta && meta.capacite) suggestion = Math.min(suggestion, meta.capacite);
+    nombreInput.value = Math.floor(suggestion);
+  }
+
+  // ── Fournisseur filtering (by the chosen catalogue chick's suppliers) ──
+  let fournisseurOptionsOriginal = [];
+  if (fournisseurSelect) {
+    fournisseurOptionsOriginal = Array.from(fournisseurSelect.options).map(function (o) {
+      return { value: o.value, text: o.text };
+    });
+  }
+
+  function filterFournisseurs() {
+    if (!fournisseurSelect) return;
+    const item = poussinsCatalogue.find(function (p) { return String(p.id) === poussinCatalogueSelect.value; });
+    const allowed = item ? item.fournisseurs.map(String) : null;
+
+    fournisseurSelect.innerHTML = '';
+    fournisseurOptionsOriginal.forEach(function (opt) {
+      if (opt.value === '' || !allowed || allowed.indexOf(opt.value) !== -1) {
+        const o = document.createElement('option');
+        o.value = opt.value;
+        o.textContent = opt.text;
+        fournisseurSelect.appendChild(o);
+      }
+    });
+
+    // Exactly one matching supplier — pick it automatically and cascade to BL.
+    const nonEmpty = Array.from(fournisseurSelect.options).filter(function (o) { return o.value !== ''; });
+    if (allowed && nonEmpty.length === 1) {
+      fournisseurSelect.value = nonEmpty[0].value;
+    }
+    loadBlOptions();
+  }
+
+  // ── BL fournisseur (poussins) — reloaded whenever the supplier changes ─
+  let blPlaceholder = { value: '', text: '---------' };
+  if (blSelect && blSelect.options.length) {
+    blPlaceholder = { value: '', text: blSelect.options[0].text };
+  }
+
+  function loadBlOptions() {
+    if (!blSelect) return;
+    const fournisseurId = fournisseurSelect ? fournisseurSelect.value : '';
+    blSelect.innerHTML = '';
+    const placeholderOpt = document.createElement('option');
+    placeholderOpt.value = blPlaceholder.value;
+    placeholderOpt.textContent = blPlaceholder.text;
+    blSelect.appendChild(placeholderOpt);
+
+    if (!fournisseurId) return;
+
+    const params = new URLSearchParams({ fournisseur: fournisseurId });
+    if (LOT_PK) params.set('lot', LOT_PK);
+
+    fetch(BL_URL + '?' + params.toString())
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data) return;
+        data.results.forEach(function (r) {
+          const o = document.createElement('option');
+          o.value = r.id;
+          o.textContent = r.label;
+          blSelect.appendChild(o);
+        });
+      })
+      .catch(function () { /* advisory only — leave placeholder in place */ });
+  }
+
+  // ── Wiring ──────────────────────────────────────────────────────────────
+  batimentSelect.addEventListener('change', function () {
+    buildDesignation();
+    updateNombrePoussinsDefault();
+  });
+  dateOuvertureInput.addEventListener('change', buildDesignation);
+
+  if (poussinCatalogueSelect) {
+    poussinCatalogueSelect.addEventListener('change', function () {
+      const item = poussinsCatalogue.find(function (p) { return String(p.id) === poussinCatalogueSelect.value; });
+      if (item && soucheInput && !soucheManuallyEdited) {
+        soucheInput.value = item.designation;
+      }
+      filterFournisseurs();
+      updateNombrePoussinsDefault();
+    });
+  }
+
+  if (fournisseurSelect) {
+    fournisseurSelect.addEventListener('change', loadBlOptions);
+  }
 });
 </script>
 {% endblock %}

@@ -19,6 +19,7 @@ All write operations use Post-Redirect-Get.
 State changes (close lot, delete mortality/consumption) are POST-only.
 """
 
+import json
 import logging
 from decimal import Decimal
 
@@ -67,6 +68,8 @@ from elevage.models import (
 from elevage.utils import (
     get_lot_summary,
     get_lot_suivi_journalier,
+    get_oeufs_fifo_allocation,
+    get_oeufs_stock_lot,
     lots_a_transferer,
     verifier_mortalite_anormale,
 )
@@ -81,6 +84,44 @@ SUIVI_PER_PAGE = 31  # ≈ un mois par page pour le tableau de suivi journalier
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+def _build_poussins_catalogue(branche):
+    """
+    JSON-serializable catalogue of chick (poussin) Intrant items for the
+    lot_form's JS pre-population (désignation / souche / fournisseur /
+    nombre_poussins_initial helpers).
+
+    One entry per active Intrant in the POUSSIN category, with:
+      - id, designation
+      - stock: current StockIntrant balance for `branche` (0 if none/omitted)
+      - fournisseurs: PKs of suppliers linked to this Intrant (M2M) — used
+        to filter the fournisseur_poussins <select> client-side.
+    """
+    from intrants.models import Intrant
+
+    qs = Intrant.objects.filter(categorie__code="POUSSIN", actif=True).prefetch_related(
+        "fournisseurs"
+    )
+
+    return [
+        {
+            "id": intrant.pk,
+            "designation": intrant.designation,
+            "stock": float(intrant.quantite_en_stock(branche)),
+            "fournisseurs": list(intrant.fournisseurs.values_list("pk", flat=True)),
+        }
+        for intrant in qs
+    ]
+
+
+def _build_batiments_meta(batiment_qs):
+    """
+    JSON-serializable {pk: {nom, capacite}} map for the lot_form's JS —
+    used to build the désignation ("Lot <Mois> <Année> — <Bâtiment>") and to
+    cap the suggested nombre_poussins_initial at the building's capacite.
+    """
+    return {str(b.pk): {"nom": b.nom, "capacite": b.capacite} for b in batiment_qs}
 
 
 def _paginate(qs, page_number, per_page=PER_PAGE):
@@ -250,6 +291,8 @@ def lot_create(request):
             "form": form,
             "title": "فتح دفعة جديدة",
             "action_label": "فتح الدفعة",
+            "poussins_catalogue": _build_poussins_catalogue(branche),
+            "batiments_meta": _build_batiments_meta(form.fields["batiment"].queryset),
         },
     )
 
@@ -381,6 +424,8 @@ def lot_edit(request, pk):
             "lot": lot,
             "title": f"تعديل — {lot.designation}",
             "action_label": "حفظ التعديلات",
+            "poussins_catalogue": _build_poussins_catalogue(lot.branche),
+            "batiments_meta": _build_batiments_meta(form.fields["batiment"].queryset),
         },
     )
 
@@ -1760,14 +1805,81 @@ def retrait_oeufs_create(request, lot_pk=None):
                         # the stock movement in this path.
                         retrait.bl_genere = bl
 
-                    retrait.save()  # triggers signal → stock sortie + mouvement
-                    # (skipped automatically above when bl_genere is set)
+                    # ── Optional FIFO attribution split (soft/advisory) ──
+                    # When the entered quantity exceeds the selected lot's
+                    # own informational balance, the form JS may offer a
+                    # cascading FIFO split across other open lots in the
+                    # branche (see utils.get_oeufs_fifo_allocation). This is
+                    # attribution-only and only ever safe when there is no
+                    # BLClient being generated for this withdrawal (a
+                    # client_camion sale is one physical transaction — see
+                    # RetraitOeufs.bl_genere docstring — so it always stays
+                    # a single row to keep the stock-signal single-sourced).
+                    repartition_raw = request.POST.get("repartition_lots", "").strip()
+                    lots_repartis = None
+                    if repartition_raw and bl is None:
+                        try:
+                            repartition = json.loads(repartition_raw)
+                        except (TypeError, ValueError):
+                            repartition = None
+                        if isinstance(repartition, list) and repartition:
+                            try:
+                                total_reparti = sum(
+                                    int(item["quantite"]) for item in repartition
+                                )
+                                valide = (
+                                    total_reparti == retrait.quantite_oeufs
+                                    and all(
+                                        int(item["quantite"]) > 0
+                                        for item in repartition
+                                    )
+                                )
+                            except (KeyError, TypeError, ValueError):
+                                valide = False
+                            if valide:
+                                lots_repartis = []
+                                for item in repartition:
+                                    lot_item = branche_object_or_404(
+                                        request, LotElevage, pk=item["lot_id"]
+                                    )
+                                    r = RetraitOeufs.objects.create(
+                                        branche=retrait.branche,
+                                        lot=lot_item,
+                                        date=retrait.date,
+                                        quantite_oeufs=int(item["quantite"]),
+                                        motif=retrait.motif,
+                                        destinataire=retrait.destinataire,
+                                        notes=retrait.notes,
+                                        created_by=request.user,
+                                    )
+                                    lots_repartis.append(r)
+                            else:
+                                messages.warning(
+                                    request,
+                                    "توزيع الكميات على الدفعات غير متطابق مع "
+                                    "العدد الإجمالي — تم تجاهله وتسجيل السحب "
+                                    "على الدفعة المختارة فقط.",
+                                )
+
+                    if lots_repartis is None:
+                        retrait.save()  # triggers signal → stock sortie + mouvement
+                        # (skipped automatically above when bl_genere is set)
 
                 if bl:
                     messages.success(
                         request,
                         f"تم تسجيل سحب {retrait.quantite_oeufs} بيضة "
                         f"وإنشاء وصل تسليم {bl.reference} للعميل {retrait.client.nom}.",
+                    )
+                elif lots_repartis:
+                    detail = "، ".join(
+                        f"{r.lot.designation} ({r.quantite_oeufs})"
+                        for r in lots_repartis
+                    )
+                    messages.success(
+                        request,
+                        f"تم تسجيل سحب {retrait.quantite_oeufs} بيضة، موزعة "
+                        f"حسب الأقدمية (FIFO) على: {detail}.",
                     )
                 else:
                     messages.success(
@@ -1776,11 +1888,12 @@ def retrait_oeufs_create(request, lot_pk=None):
                         f"({retrait.get_motif_display()}).",
                     )
                 logger.info(
-                    "RetraitOeufs pk=%s created (lot pk=%s, nombre=%s, bl=%s) by '%s'.",
-                    retrait.pk,
+                    "RetraitOeufs created (lot pk=%s, nombre=%s, bl=%s, fifo_split=%s) "
+                    "by '%s'.",
                     lot.pk if lot else None,
                     retrait.quantite_oeufs,
                     bl.reference if bl else None,
+                    [r.pk for r in lots_repartis] if lots_repartis else None,
                     request.user,
                 )
                 return (
@@ -1978,3 +2091,113 @@ def lot_kpi_json(request, pk):
         "statut": lot.statut,
     }
     return JsonResponse(data)
+
+
+@login_required(login_url=LOGIN_URL)
+def retrait_oeufs_verifier_json(request):
+    """
+    Soft/advisory check for the withdrawal form (AJAX, GET), called on every
+    change of lot / date / quantite_oeufs before submit. Never blocks
+    anything — see utils.get_oeufs_stock_lot / get_oeufs_fifo_allocation.
+
+    Query params:
+        lot       — LotElevage pk (optional; omit for a lot-less withdrawal)
+        date      — ISO date of the withdrawal (defaults to today)
+        quantite  — entered quantite_oeufs (defaults to 0)
+
+    Returns:
+        {
+          "lot_stock": int | null,       # lot's own informational balance
+                                          # as of `date`, before this withdrawal
+          "would_be_negative": bool,     # true if this withdrawal would take
+                                          # that lot's own balance below 0
+          "fifo": {                      # only present when would_be_negative
+            "allocations": [{"lot_id", "designation", "quantite",
+                              "stock_disponible"}, ...],
+            "quantite_allouee": int,
+            "shortfall": int
+          } | null
+        }
+    """
+    import datetime
+
+    lot_pk = request.GET.get("lot") or None
+    try:
+        quantite = int(request.GET.get("quantite", "0"))
+    except (TypeError, ValueError):
+        quantite = 0
+    try:
+        date_retrait = (
+            datetime.date.fromisoformat(request.GET["date"])
+            if request.GET.get("date")
+            else datetime.date.today()
+        )
+    except ValueError:
+        date_retrait = datetime.date.today()
+
+    lot = None
+    if lot_pk:
+        try:
+            lot = branche_object_or_404(request, LotElevage, pk=int(lot_pk))
+        except (Http404, ValueError, TypeError):
+            lot = None
+    branche = lot.branche if lot else get_active_branche(request)
+
+    data = {"lot_stock": None, "would_be_negative": False, "fifo": None}
+
+    if lot is not None:
+        stock_actuel = get_oeufs_stock_lot(lot, as_of=date_retrait)
+        data["lot_stock"] = stock_actuel
+        data["would_be_negative"] = (stock_actuel - quantite) < 0
+        if data["would_be_negative"] and branche is not None and quantite > 0:
+            data["fifo"] = get_oeufs_fifo_allocation(
+                branche, quantite, date_retrait, lot_prioritaire=lot
+            )
+
+    return JsonResponse(data)
+
+
+@login_required(login_url=LOGIN_URL)
+def bl_fournisseur_poussins_json(request):
+    """
+    Return the eligible BL Fournisseur (poussins) options for one supplier,
+    as JSON. Called by the lot_form JS when the chick-catalogue dropdown (or
+    the fournisseur field directly) selects/changes a fournisseur, so the
+    bl_fournisseur_poussins <select> can be rebuilt to only offer that
+    supplier's delivery notes — mirrors LotElevageForm's own
+    statut/branche filtering (BR-LOT-01: RECU or FACTURE only).
+
+    Query params:
+        fournisseur — Fournisseur pk (required; empty result if missing)
+        lot         — LotElevage pk (optional — scopes to that lot's own
+                      branche, for the edit form; omit on the create form,
+                      where the active branche from the session is used)
+
+    Returns:
+        {"results": [{"id": int, "label": str}, ...]}
+    """
+    from achats.models import BLFournisseur
+
+    fournisseur_pk = request.GET.get("fournisseur")
+    if not fournisseur_pk:
+        return JsonResponse({"results": []})
+
+    lot_pk = request.GET.get("lot")
+    if lot_pk:
+        lot = branche_object_or_404(request, LotElevage, pk=lot_pk)
+        branche = lot.branche
+    else:
+        branche = get_active_branche(request)
+
+    qs = BLFournisseur.objects.filter(
+        fournisseur_id=fournisseur_pk,
+        statut__in=[BLFournisseur.STATUT_RECU, BLFournisseur.STATUT_FACTURE],
+    )
+    if branche is not None:
+        qs = qs.filter(branche=branche)
+
+    results = [
+        {"id": bl.pk, "label": f"{bl.reference} — {bl.date_bl:%d/%m/%Y}"}
+        for bl in qs.order_by("-date_bl")
+    ]
+    return JsonResponse({"results": results})

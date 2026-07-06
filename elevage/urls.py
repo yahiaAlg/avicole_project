@@ -172,4 +172,14 @@ urlpatterns = [
         views.lot_kpi_json,
         name="lot_kpi_json",
     ),
+    path(
+        "poussins/bl-fournisseur.json",
+        views.bl_fournisseur_poussins_json,
+        name="bl_fournisseur_poussins_json",
+    ),
+    path(
+        "oeufs/verifier-retrait.json",
+        views.retrait_oeufs_verifier_json,
+        name="retrait_oeufs_verifier_json",
+    ),
 ]

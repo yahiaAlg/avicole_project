@@ -13,6 +13,8 @@ echo "==> Collecting static files"
 python manage.py collectstatic --noinput --clear
 
 echo "==> Seeding the database"
-python manage.py seed_db --mode demo
+python manage.py seed_db_minimal
+python manage.py seed_buildings
+python manage.py seed_phase0
 
 echo "==> Build complete"

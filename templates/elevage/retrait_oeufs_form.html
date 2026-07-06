@@ -28,9 +28,10 @@
           </div>
         </div>
 
-        <form method="post" novalidate>
+        <form method="post" novalidate id="retrait-oeufs-form">
           {% csrf_token %}
           {{ form.branche }}
+          <input type="hidden" name="repartition_lots" id="id_repartition_lots" value="">
 
           {% if not form.lot.is_hidden %}
           <div class="form-group">
@@ -46,6 +47,32 @@
           {% else %}
           {{ form.lot }}
           {% endif %}
+
+          <!-- Soft warning: this lot's own balance would go negative -->
+          <div id="warning-stock-negatif" class="form-warning-soft" style="display:none;">
+            <i class="bx bxs-error"></i>
+            <div>
+              رصيد هذه الدفعة (تقديري) <strong id="warning-stock-valeur"></strong> —
+              سيصبح <strong id="warning-stock-resultat" style="color:#b45309;"></strong> بعد هذا السحب.
+              هذا رقم دفتري فقط ولن يمنع الحفظ.
+            </div>
+          </div>
+
+          <!-- Cascading FIFO suggestion across other lots in the branche -->
+          <div id="fifo-suggestion" class="form-warning-soft form-warning-soft--purple" style="display:none;">
+            <i class="bx bxs-info-circle"></i>
+            <div style="flex:1;">
+              <div style="margin-bottom:8px;">
+                لا يكفي رصيد هذه الدفعة وحدها — بالإمكان توزيع السحب حسب الأقدمية (الأقدم أولاً) على عدة دفعات:
+              </div>
+              <table id="fifo-table" style="width:100%;font-size:12.5px;border-collapse:collapse;margin-bottom:8px;"></table>
+              <div id="fifo-shortfall" style="display:none;color:#dc2626;font-weight:600;margin-bottom:8px;"></div>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12.5px;">
+                <input type="checkbox" id="fifo-accept-checkbox">
+                اعتماد هذا التوزيع بدل تسجيل كل الكمية على الدفعة الحالية فقط
+              </label>
+            </div>
+          </div>
 
           {% if form.non_field_errors %}
           <div class="form-errors-global">
@@ -180,6 +207,13 @@
   .input-wrap--textarea .input-icon { top:14px;transform:none; }
   .field-error { display:flex;align-items:center;gap:5px;font-size:12px;color:#dc2626;margin-top:5px; }
   .form-errors-global { display:flex;align-items:flex-start;gap:10px;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius-md);padding:12px 16px;margin-bottom:20px;font-size:13px;color:#dc2626; }
+  .form-warning-soft { display:flex;align-items:flex-start;gap:10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:var(--radius-md);padding:12px 16px;margin-bottom:18px;font-size:12.5px;color:#92400e; }
+  .form-warning-soft i { font-size:16px;color:#b45309;flex-shrink:0;margin-top:1px; }
+  .form-warning-soft--purple { background:rgba(124,58,237,.07);border-color:rgba(124,58,237,.22);color:#5b21b6; }
+  .form-warning-soft--purple i { color:#7c3aed; }
+  #fifo-table th, #fifo-table td { text-align:right;padding:5px 8px;border-bottom:1px solid rgba(124,58,237,.15); }
+  #fifo-table th { font-weight:700;color:#5b21b6; }
+  #fifo-table input[type="number"] { width:80px;padding:4px 6px;border:1px solid rgba(124,58,237,.3);border-radius:4px;font-size:12.5px;text-align:center; }
   .form-actions { display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:18px;border-top:1px solid var(--border); }
   .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 20px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
   .btn-primary:hover { opacity:.88;color:#fff; }
@@ -220,8 +254,128 @@ document.addEventListener('DOMContentLoaded', function () {
   if (clientSelect && motifSelect) {
     clientSelect.addEventListener('change', function () {
       if (clientSelect.value) motifSelect.value = 'client_camion';
+      scheduleCheck();
     });
   }
+
+  // ── Soft stock warning + cascading FIFO suggestion (advisory only) ────
+  const lotField = document.querySelector('[name="lot"]');
+  const dateInput = document.querySelector('[name="date"]');
+  const repartitionInput = document.getElementById('id_repartition_lots');
+  const warningNeg = document.getElementById('warning-stock-negatif');
+  const warningValeur = document.getElementById('warning-stock-valeur');
+  const warningResultat = document.getElementById('warning-stock-resultat');
+  const fifoBox = document.getElementById('fifo-suggestion');
+  const fifoTable = document.getElementById('fifo-table');
+  const fifoShortfall = document.getElementById('fifo-shortfall');
+  const fifoCheckbox = document.getElementById('fifo-accept-checkbox');
+  const VERIFY_URL = "{% url 'elevage:retrait_oeufs_verifier_json' %}";
+  let debounceTimer = null;
+  let lastFifo = null;
+
+  function currentLotId() {
+    return lotField ? lotField.value : '';
+  }
+
+  function resetFifo() {
+    fifoBox.style.display = 'none';
+    fifoCheckbox.checked = false;
+    repartitionInput.value = '';
+    lastFifo = null;
+  }
+
+  function buildFifoTable(allocations) {
+    let html = '<tr><th>الدفعة</th><th>الكمية المقترحة</th><th>الرصيد المتاح</th></tr>';
+    allocations.forEach(function (a, i) {
+      html += '<tr>' +
+        '<td>' + a.designation + '</td>' +
+        '<td><input type="number" min="0" max="' + a.stock_disponible + '" value="' + a.quantite + '" data-lot-id="' + a.lot_id + '" class="fifo-qty-input"></td>' +
+        '<td>' + a.stock_disponible + '</td>' +
+        '</tr>';
+    });
+    fifoTable.innerHTML = html;
+  }
+
+  function updateRepartitionFromInputs() {
+    if (!fifoCheckbox.checked) { repartitionInput.value = ''; return; }
+    const rows = fifoTable.querySelectorAll('.fifo-qty-input');
+    const repartition = [];
+    rows.forEach(function (input) {
+      const q = parseInt(input.value, 10) || 0;
+      if (q > 0) repartition.push({ lot_id: parseInt(input.dataset.lotId, 10), quantite: q });
+    });
+    repartitionInput.value = JSON.stringify(repartition);
+  }
+
+  function checkStock() {
+    const lotId = currentLotId();
+    const quantite = parseInt(nombreInput.value, 10) || 0;
+    const date = dateInput ? dateInput.value : '';
+
+    warningNeg.style.display = 'none';
+    resetFifo();
+
+    if (!lotId || !quantite) return;
+
+    const params = new URLSearchParams({ lot: lotId, quantite: quantite, date: date });
+    fetch(VERIFY_URL + '?' + params.toString())
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data) return;
+
+        if (data.lot_stock !== null) {
+          const apres = data.lot_stock - quantite;
+          if (data.would_be_negative) {
+            warningValeur.textContent = data.lot_stock;
+            warningResultat.textContent = apres;
+            warningNeg.style.display = 'flex';
+          }
+        }
+
+        if (data.fifo && data.fifo.allocations && data.fifo.allocations.length) {
+          lastFifo = data.fifo;
+          const clientChosen = clientSelect && clientSelect.value;
+          if (clientChosen) {
+            // A registered client makes this one physical sale (single BL) —
+            // splitting the attribution across lots isn't offered here (see
+            // views.retrait_oeufs_create); just show the informational note.
+            fifoTable.innerHTML = '';
+            fifoShortfall.style.display = 'block';
+            fifoShortfall.style.color = '#92400e';
+            fifoShortfall.textContent = 'ملاحظة: بما أن هذا السحب مرتبط بعميل مسجل (وصل تسليم واحد)، لن يُعرض توزيع تلقائي على عدة دفعات — سيُسجَّل بكامله على الدفعة المختارة.';
+            fifoBox.style.display = 'flex';
+            fifoCheckbox.parentElement.style.display = 'none';
+            return;
+          }
+          fifoCheckbox.parentElement.style.display = 'flex';
+          buildFifoTable(data.fifo.allocations);
+          if (data.fifo.shortfall > 0) {
+            fifoShortfall.style.display = 'block';
+            fifoShortfall.style.color = '#dc2626';
+            fifoShortfall.textContent = 'حتى بعد التوزيع على كل الدفعات المتاحة، ينقص ' + data.fifo.shortfall + ' بيضة عن الكمية المطلوبة.';
+          } else {
+            fifoShortfall.style.display = 'none';
+          }
+          fifoBox.style.display = 'flex';
+          fifoBox.querySelectorAll('.fifo-qty-input').forEach(function (input) {
+            input.addEventListener('input', updateRepartitionFromInputs);
+          });
+        }
+      })
+      .catch(function () { /* advisory only — silently ignore network errors */ });
+  }
+
+  function scheduleCheck() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(checkStock, 350);
+  }
+
+  if (lotField) lotField.addEventListener('change', scheduleCheck);
+  if (dateInput) dateInput.addEventListener('change', scheduleCheck);
+  nombreInput.addEventListener('input', scheduleCheck);
+  fifoCheckbox.addEventListener('change', updateRepartitionFromInputs);
+
+  scheduleCheck(); // initial state (e.g. edit mode)
 });
 </script>
 {% endblock %}

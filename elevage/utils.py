@@ -146,7 +146,7 @@ def get_lot_summary(lot) -> dict:
         ]
         or 0
     )
-    stock_oeufs_lot = total_oeufs_collectes - total_oeufs_retires
+    stock_oeufs_lot = get_oeufs_stock_lot(lot)
 
     return {
         "effectif_vivant": effectif_vivant,
@@ -307,6 +307,107 @@ def lots_a_transferer(branche=None) -> list:
         candidats = candidats.filter(branche=branche)
 
     return [lot for lot in candidats if lot.doit_etre_transfere]
+
+
+# ---------------------------------------------------------------------------
+# Egg withdrawal helpers — informational per-lot stock + FIFO suggestion
+# ---------------------------------------------------------------------------
+#
+# The real, physical egg stock is StockProduitFini, pooled at branche level
+# (see RetraitOeufs model docstring) and — like Consommation/Mortalite — is
+# never blocked from going negative. `lot` on RetraitOeufs/RecolteOeufs is
+# optional attribution/bookkeeping only. Everything below is therefore
+# advisory: it helps a user avoid accidentally emptying a lot's own ledger
+# below zero, and suggests a FIFO (oldest-lot-first) attribution split when
+# a single lot's own running balance can't cover the withdrawal — it never
+# blocks a save.
+
+
+def get_oeufs_stock_lot(lot, as_of=None) -> int:
+    """
+    Informational running egg balance for one lot: its own cumulative
+    RecolteOeufs minus its own cumulative RetraitOeufs, optionally capped to
+    `as_of` (inclusive). This is the single source of truth reused by
+    get_lot_summary, get_lot_suivi_journalier, and the withdrawal-form
+    soft-warning/FIFO endpoints — never a physical sub-stock (see module
+    docstring above).
+    """
+    from django.db.models import Sum
+    from elevage.models import RetraitOeufs
+
+    recoltes_qs = lot.recoltes_oeufs.all()
+    retraits_qs = RetraitOeufs.objects.filter(lot=lot)
+    if as_of is not None:
+        recoltes_qs = recoltes_qs.filter(date__lte=as_of)
+        retraits_qs = retraits_qs.filter(date__lte=as_of)
+
+    total_collectes = recoltes_qs.aggregate(total=Sum("nombre_oeufs"))["total"] or 0
+    total_retires = retraits_qs.aggregate(total=Sum("quantite_oeufs"))["total"] or 0
+    return total_collectes - total_retires
+
+
+def get_oeufs_fifo_allocation(
+    branche, quantite_demandee: int, date, lot_prioritaire=None
+) -> dict:
+    """
+    Advisory FIFO split suggestion for withdrawing `quantite_demandee` eggs
+    on `date`, scoped to `branche`.
+
+    Walks open lots oldest-first (date_ouverture ascending — FIFO), starting
+    with `lot_prioritaire` if given (so the lot the user actually selected is
+    drained first, exactly like the paper ledger would), taking from each
+    lot's own informational balance (get_oeufs_stock_lot, as_of=date) until
+    the requested quantity is covered or lots run out.
+
+    Purely a suggestion for how to *attribute* the withdrawal across lots'
+    ledgers — it never touches the real (branche-level, always-lenient)
+    stock, and never blocks anything.
+
+    Returns:
+        {
+          "allocations": [
+              {"lot_id": int, "designation": str, "quantite": int,
+               "stock_disponible": int}, ...
+          ],
+          "quantite_allouee": int,
+          "shortfall": int,  # > 0 if even every open lot combined can't
+                              # cover the requested quantity
+        }
+    """
+    from elevage.models import LotElevage
+
+    lots = list(
+        LotElevage.objects.filter(
+            branche=branche, statut=LotElevage.STATUT_OUVERT
+        ).order_by("date_ouverture")
+    )
+    if lot_prioritaire is not None:
+        lots = [lot_prioritaire] + [l for l in lots if l.pk != lot_prioritaire.pk]
+
+    restant = quantite_demandee
+    allocations = []
+    for lot in lots:
+        if restant <= 0:
+            break
+        disponible = get_oeufs_stock_lot(lot, as_of=date)
+        if disponible <= 0:
+            continue
+        pris = min(disponible, restant)
+        allocations.append(
+            {
+                "lot_id": lot.pk,
+                "designation": lot.designation,
+                "quantite": pris,
+                "stock_disponible": disponible,
+            }
+        )
+        restant -= pris
+
+    return {
+        "allocations": allocations,
+        "quantite_allouee": quantite_demandee - restant,
+        "shortfall": max(restant, 0),
+    }
 
 
 # ---------------------------------------------------------------------------
