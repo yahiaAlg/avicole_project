@@ -149,6 +149,50 @@ def _assert_lot_ouvert(lot, request):
     return True
 
 
+def _auto_creer_depense_production_aliment(production, user):
+    """
+    Auto-create a Depense for a direct feed replenishment (no `formule`)
+    entered with a known unit price — the operator is recording an actual
+    cash/bank outlay ("we just bought/refilled X kg at Y DZD/kg"), so it
+    should also land in the dépenses ledger without a second manual entry.
+
+    Skipped when a `formule` was used (cost is only implied from ingredient
+    PMP, not an actual outlay — see elevage.signals.production_aliment_post_save)
+    or when prix_unitaire is 0 (no known cost to record).
+    """
+    from depenses.models import CategorieDepense, Depense
+
+    if (
+        production.formule_id
+        or not production.prix_unitaire
+        or production.prix_unitaire <= 0
+    ):
+        return None
+
+    categorie, _ = CategorieDepense.objects.get_or_create(
+        code="ACHAT_ALIMENT",
+        defaults={
+            "libelle": "شراء الأعلاف",
+            "description": "مصاريف تزويد/شراء الأعلاف الجاهزة مباشرة (دون تركيبة).",
+            "actif": True,
+        },
+    )
+
+    return Depense.objects.create(
+        date=production.date,
+        branche=production.branche,
+        categorie=categorie,
+        description=(
+            f"تزويد علف — {production.intrant_produit.designation} "
+            f"({production.quantite_produite_kg} كغ)"
+        ),
+        montant=production.montant_total,
+        mode_paiement=Depense.MODE_ESPECES,
+        notes=production.notes,
+        enregistre_par=user,
+    )
+
+
 def _ensure_branche_access(request, lot):
     """
     404 when *lot* (or a sub-record's parent lot) belongs to a branche other
@@ -1693,23 +1737,38 @@ def production_aliment_create(request):
         form = ProductionAlimentForm(request.POST, branche=branche)
         if form.is_valid():
             try:
-                production = form.save(commit=False)
-                if branche:
-                    production.branche = branche
-                production.created_by = request.user
-                production.save()  # triggers signal → stock entrée (+ ingrédients)
+                with transaction.atomic():
+                    production = form.save(commit=False)
+                    if branche:
+                        production.branche = branche
+                    production.created_by = request.user
+                    production.save()  # triggers signal → stock entrée (+ ingrédients)
 
-                messages.success(
-                    request,
-                    f"تم تسجيل تزويد {production.quantite_produite_kg} كغ من "
-                    f"«{production.intrant_produit.designation}».",
-                )
+                    depense = _auto_creer_depense_production_aliment(
+                        production, request.user
+                    )
+
+                if depense is not None:
+                    messages.success(
+                        request,
+                        f"تم تسجيل تزويد {production.quantite_produite_kg} كغ من "
+                        f"«{production.intrant_produit.designation}» وإنشاء "
+                        f"مصروف تلقائي بمبلغ {depense.montant} د.ج.",
+                    )
+                else:
+                    messages.success(
+                        request,
+                        f"تم تسجيل تزويد {production.quantite_produite_kg} كغ من "
+                        f"«{production.intrant_produit.designation}».",
+                    )
                 logger.info(
-                    "ProductionAliment pk=%s created (intrant pk=%s, qte=%s) by '%s'.",
+                    "ProductionAliment pk=%s created (intrant pk=%s, qte=%s) by '%s'"
+                    " — depense_auto=%s.",
                     production.pk,
                     production.intrant_produit_id,
                     production.quantite_produite_kg,
                     request.user,
+                    depense.pk if depense is not None else None,
                 )
                 return redirect("elevage:dashboard")
 
