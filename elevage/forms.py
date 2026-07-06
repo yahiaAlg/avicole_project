@@ -694,7 +694,11 @@ class RetraitOeufsForm(forms.ModelForm):
         self.fields["destinataire"].required = False
         self.fields["notes"].required = False
         self.fields["lot"].required = False
-        self.fields["lot"].queryset = LotElevage.objects.all()
+        self.fields["lot"].empty_label = "— بدون دفعة (سحب عام) —"
+        lot_qs = LotElevage.objects.all()
+        if branche:
+            lot_qs = lot_qs.filter(branche=branche)
+        self.fields["lot"].queryset = lot_qs.order_by("-date_ouverture")
         if lot:
             self.fields["lot"].initial = lot
             self.fields["lot"].widget = forms.HiddenInput()

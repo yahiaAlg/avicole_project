@@ -30,8 +30,22 @@
 
         <form method="post" novalidate>
           {% csrf_token %}
-          {{ form.lot }}
           {{ form.branche }}
+
+          {% if not form.lot.is_hidden %}
+          <div class="form-group">
+            <label class="form-label" for="{{ form.lot.id_for_label }}">
+              الدفعة <span style="font-size:11px;color:var(--text-muted);font-weight:400;">— اختياري، لعرض السحب في جدول الدفعة</span>
+            </label>
+            <div class="input-wrap">
+              <i class="bx bxs-package input-icon"></i>
+              {{ form.lot }}
+            </div>
+            {% if form.lot.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.lot.errors|join:", " }}</div>{% endif %}
+          </div>
+          {% else %}
+          {{ form.lot }}
+          {% endif %}
 
           {% if form.non_field_errors %}
           <div class="form-errors-global">

@@ -20,6 +20,10 @@ from elevage.models import (
     TransfertLot,
     PeseeEchantillon,
     RecolteOeufs,
+    FormuleAliment,
+    FormuleAlimentLigne,
+    ProductionAliment,
+    RetraitOeufs,
 )
 from elevage.resources import (
     LotElevageResource,
@@ -89,7 +93,13 @@ class LotElevageAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         "taux_mortalite_display",
         "duree_jours",
     )
-    list_filter = ("statut", "branche", "batiment", "fournisseur_poussins", "date_ouverture")
+    list_filter = (
+        "statut",
+        "branche",
+        "batiment",
+        "fournisseur_poussins",
+        "date_ouverture",
+    )
     search_fields = ("designation", "souche", "notes")
     date_hierarchy = "date_ouverture"
     readonly_fields = (
@@ -286,7 +296,12 @@ class TransfertLotAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
         "effectif_transfere",
         "motif",
     )
-    list_filter = ("lot__branche", "batiment_origine", "batiment_destination", "date_transfert")
+    list_filter = (
+        "lot__branche",
+        "batiment_origine",
+        "batiment_destination",
+        "date_transfert",
+    )
     search_fields = ("lot__designation", "motif")
     date_hierarchy = "date_transfert"
     autocomplete_fields = ("lot", "batiment_origine", "batiment_destination")
@@ -443,3 +458,143 @@ class RecolteOeufsAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
     def qualite_display(self, obj):
         qualite = obj.qualite
         return qualite.libelle if qualite else "—"
+
+
+# ---------------------------------------------------------------------------
+# FormuleAliment / FormuleAlimentLigne
+# ---------------------------------------------------------------------------
+
+
+class FormuleAlimentLigneInline(admin.TabularInline):
+    model = FormuleAlimentLigne
+    extra = 1
+    fields = ("intrant", "proportion_kg")
+    autocomplete_fields = ("intrant",)
+
+
+@admin.register(FormuleAliment)
+class FormuleAlimentAdmin(admin.ModelAdmin):
+    list_display = (
+        "nom",
+        "intrant_produit",
+        "actif",
+        "total_proportion_kg_display",
+        "created_at",
+    )
+    list_filter = ("actif", "intrant_produit")
+    search_fields = ("nom", "intrant_produit__designation")
+    autocomplete_fields = ("intrant_produit",)
+    readonly_fields = ("created_at",)
+    inlines = (FormuleAlimentLigneInline,)
+
+    fieldsets = (
+        (None, {"fields": ("nom", "intrant_produit", "actif")}),
+        ("Notes", {"fields": ("notes",), "classes": ("collapse",)}),
+        ("Horodatage", {"fields": ("created_at",), "classes": ("collapse",)}),
+    )
+
+    @admin.display(description="إجمالي النسب (كغ/100كغ)")
+    def total_proportion_kg_display(self, obj):
+        return obj.total_proportion_kg
+
+
+# ---------------------------------------------------------------------------
+# ProductionAliment
+# ---------------------------------------------------------------------------
+
+
+@admin.register(ProductionAliment)
+class ProductionAlimentAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
+    list_display = (
+        "intrant_produit",
+        "branche",
+        "date",
+        "formule",
+        "quantite_produite_kg",
+        "prix_unitaire",
+        "montant_total_display",
+    )
+    list_filter = ("branche", "intrant_produit", "formule", "date")
+    search_fields = ("intrant_produit__designation", "formule__nom")
+    date_hierarchy = "date"
+    autocomplete_fields = ("intrant_produit", "formule")
+    readonly_fields = ("created_at", "montant_total_display")
+
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "branche",
+                    "date",
+                    "intrant_produit",
+                    "formule",
+                    "quantite_produite_kg",
+                    "prix_unitaire",
+                    "montant_total_display",
+                ),
+            },
+        ),
+        ("Notes", {"fields": ("notes",), "classes": ("collapse",)}),
+        (
+            "Horodatage",
+            {
+                "fields": ("created_by", "created_at"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    @admin.display(description="المبلغ الإجمالي (د.ج)")
+    def montant_total_display(self, obj):
+        return obj.montant_total
+
+
+# ---------------------------------------------------------------------------
+# RetraitOeufs
+# ---------------------------------------------------------------------------
+
+
+@admin.register(RetraitOeufs)
+class RetraitOeufsAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
+    list_display = (
+        "date",
+        "branche",
+        "lot",
+        "quantite_oeufs",
+        "motif",
+        "client",
+        "destinataire",
+        "bl_genere",
+    )
+    list_filter = ("branche", "motif", "lot", "date")
+    search_fields = ("lot__designation", "client__nom", "destinataire")
+    date_hierarchy = "date"
+    autocomplete_fields = ("lot", "client")
+    readonly_fields = ("bl_genere", "created_at")
+
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "branche",
+                    "lot",
+                    "date",
+                    "quantite_oeufs",
+                    "motif",
+                    "client",
+                    "destinataire",
+                    "bl_genere",
+                ),
+            },
+        ),
+        ("Notes", {"fields": ("notes",), "classes": ("collapse",)}),
+        (
+            "Horodatage",
+            {
+                "fields": ("created_by", "created_at"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
