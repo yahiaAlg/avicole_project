@@ -326,6 +326,15 @@ class PieceJointeForm(forms.ModelForm):
     class Meta:
         model = PieceJointe
         fields = ["fichier", "type_document", "description"]
+        widgets = {
+            "fichier": forms.ClearableFileInput(
+                attrs={"class": "pj-input pj-input--file"}
+            ),
+            "type_document": forms.Select(attrs={"class": "pj-input pj-input--select"}),
+            "description": forms.TextInput(
+                attrs={"class": "pj-input pj-input--text", "placeholder": "وصف مختصر"}
+            ),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

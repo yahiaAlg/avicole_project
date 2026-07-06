@@ -1,17 +1,19 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}الدفعات المسبقة — Élevage Avicole{% endblock %}
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
 
-{% block nav_acomptes_clients %}active{% endblock %}
+{% block nav_lots %}active{% endblock %}
 
-{% block page_title %}الدفعات المسبقة للعملاء{% endblock %}
-{% block page_sub_text %}{{ page.paginator.count }} دفعة مسبقة{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} عملية جمع · {{ total_oeufs }} بيضة إجمالاً{% endblock %}
 
 {% block topbar_actions %}
-  <a href="{% url 'clients:paiement_client_create' %}" class="btn-primary">
-    <i class="bx bx-plus"></i> تسجيل دفعة جديدة
+  {% if lot_pk %}
+  <a href="{% url 'elevage:recolte_oeufs_create' lot_pk %}" class="btn-primary">
+    <i class="bx bx-plus"></i> جمع بيض جديد
   </a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
@@ -19,23 +21,21 @@
 
   <div class="filters-bar">
     <form method="get" class="filters-form" id="filter-form">
-      <select name="client" class="filter-select" id="filter-client">
-        <option value="">جميع العملاء</option>
-        {% for c in clients %}
-        <option value="{{ c.pk }}" {% if client_filter == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nom }}</option>
+      <select name="lot" class="filter-select" id="filter-lot">
+        <option value="">جميع القطعان</option>
+        {% for l in lots %}
+        <option value="{{ l.pk }}" {% if lot_pk == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.designation }}</option>
         {% endfor %}
       </select>
-      <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary);cursor:pointer;">
-        <input type="checkbox" name="disponible" value="1" {% if disponible_seulement %}checked{% endif %} onchange="document.getElementById('filter-form').submit();">
-        المتاحة فقط
-      </label>
+      <input type="date" name="date_debut" class="filter-select" value="{{ date_debut }}" title="من تاريخ">
+      <input type="date" name="date_fin" class="filter-select" value="{{ date_fin }}" title="إلى تاريخ">
       <button type="submit" class="btn-ghost btn-sm"><i class="bx bx-filter-alt"></i> تصفية</button>
     </form>
   </div>
 
   <div class="card">
     <div class="card-header-row">
-      <div class="section-eyebrow"><i class="bx bxs-bank"></i> الدفعات المسبقة</div>
+      <div class="section-eyebrow"><i class="bx bxs-circle"></i> عمليات جمع البيض</div>
     </div>
 
     {% if page.object_list %}
@@ -43,37 +43,37 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>العميل</th>
-            {% if not active_branche %}<th>الفرع</th>{% endif %}
+            <th>الدفعة</th>
             <th>التاريخ</th>
-            <th style="text-align:right;">المبلغ الأصلي</th>
-            <th style="text-align:right;">المتبقي</th>
-            <th>الحالة</th>
+            <th style="text-align:right;">عدد البيض</th>
+            <th style="text-align:right;">الصواني</th>
+            <th>الجودة</th>
             <th style="text-align:right;">الإجراءات</th>
           </tr>
         </thead>
         <tbody>
-          {% for acompte in page.object_list %}
+          {% for r in page.object_list %}
           <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
             <td>
-              <a href="{% url 'clients:client_detail' acompte.client.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;">{{ acompte.client.nom }}</a>
+              <a href="{% url 'elevage:lot_detail' r.lot.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;">{{ r.lot.designation }}</a>
+              {% if active_branche is None %}<div style="font-size:11px;color:var(--text-muted);">{{ r.lot.branche.nom }}</div>{% endif %}
             </td>
-            {% if not active_branche %}
-            <td style="font-size:12px;color:var(--text-muted);">{{ acompte.branche.nom }}</td>
-            {% endif %}
-            <td style="font-size:12px;color:var(--text-muted);">{{ acompte.date|date:"d/m/Y" }}</td>
-            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;">{{ acompte.montant|floatformat:0 }} DZD</td>
-            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:{% if acompte.montant_restant > 0 %}#b45309{% else %}#15803d{% endif %};">
-              {{ acompte.montant_restant|floatformat:0 }} DZD
+            <td style="font-size:12px;color:var(--text-muted);">{{ r.date|date:"d/m/Y" }}</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#ea580c;">{{ r.nombre_oeufs }}</td>
+            <td style="text-align:right;color:var(--text-secondary);white-space:nowrap;">
+              {{ r.nombre_plateaux }} صينية{% if r.oeufs_hors_plateau %} + {{ r.oeufs_hors_plateau }}{% endif %}
             </td>
             <td>
-              {% if acompte.utilise %}<span class="pill-success">مستهلكة</span>
-              {% else %}<span class="pill-warning">متاحة</span>{% endif %}
+              {% if r.qualite %}<span class="pill-info">{{ r.qualite.libelle }}</span>
+              {% else %}<span style="color:var(--text-muted);font-size:12px;">—</span>{% endif %}
             </td>
             <td>
               <div class="actions-cell">
-                <a href="{% url 'clients:acompte_client_detail' acompte.pk %}" class="action-btn" title="Détail"><i class="bx bx-show"></i></a>
-                <a href="{% url 'clients:paiement_client_detail' acompte.paiement_id %}" class="action-btn" title="الدفعة الأصلية"><i class="bx bxs-wallet"></i></a>
+                <a href="{% url 'elevage:recolte_oeufs_edit' r.pk %}" class="action-btn" title="تعديل"><i class="bx bxs-pencil"></i></a>
+                <form method="post" action="{% url 'elevage:recolte_oeufs_delete' r.pk %}" onsubmit="return confirm('هل أنت متأكد من حذف عملية الجمع هذه؟');" style="display:inline;">
+                  {% csrf_token %}
+                  <button type="submit" class="action-btn action-btn--danger" title="حذف"><i class="bx bxs-trash"></i></button>
+                </form>
               </div>
             </td>
           </tr>
@@ -85,20 +85,20 @@
     {% if page.has_other_pages %}
     <div class="pagination-bar">
       {% if page.has_previous %}
-      <a href="?client={{ client_filter }}&page={{ page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
+      <a href="?lot={{ lot_pk }}&date_debut={{ date_debut }}&date_fin={{ date_fin }}&page={{ page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
       {% else %}<span class="page-btn page-btn--disabled"><i class="bx bx-chevron-left"></i></span>{% endif %}
-      <span class="page-info">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+      <span class="page-info">صفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
       {% if page.has_next %}
-      <a href="?client={{ client_filter }}&page={{ page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
+      <a href="?lot={{ lot_pk }}&date_debut={{ date_debut }}&date_fin={{ date_fin }}&page={{ page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
       {% else %}<span class="page-btn page-btn--disabled"><i class="bx bx-chevron-right"></i></span>{% endif %}
     </div>
     {% endif %}
 
     {% else %}
     <div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
-      <i class="bx bxs-bank" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
-      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">لا توجد دفعات مسبقة</div>
-      <div style="font-size:13px;">تُنشأ تلقائياً عندما يبقى رصيد غير مخصص في دفعة عميل.</div>
+      <i class="bx bxs-circle" style="font-size:32px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
+      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">لا توجد عمليات جمع بيض</div>
+      <div style="font-size:13px;">اختر دفعة من قائمة القطعان الجارية لتسجيل أول عملية جمع.</div>
     </div>
     {% endif %}
   </div>
@@ -127,10 +127,9 @@
   .actions-cell { display: flex; gap: 4px; justify-content: flex-end; }
   .action-btn { width: 30px; height: 30px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: transparent; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--text-muted); cursor: pointer; transition: all .15s; text-decoration: none; }
   .action-btn:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+  .action-btn--danger:hover { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.3); color: #dc2626; }
 
-  .pill-success,.pill-warning { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;font-family:'Inter',sans-serif; }
-  .pill-success { background:rgba(34,197,94,.14);color:#15803d; }
-  .pill-warning { background:rgba(245,158,11,.14);color:#b45309; }
+  .pill-info { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;font-family:'Inter',sans-serif;background:rgba(56,189,248,.14);color:#0284c7; }
 
   .pagination-bar { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px; border-top: 1px solid var(--border); }
   .page-btn { width: 32px; height: 32px; border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--text-secondary); text-decoration: none; transition: all .15s; }
@@ -138,6 +137,8 @@
   .page-btn--disabled { opacity: .4; cursor: default; pointer-events: none; }
   .page-info { font-size: 12.5px; color: var(--text-muted); }
 
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
   .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
   .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
 
@@ -148,7 +149,7 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  document.getElementById('filter-client').addEventListener('change', function () {
+  document.getElementById('filter-lot').addEventListener('change', function () {
     document.getElementById('filter-form').submit();
   });
 });

@@ -35,10 +35,14 @@
       <div class="kpi-card__value">{{ solde.dette_globale|floatformat:0 }} <span class="kpi-currency">DZD</span></div>
       <div class="kpi-card__sub">فواتير غير مسوّاة</div>
     </div>
-    <div class="kpi-card">
+    <div class="kpi-card {% if solde.acompte_disponible > 0 %}kpi-card--info{% endif %}">
       <div class="kpi-card__label">السلفة المتاحة</div>
       <div class="kpi-card__value">{{ solde.acompte_disponible|floatformat:0 }} <span class="kpi-currency">DZD</span></div>
-      <div class="kpi-card__sub">سلف غير مُحسوبة</div>
+      <div class="kpi-card__sub">
+        {% if solde.acompte_disponible > 0 %}
+        <a href="{% url 'achats:acompte_fournisseur_list' %}?fournisseur={{ fournisseur.pk }}" style="color:#0d9488;text-decoration:none;">تُخصم من الفاتورة القادمة <i class="bx bx-left-arrow-alt"></i></a>
+        {% else %}لا يوجد رصيد سلفة{% endif %}
+      </div>
     </div>
     <div class="kpi-card">
       <div class="kpi-card__label">إجمالي المدفوعات</div>
@@ -182,7 +186,7 @@
               <tr style="--row-i:{{ forloop.counter0 }};">
                 <td>
                   <a href="{% url 'achats:bl_fournisseur_detail' bl.pk %}" class="row-link">
-                    <span style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ bl.numero_bl|default:"BL-"|add:bl.pk }}</span>
+                    <span style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ bl.reference }}</span>
                   </a>
                 </td>
                 <td style="color:var(--text-muted);">{{ bl.date_bl|date:"d/m/Y" }}</td>
@@ -320,6 +324,7 @@
   }
   .kpi-card--danger { border-color: rgba(239,68,68,.25); background: rgba(239,68,68,.04); }
   .kpi-card--warning { border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.04); }
+  .kpi-card--info { border-color: rgba(20,184,166,.25); background: rgba(20,184,166,.04); }
   .kpi-card__label { font-size: 10.5px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-muted); margin-bottom: 8px; }
   .kpi-card__value { font-family: 'Nunito',sans-serif; font-weight: 800; font-size: 22px; color: var(--text-primary); line-height: 1; }
   .kpi-card--danger .kpi-card__value { color: #dc2626; }

@@ -1101,6 +1101,10 @@
 
       <!-- تربية الدواجن -->
       <div class="nav-group-label">التربية</div>
+      <a href="{% url 'elevage:dashboard' %}" class="nav-link {% block nav_elevage_dashboard %}{% endblock %}">
+        <i class="bx bxs-pie-chart-alt-2"></i>
+        <span class="nav-link-label">لوحة تحكم التربية</span>
+      </a>
       <a href="{% url 'elevage:lot_list' %}" class="nav-link {% block nav_lots %}{% endblock %}">
         <i class="bx bxs-grid-alt"></i>
         <span class="nav-link-label">دفعات التربية</span>
@@ -1163,6 +1167,10 @@
         <i class="bx bxs-coin"></i>
         <span class="nav-link-label">التسويات</span>
       </a>
+      <a href="{% url 'achats:acompte_fournisseur_list' %}" class="nav-link {% block nav_acomptes_fournisseurs %}{% endblock %}">
+        <i class="bx bxs-bank"></i>
+        <span class="nav-link-label">الدفعات المسبقة</span>
+      </a>
 
       <!-- العملاء -->
       <div class="nav-group-label">العملاء</div>
@@ -1181,6 +1189,10 @@
       <a href="{% url 'clients:paiement_client_list' %}" class="nav-link {% block nav_paiements_clients %}{% endblock %}">
         <i class="bx bxs-credit-card"></i>
         <span class="nav-link-label">المدفوعات</span>
+      </a>
+      <a href="{% url 'clients:acompte_client_list' %}" class="nav-link {% block nav_acomptes_clients %}{% endblock %}">
+        <i class="bx bxs-bank"></i>
+        <span class="nav-link-label">الدفعات المسبقة</span>
       </a>
       <a href="{% url 'clients:prix_marche_list' %}" class="nav-link {% block nav_prix_marche %}{% endblock %}">
         <i class="bx bx-trending-up"></i>

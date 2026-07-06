@@ -43,6 +43,16 @@
       <div class="kpi-card__value">{{ solde.total_paiements|floatformat:0 }} <span class="kpi-currency">دج</span></div>
       <div class="kpi-card__sub">سجل المدفوعات</div>
     </div>
+    <div class="kpi-card {% if solde.acompte_disponible > 0 %}kpi-card--info{% endif %}">
+      <div class="kpi-icon ic-teal"><i class="bx bxs-bank"></i></div>
+      <div class="kpi-card__label">دفعات مسبقة متاحة</div>
+      <div class="kpi-card__value">{{ solde.acompte_disponible|floatformat:0 }} <span class="kpi-currency">دج</span></div>
+      <div class="kpi-card__sub">
+        {% if solde.acompte_disponible > 0 %}
+        <a href="{% url 'clients:acompte_client_list' %}?client={{ client.pk }}" style="color:#0d9488;text-decoration:none;">تُخصم من الفاتورة القادمة <i class="bx bx-left-arrow-alt"></i></a>
+        {% else %}لا يوجد رصيد مسبق{% endif %}
+      </div>
+    </div>
     <div class="kpi-card {% if solde.depasse_plafond %}kpi-card--danger{% endif %}">
       <div class="kpi-icon ic-purple"><i class="bx bxs-coin"></i></div>
       <div class="kpi-card__label">سقف الائتمان</div>
@@ -307,16 +317,19 @@
   .page-body { direction: rtl; }
   .confirm-box { direction: rtl; }
 
-  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
-  @media (max-width: 1100px) { .kpi-row { grid-template-columns: repeat(2,1fr); } }
+  .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 20px; }
+  @media (max-width: 1300px) { .kpi-row { grid-template-columns: repeat(3,1fr); } }
+  @media (max-width: 750px) { .kpi-row { grid-template-columns: repeat(2,1fr); } }
   .kpi-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; animation: fadeIn .3s ease both; }
   .kpi-card--danger { border-color: rgba(239,68,68,.25); background: rgba(239,68,68,.03); }
   .kpi-card--warn   { border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.03); }
+  .kpi-card--info   { border-color: rgba(20,184,166,.25); background: rgba(20,184,166,.03); }
   .kpi-icon { width: 40px; height: 40px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 4px; }
   .ic-amber  { background: rgba(245,158,11,.14); color: #b45309; }
   .ic-red    { background: rgba(239,68,68,.12);  color: #dc2626; }
   .ic-green  { background: rgba(34,197,94,.14);  color: #15803d; }
   .ic-purple { background: rgba(167,139,250,.14);color: #7c3aed; }
+  .ic-teal   { background: rgba(20,184,166,.14); color: #0d9488; }
   .kpi-card__label { font-size: 10.5px; font-weight: 600; color: var(--text-muted); }
   .kpi-card__value { font-family: 'Nunito',sans-serif; font-weight: 800; font-size: 22px; color: var(--text-primary); line-height: 1.1; }
   .kpi-currency { font-size: 13px; font-weight: 600; color: var(--text-muted); }

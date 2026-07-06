@@ -29,6 +29,7 @@ from django.db import transaction
 from django.db.models import Q, Sum
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
@@ -1539,7 +1540,7 @@ def _safe_next_url(request, default):
         next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
     ):
         return next_url
-    return default
+    return reverse(default)
 
 
 @login_required(login_url=LOGIN_URL)

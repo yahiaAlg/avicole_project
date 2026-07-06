@@ -334,12 +334,18 @@
   .form-card input[type="text"],
   .form-card input[type="date"],
   .form-card input[type="number"],
-  .form-card select,
   .form-card textarea {
     background: var(--bg-surface); border: 1px solid var(--border);
     border-radius: var(--radius-md); color: var(--text-primary);
     font-family: 'Inter', sans-serif; font-size: 13.5px;
     padding: 10px 13px; width: 100%; outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .form-card select {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); color: var(--text-primary);
+    font-family: 'Inter', sans-serif; font-size: 13.5px;
+    padding: 10px 13px; width: 100%; max-width: 480px; outline: none;
     transition: border-color .15s, box-shadow .15s;
   }
   .form-card input:focus, .form-card select:focus, .form-card textarea:focus {
