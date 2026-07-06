@@ -301,6 +301,7 @@ class Command(BaseCommand):
         kamel = fournisseurs["kamel el eulma"]
         sanvital = fournisseurs["Sanvital"]
         tarek = fournisseurs["Vétérinaire Tarek"]
+        redouane = fournisseurs["SARL EL-REDHOUANE"]
 
         specs = [
             # -- Poussins ------------------------------------------------
@@ -311,7 +312,7 @@ class Command(BaseCommand):
                 stade=Intrant.STADE_DEMARRAGE,
                 unite_mesure=unite("UNITE"),
                 seuil_alerte=Decimal("100"),
-                fournisseurs=[onab],
+                fournisseurs=[onab, redouane],
             ),
             dict(
                 designation="Poussin Lohmann Brown",
@@ -319,7 +320,7 @@ class Command(BaseCommand):
                 stade=Intrant.STADE_DEMARRAGE,
                 unite_mesure=unite("UNITE"),
                 seuil_alerte=Decimal("100"),
-                fournisseurs=[onab],
+                fournisseurs=[onab, redouane],
             ),
             dict(
                 designation="Poussin Bovans Brown",
@@ -327,7 +328,7 @@ class Command(BaseCommand):
                 stade=Intrant.STADE_DEMARRAGE,
                 unite_mesure=unite("UNITE"),
                 seuil_alerte=Decimal("100"),
-                fournisseurs=[onab],
+                fournisseurs=[onab, redouane],
             ),
             # -- Aliments (sacs de 100 kg -- mais, soja, phosphate, CMV) -
             dict(
