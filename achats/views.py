@@ -1127,10 +1127,22 @@ def reglement_fournisseur_create(request):
                 # Refresh from DB so the template can show updated allocation info
                 reglement.refresh_from_db()
 
-                messages.success(
-                    request,
-                    f"تم تسجيل تسوية بقيمة {reglement.montant} دج لـ {reglement.fournisseur.nom}. تم تطبيق توزيعات FIFO.",
-                )
+                if reglement.allocations.count() == 0 and hasattr(reglement, "acompte"):
+                    # Entire amount became an advance — a paiement anticipé
+                    # (e.g. a cheque handed to a supplier with no open debt).
+                    # It will be consumed automatically by future factures
+                    # (BR-REG-07).
+                    messages.success(
+                        request,
+                        f"تم تسجيل دفعة مقدمة بقيمة {reglement.montant} دج لـ "
+                        f"{reglement.fournisseur.nom}. سيتم خصمها تلقائيًا من "
+                        "الفواتير القادمة، فاتورة تلو الأخرى.",
+                    )
+                else:
+                    messages.success(
+                        request,
+                        f"تم تسجيل تسوية بقيمة {reglement.montant} دج لـ {reglement.fournisseur.nom}. تم تطبيق توزيعات FIFO.",
+                    )
                 logger.info(
                     "ReglementFournisseur pk=%s (%s DZD, %s) created by '%s'.",
                     reglement.pk,
@@ -1212,6 +1224,13 @@ def reglement_fournisseur_detail(request, pk):
         ReglementFournisseurPieceJointeFormSet, request, instance=reglement, prefix="pj"
     )
 
+    # Admin status controls visibility of the cascade-delete button (BR-REG-06
+    # override) — same pattern as facture_fournisseur_detail.
+    try:
+        is_admin = request.user.is_staff or request.user.profile.role == "admin"
+    except Exception:
+        is_admin = request.user.is_staff
+
     return render(
         request,
         "achats/reglement_fournisseur_detail.html",
@@ -1221,9 +1240,68 @@ def reglement_fournisseur_detail(request, pk):
             "acompte": acompte,
             "pieces_jointes": pieces_jointes,
             "pj_formset": pj_formset,
+            "is_admin": is_admin,
             "title": f"تسوية — {reglement.fournisseur.nom} ({reglement.date_reglement})",
         },
     )
+
+
+# ===========================================================================
+# Règlement Fournisseur — Delete (cascade, admin-only, BR-REG-06 override)
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def reglement_fournisseur_delete(request, pk):
+    """
+    ADMIN-ONLY hard delete: remove a ReglementFournisseur and reverse every
+    FIFO side effect it produced (facture allocations, and anything its
+    surplus acompte went on to fund — BR-REG-07).
+
+    This intentionally bypasses BR-REG-06 (règlements are normally immutable)
+    — restricted to admins (is_staff or profile.role=="admin") and POST-only.
+    See achats.utils.supprimer_reglement_fournisseur_cascade for the full
+    cascade and its side effects.
+    """
+    try:
+        is_admin = request.user.is_staff or request.user.profile.role == "admin"
+    except Exception:
+        is_admin = request.user.is_staff
+
+    if not is_admin:
+        messages.error(request, "غير مسموح: هذا الإجراء متاح للمدراء فقط.")
+        return redirect("achats:reglement_fournisseur_detail", pk=pk)
+
+    reglement = branche_object_or_404(request, ReglementFournisseur, pk=pk)
+
+    from achats.utils import supprimer_reglement_fournisseur_cascade
+
+    try:
+        summary = supprimer_reglement_fournisseur_cascade(reglement)
+    except Exception as exc:
+        logger.exception("Error deleting ReglementFournisseur pk=%s: %s", pk, exc)
+        messages.error(request, f"خطأ أثناء الحذف: {exc}")
+        return redirect("achats:reglement_fournisseur_detail", pk=pk)
+
+    msg = (
+        f"تم حذف التسوية ({summary['reglement_montant']} دج — "
+        f"{summary['fournisseur_nom']}) نهائيًا."
+    )
+    if summary["factures_impactees"]:
+        autres = ", ".join(sorted(set(summary["factures_impactees"])))
+        msg += f" تنبيه: تم تحديث أرصدة الفواتير التالية: {autres}."
+    if summary["acompte_supprime"]:
+        msg += " كما تم حذف الدفعة المقدمة الناتجة عن هذه التسوية."
+    messages.success(request, msg)
+    logger.info(
+        "ReglementFournisseur (%s DZD, %s) deleted (admin cascade) by '%s'. Summary: %s",
+        summary["reglement_montant"],
+        summary["fournisseur_nom"],
+        request.user,
+        summary,
+    )
+    return redirect("achats:reglement_fournisseur_list")
 
 
 # ===========================================================================
@@ -1320,11 +1398,16 @@ def acompte_fournisseur_detail(request, pk):
     pj_formset = build_piece_jointe_formset(
         AcompteFournisseurPieceJointeFormSet, request, instance=acompte, prefix="pj"
     )
+    # BR-REG-07: every facture this advance has (fully or partially) paid for.
+    allocations = acompte.allocations.select_related("facture").order_by(
+        "facture__date_facture"
+    )
     return render(
         request,
         "achats/acompte_fournisseur_detail.html",
         {
             "acompte": acompte,
+            "allocations": allocations,
             "pieces_jointes": pieces_jointes,
             "pj_formset": pj_formset,
             "active_branche": get_active_branche(request),

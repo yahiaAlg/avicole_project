@@ -4,6 +4,10 @@ achats/utils.py
 Business-logic helpers for the supplier procurement cycle.
 
   appliquer_reglement_fifo   — FIFO allocation engine (BR-REG-03 / BR-REG-04)
+  consommer_acomptes_fifo    — Prepayment consumption engine (BR-REG-07)
+  supprimer_facture_fournisseur_cascade  — Admin hard delete of a facture
+  supprimer_reglement_fournisseur_cascade — Admin hard delete of a règlement
+                                            (BR-REG-06 override)
   calculer_pmp               — Weighted-average cost (Prix Moyen Pondéré)
   generer_reference_bl_fournisseur    — Sequential BLF reference
   generer_reference_facture_fournisseur — Sequential FRN reference
@@ -117,12 +121,18 @@ def appliquer_reglement_fifo(reglement):
             montant_restant,
         )
 
-    # 4. Surplus → acompte (BR-REG-04)
+    # 4. Surplus → acompte (BR-REG-04). When there were no open invoices at
+    #    all, this stores the *entire* règlement as a paiement anticipé
+    #    (prepayment) — e.g. a cheque handed to a supplier before any
+    #    facture exists. It sits here as an unused advance until
+    #    consommer_acomptes_fifo() below draws it down against future
+    #    factures (BR-REG-07).
     if montant_restant > 0:
         AcompteFournisseur.objects.create(
             fournisseur=fournisseur,
             reglement=reglement,
             montant=montant_restant,
+            montant_restant=montant_restant,
             date=reglement.date_reglement,
             notes=(
                 f"Surplus automatique depuis le règlement du "
@@ -135,6 +145,88 @@ def appliquer_reglement_fifo(reglement):
             fournisseur.nom,
             reglement.branche.code,
         )
+
+
+# ---------------------------------------------------------------------------
+# Prepayment consumption engine  (BR-REG-07)
+# ---------------------------------------------------------------------------
+
+
+def consommer_acomptes_fifo(facture):
+    """
+    Draw down unused AcompteFournisseur advances (prepayments / overpayment
+    surplus) against a freshly-created facture, oldest advance first (FIFO),
+    scoped to the SAME fournisseur + branche (BR-BRA-01) — mirrors
+    appliquer_reglement_fifo but in the opposite direction (money already in
+    hand, waiting for an invoice, instead of an invoice waiting for money).
+
+    Typical flow this enables: a supplier (e.g. ONAB) is paid by cheque
+    up front while it has no open invoices — the full amount becomes one
+    AcompteFournisseur (see step 4 of appliquer_reglement_fifo). Each time a
+    new facture for that supplier is created afterwards, this function is
+    called (from the m2m_changed signal, right after montant_total is
+    computed) and consumes the advance(s) automatically, one invoice at a
+    time, until the advance is exhausted — at which point normal règlements
+    take over again for any remaining balance.
+
+    For every euro/dinar consumed:
+      - An immutable AllocationAcompte record is created (audit trail).
+      - The acompte's montant_restant is decremented; `utilise` flips to
+        True once it reaches 0.
+      - facture.montant_regle is increased and recalculer_solde() is called.
+
+    Called inside the same DB transaction as facture creation.
+
+    Args:
+        facture (FactureFournisseur): The freshly-created invoice (its
+            montant_total/reste_a_payer must already be set).
+    """
+    from achats.models import AcompteFournisseur, AllocationAcompte
+
+    if facture.reste_a_payer <= 0:
+        return
+
+    acomptes = AcompteFournisseur.objects.filter(
+        fournisseur=facture.fournisseur,
+        branche=facture.branche,
+        montant_restant__gt=0,
+    ).order_by("date", "pk")
+
+    montant_a_couvrir = facture.reste_a_payer
+
+    for acompte in acomptes:
+        if montant_a_couvrir <= 0:
+            break
+
+        montant_a_consommer = min(acompte.montant_restant, montant_a_couvrir)
+        if montant_a_consommer <= 0:
+            continue
+
+        AllocationAcompte.objects.create(
+            acompte=acompte,
+            facture=facture,
+            montant_alloue=montant_a_consommer,
+        )
+
+        acompte.montant_restant = acompte.montant_restant - montant_a_consommer
+        acompte.utilise = acompte.montant_restant <= 0
+        acompte.save(update_fields=["montant_restant", "utilise"])
+
+        facture.montant_regle = facture.montant_regle + montant_a_consommer
+        montant_a_couvrir -= montant_a_consommer
+
+        logger.info(
+            "BR-REG-07: consumed %s DZD from acompte pk=%s for %s to pay "
+            "facture %s. Acompte remaining: %s DZD.",
+            montant_a_consommer,
+            acompte.pk,
+            facture.fournisseur.nom,
+            facture.reference,
+            acompte.montant_restant,
+        )
+
+    if facture.montant_regle > 0:
+        facture.recalculer_solde()
 
 
 # ---------------------------------------------------------------------------
@@ -241,11 +333,41 @@ def supprimer_facture_fournisseur_cascade(facture):
                     autre_facture.reference,
                 )
 
-            # 1b. Overpayment credit created by this règlement, if any.
+            # 1b. Overpayment credit created by this règlement, if any. Any
+            #     OTHER facture that has since consumed part of this acompte
+            #     (BR-REG-07) must have that consumption reversed first —
+            #     otherwise deleting the acompte would silently erase money
+            #     another invoice was counting as paid.
             try:
-                reglement.acompte.delete()
+                acompte = reglement.acompte
             except AcompteFournisseur.DoesNotExist:
-                pass
+                acompte = None
+            if acompte is not None:
+                for alloc in list(
+                    acompte.allocations.exclude(facture=facture).select_related(
+                        "facture"
+                    )
+                ):
+                    autre_facture = alloc.facture
+                    autre_facture.montant_regle = max(
+                        Decimal("0"), autre_facture.montant_regle - alloc.montant_alloue
+                    )
+                    alloc.delete()
+                    autre_facture.recalculer_solde()
+                    summary["factures_tierces_impactees"].append(
+                        autre_facture.reference
+                    )
+                    logger.warning(
+                        "BR-REG-06 override: suppression cascade de la facture %s a "
+                        "retiré %s DZD consommés depuis l'acompte du règlement "
+                        "pk=%s sur la facture tierce %s (solde recalculé).",
+                        facture.reference,
+                        alloc.montant_alloue,
+                        reglement.pk,
+                        autre_facture.reference,
+                    )
+                acompte.allocations.filter(facture=facture).delete()
+                acompte.delete()
 
             # 1c. Remaining allocations (the ones pointing at `facture`).
             reglement.allocations.all().delete()
@@ -254,6 +376,23 @@ def supprimer_facture_fournisseur_cascade(facture):
                 f"{reglement.montant} DZD ({reglement.date_reglement})"
             )
             reglement.delete()
+
+        # 1d. This facture may itself have been paid (in whole or in part)
+        #     from an acompte belonging to a DIFFERENT règlement (one that
+        #     did not touch it via AllocationReglement at all — BR-REG-07).
+        #     Give that money back to the advance.
+        for alloc in list(facture.allocations_acompte.select_related("acompte")):
+            source_acompte = alloc.acompte
+            source_acompte.montant_restant = source_acompte.montant_restant + alloc.montant_alloue
+            source_acompte.utilise = source_acompte.montant_restant <= 0
+            source_acompte.save(update_fields=["montant_restant", "utilise"])
+            alloc.delete()
+            logger.info(
+                "Suppression de la facture %s : %s DZD restitués à l'acompte pk=%s.",
+                facture.reference,
+                alloc.montant_alloue,
+                source_acompte.pk,
+            )
 
         # 2. BLs included in the facture: reverse stock, then delete.
         bls = list(
@@ -277,6 +416,110 @@ def supprimer_facture_fournisseur_cascade(facture):
         len(summary["reglements_references"]),
         len(summary["factures_tierces_impactees"]),
         summary["factures_tierces_impactees"],
+    )
+    return summary
+
+
+# ---------------------------------------------------------------------------
+# Admin-only cascade delete — Règlement (destructive, overrides BR-REG-06)
+# ---------------------------------------------------------------------------
+
+
+def supprimer_reglement_fournisseur_cascade(reglement):
+    """
+    ADMIN-ONLY hard delete: remove a ReglementFournisseur and reverse every
+    side effect the FIFO engine created for it, for correcting mistakes
+    (e.g. a payment recorded against the wrong supplier or amount).
+
+    This intentionally bypasses BR-REG-06 (règlements are normally immutable
+    after creation) — the caller (the view / admin) MUST verify the
+    requesting user is an admin before calling this.
+
+    Side effects, all within one DB transaction:
+      1. Every AllocationReglement this règlement made to a facture is
+         removed; that facture's montant_regle / reste_a_payer / statut are
+         recalculated.
+      2. If this règlement produced an AcompteFournisseur (BR-REG-04 surplus,
+         or a full paiement anticipé), everything THAT acompte went on to
+         fund via consommer_acomptes_fifo (BR-REG-07) — possibly invoices
+         created well after this règlement — is reversed the same way, then
+         the acompte itself is deleted.
+      3. The règlement itself is deleted.
+
+    Note: unlike supprimer_facture_fournisseur_cascade, this never touches
+    BLs or stock — a règlement never created any stock movement.
+
+    Args:
+        reglement (ReglementFournisseur): The payment to delete.
+
+    Returns:
+        dict: {
+            "reglement_montant": Decimal,
+            "fournisseur_nom": str,
+            "factures_impactees": list[str],
+            "acompte_supprime": bool,
+        }
+    """
+    from django.db import transaction
+    from achats.models import AcompteFournisseur
+
+    summary = {
+        "reglement_montant": reglement.montant,
+        "fournisseur_nom": reglement.fournisseur.nom,
+        "factures_impactees": [],
+        "acompte_supprime": False,
+    }
+
+    with transaction.atomic():
+        # 1. Direct FIFO allocations to invoices.
+        for alloc in list(reglement.allocations.select_related("facture")):
+            facture = alloc.facture
+            facture.montant_regle = max(
+                Decimal("0"), facture.montant_regle - alloc.montant_alloue
+            )
+            alloc.delete()
+            facture.recalculer_solde()
+            summary["factures_impactees"].append(facture.reference)
+
+        # 2. Surplus / prepayment acompte this règlement produced, and
+        #    everything it went on to fund (BR-REG-07).
+        try:
+            acompte = reglement.acompte
+        except AcompteFournisseur.DoesNotExist:
+            acompte = None
+
+        if acompte is not None:
+            for alloc in list(acompte.allocations.select_related("facture")):
+                facture = alloc.facture
+                facture.montant_regle = max(
+                    Decimal("0"), facture.montant_regle - alloc.montant_alloue
+                )
+                alloc.delete()
+                facture.recalculer_solde()
+                if facture.reference not in summary["factures_impactees"]:
+                    summary["factures_impactees"].append(facture.reference)
+                logger.warning(
+                    "BR-REG-06 override: suppression du règlement pk=%s a retiré "
+                    "%s DZD consommés depuis son acompte sur la facture %s "
+                    "(solde recalculé).",
+                    reglement.pk,
+                    alloc.montant_alloue,
+                    facture.reference,
+                )
+            acompte.delete()
+            summary["acompte_supprime"] = True
+
+        # 3. The règlement itself.
+        reglement.delete()
+
+    logger.info(
+        "ADMIN CASCADE DELETE: règlement (%s DZD, %s) supprimé. %d facture(s) "
+        "impactée(s) : %s. Acompte supprimé : %s.",
+        summary["reglement_montant"],
+        summary["fournisseur_nom"],
+        len(summary["factures_impactees"]),
+        summary["factures_impactees"],
+        summary["acompte_supprime"],
     )
     return summary
 
@@ -401,8 +644,11 @@ def get_fournisseur_solde(fournisseur, branche=None) -> dict:
         ],
     ).order_by("date_facture", "pk")
 
+    # BR-REG-07: acomptes can now be *partially* consumed, so availability is
+    # `montant_restant` (not `montant`, and not just `utilise=False`) summed
+    # over every advance that still has something left.
     acomptes_qs = AcompteFournisseur.objects.filter(
-        fournisseur=fournisseur, utilise=False
+        fournisseur=fournisseur, montant_restant__gt=0
     )
 
     reglements_qs = ReglementFournisseur.objects.filter(fournisseur=fournisseur)
@@ -416,7 +662,7 @@ def get_fournisseur_solde(fournisseur, branche=None) -> dict:
         "total"
     ] or Decimal("0")
 
-    acompte_disponible = acomptes_qs.aggregate(total=Sum("montant"))[
+    acompte_disponible = acomptes_qs.aggregate(total=Sum("montant_restant"))[
         "total"
     ] or Decimal("0")
 

@@ -22,7 +22,14 @@ Business rules enforced here:
   BR-FAF-01 : montant_total is computed from BL lines — never entered manually.
   BR-REG-03 : FIFO payment allocation across open invoices.
   BR-REG-04 : Surplus beyond total debt → AcompteFournisseur.
-  BR-REG-06 : Règlements and their allocations are immutable after creation.
+  BR-REG-06 : Règlements and their allocations are immutable after creation
+              (admins may override this via achats.utils.
+              supprimer_reglement_fournisseur_cascade / the Django admin).
+  BR-REG-07 : Unused AcompteFournisseur advances (prepayments) are consumed
+              automatically, oldest-first, against each new facture created
+              for the same fournisseur + branche (achats.utils.
+              consommer_acomptes_fifo, called from the m2m_changed handler
+              below right after montant_total is derived).
   BR-BRA-01 (v1.4) : every BLFournisseur/FactureFournisseur/ReglementFournisseur
              belongs to exactly one Branche, and the StockIntrant row credited
              on RECU is the one for THAT branche (BR-BRA-07: stock is keyed
@@ -410,6 +417,12 @@ def facture_fournisseur_bls_changed(sender, instance, action, pk_set, **kwargs):
         montant_total=montant_total,
         reste_a_payer=montant_total,
     )
+    # Keep the in-memory instance in sync with the UPDATE above so the
+    # BR-REG-07 consumption step below (and recalculer_solde inside it)
+    # operates on the current, not stale, figures.
+    instance.montant_total = montant_total
+    instance.reste_a_payer = montant_total
+    instance.montant_regle = Decimal("0")
     logger.info(
         "FactureFournisseur pk=%s: BLs linked via M2M. "
         "montant_total computed: %s DZD.",
@@ -428,6 +441,15 @@ def facture_fournisseur_bls_changed(sender, instance, action, pk_set, **kwargs):
             instance.pk,
             locked_count,
         )
+
+    # BR-REG-07: if this supplier is holding unused advances (paiements
+    # anticipés / overpayment surplus) in this same branche, consume them
+    # against this brand-new invoice automatically, oldest advance first —
+    # this is what makes a prepayment "self-service" for every subsequent
+    # facture instead of requiring a manual règlement each time.
+    from achats.utils import consommer_acomptes_fifo
+
+    consommer_acomptes_fifo(instance)
 
 
 # ---------------------------------------------------------------------------

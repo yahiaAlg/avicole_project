@@ -110,6 +110,11 @@ urlpatterns = [
         views.reglement_fournisseur_ajouter_piece_jointe,
         name="reglement_fournisseur_ajouter_piece_jointe",
     ),
+    path(
+        "reglements/<int:pk>/supprimer/",
+        views.reglement_fournisseur_delete,
+        name="reglement_fournisseur_delete",
+    ),
     # ── Acompte Fournisseur ─────────────────────────────────────────────
     path(
         "acomptes/",

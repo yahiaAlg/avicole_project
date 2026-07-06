@@ -18,7 +18,7 @@
 <!-- Info banner -->
 <div class="info-banner">
   <i class="bx bxs-piggy-bank" style="flex-shrink:0;color:var(--accent-text);font-size:16px;"></i>
-  <span>يتم إنشاء الدفعات المقدمة <strong>تلقائيًا</strong> عندما تتجاوز التسوية إجمالي ديون المورد (BR-REG-04). سيتم خصمها من الفواتير القادمة.</span>
+  <span>يتم إنشاء الدفعات المقدمة <strong>تلقائيًا</strong> عندما تتجاوز التسوية إجمالي ديون المورد (BR-REG-04)، أو عند تسجيل تسوية لمورد ليس عليه أي دين (دفعة مسبقة). يتم خصمها تلقائيًا من الفواتير القادمة، فاتورة تلو الأخرى (BR-REG-07).</span>
 </div>
 
 <!-- Filter bar -->
@@ -94,12 +94,17 @@
           </td>
           <td style="text-align:right;">
             <span class="amount-val {% if not acompte.utilise %}amount-val--pending{% endif %}">
-              {{ acompte.montant|floatformat:0 }} DZD
+              {{ acompte.montant_restant|floatformat:0 }} DZD
             </span>
+            {% if acompte.montant_restant < acompte.montant %}
+            <span style="font-size:11px;color:var(--text-muted);display:block;">من أصل {{ acompte.montant|floatformat:0 }} DZD</span>
+            {% endif %}
           </td>
           <td>
             {% if acompte.utilise %}
               <span class="pill-neutral"><i class="bx bxs-check-circle"></i> مستخدمة</span>
+            {% elif acompte.montant_restant < acompte.montant %}
+              <span class="pill-warning"><i class="bx bxs-piggy-bank"></i> مستخدمة جزئيًا</span>
             {% else %}
               <span class="pill-warning"><i class="bx bxs-piggy-bank"></i> في الانتظار</span>
             {% endif %}

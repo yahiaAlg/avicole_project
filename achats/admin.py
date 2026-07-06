@@ -20,6 +20,7 @@ from achats.models import (
     ReglementFournisseur,
     AllocationReglement,
     AcompteFournisseur,
+    AllocationAcompte,
 )
 from achats.resources import (
     BLFournisseurResource,
@@ -74,7 +75,7 @@ class AllocationReglementInline(admin.TabularInline):
 
 
 class FactureAllocationInline(admin.TabularInline):
-    """Show allocations on a FactureFournisseur."""
+    """Show règlement allocations on a FactureFournisseur."""
 
     model = AllocationReglement
     extra = 0
@@ -82,6 +83,34 @@ class FactureAllocationInline(admin.TabularInline):
     readonly_fields = ("reglement", "montant_alloue")
     can_delete = False
     verbose_name_plural = "Règlements imputés (auto)"
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class FactureAllocationAcompteInline(admin.TabularInline):
+    """Show prepayment/advance allocations on a FactureFournisseur (BR-REG-07)."""
+
+    model = AllocationAcompte
+    extra = 0
+    fields = ("acompte", "montant_alloue")
+    readonly_fields = ("acompte", "montant_alloue")
+    can_delete = False
+    verbose_name_plural = "Avances imputées (auto — BR-REG-07)"
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class AcompteAllocationInline(admin.TabularInline):
+    """Show which factures an AcompteFournisseur has funded (BR-REG-07)."""
+
+    model = AllocationAcompte
+    extra = 0
+    fields = ("facture", "montant_alloue")
+    readonly_fields = ("facture", "montant_alloue")
+    can_delete = False
+    verbose_name_plural = "Factures payées depuis cette avance (auto)"
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -269,7 +298,7 @@ class FactureFournisseurAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         "created_at",
         "updated_at",
     )
-    inlines = (FactureAllocationInline, PieceJointeInline)
+    inlines = (FactureAllocationInline, FactureAllocationAcompteInline, PieceJointeInline)
     autocomplete_fields = ("branche", "fournisseur")
 
     fieldsets = (
@@ -441,8 +470,30 @@ class ReglementFournisseurAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin)
             )
         return self.readonly_fields
 
+    # -----------------------------------------------------------------
+    # Cascade delete — BR-REG-06 says règlements are immutable, but admins
+    # need a way to undo a mistaken entry (wrong supplier/amount/etc.).
+    # A plain .delete() would hit ProtectedError anyway (AllocationReglement
+    # / AcompteFournisseur.reglement are on_delete=PROTECT), so route through
+    # the same admin-only cascade the app's own delete view uses
+    # (achats.utils.supprimer_reglement_fournisseur_cascade), which reverses
+    # every facture balance the règlement touched — directly or via the
+    # advance it may have created (BR-REG-07) — before deleting it.
+    # -----------------------------------------------------------------
+
     def has_delete_permission(self, request, obj=None):
-        return False
+        return request.user.is_superuser or request.user.is_staff
+
+    def delete_model(self, request, obj):
+        from achats.utils import supprimer_reglement_fournisseur_cascade
+
+        supprimer_reglement_fournisseur_cascade(obj)
+
+    def delete_queryset(self, request, queryset):
+        from achats.utils import supprimer_reglement_fournisseur_cascade
+
+        for reglement in queryset:
+            supprimer_reglement_fournisseur_cascade(reglement)
 
 
 @admin.register(AllocationReglement)
@@ -472,6 +523,29 @@ class AllocationReglementAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         return False
 
 
+@admin.register(AllocationAcompte)
+class AllocationAcompteAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
+    branche_lookup = "acompte__branche"
+
+    list_display = ("acompte", "facture", "montant_alloue_dzd")
+    list_filter = ("acompte__fournisseur", "acompte__branche")
+    search_fields = ("acompte__fournisseur__nom", "facture__reference")
+    readonly_fields = ("acompte", "facture", "montant_alloue")
+
+    @admin.display(description="Montant alloué (DZD)")
+    def montant_alloue_dzd(self, obj):
+        return f"{obj.montant_alloue:,.2f} DZD"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(AcompteFournisseur)
 class AcompteFournisseurAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = AcompteFournisseurResource
@@ -480,6 +554,7 @@ class AcompteFournisseurAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         "branche",
         "fournisseur",
         "montant_dzd",
+        "montant_restant_dzd",
         "date",
         "utilise",
         "created_at",
@@ -487,14 +562,31 @@ class AcompteFournisseurAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     list_filter = ("utilise", "branche", "fournisseur")
     search_fields = ("fournisseur__nom", "notes")
     date_hierarchy = "date"
-    readonly_fields = ("branche", "fournisseur", "reglement", "montant", "date", "created_at")
-    inlines = (PieceJointeInline,)
+    readonly_fields = (
+        "branche",
+        "fournisseur",
+        "reglement",
+        "montant",
+        "montant_restant",
+        "date",
+        "utilise",
+        "created_at",
+    )
+    inlines = (AcompteAllocationInline, PieceJointeInline)
 
     fieldsets = (
         (
             None,
             {
-                "fields": ("branche", "fournisseur", "reglement", "montant", "date", "utilise"),
+                "fields": (
+                    "branche",
+                    "fournisseur",
+                    "reglement",
+                    "montant",
+                    "montant_restant",
+                    "date",
+                    "utilise",
+                ),
             },
         ),
         ("Notes", {"fields": ("notes",), "classes": ("collapse",)}),
@@ -504,6 +596,10 @@ class AcompteFournisseurAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     @admin.display(description="Montant (DZD)")
     def montant_dzd(self, obj):
         return f"{obj.montant:,.2f} DZD"
+
+    @admin.display(description="Restant (DZD)")
+    def montant_restant_dzd(self, obj):
+        return f"{obj.montant_restant:,.2f} DZD"
 
     def has_add_permission(self, request):
         return False

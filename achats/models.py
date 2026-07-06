@@ -7,6 +7,7 @@ Supplier procurement cycle:
 """
 
 import datetime
+from decimal import Decimal
 from django.db import models
 from django.core.validators import MinValueValidator
 from django.conf import settings
@@ -500,8 +501,18 @@ class AllocationReglement(models.Model):
 
 class AcompteFournisseur(models.Model):
     """
-    Overpayment surplus credited to the supplier for future invoices (BR-REG-04).
-    Created automatically when règlement.montant > dette_globale.
+    Advance payment / overpayment surplus credited to the supplier for future
+    invoices (BR-REG-04, BR-REG-07). Created automatically by the FIFO engine
+    either from a règlement's surplus (once open invoices are covered) or, for
+    an explicit "paiement anticipé" (a règlement recorded when the supplier
+    has no open debt at all — e.g. a cheque handed over before any facture
+    exists), from the entire règlement amount.
+
+    Consumed incrementally (BR-REG-07): every time a new FactureFournisseur is
+    created for the same fournisseur + branche, achats.utils.consommer_acomptes_fifo
+    draws down the oldest unused acomptes first, one invoice at a time, via
+    AllocationAcompte records — mirroring the règlement→facture FIFO engine.
+    `montant_restant` tracks what's left; `utilise` becomes True once it hits 0.
     """
 
     fournisseur = models.ForeignKey(
@@ -533,7 +544,17 @@ class AcompteFournisseur(models.Model):
         validators=[MinValueValidator(0.01)],
     )
     date = models.DateField(verbose_name="التاريخ")
-    utilise = models.BooleanField(default=False, verbose_name="مستخدم")
+    # BR-REG-07: how much of `montant` is still unconsumed. Set to `montant`
+    # on creation and decremented as consommer_acomptes_fifo() draws it down
+    # against new factures. `utilise` flips to True once this hits 0.
+    montant_restant = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0"),
+        verbose_name="المبلغ المتبقي (د.ج)",
+        validators=[MinValueValidator(0)],
+    )
+    utilise = models.BooleanField(default=False, verbose_name="مستخدمة بالكامل")
     notes = models.TextField(blank=True, verbose_name="ملاحظات")
     created_at = models.DateTimeField(auto_now_add=True)
     # v1.5 — proof (e.g. reçu confirming the surplus), esp. when `reglement`
@@ -554,4 +575,60 @@ class AcompteFournisseur(models.Model):
     def save(self, *args, **kwargs):
         if self.reglement_id:
             self.branche_id = self.reglement.branche_id
+        if self.pk is None and self.montant_restant is None:
+            self.montant_restant = self.montant
         super().save(*args, **kwargs)
+
+
+class AllocationAcompte(models.Model):
+    """
+    Immutable line: portion of one AcompteFournisseur (advance/prepayment)
+    consumed against one FactureFournisseur (BR-REG-07). Created exclusively
+    by achats.utils.consommer_acomptes_fifo, triggered whenever a new facture
+    is created for a fournisseur that still holds unused advances — mirrors
+    AllocationReglement, but for prepayments instead of post-invoice règlements.
+    """
+
+    acompte = models.ForeignKey(
+        AcompteFournisseur,
+        on_delete=models.PROTECT,
+        related_name="allocations",
+        verbose_name="الدفعة المقدمة",
+    )
+    facture = models.ForeignKey(
+        FactureFournisseur,
+        on_delete=models.PROTECT,
+        related_name="allocations_acompte",
+        verbose_name="الفاتورة",
+    )
+    montant_alloue = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name="المبلغ المخصص (د.ج)",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "تخصيص الدفعة المقدمة"
+        verbose_name_plural = "تخصيصات الدفعات المقدمة"
+
+    def __str__(self):
+        return (
+            f"{self.acompte} → {self.facture.reference} : "
+            f"{self.montant_alloue} DZD"
+        )
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        # BR-BRA-01 : the advance and the invoice it funds must belong to
+        # the same branche, mirroring AllocationReglement.clean().
+        if (
+            self.acompte_id
+            and self.facture_id
+            and self.acompte.branche_id != self.facture.branche_id
+        ):
+            raise ValidationError(
+                "BR-BRA-01 : l'avance et la facture doivent appartenir "
+                "à la même branche."
+            )

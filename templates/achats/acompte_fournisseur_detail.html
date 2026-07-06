@@ -28,12 +28,14 @@
         </div>
         <div class="header-meta">
           <div class="header-label">دفعة مقدمة للمورد</div>
-          <div class="header-amount">{{ acompte.montant|floatformat:0 }} DZD</div>
+          <div class="header-amount">{{ acompte.montant_restant|floatformat:0 }} / {{ acompte.montant|floatformat:0 }} DZD</div>
           <div class="header-date">تاريخ الإنشاء: {{ acompte.date|date:"d/m/Y" }}</div>
         </div>
         <div class="header-status">
           {% if acompte.utilise %}
-            <span class="pill-neutral pill-lg"><i class="bx bxs-check-circle"></i> مستخدمة</span>
+            <span class="pill-neutral pill-lg"><i class="bx bxs-check-circle"></i> مستخدمة بالكامل</span>
+          {% elif acompte.montant_restant < acompte.montant %}
+            <span class="pill-warning pill-lg"><i class="bx bxs-piggy-bank"></i> مستخدمة جزئيًا</span>
           {% else %}
             <span class="pill-warning pill-lg"><i class="bx bxs-piggy-bank"></i> En attente</span>
           {% endif %}
@@ -45,10 +47,14 @@
     <div class="explain-banner">
       <i class="bx bxs-info-circle" style="flex-shrink:0;color:var(--accent-text);font-size:16px;"></i>
       <div>
+        {% if acompte.reglement and acompte.reglement.allocations.count == 0 %}
+        تم تسجيل هذه الدفعة المقدمة (paiement anticipé) للمورد قبل وجود أي دين عليه —
+        {% else %}
         تم إنشاء هذه الدفعة المقدمة <strong>تلقائيًا</strong> بواسطة محرك FIFO لأن التسوية
+        {% endif %}
         {% if acompte.reglement %}du {{ acompte.reglement.date_reglement|date:"d/m/Y" }}{% endif %}
         تجاوزت إجمالي ديون المورد (BR-REG-04).
-        سيتم خصمه تلقائيًا عند تخصيصات التسوية القادمة.
+        سيتم خصمها تلقائيًا، فاتورة تلو الأخرى، من الفواتير القادمة (BR-REG-07).
       </div>
     </div>
 
@@ -65,9 +71,15 @@
           </div>
         </div>
         <div class="info-cell">
-          <div class="info-cell__label">المبلغ</div>
-          <div class="info-cell__val info-cell__val--big {% if not acompte.utilise %}info-cell__val--amber{% endif %}">
+          <div class="info-cell__label">المبلغ الإجمالي</div>
+          <div class="info-cell__val info-cell__val--big">
             {{ acompte.montant|floatformat:0 }} DZD
+          </div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell__label">المبلغ المتبقي</div>
+          <div class="info-cell__val info-cell__val--big {% if not acompte.utilise %}info-cell__val--amber{% endif %}">
+            {{ acompte.montant_restant|floatformat:0 }} DZD
           </div>
         </div>
         <div class="info-cell">
@@ -82,7 +94,9 @@
           <div class="info-cell__label">الحالة</div>
           <div class="info-cell__val">
             {% if acompte.utilise %}
-              <span class="pill-neutral"><i class="bx bxs-check-circle"></i> مستخدمة</span>
+              <span class="pill-neutral"><i class="bx bxs-check-circle"></i> مستخدمة بالكامل</span>
+            {% elif acompte.montant_restant < acompte.montant %}
+              <span class="pill-warning"><i class="bx bxs-piggy-bank"></i> مستخدمة جزئيًا</span>
             {% else %}
               <span class="pill-warning"><i class="bx bxs-piggy-bank"></i> في انتظار الاستخدام</span>
             {% endif %}
@@ -112,6 +126,50 @@
         </div>
         {% endif %}
       </div>
+    </div>
+
+    <!-- Consumption history (BR-REG-07) -->
+    <div class="detail-card">
+      <div class="form-card__title"><i class="bx bx-transfer"></i> الفواتير المدفوعة من هذه الدفعة المقدمة</div>
+      {% if allocations %}
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>الفاتورة</th>
+              <th>تاريخ الفاتورة</th>
+              <th style="text-align:left;">المبلغ المخصص</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for alloc in allocations %}
+            <tr style="--row-i:{{ forloop.counter0 }};">
+              <td>
+                <a href="{% url 'achats:facture_fournisseur_detail' alloc.facture.pk %}" class="ref-link">
+                  {{ alloc.facture.reference }}
+                </a>
+              </td>
+              <td style="color:var(--text-muted);">{{ alloc.facture.date_facture|date:"d/m/Y" }}</td>
+              <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;color:var(--accent-text);">
+                {{ alloc.montant_alloue|floatformat:0 }} DZD
+              </td>
+              <td>
+                <a href="{% url 'achats:facture_fournisseur_detail' alloc.facture.pk %}" class="action-btn" title="عرض الفاتورة">
+                  <i class="bx bxs-show"></i>
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px;">
+        <i class="bx bx-transfer" style="font-size:22px;display:block;margin-bottom:6px;color:var(--border-strong);"></i>
+        لم يتم خصمها بعد من أي فاتورة.
+      </div>
+      {% endif %}
     </div>
 
     <!-- Timeline / audit trail -->
@@ -145,13 +203,17 @@
           <div class="timeline-dot {% if acompte.utilise %}timeline-dot--green{% else %}timeline-dot--amber{% endif %}"></div>
           <div class="timeline-body">
             <div class="timeline-title">
-              {% if acompte.utilise %}تم استخدام الدفعة المقدمة{% else %}في انتظار الاستخدام{% endif %}
+              {% if acompte.utilise %}تم استخدام الدفعة المقدمة بالكامل
+              {% elif acompte.montant_restant < acompte.montant %}قيد الاستخدام (جزئيًا)
+              {% else %}في انتظار الاستخدام{% endif %}
             </div>
             <div class="timeline-meta">
               {% if acompte.utilise %}
-                سيتم خصمه عند التسوية التالية.
+                تم خصمها بالكامل من {{ allocations.count }} فاتورة.
+              {% elif acompte.montant_restant < acompte.montant %}
+                خُصص جزء منها على {{ allocations.count }} فاتورة — يتبقى {{ acompte.montant_restant|floatformat:0 }} DZD من أصل {{ acompte.montant|floatformat:0 }} DZD.
               {% else %}
-                سيُخصص تلقائيًا عند تسوية FIFO القادمة لهذا المورد.
+                سيُخصم تلقائيًا، فاتورة تلو الأخرى، عند إنشاء فاتورة جديدة لهذا المورد (BR-REG-07).
               {% endif %}
             </div>
           </div>
@@ -318,6 +380,21 @@
   .link-accent:hover { color: var(--accent); }
   .ref-link { font-family: 'Nunito', sans-serif; font-weight: 700; color: var(--accent-text); text-decoration: none; }
   .ref-link:hover { color: var(--accent); }
+
+  .table-wrapper { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--text-muted); padding: 10px 14px; border-bottom: 1px solid var(--border);
+    white-space: nowrap; background: var(--bg-surface);
+  }
+  .data-table tbody tr {
+    border-bottom: 1px solid var(--border); transition: background .12s;
+    animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i,0)*35ms);
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: var(--bg-hover); }
+  .data-table td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); vertical-align: middle; }
 
   /* Timeline */
   .timeline { display: flex; flex-direction: column; gap: 0; }

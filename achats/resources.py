@@ -34,6 +34,7 @@ from achats.models import (
     ReglementFournisseur,
     AllocationReglement,
     AcompteFournisseur,
+    AllocationAcompte,
 )
 from intrants.models import Fournisseur, Intrant
 from core.models import Branche
@@ -397,6 +398,62 @@ class AllocationReglementResource(resources.ModelResource):
 
 
 # ---------------------------------------------------------------------------
+# AllocationAcompte — EXPORT ONLY (BR-REG-07)
+# ---------------------------------------------------------------------------
+
+
+class AllocationAcompteResource(resources.ModelResource):
+    """
+    EXPORT ONLY — prepayment (advance) consumption lines.
+    Audit / accounting export; import is meaningless (records are immutable,
+    created exclusively by the BR-REG-07 consumption engine).
+    """
+
+    acompte_id = fields.Field(
+        column_name="acompte_id",
+        attribute="acompte__id",
+        readonly=True,
+    )
+    facture_reference = fields.Field(
+        column_name="facture_reference",
+        attribute="facture__reference",
+        readonly=True,
+    )
+    fournisseur_nom = fields.Field(
+        column_name="fournisseur_nom",
+        attribute="acompte__fournisseur__nom",
+        readonly=True,
+    )
+    branche_code = fields.Field(
+        column_name="branche_code",
+        attribute="acompte__branche__code",
+        readonly=True,
+    )
+
+    class Meta:
+        model = AllocationAcompte
+        skip_unchanged = True
+        report_skipped = False
+        import_id_fields = ["id"]
+        fields = [
+            "id",
+            "acompte_id",
+            "branche_code",
+            "fournisseur_nom",
+            "facture_reference",
+            "montant_alloue",
+            "created_at",
+        ]
+        export_order = fields
+
+    def before_import(self, dataset, **kwargs):
+        raise NotImplementedError(
+            "AllocationAcompte import est désactivé — enregistrement automatique "
+            "par le moteur de consommation des avances (BR-REG-07)."
+        )
+
+
+# ---------------------------------------------------------------------------
 # AcompteFournisseur — EXPORT ONLY
 # ---------------------------------------------------------------------------
 
@@ -447,6 +504,7 @@ class AcompteFournisseurResource(resources.ModelResource):
             "fournisseur",
             "reglement_id",
             "montant",
+            "montant_restant",
             "date",
             "utilise",
             "a_piece_jointe",
