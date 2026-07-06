@@ -61,6 +61,37 @@
     </div>
   </div>
 
+  <!-- Egg KPI row — eggs are the farm's main product line -->
+  <div class="row g-3 mb-4">
+    <div class="col-xl-4 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon" style="background:rgba(234,88,12,.14);color:#ea580c;"><i class="bx bxs-circle"></i></div>
+        <div class="metric-label">رصيد البيض الحالي</div>
+        <div class="metric-value">{{ stock_oeufs_total|floatformat:0 }}</div>
+        <span class="metric-delta neutral">
+          <i class="bx bx-minus"></i>
+          {{ stock_oeufs_total_plateaux }} صينية{% if stock_oeufs_total_hors_plateau %} + {{ stock_oeufs_total_hors_plateau }}{% endif %}
+        </span>
+      </div>
+    </div>
+    <div class="col-xl-4 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-green"><i class="bx bx-log-in-circle"></i></div>
+        <div class="metric-label">بيض مجموع (7 أيام)</div>
+        <div class="metric-value">{{ oeufs_collectes_semaine|floatformat:0 }}</div>
+        <span class="metric-delta up"><i class="bx bx-trending-up"></i> جمع البيض</span>
+      </div>
+    </div>
+    <div class="col-xl-4 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon" style="background:rgba(124,58,237,.14);color:#7c3aed;"><i class="bx bx-log-out-circle"></i></div>
+        <div class="metric-label">بيض مسحوب (7 أيام)</div>
+        <div class="metric-value">{{ oeufs_retires_semaine|floatformat:0 }}</div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> بيع، هدية، فقدان</span>
+      </div>
+    </div>
+  </div>
+
   <!-- Quick actions -->
   {% if request.user.userprofile.role != 'viewer' %}
   <div class="quick-actions mb-4">
@@ -76,6 +107,13 @@
       <div>
         <div class="quick-action-title">تركيبات العلف</div>
         <div class="quick-action-sub">إدارة الوصفات ومكوّناتها</div>
+      </div>
+    </a>
+    <a href="{% url 'elevage:recolte_oeufs_list' %}" class="quick-action-btn">
+      <div class="quick-action-icon" style="background:rgba(234,88,12,.10);color:#ea580c;"><i class="bx bxs-circle"></i></div>
+      <div>
+        <div class="quick-action-title">جمع البيض</div>
+        <div class="quick-action-sub">سجل عمليات الجمع اليومية لكل الدفعات</div>
       </div>
     </a>
     <a href="{% url 'elevage:retrait_oeufs_create' %}" class="quick-action-btn">
@@ -213,10 +251,10 @@
         </div>
       </div>
 
-      <!-- Recent consumptions -->
-      <div class="card">
+      <!-- Recent consumptions (feed / علف only — see elevage.forms.ConsommationForm) -->
+      <div class="card mb-3">
         <div class="card-header-row" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 12px;border-bottom:1px solid var(--border);">
-          <span class="section-eyebrow">الاستهلاكات الأخيرة <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(7 أيام)</span></span>
+          <span class="section-eyebrow">استهلاك العلف الأخير <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(7 أيام)</span></span>
           <a href="{% url 'elevage:consommation_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
             عرض <i class="bx bx-right-arrow-alt"></i>
           </a>
@@ -225,8 +263,8 @@
           {% if consommations_recentes %}
           {% for conso in consommations_recentes %}
           <div style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border);animation:fadeIn .3s ease both;animation-delay:{{ forloop.counter0 | add:0 }}ms;">
-            <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:var(--accent-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-              <i class="bx bxs-droplet" style="color:var(--accent-text);font-size:14px;"></i>
+            <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:rgba(180,131,9,.10);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <i class="bx bxs-cylinder" style="color:#b45309;font-size:14px;"></i>
             </div>
             <div style="flex:1;min-width:0;">
               <div style="font-size:13px;color:var(--text-primary);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ conso.intrant.designation }}</div>
@@ -239,8 +277,67 @@
           {% endfor %}
           {% else %}
           <div style="text-align:center;padding:24px 16px;color:var(--text-muted);font-size:13px;">
-            <i class="bx bxs-droplet" style="font-size:24px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
-            لا استهلاكات هذا الأسبوع
+            <i class="bx bxs-cylinder" style="font-size:24px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
+            لا استهلاك علف هذا الأسبوع
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Recent egg collections -->
+      <div class="card mb-3">
+        <div class="card-header-row" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 12px;border-bottom:1px solid var(--border);">
+          <span class="section-eyebrow">جمع البيض الأخير <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(7 أيام)</span></span>
+          <a href="{% url 'elevage:recolte_oeufs_list' %}" style="font-size:12px;color:var(--accent-text);display:flex;align-items:center;gap:4px;">
+            عرض <i class="bx bx-right-arrow-alt"></i>
+          </a>
+        </div>
+        <div style="padding:0;">
+          {% if recoltes_oeufs_recentes %}
+          {% for recolte in recoltes_oeufs_recentes %}
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border);animation:fadeIn .3s ease both;animation-delay:{{ forloop.counter0 | add:0 }}ms;">
+            <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:rgba(234,88,12,.10);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <i class="bx bxs-circle" style="color:#ea580c;font-size:14px;"></i>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;color:var(--text-primary);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ recolte.lot.designation }}</div>
+              <div style="font-size:11px;color:var(--text-muted);">{{ recolte.date|date:"d/m/Y" }} · {{ recolte.nombre_plateaux }} صينية{% if recolte.oeufs_hors_plateau %} + {{ recolte.oeufs_hors_plateau }}{% endif %}{% if vue_globale %} · {{ recolte.lot.branche.nom }}{% endif %}</div>
+            </div>
+            <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:#ea580c;flex-shrink:0;">+{{ recolte.nombre_oeufs }}</div>
+          </div>
+          {% endfor %}
+          {% else %}
+          <div style="text-align:center;padding:24px 16px;color:var(--text-muted);font-size:13px;">
+            <i class="bx bxs-circle" style="font-size:24px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
+            لا جمع بيض هذا الأسبوع
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Recent egg withdrawals -->
+      <div class="card">
+        <div class="card-header-row" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 12px;border-bottom:1px solid var(--border);">
+          <span class="section-eyebrow">سحب البيض الأخير <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(7 أيام)</span></span>
+        </div>
+        <div style="padding:0;">
+          {% if retraits_oeufs_recentes %}
+          {% for retrait in retraits_oeufs_recentes %}
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border);animation:fadeIn .3s ease both;animation-delay:{{ forloop.counter0 | add:0 }}ms;">
+            <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:rgba(124,58,237,.10);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <i class="bx bx-log-out-circle" style="color:#7c3aed;font-size:14px;"></i>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;color:var(--text-primary);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ retrait.get_motif_display }}{% if retrait.client %} · {{ retrait.client.nom }}{% elif retrait.destinataire %} · {{ retrait.destinataire }}{% endif %}</div>
+              <div style="font-size:11px;color:var(--text-muted);">{{ retrait.date|date:"d/m/Y" }}{% if retrait.lot %} · {{ retrait.lot.designation }}{% endif %}{% if vue_globale %} · {{ retrait.branche.nom }}{% endif %}</div>
+            </div>
+            <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:#7c3aed;flex-shrink:0;">–{{ retrait.quantite_oeufs }}</div>
+          </div>
+          {% endfor %}
+          {% else %}
+          <div style="text-align:center;padding:24px 16px;color:var(--text-muted);font-size:13px;">
+            <i class="bx bx-log-out-circle" style="font-size:24px;display:block;margin-bottom:8px;color:var(--border-strong);"></i>
+            لا سحب بيض هذا الأسبوع
           </div>
           {% endif %}
         </div>

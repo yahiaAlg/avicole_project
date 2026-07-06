@@ -305,6 +305,11 @@ def lot_detail(request, pk):
         request.GET.get("page_oeufs"),
         per_page=10,
     )
+    retraits_oeufs_page = _paginate(
+        summary["retraits_oeufs"],
+        request.GET.get("page_retraits"),
+        per_page=10,
+    )
 
     return render(
         request,
@@ -321,6 +326,7 @@ def lot_detail(request, pk):
             "transferts": transferts,
             "pesees_page": pesees_page,
             "recoltes_oeufs_page": recoltes_oeufs_page,
+            "retraits_oeufs_page": retraits_oeufs_page,
             "doit_etre_transfere": lot.doit_etre_transfere,
             "est_mature_pour_vente": lot.est_mature_pour_vente,
             "title": f"الدفعة — {lot.designation}",
@@ -1857,6 +1863,43 @@ def elevage_dashboard(request):
         )
     consommations_recentes = consommations_recentes_qs.order_by("-date")[:20]
 
+    # --- Eggs — collection/withdrawal are the farm's main product line ---
+    from django.db.models import Sum
+    from elevage.signals import _get_produit_oeufs
+    from stock.models import StockProduitFini
+
+    produit_oeufs = _get_produit_oeufs()
+    stock_oeufs_qs = (
+        StockProduitFini.objects.filter(produit_fini=produit_oeufs)
+        if produit_oeufs
+        else StockProduitFini.objects.none()
+    )
+    if branche is not None:
+        stock_oeufs_qs = stock_oeufs_qs.filter(branche=branche)
+    stock_oeufs_total = int(
+        stock_oeufs_qs.aggregate(total=Sum("quantite"))["total"] or 0
+    )
+
+    recoltes_oeufs_qs = RecolteOeufs.objects.filter(
+        date__gte=sept_jours
+    ).select_related("lot")
+    if branche is not None:
+        recoltes_oeufs_qs = recoltes_oeufs_qs.filter(lot__branche=branche)
+    oeufs_collectes_semaine = (
+        recoltes_oeufs_qs.aggregate(total=Sum("nombre_oeufs"))["total"] or 0
+    )
+    recoltes_oeufs_recentes = recoltes_oeufs_qs.order_by("-date")[:20]
+
+    retraits_oeufs_qs = RetraitOeufs.objects.filter(
+        date__gte=sept_jours
+    ).select_related("lot", "client")
+    if branche is not None:
+        retraits_oeufs_qs = retraits_oeufs_qs.filter(branche=branche)
+    oeufs_retires_semaine = (
+        retraits_oeufs_qs.aggregate(total=Sum("quantite_oeufs"))["total"] or 0
+    )
+    retraits_oeufs_recentes = retraits_oeufs_qs.order_by("-date")[:20]
+
     # Lots with abnormal mortality
     lots_alerte_mortalite = [
         lot for lot in lots_ouverts if verifier_mortalite_anormale(lot)
@@ -1887,6 +1930,15 @@ def elevage_dashboard(request):
             "nb_lots_fermes": nb_lots_fermes,
             "active_branche": branche,
             "vue_globale": vue_globale,
+            "stock_oeufs_total": stock_oeufs_total,
+            "stock_oeufs_total_plateaux": stock_oeufs_total
+            // RecolteOeufs.PLATEAU_SIZE,
+            "stock_oeufs_total_hors_plateau": stock_oeufs_total
+            % RecolteOeufs.PLATEAU_SIZE,
+            "oeufs_collectes_semaine": oeufs_collectes_semaine,
+            "oeufs_retires_semaine": oeufs_retires_semaine,
+            "recoltes_oeufs_recentes": recoltes_oeufs_recentes,
+            "retraits_oeufs_recentes": retraits_oeufs_recentes,
             "title": "لوحة تحكم — التربية",
         },
     )

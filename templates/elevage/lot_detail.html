@@ -171,6 +171,37 @@
     </div>
   </div>
 
+  <!-- Egg KPI row — eggs are this lot's main product when in laying phase -->
+  <div class="row g-3 mb-4">
+    <div class="col-xl-4 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon" style="background:rgba(234,88,12,.14);color:#ea580c;"><i class="bx bxs-circle"></i></div>
+        <div class="metric-label">إجمالي البيض المجموع</div>
+        <div class="metric-value">{{ summary.total_oeufs_collectes|floatformat:0 }}</div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> بيضة تراكمياً</span>
+      </div>
+    </div>
+    <div class="col-xl-4 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon" style="background:rgba(124,58,237,.14);color:#7c3aed;"><i class="bx bx-log-out-circle"></i></div>
+        <div class="metric-label">إجمالي البيض المسحوب</div>
+        <div class="metric-value">{{ summary.total_oeufs_retires|floatformat:0 }}</div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> بيع، هدية، فقدان</span>
+      </div>
+    </div>
+    <div class="col-xl-4 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-green"><i class="bx bxs-package"></i></div>
+        <div class="metric-label">رصيد البيض (هذه الدفعة)</div>
+        <div class="metric-value">{{ summary.stock_oeufs_lot|floatformat:0 }}</div>
+        <span class="metric-delta neutral">
+          <i class="bx bx-minus"></i>
+          {{ summary.stock_oeufs_lot_plateaux }} صينية{% if summary.stock_oeufs_lot_hors_plateau %} + {{ summary.stock_oeufs_lot_hors_plateau }}{% endif %}
+        </span>
+      </div>
+    </div>
+  </div>
+
   <div class="row g-3">
     <!-- ── Left column ── -->
     <div class="col-xl-8">
@@ -504,6 +535,62 @@
           <span>لا يوجد جمع بيض مسجل</span>
           {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
           <a href="{% url 'elevage:recolte_oeufs_create' lot.pk %}" class="btn-ghost btn-sm"><i class="bx bx-plus"></i> تسجيل</a>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Retraits d'œufs section (informational — see RetraitOeufs docstring) -->
+      <div class="card mb-3">
+        <div class="section-header">
+          <span class="section-eyebrow"><i class="bx bx-log-out-circle" style="font-size:12px;color:#7c3aed;"></i> سحب البيض</span>
+          {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+          <a href="{% url 'elevage:retrait_oeufs_create_lot' lot.pk %}" class="btn-ghost btn-sm">
+            <i class="bx bx-plus"></i> تسجيل سحب
+          </a>
+          {% endif %}
+        </div>
+        {% if retraits_oeufs_page.object_list %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th style="text-align:right;">عدد البيض</th>
+                <th>السبب</th>
+                <th>العميل / الجهة</th>
+                <th>ملاحظات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for retrait in retraits_oeufs_page.object_list %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td style="color:var(--text-muted);">{{ retrait.date|date:"d/m/Y" }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;color:#7c3aed;">–{{ retrait.quantite_oeufs|floatformat:0 }}</td>
+                <td>{{ retrait.get_motif_display }}</td>
+                <td style="color:var(--text-secondary);">
+                  {% if retrait.client %}{{ retrait.client.nom }}{% elif retrait.destinataire %}{{ retrait.destinataire }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+                  {% if retrait.bl_genere %}<span class="pill-success" style="margin-right:6px;">وصل {{ retrait.bl_genere.reference }}</span>{% endif %}
+                </td>
+                <td style="color:var(--text-muted);font-size:12px;">{{ retrait.notes|default:"—" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if retraits_oeufs_page.has_other_pages %}
+        <div class="pagination-bar">
+          {% if retraits_oeufs_page.has_previous %}<a href="?page_retraits={{ retraits_oeufs_page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>{% endif %}
+          <span class="page-info">{{ retraits_oeufs_page.number }} / {{ retraits_oeufs_page.paginator.num_pages }}</span>
+          {% if retraits_oeufs_page.has_next %}<a href="?page_retraits={{ retraits_oeufs_page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>{% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state-sm">
+          <i class="bx bx-log-out-circle" style="color:var(--border-strong);"></i>
+          <span>لا يوجد سحب بيض مسجل على هذه الدفعة</span>
+          {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+          <a href="{% url 'elevage:retrait_oeufs_create_lot' lot.pk %}" class="btn-ghost btn-sm"><i class="bx bx-plus"></i> تسجيل</a>
           {% endif %}
         </div>
         {% endif %}

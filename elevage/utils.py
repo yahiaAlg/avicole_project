@@ -130,6 +130,24 @@ def get_lot_summary(lot) -> dict:
 
     marge_brute = revenus_ventes - cout_total_intrants - cout_total_depenses
 
+    # --- Eggs (RecolteOeufs / RetraitOeufs) ------------------------------
+    # `stock_oeufs_lot` is informational only (see RetraitOeufs docstring):
+    # it's the running balance of *this lot's* collections minus its own
+    # withdrawals, not a physical sub-stock — the real egg stock lives in
+    # StockProduitFini, scoped to the branche as a whole.
+    from elevage.models import RecolteOeufs, RetraitOeufs
+
+    total_oeufs_collectes = (
+        lot.recoltes_oeufs.aggregate(total=Sum("nombre_oeufs"))["total"] or 0
+    )
+    total_oeufs_retires = (
+        RetraitOeufs.objects.filter(lot=lot).aggregate(total=Sum("quantite_oeufs"))[
+            "total"
+        ]
+        or 0
+    )
+    stock_oeufs_lot = total_oeufs_collectes - total_oeufs_retires
+
     return {
         "effectif_vivant": effectif_vivant,
         "total_mortalite": total_mortalite,
@@ -146,6 +164,14 @@ def get_lot_summary(lot) -> dict:
         "consommations": lot.consommations.select_related("intrant").order_by("-date"),
         "mortalites": lot.mortalites.order_by("-date"),
         "depenses": depenses.select_related("categorie").order_by("-date"),
+        "total_oeufs_collectes": total_oeufs_collectes,
+        "total_oeufs_retires": total_oeufs_retires,
+        "stock_oeufs_lot": stock_oeufs_lot,
+        "stock_oeufs_lot_plateaux": stock_oeufs_lot // RecolteOeufs.PLATEAU_SIZE,
+        "stock_oeufs_lot_hors_plateau": stock_oeufs_lot % RecolteOeufs.PLATEAU_SIZE,
+        "retraits_oeufs": RetraitOeufs.objects.filter(lot=lot)
+        .select_related("client")
+        .order_by("-date"),
     }
 
 
