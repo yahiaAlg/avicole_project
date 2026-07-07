@@ -381,12 +381,21 @@ class LotElevage(models.Model):
     def cout_total_intrants(self):
         """
         Estimated total input cost = Σ (quantite × prix_unitaire_moyen)
-        for all consommation records where PMP is available.
+        for all consommation records where PMP is available, PLUS the
+        value of chicks lost to mortality (Σ total_mortalite × PMP of the
+        poussin intrant).
 
         v1.4 (BR-BRA-07): StockIntrant moved from a one-to-one on `intrant`
         to a per-(branche, intrant) row (related_name "stocks"), so the PMP
         must be looked up for THIS lot's own branche — an intrant can now
         have a different weighted-average cost in another branche.
+
+        v1.5: dead chicks were previously excluded from this cost (they are
+        removed from StockIntrant via a Mortalite-triggered "sortie" — see
+        signals._appliquer_sortie_mortalite — but that stock movement was
+        never reflected here), which understated cout_total_intrants and
+        therefore inflated marge_brute. They are genuine consumed input
+        cost, so they're now added in.
         """
         from django.db.models import Prefetch
         from stock.models import StockIntrant
@@ -408,6 +417,21 @@ class LotElevage(models.Model):
             except (IndexError, AttributeError):
                 pmp = 0
             total += float(c.quantite) * float(pmp)
+
+        # --- Cost of chicks lost to mortality --------------------------
+        if self.total_mortalite:
+            from elevage.signals import _get_poussin_intrant
+
+            poussin_intrant = _get_poussin_intrant(self)
+            if poussin_intrant is not None:
+                stock_poussin = poussin_intrant.stocks.filter(
+                    branche=self.branche
+                ).first()
+                if stock_poussin is not None:
+                    total += float(self.total_mortalite) * float(
+                        stock_poussin.prix_moyen_pondere
+                    )
+
         return round(total, 2)
 
 
