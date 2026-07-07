@@ -45,6 +45,23 @@
       </div>
     </div>
     {% if lignes %}
+    {% with meds=lignes.0.medicament_cumul %}
+    {% if meds %}
+    <div class="mort-kpi-card">
+      <div class="mort-kpi-icon" style="background:rgba(220,38,38,.10);color:#dc2626;">
+        <i class="bx bxs-flask"></i>
+      </div>
+      <div>
+        <div class="mort-kpi-val" style="color:#dc2626;font-size:16px;">
+          {% for u in meds %}{{ u.total|floatformat:2 }} {{ u.libelle }}{% if not forloop.last %}، {% endif %}{% endfor %}
+        </div>
+        <div class="mort-kpi-label">أدوية ولقاحات مستهلكة (تراكمي)</div>
+      </div>
+    </div>
+    {% endif %}
+    {% endwith %}
+    {% endif %}
+    {% if lignes %}
     {% with last=lignes.0 %}
     <div class="mort-kpi-card">
       <div class="mort-kpi-icon" style="background:rgba(234,88,12,.10);color:#ea580c;">
@@ -69,6 +86,9 @@
         <a href="{% url 'elevage:consommation_create' lot.pk %}" class="btn-ghost" style="font-size:12px;padding:7px 12px;">
           <i class="bx bxs-cylinder"></i> إضافة استهلاك علف
         </a>
+        <a href="{% url 'elevage:consommation_medicament_create' lot.pk %}" class="btn-ghost" style="font-size:12px;padding:7px 12px;">
+          <i class="bx bxs-flask"></i> إضافة استهلاك دواء
+        </a>
         <a href="{% url 'elevage:recolte_oeufs_create' lot.pk %}" class="btn-ghost" style="font-size:12px;padding:7px 12px;">
           <i class="bx bxs-circle"></i> إضافة جمع بيض
         </a>
@@ -79,7 +99,11 @@
     </div>
 
     {% if lignes %}
-    <div class="table-wrapper">
+    <div class="suivi-scroll-shell">
+      <button type="button" class="scroll-arrow scroll-arrow--left" id="suivi-scroll-left" aria-label="التمرير لليسار">
+        <i class="bx bx-chevron-left"></i>
+      </button>
+      <div class="table-wrapper" id="suivi-table-wrapper">
       <table class="data-table suivi-table">
         <thead>
           <tr>
@@ -90,6 +114,8 @@
             <th style="text-align:right;">العدد الحي</th>
             <th style="text-align:right;">علف اليوم (كغ)</th>
             <th style="text-align:right;">تراكمي العلف (كغ)</th>
+            <th style="text-align:right;">أدوية اليوم</th>
+            <th style="text-align:right;">تراكمي الأدوية</th>
             <th style="text-align:right;">بيض اليوم</th>
             <th style="text-align:right;">تراكمي البيض</th>
             <th style="text-align:right;">سحب بيض اليوم</th>
@@ -113,6 +139,12 @@
             </td>
             <td style="text-align:right;font-weight:600;color:#b45309;">{{ l.aliment_cumul_kg|floatformat:2 }}</td>
             <td style="text-align:right;">
+              {% if l.medicament_jour %}{% for u in l.medicament_jour %}{{ u.total|floatformat:2 }} {{ u.libelle }}{% if not forloop.last %}، {% endif %}{% endfor %}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+            </td>
+            <td style="text-align:right;font-weight:600;color:#dc2626;">
+              {% if l.medicament_cumul %}{% for u in l.medicament_cumul %}{{ u.total|floatformat:2 }} {{ u.libelle }}{% if not forloop.last %}، {% endif %}{% endfor %}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+            </td>
+            <td style="text-align:right;">
               {% if l.oeufs_jour %}{{ l.oeufs_jour }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
             </td>
             <td style="text-align:right;font-weight:600;color:#ea580c;">{{ l.oeufs_cumul }}</td>
@@ -130,6 +162,10 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
+      <button type="button" class="scroll-arrow scroll-arrow--right" id="suivi-scroll-right" aria-label="التمرير لليمين">
+        <i class="bx bx-chevron-right"></i>
+      </button>
     </div>
 
     {% if page.has_other_pages %}
@@ -172,13 +208,49 @@
   .page-info { font-size:12px;color:var(--text-muted); }
 
   .table-wrapper { overflow-x:auto; }
+
+  .suivi-scroll-shell { display:flex;align-items:stretch;gap:0; }
+  .scroll-arrow {
+    flex-shrink:0;width:34px;border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);
+    background:var(--bg-surface);color:var(--text-secondary);font-size:18px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s;
+  }
+  .scroll-arrow:hover { background:var(--bg-hover);color:var(--text-primary); }
+  .scroll-arrow--left { border-radius:0 var(--radius-lg) var(--radius-lg) 0; }
+  .scroll-arrow--right { border-radius:var(--radius-lg) 0 0 var(--radius-lg); }
+  .suivi-scroll-shell .table-wrapper { flex:1;min-width:0; }
+
+  /* Thick, always-visible horizontal scrollbar (webkit) */
+  .table-wrapper::-webkit-scrollbar { height:12px; }
+  .table-wrapper::-webkit-scrollbar-track { background:var(--bg-hover); }
+  .table-wrapper::-webkit-scrollbar-thumb { background:var(--border-strong);border-radius:6px; }
+  .table-wrapper::-webkit-scrollbar-thumb:hover { background:var(--text-muted); }
+  .table-wrapper { scrollbar-width:auto; }
   .data-table { width:100%;border-collapse:collapse; }
-  .data-table thead th { font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--bg-surface);position:sticky;top:0; }
+  .data-table thead th { font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);padding:14px 16px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--bg-surface); }
   .data-table tbody tr { border-bottom:1px solid var(--border);animation:fadeIn .3s ease both;animation-delay:calc(var(--row-i, 0) * 12ms);transition:background .12s; }
   .data-table tbody tr:last-child { border-bottom:none; }
   .data-table tbody tr:hover { background:var(--bg-hover); }
   .data-table tbody tr.row-highlight { background:rgba(239,68,68,.03); }
-  .data-table td { padding:9px 12px;font-size:12.5px;color:var(--text-secondary);vertical-align:middle;white-space:nowrap; }
-  .suivi-table { min-width:1120px; }
+  .data-table td { padding:14px 16px;font-size:14.5px;color:var(--text-secondary);vertical-align:middle;white-space:nowrap; }
+  .suivi-table { min-width:1360px; }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var wrapper = document.getElementById('suivi-table-wrapper');
+  var btnLeft = document.getElementById('suivi-scroll-left');
+  var btnRight = document.getElementById('suivi-scroll-right');
+  if (!wrapper) return;
+  var step = 260;
+  if (btnLeft) btnLeft.addEventListener('click', function () {
+    wrapper.scrollBy({ left: -step, behavior: 'smooth' });
+  });
+  if (btnRight) btnRight.addEventListener('click', function () {
+    wrapper.scrollBy({ left: step, behavior: 'smooth' });
+  });
+});
+</script>
 {% endblock %}

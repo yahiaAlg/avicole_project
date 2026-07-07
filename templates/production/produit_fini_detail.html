@@ -7,7 +7,7 @@
 
 {% block page_title %}{{ produit.designation }}{% endblock %}
 {% block page_sub_text %}
-  {{ produit.get_type_produit_display }} —
+  {{ produit.type_produit.libelle }} —
   {% if produit.actif %}<span style="color:var(--accent-text);">نشط</span>{% else %}<span style="color:#dc2626;">غير نشط</span>{% endif %}
   {% if not active_branche %} — <span style="color:var(--text-muted);">Vue Globale · كل الفروع</span>{% endif %}
 {% endblock %}
@@ -36,7 +36,7 @@
         {% else %}
           {{ produit.quantite_en_stock|floatformat:3 }}
         {% endif %}
-        <span class="kpi-currency">{{ produit.get_unite_mesure_display }}</span>
+        <span class="kpi-currency">{{ produit.unite_mesure.libelle }}</span>
       </div>
       <div class="kpi-card__sub">
         {% if active_branche %}
@@ -101,16 +101,16 @@
             <div class="info-item">
               <div class="info-label">نوع المنتج</div>
               <div class="info-value">
-                {% if produit.type_produit == "volaille_vivante" %}<span class="pill-success">{{ produit.get_type_produit_display }}</span>
-                {% elif produit.type_produit == "carcasse" %}<span class="pill-info">{{ produit.get_type_produit_display }}</span>
-                {% elif produit.type_produit == "oeufs" %}<span class="pill-warning">{{ produit.get_type_produit_display }}</span>
-                {% else %}<span class="pill-neutral">{{ produit.get_type_produit_display }}</span>
+                {% if produit.type_produit.code == "VOLAILLE_VIVANTE" %}<span class="pill-success">{{ produit.type_produit.libelle }}</span>
+                {% elif produit.type_produit.code == "CARCASSE" %}<span class="pill-info">{{ produit.type_produit.libelle }}</span>
+                {% elif produit.type_produit.code == "OEUFS" %}<span class="pill-warning">{{ produit.type_produit.libelle }}</span>
+                {% else %}<span class="pill-neutral">{{ produit.type_produit.libelle }}</span>
                 {% endif %}
               </div>
             </div>
             <div class="info-item">
               <div class="info-label">وحدة القياس</div>
-              <div class="info-value"><span class="unit-badge">{{ produit.get_unite_mesure_display }}</span></div>
+              <div class="info-value"><span class="unit-badge">{{ produit.unite_mesure.libelle }}</span></div>
             </div>
             <div class="info-item">
               <div class="info-label">سعر البيع الافتراضي</div>
@@ -260,7 +260,7 @@
                 <div class="stock-gauge__value {% if stock.en_alerte %}text-danger{% endif %}">
                   {{ stock.quantite|floatformat:3 }}
                 </div>
-                <div class="stock-gauge__unit">{{ produit.get_unite_mesure_display }}</div>
+                <div class="stock-gauge__unit">{{ produit.unite_mesure.libelle }}</div>
                 {% if stock.seuil_alerte > 0 %}
                 <div class="stock-gauge__bar-wrap">
                   <div class="stock-gauge__bar">

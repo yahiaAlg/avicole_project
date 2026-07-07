@@ -280,6 +280,7 @@
       flex-direction: column;
       min-height: 100vh;
       flex: 1;
+      min-width: 0;
       transition: margin-right 0.18s ease;
     }
     body.sidebar-collapsed .main-area { margin-right: var(--sidebar-w-sm); }
@@ -401,6 +402,9 @@
     .page-body {
       padding: 28px 32px;
       flex: 1;
+      min-width: 0;
+      max-width: 100%;
+      overflow-x: hidden;
       animation: fadeIn 0.3s ease;
     }
 

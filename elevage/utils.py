@@ -439,6 +439,8 @@ def get_lot_suivi_journalier(lot) -> list:
     Returns a list of dicts (one per calendar day, chronological order):
         date, jour_numero, semaine, mortalite_jour, effectif_vivant_fin_jour,
         aliment_jour_kg, aliment_cumul_kg,
+        medicament_jour (list of {libelle, total} per unité, non-zero only),
+        medicament_cumul (list of {libelle, total} per unité, all units seen),
         oeufs_jour, oeufs_cumul, oeufs_retraits_jour, oeufs_stock
     """
     from django.db.models import Sum
@@ -461,6 +463,29 @@ def get_lot_suivi_journalier(lot) -> list:
         .values("date")
         .annotate(total=Sum("quantite"))
     }
+    # Médicaments span several units (ML, DOSE, FLACON…) unlike feed
+    # (always KG), so they're grouped per (date, unité) rather than summed
+    # into one figure. `unites_ordre` fixes a stable column order (by the
+    # unité's own display order) that both medicament_jour and
+    # medicament_cumul stick to, so every row lines up under the same
+    # unit headings.
+    medicament_rows = (
+        lot.consommations.exclude(intrant__categorie__code="ALIMENT")
+        .values(
+            "date",
+            "intrant__unite_mesure__libelle",
+            "intrant__unite_mesure__ordre",
+        )
+        .annotate(total=Sum("quantite"))
+        .order_by("intrant__unite_mesure__ordre")
+    )
+    unites_ordre = []
+    medicament_par_jour = {}
+    for row in medicament_rows:
+        libelle = row["intrant__unite_mesure__libelle"]
+        if libelle not in unites_ordre:
+            unites_ordre.append(libelle)
+        medicament_par_jour.setdefault(row["date"], {})[libelle] = row["total"]
     oeufs_par_jour = {
         row["date"]: row["total"]
         for row in lot.recoltes_oeufs.values("date").annotate(total=Sum("nombre_oeufs"))
@@ -474,6 +499,7 @@ def get_lot_suivi_journalier(lot) -> list:
 
     effectif = lot.nombre_poussins_initial
     aliment_cumul = Decimal("0")
+    medicament_cumul_par_unite = {libelle: Decimal("0") for libelle in unites_ordre}
     oeufs_cumul = 0
     oeufs_retraits_cumul = 0
     rows = []
@@ -483,11 +509,14 @@ def get_lot_suivi_journalier(lot) -> list:
 
         m = mortalite_par_jour.get(jour, 0)
         a = aliment_par_jour.get(jour) or Decimal("0")
+        meds_jour_par_unite = medicament_par_jour.get(jour, {})
         o = oeufs_par_jour.get(jour, 0)
         r = retraits_par_jour.get(jour, 0)
 
         effectif -= m
         aliment_cumul += Decimal(str(a))
+        for libelle, total in meds_jour_par_unite.items():
+            medicament_cumul_par_unite[libelle] += Decimal(str(total))
         oeufs_cumul += o
         oeufs_retraits_cumul += r
         oeufs_stock = oeufs_cumul - oeufs_retraits_cumul
@@ -501,6 +530,15 @@ def get_lot_suivi_journalier(lot) -> list:
                 "effectif_vivant_fin_jour": effectif,
                 "aliment_jour_kg": Decimal(str(a)),
                 "aliment_cumul_kg": aliment_cumul,
+                "medicament_jour": [
+                    {"libelle": libelle, "total": meds_jour_par_unite[libelle]}
+                    for libelle in unites_ordre
+                    if libelle in meds_jour_par_unite
+                ],
+                "medicament_cumul": [
+                    {"libelle": libelle, "total": medicament_cumul_par_unite[libelle]}
+                    for libelle in unites_ordre
+                ],
                 "oeufs_jour": o,
                 "oeufs_cumul": oeufs_cumul,
                 "oeufs_retraits_jour": r,

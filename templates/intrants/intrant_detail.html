@@ -94,7 +94,7 @@
             <div class="info-item">
               <div class="info-label">وحدة القياس</div>
               <div class="info-value">
-                <span class="unit-badge">{{ intrant.get_unite_mesure_display }}</span>
+                <span class="unit-badge">{{ intrant.unite_mesure.libelle }}</span>
               </div>
             </div>
             <div class="info-item">
@@ -217,7 +217,7 @@
             <div class="stock-gauge__value {% if en_alerte %}text-danger{% endif %}">
               {{ quantite_en_stock|floatformat:3 }}
             </div>
-            <div class="stock-gauge__unit">{{ intrant.get_unite_mesure_display }}</div>
+            <div class="stock-gauge__unit">{{ intrant.unite_mesure.libelle }}</div>
             <div class="stock-gauge__bar-wrap">
               <div class="stock-gauge__bar">
                 <div class="stock-gauge__fill {% if en_alerte %}fill--danger{% endif %}"
