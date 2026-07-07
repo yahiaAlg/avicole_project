@@ -246,13 +246,27 @@ class LotElevage(models.Model):
         """Days from opening to closure (or latest recorded activity if still open)."""
         from datetime import date
         from django.db.models import Max
+        from elevage.models import RetraitOeufs
 
         if self.date_fermeture:
             end = self.date_fermeture
         else:
             latest_mortalite = self.mortalites.aggregate(m=Max("date"))["m"]
             latest_conso = self.consommations.aggregate(m=Max("date"))["m"]
-            candidates = [d for d in (latest_mortalite, latest_conso) if d is not None]
+            latest_oeufs = self.recoltes_oeufs.aggregate(m=Max("date"))["m"]
+            latest_retrait = RetraitOeufs.objects.filter(lot=self).aggregate(
+                m=Max("date")
+            )["m"]
+            candidates = [
+                d
+                for d in (
+                    latest_mortalite,
+                    latest_conso,
+                    latest_oeufs,
+                    latest_retrait,
+                )
+                if d is not None
+            ]
             end = max(candidates) if candidates else date.today()
 
         return (end - self.date_ouverture).days

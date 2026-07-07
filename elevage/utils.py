@@ -434,7 +434,10 @@ def get_oeufs_fifo_allocation(
 def get_lot_suivi_journalier(lot) -> list:
     """
     Build the day-by-day accumulation table for one lot, from
-    lot.date_ouverture through lot.date_fermeture (or today if still open).
+    lot.date_ouverture through lot.date_fermeture — or, for a still-open
+    lot, through the date of its most recent recorded action (mortalité,
+    consommation/médicament, récolte or retrait d'œufs), not today. No
+    trailing empty rows are generated past that last event.
 
     Returns a list of dicts (one per calendar day, chronological order):
         date, jour_numero, semaine, mortalite_jour, effectif_vivant_fin_jour,
@@ -446,11 +449,7 @@ def get_lot_suivi_journalier(lot) -> list:
     from django.db.models import Sum
     from elevage.models import RetraitOeufs, RecolteOeufs
 
-    date_fin = lot.date_fermeture or datetime.date.today()
     date_debut = lot.date_ouverture
-    nb_jours = (date_fin - date_debut).days + 1
-    if nb_jours <= 0:
-        return []
 
     # --- Pre-aggregate every source by date, once, to avoid N+1 queries ---
     mortalite_par_jour = {
@@ -496,6 +495,22 @@ def get_lot_suivi_journalier(lot) -> list:
         .values("date")
         .annotate(total=Sum("quantite_oeufs"))
     }
+
+    if lot.date_fermeture:
+        date_fin = lot.date_fermeture
+    else:
+        derniers = [
+            max(mortalite_par_jour) if mortalite_par_jour else None,
+            max(aliment_par_jour) if aliment_par_jour else None,
+            max(medicament_par_jour) if medicament_par_jour else None,
+            max(oeufs_par_jour) if oeufs_par_jour else None,
+            max(retraits_par_jour) if retraits_par_jour else None,
+        ]
+        derniers = [d for d in derniers if d is not None]
+        date_fin = max(derniers) if derniers else date_debut
+    nb_jours = (date_fin - date_debut).days + 1
+    if nb_jours <= 0:
+        return []
 
     effectif = lot.nombre_poussins_initial
     aliment_cumul = Decimal("0")
