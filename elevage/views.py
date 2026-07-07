@@ -42,6 +42,7 @@ from core.views import (
 )
 from elevage.forms import (
     ConsommationForm,
+    ConsommationMedicamentForm,
     FormuleAlimentForm,
     FormuleAlimentLigneFormSet,
     LotElevageForm,
@@ -373,8 +374,17 @@ def lot_detail(request, pk):
     mortalites_page = _paginate(
         summary["mortalites"], request.GET.get("page_mort"), per_page=10
     )
+    # Split feed vs médicament consumption into two sections (separation of
+    # concerns: distinct table, form and template per catégorie).
     consommations_page = _paginate(
-        summary["consommations"], request.GET.get("page_conso"), per_page=10
+        summary["consommations"].filter(intrant__categorie__code="ALIMENT"),
+        request.GET.get("page_conso"),
+        per_page=10,
+    )
+    consommations_medicament_page = _paginate(
+        summary["consommations"].exclude(intrant__categorie__code="ALIMENT"),
+        request.GET.get("page_medic"),
+        per_page=10,
     )
 
     # Pick up the zero-effectif closure suggestion set by production_record_valider.
@@ -407,6 +417,7 @@ def lot_detail(request, pk):
             "mortalite_anormale": mortalite_anormale,
             "mortalites_page": mortalites_page,
             "consommations_page": consommations_page,
+            "consommations_medicament_page": consommations_medicament_page,
             "productions": summary["productions"],
             "depenses": summary["depenses"],
             "suggest_fermeture": suggest_fermeture,
@@ -741,19 +752,22 @@ def mortalite_delete(request, pk):
     return redirect("elevage:lot_detail", pk=lot.pk)
 
 
+
 # ===========================================================================
-# Consommation — Create
+# Consommation — Create (shared helper: feed vs médicament)
 # ===========================================================================
 
 
-@login_required(login_url=LOGIN_URL)
-def consommation_create(request, lot_pk):
+def _consommation_create(request, lot_pk, form_class, template, kind_label):
     """
-    Record an input consumption event (feed, medicine) attributed to a lot.
+    Shared create logic for both feed (ConsommationForm) and médicament
+    (ConsommationMedicamentForm) consumption records — same underlying
+    Consommation model, only the form's intrant scope and the rendering
+    template differ (separation of concerns per catégorie of consumption).
 
     BR-LOT-03: only permitted on open lots.
-    BR-INT-03: quantity cannot exceed available stock — enforced in
-               ConsommationForm.clean() and double-checked here atomically.
+    BR-INT-03: quantity cannot exceed available stock — enforced in the
+               form's clean() and double-checked here atomically.
 
     BR-BRA-07: StockIntrant is now one row per (branche, intrant), so the
     in-view availability check below is scoped to `lot.branche`.
@@ -764,7 +778,7 @@ def consommation_create(request, lot_pk):
         return redirect("elevage:lot_detail", pk=lot.pk)
 
     if request.method == "POST":
-        form = ConsommationForm(request.POST, lot=lot)
+        form = form_class(request.POST, lot=lot)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -789,11 +803,11 @@ def consommation_create(request, lot_pk):
                             )
                             return render(
                                 request,
-                                "elevage/consommation_form.html",
+                                template,
                                 {
                                     "form": form,
                                     "lot": lot,
-                                    "title": f"تسجيل استهلاك — {lot.designation}",
+                                    "title": f"تسجيل {kind_label} — {lot.designation}",
                                     "action_label": "حفظ",
                                 },
                             )
@@ -805,11 +819,11 @@ def consommation_create(request, lot_pk):
                         )
                         return render(
                             request,
-                            "elevage/consommation_form.html",
+                            template,
                             {
                                 "form": form,
                                 "lot": lot,
-                                "title": f"تسجيل استهلاك — {lot.designation}",
+                                "title": f"تسجيل {kind_label} — {lot.designation}",
                                 "action_label": "حفظ",
                             },
                         )
@@ -845,17 +859,41 @@ def consommation_create(request, lot_pk):
     else:
         import datetime
 
-        form = ConsommationForm(lot=lot, initial={"date": datetime.date.today()})
+        form = form_class(lot=lot, initial={"date": datetime.date.today()})
 
     return render(
         request,
-        "elevage/consommation_form.html",
+        template,
         {
             "form": form,
             "lot": lot,
-            "title": f"تسجيل استهلاك — {lot.designation}",
+            "title": f"تسجيل {kind_label} — {lot.designation}",
             "action_label": "حفظ",
         },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def consommation_create(request, lot_pk):
+    """Record feed (aliment) consumption attributed to a lot."""
+    return _consommation_create(
+        request,
+        lot_pk,
+        ConsommationForm,
+        "elevage/consommation_form.html",
+        "استهلاك",
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def consommation_medicament_create(request, lot_pk):
+    """Record médicament/vaccin/vitamine/antibiotique/désinfectant consumption."""
+    return _consommation_create(
+        request,
+        lot_pk,
+        ConsommationMedicamentForm,
+        "elevage/consommation_medicament_form.html",
+        "دواء",
     )
 
 
@@ -875,7 +913,8 @@ def consommation_edit(request, pk):
       - On quantity change: applies the net delta to the same intrant.
     """
     conso = get_object_or_404(
-        Consommation.objects.select_related("lot", "intrant"), pk=pk
+        Consommation.objects.select_related("lot", "intrant", "intrant__categorie"),
+        pk=pk,
     )
     lot = conso.lot
     _ensure_branche_access(request, lot)
@@ -883,8 +922,19 @@ def consommation_edit(request, pk):
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
 
+    # Dispatch to the right form/template based on the record's own
+    # catégorie (ALIMENT vs médicament) — same separation of concerns as
+    # the create views, without needing two separate edit URLs.
+    is_medicament = conso.intrant.categorie.code != "ALIMENT"
+    form_class = ConsommationMedicamentForm if is_medicament else ConsommationForm
+    template = (
+        "elevage/consommation_medicament_form.html"
+        if is_medicament
+        else "elevage/consommation_form.html"
+    )
+
     if request.method == "POST":
-        form = ConsommationForm(request.POST, instance=conso, lot=lot)
+        form = form_class(request.POST, instance=conso, lot=lot)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -920,7 +970,7 @@ def consommation_edit(request, pk):
                                 )
                                 return render(
                                     request,
-                                    "elevage/consommation_form.html",
+                                    template,
                                     {
                                         "form": form,
                                         "lot": lot,
@@ -936,7 +986,7 @@ def consommation_edit(request, pk):
                             )
                             return render(
                                 request,
-                                "elevage/consommation_form.html",
+                                template,
                                 {
                                     "form": form,
                                     "lot": lot,
@@ -963,11 +1013,11 @@ def consommation_edit(request, pk):
         else:
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
-        form = ConsommationForm(instance=conso, lot=lot)
+        form = form_class(instance=conso, lot=lot)
 
     return render(
         request,
-        "elevage/consommation_form.html",
+        template,
         {
             "form": form,
             "lot": lot,

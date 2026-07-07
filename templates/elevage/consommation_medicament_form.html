@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
+
+{% block nav_lots %}active{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}القطيع : {{ lot.designation }} · العدد الحي : {{ lot.effectif_vivant|floatformat:0 }} طير{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'elevage:lot_detail' lot.pk %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> العودة إلى القطيع
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+  <div class="row justify-content-center">
+    <div class="col-xl-6 col-lg-8">
+
+      <!-- Lot status banner -->
+      {% if lot.statut == 'ferme' %}
+      <div class="locked-banner mb-3">
+        <i class="bx bxs-lock" style="color:#b45309;font-size:15px;"></i>
+        <span>هذا القطيع <strong style="color:#b45309;">مغلق</strong> — لا يمكن إدخال أي بيانات.</span>
+      </div>
+      {% endif %}
+
+      <!-- Lot context card -->
+      <div class="card mb-3">
+        <div style="padding:14px 18px;display:flex;gap:16px;flex-wrap:wrap;">
+          <div style="text-align:center;flex:1;min-width:80px;">
+            <div class="ctx-label">العدد الحي</div>
+            <div class="ctx-val" style="color:var(--accent-text);">{{ lot.effectif_vivant|floatformat:0 }}</div>
+          </div>
+          {% if lot.consommations_medicament_par_unite %}
+          {% for u in lot.consommations_medicament_par_unite %}
+          <div style="text-align:center;flex:1;min-width:80px;">
+            <div class="ctx-label">استهلاك الأدوية{% if lot.consommations_medicament_par_unite|length > 1 %} ({{ u.libelle }}){% endif %}</div>
+            <div class="ctx-val" style="color:#dc2626;">{{ u.total|floatformat:2 }} {% if lot.consommations_medicament_par_unite|length == 1 %}{{ u.libelle }}{% endif %}</div>
+          </div>
+          {% endfor %}
+          {% else %}
+          <div style="text-align:center;flex:1;min-width:80px;">
+            <div class="ctx-label">استهلاك الأدوية</div>
+            <div class="ctx-val" style="color:#dc2626;">0</div>
+          </div>
+          {% endif %}
+          <div style="text-align:center;flex:1;min-width:80px;">
+            <div class="ctx-label">المدة</div>
+            <div class="ctx-val">{{ lot.duree_elevage }} ي</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-card">
+        <div class="form-card__header">
+          <div class="form-card__icon ic-med">
+            <i class="bx bxs-plus-medical"></i>
+          </div>
+          <div>
+            <div class="form-card__title">{{ title }}</div>
+            <div class="form-card__sub">استهلاك الأدوية واللقاحات — القطيع {{ lot.designation }}</div>
+          </div>
+        </div>
+
+        <form method="post" novalidate id="conso-form">
+          {% csrf_token %}
+          {{ form.lot }}
+
+          {% if form.non_field_errors %}
+          <div class="form-errors-global">
+            <i class="bx bxs-error-circle"></i>
+            <div>{% for err in form.non_field_errors %}<div>{{ err }}</div>{% endfor %}</div>
+          </div>
+          {% endif %}
+
+          <div class="row g-3">
+            <!-- Date -->
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.date.id_for_label }}">التاريخ <span class="required-star">*</span></label>
+                <div class="input-wrap">
+                  <i class="bx bxs-calendar input-icon"></i>
+                  {{ form.date }}
+                </div>
+                {% if form.date.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.date.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+
+            <!-- Intrant -->
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.intrant.id_for_label }}">الدواء <span class="required-star">*</span></label>
+                <div class="input-wrap">
+                  <i class="bx bxs-flask input-icon"></i>
+                  {{ form.intrant }}
+                </div>
+                {% if form.intrant.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.intrant.errors|join:", " }}</div>{% endif %}
+                <!-- Stock disponible (filled by AJAX) -->
+                <div id="stock-caption" style="font-size:11px;color:var(--text-muted);margin-top:4px;min-height:16px;display:flex;align-items:center;gap:5px;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quantité -->
+          <div class="form-group">
+            <label class="form-label" for="{{ form.quantite.id_for_label }}">الكمية <span class="required-star">*</span></label>
+            <div class="input-wrap">
+              <i class="bx bx-cube input-icon"></i>
+              {{ form.quantite }}
+              <span id="unite-suffix" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--text-muted);pointer-events:none;"></span>
+            </div>
+            {% if form.quantite.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.quantite.errors|join:", " }}</div>{% endif %}
+            <div id="stock-error" class="field-error" style="display:none;">
+              <i class="bx bxs-x-circle"></i>
+              <span id="stock-error-msg"></span>
+            </div>
+          </div>
+
+          <!-- Notes -->
+          <div class="form-group">
+            <label class="form-label" for="{{ form.notes.id_for_label }}">ملاحظات</label>
+            <div class="input-wrap input-wrap--textarea">
+              <i class="bx bx-note input-icon" style="top:14px;transform:none;"></i>
+              {{ form.notes }}
+            </div>
+            {% if form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.notes.errors|join:", " }}</div>{% endif %}
+          </div>
+
+          <div class="form-actions">
+            <a href="{% url 'elevage:lot_detail' lot.pk %}" class="btn-ghost">إلغاء</a>
+            {% if lot.statut == 'ouvert' %}
+            <button type="submit" class="btn-primary" id="submit-btn">
+              <i class="bx bxs-save"></i> {{ action_label }}
+            </button>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{# Stash AJAX URL base for JS — use a data attribute on a hidden element #}
+<span id="js-stock-url-base" data-url="{% url 'intrants:intrant_stock_json' 0 %}" data-lot="{{ lot.pk }}" style="display:none;"></span>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── RTL overrides ─────────────────────────────────────────── */
+  .page-body,
+  .form-card,
+  .card,
+  .locked-banner,
+  .form-group,
+  .form-actions,
+  .form-errors-global {
+    direction: rtl;
+    text-align: right;
+  }
+
+  /* Flip icon side: icons sit on the right in RTL */
+  .input-icon {
+    left: auto !important;
+    right: 13px;
+  }
+  .input-wrap input,
+  .input-wrap select,
+  .input-wrap textarea {
+    padding-left: 13px !important;
+    padding-right: 40px !important;
+    text-align: right;
+  }
+  /* Unit suffix flips to the left */
+  #unite-suffix {
+    right: auto !important;
+    left: 13px !important;
+  }
+  /* Form header icon gap */
+  .form-card__header {
+    flex-direction: row-reverse;
+  }
+  /* Reverse action buttons order visually */
+  .form-actions {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+  }
+  /* Stock caption & field errors align right */
+  #stock-caption,
+  .field-error,
+  .form-errors-global {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+  }
+  /* ────────────────────────────────────────────────────────────── */
+
+  .mb-3 { margin-bottom: 16px; }
+
+  .locked-banner {
+    background: rgba(245,158,11,.08);
+    border: 1px solid rgba(245,158,11,.2);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: var(--text-secondary);
+  }
+
+  .card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden; }
+  .ctx-label { font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:4px; }
+  .ctx-val { font-family:'Nunito',sans-serif;font-weight:800;font-size:20px;color:var(--text-primary); }
+
+  .form-card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;animation:fadeIn .3s ease; }
+  .form-card__header { display:flex;align-items:center;gap:14px;margin-bottom:24px;padding-bottom:18px;border-bottom:1px solid var(--border); }
+  .form-card__icon { width:44px;height:44px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0; }
+  .ic-blue { background:rgba(59,130,246,.12);color:#2563eb; }
+  .ic-med { background:rgba(220,38,38,.12);color:#dc2626; }
+  .form-card__title { font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;color:var(--text-primary); }
+  .form-card__sub { font-size:12px;color:var(--text-muted);margin-top:2px; }
+
+  .form-group { margin-bottom:18px; }
+  .form-label { display:block;font-size:12px;font-weight:500;color:var(--text-secondary);letter-spacing:.03em;margin-bottom:6px; }
+  .required-star { color:#dc2626; }
+  .input-wrap { position:relative; }
+  .input-icon { position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none; }
+  .input-wrap input,
+  .input-wrap select,
+  .input-wrap textarea {
+    width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);
+    color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13.5px;
+    padding:11px 13px 11px 40px;transition:border-color .15s,box-shadow .15s;appearance:none;-webkit-appearance:none;
+  }
+  .input-wrap textarea { padding-top:12px;resize:vertical;min-height:72px; }
+  .input-wrap input:focus,
+  .input-wrap select:focus,
+  .input-wrap textarea:focus { border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.15);outline:none; }
+  .input-wrap--textarea .input-icon { top:14px;transform:none; }
+  .field-error { display:flex;align-items:center;gap:5px;font-size:12px;color:#dc2626;margin-top:5px; }
+  .form-errors-global { display:flex;align-items:flex-start;gap:10px;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius-md);padding:12px 16px;margin-bottom:20px;font-size:13px;color:#dc2626; }
+
+  /* Stock caption variants */
+  .stock-ok { color: var(--accent-text); }
+  .stock-warn { color: #b45309; }
+  .stock-zero { color: #dc2626; }
+
+  /* Input border error state */
+  .input-wrap input.input--error { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(239,68,68,.12); }
+
+  .form-actions { display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:18px;border-top:1px solid var(--border); }
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 20px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s,transform .12s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-primary:disabled { opacity:.45;cursor:not-allowed; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s,border-color .12s,color .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const intrantSelect = document.querySelector('[name="intrant"]');
+  const quantiteInput = document.querySelector('[name="quantite"]');
+  const stockCaption  = document.getElementById('stock-caption');
+  const stockError    = document.getElementById('stock-error');
+  const stockErrMsg   = document.getElementById('stock-error-msg');
+  const uniteSuffix   = document.getElementById('unite-suffix');
+  const submitBtn     = document.getElementById('submit-btn');
+
+  /* Build base URL: strip the trailing '0/stock.json' placeholder segment
+     from the template URL, leaving just the path up to the pk. */
+  const urlBase = document.getElementById('js-stock-url-base').dataset.url.replace('/0/stock.json', '/');
+
+  let currentStock = null;
+  let currentUnite = '';
+  let fetchTimer = null;
+
+  function clearStockState() {
+    currentStock = null;
+    currentUnite = '';
+    stockCaption.textContent = '';
+    uniteSuffix.textContent = '';
+    hideStockError();
+  }
+
+  function showStockError(msg) {
+    stockErrMsg.textContent = msg;
+    stockError.style.display = 'flex';
+    quantiteInput.classList.add('input--error');
+    if (submitBtn) submitBtn.disabled = true;
+  }
+
+  function hideStockError() {
+    stockError.style.display = 'none';
+    quantiteInput.classList.remove('input--error');
+    if (submitBtn) submitBtn.disabled = false;
+  }
+
+  function fetchStock(intrantPk) {
+    clearStockState();
+    if (!intrantPk) return;
+
+    stockCaption.innerHTML = '<i class="bx bx-loader-circle" style="animation:spin .8s linear infinite;font-size:13px;"></i> جارٍ التحقق من المخزون…';
+
+    const lotPk = document.getElementById('js-stock-url-base').dataset.lot;
+    fetch(urlBase + intrantPk + '/stock.json?lot=' + encodeURIComponent(lotPk), {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      currentStock = parseFloat(data.quantite);
+      currentUnite = data.unite_mesure || '';
+      uniteSuffix.textContent = currentUnite;
+
+      const qty = currentStock;
+      let cls = qty > 0 ? 'stock-ok' : 'stock-zero';
+      let icon = qty > 0 ? 'bxs-check-circle' : 'bxs-error-circle';
+      let txt  = 'المخزون المتاح : ' + qty.toLocaleString('ar-DZ', {maximumFractionDigits:3}) + ' ' + currentUnite;
+      if (qty === 0) { cls = 'stock-zero'; txt = 'المخزون نفد — لا توجد كمية متاحة.'; }
+
+      stockCaption.innerHTML = '<i class="bx ' + icon + ' ' + cls + '" style="font-size:13px;"></i> <span class="' + cls + '">' + txt + '</span>';
+      validateQuantite();
+    })
+    .catch(function () {
+      stockCaption.innerHTML = '<span style="color:var(--text-muted);">تعذّر التحقق من المخزون.</span>';
+    });
+  }
+
+  function validateQuantite() {
+    if (currentStock === null) { hideStockError(); return; }
+    const val = parseFloat(quantiteInput.value);
+    if (!isNaN(val) && val > 0 && val > currentStock) {
+      showStockError(
+        'BR-INT-03 : مخزون غير كافٍ. المتاح : ' +
+        currentStock.toLocaleString('ar-DZ', {maximumFractionDigits:3}) +
+        ' ' + currentUnite + ' — المطلوب : ' +
+        val.toLocaleString('ar-DZ', {maximumFractionDigits:3}) +
+        ' ' + currentUnite + '.'
+      );
+    } else {
+      hideStockError();
+    }
+  }
+
+  /* Intrant change → fetch stock */
+  if (intrantSelect) {
+    intrantSelect.addEventListener('change', function () {
+      fetchStock(this.value);
+    });
+    /* On load, if an intrant is already selected (edit mode) */
+    if (intrantSelect.value) {
+      fetchStock(intrantSelect.value);
+    }
+  }
+
+  /* Quantite input → validate against fetched stock (debounced 300ms) */
+  if (quantiteInput) {
+    quantiteInput.addEventListener('input', function () {
+      clearTimeout(fetchTimer);
+      fetchTimer = setTimeout(validateQuantite, 300);
+    });
+  }
+
+  /* Block form submit if stock error is showing */
+  const form = document.getElementById('conso-form');
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      validateQuantite();
+      if (submitBtn && submitBtn.disabled) {
+        e.preventDefault();
+      }
+    });
+  }
+
+  /* Spin keyframe for loader icon */
+  if (!document.getElementById('spin-kf')) {
+    const s = document.createElement('style');
+    s.id = 'spin-kf';
+    s.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+    document.head.appendChild(s);
+  }
+
+  /* Auto-focus first non-hidden input */
+  const first = document.querySelector('#conso-form .input-wrap input:not([type=hidden]), #conso-form .input-wrap select');
+  if (first) first.focus();
+});
+</script>
+{% endblock %}

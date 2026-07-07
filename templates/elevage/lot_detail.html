@@ -396,6 +396,76 @@
         {% endif %}
       </div>
 
+      <!-- Consommations médicaments section (separate from feed: own form/template) -->
+      <div class="card mb-3">
+        <div class="section-header">
+          <span class="section-eyebrow"><i class="bx bxs-flask" style="font-size:12px;color:#dc2626;"></i> الأدوية واللقاحات</span>
+          {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+          <a href="{% url 'elevage:consommation_medicament_create' lot.pk %}" class="btn-ghost btn-sm">
+            <i class="bx bx-plus"></i> إدخال
+          </a>
+          {% endif %}
+        </div>
+        {% if consommations_medicament_page.object_list %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>الدواء</th>
+                <th>الفئة</th>
+                <th>الكمية</th>
+                <th>ملاحظات</th>
+                {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}<th style="text-align:right;">الإجراءات</th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for conso in consommations_medicament_page.object_list %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td style="color:var(--text-muted);">{{ conso.date|date:"d/m/Y" }}</td>
+                <td style="font-weight:500;color:var(--text-primary);">{{ conso.intrant.designation }}</td>
+                <td><span class="pill-info">{{ conso.intrant.categorie.libelle }}</span></td>
+                <td style="font-family:'Nunito',sans-serif;font-weight:700;">
+                  {{ conso.quantite|floatformat:2 }} <span style="font-size:11px;color:var(--text-muted);">{{ conso.intrant.unite_mesure }}</span>
+                </td>
+                <td style="color:var(--text-muted);font-size:12px;">{{ conso.notes|default:"—" }}</td>
+                {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+                <td>
+                  <div class="actions-cell">
+                    <a href="{% url 'elevage:consommation_edit' conso.pk %}" class="action-btn" title="تعديل"><i class="bx bxs-pencil"></i></a>
+                    <button type="button" class="action-btn action-btn--danger"
+                      data-delete-conso="{{ conso.pk }}"
+                      data-date="{{ conso.date|date:'d/m/Y' }}"
+                      data-intrant="{{ conso.intrant.designation }}"
+                      title="حذف">
+                      <i class="bx bxs-trash"></i>
+                    </button>
+                  </div>
+                </td>
+                {% endif %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if consommations_medicament_page.has_other_pages %}
+        <div class="pagination-bar">
+          {% if consommations_medicament_page.has_previous %}<a href="?page_medic={{ consommations_medicament_page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>{% endif %}
+          <span class="page-info">{{ consommations_medicament_page.number }} / {{ consommations_medicament_page.paginator.num_pages }}</span>
+          {% if consommations_medicament_page.has_next %}<a href="?page_medic={{ consommations_medicament_page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>{% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state-sm">
+          <i class="bx bxs-flask" style="color:var(--border-strong);"></i>
+          <span>لا يوجد استهلاك أدوية مسجل</span>
+          {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+          <a href="{% url 'elevage:consommation_medicament_create' lot.pk %}" class="btn-ghost btn-sm"><i class="bx bx-plus"></i> تسجيل</a>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+
       <!-- Pesées section -->
       <div class="card mb-3">
         <div class="section-header">

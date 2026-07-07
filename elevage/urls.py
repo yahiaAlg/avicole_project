@@ -80,6 +80,11 @@ urlpatterns = [
         name="consommation_create",
     ),
     path(
+        "lots/<int:lot_pk>/consommations-medicaments/creer/",
+        views.consommation_medicament_create,
+        name="consommation_medicament_create",
+    ),
+    path(
         "consommations/<int:pk>/modifier/",
         views.consommation_edit,
         name="consommation_edit",

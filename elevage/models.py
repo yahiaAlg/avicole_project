@@ -336,6 +336,34 @@ class LotElevage(models.Model):
         return result or 0
 
     @property
+    def consommations_medicament_par_unite(self):
+        """
+        Médicament/vaccin/vitamine/antibiotique/désinfectant consumption
+        totals, grouped by unité de mesure (unlike feed, which is always
+        KG, médicaments span several units — ML, DOSE, FLACON…) so each
+        unit's quantities are summed together rather than added across
+        incompatible units.
+
+        Returns a list of dicts: [{"libelle": "مل", "total": Decimal(...)}, …]
+        ordered by the unit's display order.
+        """
+        from django.db.models import Sum
+
+        rows = (
+            self.consommations.exclude(intrant__categorie__code="ALIMENT")
+            .values(
+                "intrant__unite_mesure__libelle",
+                "intrant__unite_mesure__ordre",
+            )
+            .annotate(total=Sum("quantite"))
+            .order_by("intrant__unite_mesure__ordre")
+        )
+        return [
+            {"libelle": row["intrant__unite_mesure__libelle"], "total": row["total"]}
+            for row in rows
+        ]
+
+    @property
     def cout_total_intrants(self):
         """
         Estimated total input cost = Σ (quantite × prix_unitaire_moyen)

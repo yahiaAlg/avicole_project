@@ -185,17 +185,14 @@ class MortaliteForm(forms.ModelForm):
         return cleaned
 
 
-class ConsommationForm(forms.ModelForm):
+class _BaseConsommationForm(forms.ModelForm):
     """
-    Record daily feed consumption attributed to a lot.
+    Shared plumbing for the two Consommation forms (feed vs médicament).
 
-    Intrant choices are restricted to catégorie ALIMENT (finished feed only)
-    — médicaments, vaccins, vitamines, antibiotiques and désinfectants are
-    also `consommable_en_lot`, but they aren't feed and don't belong here.
-
-    Business rules enforced here:
-      BR-LOT-03  : lot must be open.
-      BR-INT-03  : requested quantity cannot exceed available stock.
+    Both forms record the *same* underlying Consommation model — only the
+    `intrant` catégorie scope differs — so lot-queryset scoping, life-stage
+    filtering, and the BR-LOT-03 / BR-INT-03 validations live here once.
+    Concrete subclasses only need to implement `_intrant_base_queryset()`.
 
     BR-BRA-01: Consommation.branche is DERIVED from `lot.branche` (no
     stored column). Pass `branche=<Branche instance>` from the view when
@@ -212,31 +209,17 @@ class ConsommationForm(forms.ModelForm):
             "quantite": forms.NumberInput(attrs={"step": "0.001", "min": "0.001"}),
         }
 
+    def _intrant_base_queryset(self):
+        """Subclasses return the catégorie-scoped Intrant queryset."""
+        raise NotImplementedError
+
     def __init__(self, *args, lot=None, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
         lot_qs = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT)
         if branche:
             lot_qs = lot_qs.filter(branche=branche)
         self.fields["lot"].queryset = lot_qs
-        # This form is for FEED only — médicaments / vaccins / vitamines /
-        # antibiotiques / désinfectants are consommable_en_lot=True too (they
-        # can be attributed to a lot), but they don't belong in *this*
-        # dropdown: it only lists what a lot eats, i.e. catégorie ALIMENT.
-        intrant_qs = Intrant.objects.filter(
-            categorie__code="ALIMENT",
-            actif=True,
-        ).select_related("categorie")
-        # A lot only ever consumes a *finished* feed (e.g. "Aliment Démarrage
-        # Poussin") — never a raw ingredient (MAIS, SOJA, Phosphate, CMV…)
-        # that only exists to be milled into one via
-        # FormuleAliment/ProductionAliment. Both share the same ALIMENT
-        # catégorie, so raw ingredients are told apart here as "any ALIMENT
-        # intrant that appears as a FormuleAlimentLigne component somewhere"
-        # and excluded from this dropdown.
-        raw_ingredient_ids = FormuleAlimentLigne.objects.values_list(
-            "intrant_id", flat=True
-        ).distinct()
-        intrant_qs = intrant_qs.exclude(pk__in=raw_ingredient_ids)
+        intrant_qs = self._intrant_base_queryset()
         if lot:
             # Narrow further to the lot's current life-stage (chicks vs grown
             # birds) — items flagged STADE_TOUS remain available everywhere.
@@ -282,6 +265,58 @@ class ConsommationForm(forms.ModelForm):
                     f"Demandé\u202f: {quantite} {intrant.unite_mesure}."
                 )
         return cleaned
+
+
+class ConsommationForm(_BaseConsommationForm):
+    """
+    Record daily feed consumption attributed to a lot.
+
+    Intrant choices are restricted to catégorie ALIMENT (finished feed only)
+    — médicaments, vaccins, vitamines, antibiotiques et désinfectants are
+    also `consommable_en_lot`, but they belong in ConsommationMedicamentForm
+    instead. Separation of concerns: one section, one form, one template per
+    catégorie of consumption on the lot detail page.
+
+    Business rules enforced in _BaseConsommationForm:
+      BR-LOT-03  : lot must be open.
+      BR-INT-03  : requested quantity cannot exceed available stock.
+    """
+
+    def _intrant_base_queryset(self):
+        intrant_qs = Intrant.objects.filter(
+            categorie__code="ALIMENT",
+            actif=True,
+        ).select_related("categorie")
+        # A lot only ever consumes a *finished* feed (e.g. "Aliment Démarrage
+        # Poussin") — never a raw ingredient (MAIS, SOJA, Phosphate, CMV…)
+        # that only exists to be milled into one via
+        # FormuleAliment/ProductionAliment. Both share the same ALIMENT
+        # catégorie, so raw ingredients are told apart here as "any ALIMENT
+        # intrant that appears as a FormuleAlimentLigne component somewhere"
+        # and excluded from this dropdown.
+        raw_ingredient_ids = FormuleAlimentLigne.objects.values_list(
+            "intrant_id", flat=True
+        ).distinct()
+        return intrant_qs.exclude(pk__in=raw_ingredient_ids)
+
+
+class ConsommationMedicamentForm(_BaseConsommationForm):
+    """
+    Record médicament / vaccin / vitamine / antibiotique / désinfectant
+    consumption attributed to a lot.
+
+    Intrant choices cover every catégorie flagged `consommable_en_lot=True`
+    *except* ALIMENT (that's ConsommationForm's job), so this dropdown only
+    ever shows non-feed consommables — a distinct section/form/template
+    from feed consumption, per separation of concerns.
+    """
+
+    def _intrant_base_queryset(self):
+        return (
+            Intrant.objects.filter(categorie__consommable_en_lot=True, actif=True)
+            .exclude(categorie__code="ALIMENT")
+            .select_related("categorie")
+        )
 
 
 class TransfertLotForm(forms.ModelForm):
