@@ -2,7 +2,7 @@
 management/commands/seed_achats_scenario.py
 
 Peuplement rapide de la Phase 1 du scénario fresh-start — Achats Intrants :
-    BL Fournisseur (4) → Facture Fournisseur (4) → Règlement Fournisseur (4)
+    BL Fournisseur (5) → Facture Fournisseur (5) → Règlement Fournisseur (5)
 
 Objectif : éviter la saisie manuelle via ACHATS → BL Fournisseur / Factures /
 Règlements, décrite dans scenario_avicole_full_cycle_fresh_start.md §3.
@@ -38,9 +38,11 @@ Détails (scenario §3.2 → §3.5) :
     BLF-2026-0002 — Aliments ONAB (lot 1/2)    (200 sacs Démarrage + 180 sacs Croissance)
     BLF-2026-0003 — Aliments ONAB (finition)   (150 sacs Finition)
     BLF-2026-0004 — Médicaments Sanofi         (Vaccins Newcastle/Gumboro + Amox. + Vitamines)
+    BLF-2026-0005 — Matières premières ONAB    (500 kg Maïs concassé + 300 kg Tourteau de
+                                                 soja — ingrédients FeedFormula, §5.3bis)
 
-    FRN-2026-0001 → 0004 — une facture par BL, montant_total auto-calculé (BR-FAF-01)
-    REG-2026-0001 → 0004 — allocation FIFO automatique (BR-REG-03) via signal
+    FRN-2026-0001 → 0005 — une facture par BL, montant_total auto-calculé (BR-FAF-01)
+    REG-2026-0001 → 0005 — allocation FIFO automatique (BR-REG-03) via signal
                             post_save sur ReglementFournisseur.
 
 Idempotent : get_or_create sur `reference` pour BLF/FRN, et sur la combinaison
@@ -138,6 +140,19 @@ BLF_DATA = [
             ("فيتامينات + إلكتروليتات (مركّب)", Decimal("10"), Decimal("850.0000"), ""),
         ],
     ),
+    (
+        "BLF-2026-0005",
+        "ONAB Setifien",
+        datetime.date(2026, 5, 18),
+        "",
+        "",
+        [
+            # Matières premières pour la formule "In-House Grower Formula"
+            # (§5.3bis, FeedFormula/FeedProduction).
+            ("ذرة مجروشة (Maïs concassé)", Decimal("500"), Decimal("45.0000"), ""),
+            ("كسب الصويا (Tourteau de soja)", Decimal("300"), Decimal("65.0000"), ""),
+        ],
+    ),
 ]
 
 # Format : (reference, fournisseur_nom, [bl_references], date_facture, date_echeance)
@@ -170,6 +185,13 @@ FRN_DATA = [
         datetime.date(2026, 5, 9),
         datetime.date(2026, 6, 8),
     ),
+    (
+        "FRN-2026-0005",
+        "ONAB Setifien",
+        ["BLF-2026-0005"],
+        datetime.date(2026, 5, 19),
+        datetime.date(2026, 6, 18),
+    ),
 ]
 
 # Format : (fournisseur_nom, date_reglement, montant, mode_paiement, reference_paiement)
@@ -199,6 +221,13 @@ REG_DATA = [
         "Sanofi Algérie (Vétérinaire)",
         datetime.date(2026, 5, 15),
         Decimal("51700.00"),
+        "virement",
+        "",
+    ),
+    (
+        "ONAB Setifien",
+        datetime.date(2026, 6, 1),
+        Decimal("42000.00"),
         "virement",
         "",
     ),

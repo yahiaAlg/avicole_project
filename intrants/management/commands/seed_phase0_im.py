@@ -18,10 +18,12 @@ management/commands/seed_phase0.py
     • Fournisseur (5)  — CCA / ONAB / Sanofi / Proxi-Aliments / Techno-Avicole
     • Client (5)       — Marché de Gros / Boucherie Amrane / Restaurant Le Palmier /
                           Épicerie Centrale Azazga / Grossiste Alger Sud
-    • Intrant (13)     — Poussin Ross 308, Aliments (démarrage/croissance/finition),
+    • Intrant (16)     — Poussin Ross 308, Aliments (démarrage/croissance/finition),
                           Vaccins (Newcastle/Gumboro), Amoxicilline, Vitamines,
                           Poussine ISA Brown, Aliments Pré-Ponte/Ponte,
-                          Poussin Cobb 500, Litière
+                          Poussin Cobb 500, Litière, Maïs concassé, Tourteau de
+                          soja, Aliment de croissance — production interne
+                          (§5.3bis, FeedFormula/FeedProduction)
 
 ما لا يتم إنشاؤه هنا (يُسجَّل يدوياً عبر الواجهة — branch-scoped) :
     • Bâtiments (STOCK › Bâtiments › Nouveau) — nécessitent une Branche explicite
@@ -231,7 +233,7 @@ class Command(BaseCommand):
         self._log(f"Client ({len(specs)})", created_count > 0)
 
     def _seed_intrants(self, fournisseurs):
-        """INT-1 → INT-10 (scenario §0.4)."""
+        """INT-1 → INT-16 (scenario §0.4, incl. INT-14/15/16 §5.3bis)."""
         from intrants.models import Intrant, CategorieIntrant, UniteMesure
 
         def cat(code):
@@ -370,6 +372,40 @@ class Command(BaseCommand):
                 unite_mesure=unite("SAC"),
                 seuil_alerte=Decimal("20"),
                 fournisseurs=[],  # laissé vide, comme dans le scénario
+            ),
+            dict(
+                designation="ذرة مجروشة (Maïs concassé)",
+                # INT-14 — Cracked Corn — ingrédient de la formule
+                # "In-House Grower Formula" (§5.3bis, FeedFormula).
+                categorie=cat("ALIMENT"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("KG"),
+                seuil_alerte=Decimal("100"),
+                fournisseurs=[onab],
+            ),
+            dict(
+                designation="كسب الصويا (Tourteau de soja)",
+                # INT-15 — Soybean Meal — ingrédient de la formule
+                # "In-House Grower Formula" (§5.3bis, FeedFormula).
+                categorie=cat("ALIMENT"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("KG"),
+                seuil_alerte=Decimal("100"),
+                fournisseurs=[onab],
+            ),
+            dict(
+                designation="علف النمو — إنتاج داخلي (In-House Production)",
+                # INT-16 — Grower Feed (In-House Production) — intrant PRODUIT
+                # (jamais acheté via BL), crédité par FeedProduction (§5.3bis).
+                # Unité en KG (et non SAC) : FeedProduction.quantite_produite_kg
+                # est toujours exprimée en kg, quelle que soit l'unité de
+                # l'intrant produit — kg lève toute ambiguïté avec les
+                # aliments achetés au sac (INT-2/3/4).
+                categorie=cat("ALIMENT"),
+                stade=Intrant.STADE_TOUS,
+                unite_mesure=unite("KG"),
+                seuil_alerte=Decimal("50"),
+                fournisseurs=[],  # jamais acheté via BL, seulement produit
             ),
         ]
 

@@ -757,6 +757,10 @@ BLF-2026-0005 — Raw ONAB Ingredients (for §5.3bis, FeedProduction)
   → Total note: 42,000.00 DZD
 ```
 
+seed_phase0.py: added the 3 missing intrants — Cracked Corn (INT-14), Soybean Meal (INT-15), both unit KG / supplier ONAB, and Grower Feed In-House Production (INT-16), unit KG, no supplier (produced, never purchased).
+seed_achats_scenario.py: added BLF-2026-0005 (500 kg Cracked Corn @ 45 + 300 kg Soybean Meal @ 65 = 42,000 DZD), FRN-2026-0005, and REG-2026-0005 (full settlement, 2026-06-01) — matching §3.3/§3.4/§3.5's raw-ingredients purchase for the in-house formula.
+Note: seed_elevage_lot.py still needs the actual FeedFormula/FeedProduction records (FORM-1, FEED-PROD-1/2) from §5.3bis — that part wasn't in scope of what you flagged, but let me know if you want that added too.
+
 ### 3.4 Supplier Invoices (`SupplierInvoiceForm`)
 
 ```
