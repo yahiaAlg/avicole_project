@@ -377,62 +377,102 @@ class LotElevage(models.Model):
             for row in rows
         ]
 
-    @property
-    def cout_total_intrants(self):
+    def _cout_consommations(self, *, exclude_aliment=False, only_aliment=False):
         """
-        Estimated total input cost = Σ (quantite × prix_unitaire_moyen)
-        for all consommation records where PMP is available, PLUS the
-        value of chicks lost to mortality (Σ total_mortalite × PMP of the
-        poussin intrant).
+        Internal helper: Σ (quantite × PMP) over this lot's Consommation
+        records, scoped to the given catégorie filter.
 
-        v1.4 (BR-BRA-07): StockIntrant moved from a one-to-one on `intrant`
-        to a per-(branche, intrant) row (related_name "stocks"), so the PMP
-        must be looked up for THIS lot's own branche — an intrant can now
-        have a different weighted-average cost in another branche.
-
-        v1.5: dead chicks were previously excluded from this cost (they are
-        removed from StockIntrant via a Mortalite-triggered "sortie" — see
-        signals._appliquer_sortie_mortalite — but that stock movement was
-        never reflected here), which understated cout_total_intrants and
-        therefore inflated marge_brute. They are genuine consumed input
-        cost, so they're now added in.
+        exclude_aliment=True  → médicaments/vaccins/vitamines/antibiotiques/
+                                 désinfectants only (everything consommable_en_lot
+                                 except ALIMENT — mirrors
+                                 ConsommationMedicamentForm._intrant_base_queryset).
+        only_aliment=True     → feed (catégorie ALIMENT) only (mirrors
+                                 ConsommationForm._intrant_base_queryset).
+        Neither flag          → every consommation regardless of catégorie.
         """
         from django.db.models import Prefetch
         from stock.models import StockIntrant
 
-        total = 0
-        for c in (
-            self.consommations.select_related("intrant")
-            .prefetch_related(
-                Prefetch(
-                    "intrant__stocks",
-                    queryset=StockIntrant.objects.filter(branche=self.branche),
-                    to_attr="stocks_branche",
-                )
+        qs = self.consommations.select_related("intrant", "intrant__categorie")
+        if only_aliment:
+            qs = qs.filter(intrant__categorie__code="ALIMENT")
+        elif exclude_aliment:
+            qs = qs.exclude(intrant__categorie__code="ALIMENT")
+
+        qs = qs.prefetch_related(
+            Prefetch(
+                "intrant__stocks",
+                queryset=StockIntrant.objects.filter(branche=self.branche),
+                to_attr="stocks_branche",
             )
-            .all()
-        ):
+        )
+
+        total = 0
+        for c in qs.all():
             try:
                 pmp = c.intrant.stocks_branche[0].prix_moyen_pondere
             except (IndexError, AttributeError):
                 pmp = 0
             total += float(c.quantite) * float(pmp)
-
-        # --- Cost of chicks lost to mortality --------------------------
-        if self.total_mortalite:
-            from elevage.signals import _get_poussin_intrant
-
-            poussin_intrant = _get_poussin_intrant(self)
-            if poussin_intrant is not None:
-                stock_poussin = poussin_intrant.stocks.filter(
-                    branche=self.branche
-                ).first()
-                if stock_poussin is not None:
-                    total += float(self.total_mortalite) * float(
-                        stock_poussin.prix_moyen_pondere
-                    )
-
         return round(total, 2)
+
+    @property
+    def cout_aliments(self):
+        """Estimated feed cost = Σ (quantite × PMP) over ALIMENT consommations."""
+        return self._cout_consommations(only_aliment=True)
+
+    @property
+    def cout_medicaments(self):
+        """
+        Estimated médicament/vaccin/vitamine/antibiotique/désinfectant cost
+        = Σ (quantite × PMP) over every non-ALIMENT consommation.
+        """
+        return self._cout_consommations(exclude_aliment=True)
+
+    @property
+    def cout_mortalite_poussins(self):
+        """
+        Estimated value of chicks lost to mortality = total_mortalite × PMP
+        of the poussin intrant tied to this lot (scoped to its branche).
+
+        These birds leave StockIntrant via a Mortalite-triggered "sortie"
+        (see signals._appliquer_sortie_mortalite) but, before v1.5, that
+        stock movement was never reflected in any cost total — understating
+        cout_total_intrants and therefore inflating marge_brute. They are
+        genuine consumed input cost like feed or médicaments.
+        """
+        if not self.total_mortalite:
+            return 0
+
+        from elevage.signals import _get_poussin_intrant
+
+        poussin_intrant = _get_poussin_intrant(self)
+        if poussin_intrant is None:
+            return 0
+
+        stock_poussin = poussin_intrant.stocks.filter(branche=self.branche).first()
+        if stock_poussin is None:
+            return 0
+
+        return round(
+            float(self.total_mortalite) * float(stock_poussin.prix_moyen_pondere), 2
+        )
+
+    @property
+    def cout_total_intrants(self):
+        """
+        Estimated total input cost = cout_aliments + cout_medicaments +
+        cout_mortalite_poussins.
+
+        v1.4 (BR-BRA-07): StockIntrant moved from a one-to-one on `intrant`
+        to a per-(branche, intrant) row (related_name "stocks"), so the PMP
+        must be looked up for THIS lot's own branche — an intrant can now
+        have a different weighted-average cost in another branche.
+        """
+        return round(
+            self.cout_aliments + self.cout_medicaments + self.cout_mortalite_poussins,
+            2,
+        )
 
 
 class Mortalite(models.Model):

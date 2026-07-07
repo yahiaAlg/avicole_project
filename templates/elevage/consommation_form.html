@@ -294,8 +294,9 @@ document.addEventListener('DOMContentLoaded', function () {
     stockCaption.innerHTML = '<i class="bx bx-loader-circle" style="animation:spin .8s linear infinite;font-size:13px;"></i> جارٍ التحقق من المخزون…';
 
     const lotPk = document.getElementById('js-stock-url-base').dataset.lot;
-    fetch(urlBase + intrantPk + '/stock.json?lot=' + encodeURIComponent(lotPk), {
-      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    fetch(urlBase + intrantPk + '/stock.json?lot=' + encodeURIComponent(lotPk) + '&_=' + Date.now(), {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      cache: 'no-store'
     })
     .then(function (r) { return r.json(); })
     .then(function (data) {

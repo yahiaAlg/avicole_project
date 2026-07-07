@@ -78,6 +78,9 @@ def get_lot_summary(lot) -> dict:
         poids_total_produit_kg   (Decimal)
         ic                       (Decimal | None)
         cout_total_intrants      (Decimal — DZD)
+        cout_aliments            (Decimal — DZD)
+        cout_medicaments         (Decimal — DZD)
+        cout_mortalite_poussins  (Decimal — DZD)
         cout_total_depenses      (Decimal — DZD)
         revenus_ventes           (Decimal — DZD)
         marge_brute              (Decimal — DZD)
@@ -117,6 +120,9 @@ def get_lot_summary(lot) -> dict:
 
     # --- Input costs (Σ consommation × PMP) ------------------------------
     cout_total_intrants = Decimal(str(lot.cout_total_intrants))  # existing property
+    cout_aliments = Decimal(str(lot.cout_aliments))
+    cout_medicaments = Decimal(str(lot.cout_medicaments))
+    cout_mortalite_poussins = Decimal(str(lot.cout_mortalite_poussins))
 
     # --- Attributed operational expenses --------------------------------
     depenses = lot.depenses.all()
@@ -157,6 +163,9 @@ def get_lot_summary(lot) -> dict:
         "poids_total_produit_kg": poids_total_produit_kg,
         "ic": ic,
         "cout_total_intrants": cout_total_intrants,
+        "cout_aliments": cout_aliments,
+        "cout_medicaments": cout_medicaments,
+        "cout_mortalite_poussins": cout_mortalite_poussins,
         "cout_total_depenses": cout_total_depenses,
         "revenus_ventes": revenus_ventes,
         "marge_brute": marge_brute,

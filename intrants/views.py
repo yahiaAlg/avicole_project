@@ -809,7 +809,17 @@ def intrant_stock_json(request, pk):
             "en_alerte": intrant.en_alerte(None),
             "seuil_alerte": float(intrant.seuil_alerte),
         }
-    return JsonResponse(data)
+    response = JsonResponse(data)
+    # This balance changes on every Consommation/Mortalite/BL save, so it must
+    # never be served stale — without this header a GET response like this
+    # is fair game for the browser cache and any intermediary/reverse-proxy
+    # cache in front of the app (common on shared hosting), which is exactly
+    # what produced the "shows 180 when actual stock is 0" symptom: the very
+    # first successful response (taken when stock was still 180) got cached
+    # and kept being replayed instead of hitting this view again.
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    return response
 
 
 @login_required(login_url=LOGIN_URL)
