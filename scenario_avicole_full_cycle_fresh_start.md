@@ -2,10 +2,29 @@
 
 ## Cycle Intégral : Achat Intrants → Ouverture Lot → Élevage → Abattage → Vente → Dépenses
 
-> **Document** : Spécification fonctionnelle d'exécution (mis à jour v1.3)  
-> **Lot cible** : `Lot Mai 2026 — Bâtiment A` — 2 000 poussins Ross 308  
+> **Document** : Spécification fonctionnelle d'exécution (mis à jour **v1.5**)  
+> **Lot cible** : `Lot Mai 2026 — Bâtiment A` (branche **EST**) — 2 000 poussins Ross 308  
 > **Durée cycle** : 40 jours (10 mai → 19 juin 2026)  
 > **Point de départ** : `python manage.py seed_db --mode minimal` — zéro donnée opérationnelle
+>
+> 🆕 **Changelog vs v1.3** : ce document exerce désormais les domaines ajoutés/étendus
+> par le code depuis la v1.3 :
+>
+> - **v1.4 — Architecture Multi-Branches** (`Branche`, BR-BRA-01..09) : le cycle
+>   s'exécute sur **deux branches** (`EST` / broiler + pondeuses-poussinière,
+>   `OUEST` / poulailler-ponte), avec bâtiments, stocks, numérotation de documents
+>   (`<préfixe>-<code_branche>-<AAAA>-<NNNN>`) et dépenses scindés par branche.
+> - **v1.5 — Pièces Jointes génériques** (`PieceJointe`) : justificatifs (factures
+>   scannées, reçus, virements) attachés aux BL/Factures/Règlements/Dépenses.
+> - **Production d'Aliment** (`FormuleAliment` / `ProductionAliment`) : une partie
+>   de l'Aliment Démarrage est désormais **fabriquée en interne** plutôt qu'achetée.
+> - **Retrait d'Œufs** (`RetraitOeufs`) : sorties d'œufs hors BL formel (vente
+>   directe camion, don, casse).
+> - **RH & Paie** (`Employe` / `Pointage` / `CongeEmploye` / `AcompteEmploye` /
+>   `BulletinPaie`) : le poste Salaires est désormais généré par un vrai cycle de
+>   paie au lieu d'une dépense forfaitaire unique.
+> - **Acompte Client** et **AbonnementClient** (déjà présents en v1.3 mais jamais
+>   exercés) : désormais activés respectivement en §8.5 et §8.6.
 
 ---
 
@@ -14,15 +33,16 @@
 1. [Vue d'ensemble du cycle](#1-vue-densemble-du-cycle)
 2. [Ce que le seed minimal fournit](#2-ce-que-le-seed-minimal-fournit)
 3. [Phase 0 — Configuration Initiale (fournisseurs, clients, bâtiments, intrants)](#phase-0--configuration-initiale-saisie-manuelle)
-4. [Phase 1 — Achats Intrants (BL + Facture + Règlement)](#3-phase-1--achats-intrants)
-5. [Phase 2 — Ouverture du Lot d'Élevage (+ Lot Pondeuses, Poussinière Bâtiment C)](#4-phase-2--ouverture-du-lot-délevage)
-6. [Phase 3 — Suivi Quotidien (Mortalités + Consommations + Fertilisant + Élevage/Transfert/Ponte Pondeuses)](#5-phase-3--suivi-quotidien)
-7. [Phase 4 — Abattage & Production](#6-phase-4--abattage--production)
-8. [Phase 5 — Ajustement de Stock](#7-phase-5--ajustement-de-stock)
-9. [Phase 6 — Vente & Livraison Client](#8-phase-6--vente--livraison-client)
-10. [Phase 7 — Dépenses Opérationnelles](#9-phase-7--dépenses-opérationnelles)
-11. [Compte de résultat du lot](#10-compte-de-résultat-du-lot)
-12. [Règles métier activées](#11-règles-métier-activées)
+4. [Phase 0bis — Configuration Multi-Branches (v1.4)](#phase-0bis--configuration-multi-branches-v14)
+5. [Phase 1 — Achats Intrants (BL + Facture + Règlement + Pièces Jointes)](#3-phase-1--achats-intrants)
+6. [Phase 2 — Ouverture du Lot d'Élevage (+ Lot Pondeuses, Poussinière Bâtiment C)](#4-phase-2--ouverture-du-lot-délevage)
+7. [Phase 3 — Suivi Quotidien (Mortalités + Consommations + Production Aliment + Fertilisant + Élevage/Transfert/Ponte/Retrait Œufs Pondeuses)](#5-phase-3--suivi-quotidien)
+8. [Phase 4 — Abattage & Production](#6-phase-4--abattage--production)
+9. [Phase 5 — Ajustement de Stock](#7-phase-5--ajustement-de-stock)
+10. [Phase 6 — Vente & Livraison Client (+ Acompte, Abonnement Fertilisant)](#8-phase-6--vente--livraison-client)
+11. [Phase 7 — Dépenses Opérationnelles & RH/Paie](#9-phase-7--dépenses-opérationnelles)
+12. [Compte de résultat du lot](#10-compte-de-résultat-du-lot)
+13. [Règles métier activées](#11-règles-métier-activées)
 
 ---
 
@@ -75,8 +95,8 @@ flowchart TD
         F3[Paiements Client\nAllocation manuelle]
     end
 
-    subgraph PHASE7["💸 PHASE 7 — DÉPENSES"]
-        G1[Salaires\n45 000 DZD] --> G2
+    subgraph PHASE7["💸 PHASE 7 — DÉPENSES & RH"]
+        G1[Salaires — BulletinPaie ×3\n48 540 DZD accru] --> G2
         G2[Énergie\n18 000 DZD] --> G3
         G3[Vétérinaire\n12 000 DZD] --> G4
         G4[Transport\n8 500 DZD]
@@ -288,12 +308,15 @@ BAT-1 — Bâtiment A  ← requis pour le lot
   type_batiment   : poussiniere   ← REQUIS — le lot s'ouvre obligatoirement
                                     dans une Poussinière (BR-LOT-01)
   capacite        : 5 000
+  branche         : EST            ← BR-BRA-01 (voir Phase 0bis, §2bis)
   description     : الحظيرة الرئيسية — تهوية ميكانيكية
 
 BAT-2 — Bâtiment B  ← requis pour le lot pondeuses (destination de ponte, §5.6)
   nom             : Bâtiment B
   type_batiment   : poulailler
   capacite        : 4 000
+  branche         : OUEST          ← BR-BRA-01 — la montée en ponte a lieu
+                                    sur la branche OUEST (voir Phase 0bis)
   description     : الحظيرة الثانوية — تهوية طبيعية
 
 BAT-3 — Bâtiment C  ← requis pour le lot pondeuses (élevage initial, §4.3 / §5.6)
@@ -304,14 +327,25 @@ BAT-3 — Bâtiment C  ← requis pour le lot pondeuses (élevage initial, §4.3
                                     pas mélanger les deux cohortes (broiler /
                                     pondeuses) dans le même local physique.
   capacite        : 3 500
+  branche         : OUEST          ← même branche que Bâtiment B : le
+                                    TransfertLot (§5.6.6) reste interne à
+                                    OUEST (BR-BRA-01 : un transfert ne
+                                    traverse jamais deux branches)
   description     : حضانة مخصصة لدجاج البيض — منفصلة عن المبنى A
 
 BAT-4 — Dépôt Aliments  (optionnel)
   nom               : Dépôt Aliments
   type_batiment     : entrepot
   categorie_stockage: (laisser vide ou choisir selon usage)
+  branche           : EST
   description       : مستودع تخزين الأعلاف والمدخلات
 ```
+
+> ⚠️ **BAT-1 (Bâtiment A) doit être créé après la Phase 0bis** ci-dessous, puisque
+> le champ `branche` est une FK obligatoire (BR-BRA-01) et que les branches
+> `EST` / `OUEST` doivent exister au préalable. Dans l'ordre réel de saisie :
+> Phase 0bis (branches + utilisateurs) → puis 0.3 (bâtiments, avec `branche`
+> déjà sélectionnable) → puis 0.4 (intrants, catalogue global, non affecté).
 
 ### 0.4 Créer les Intrants
 
@@ -434,27 +468,167 @@ INT-13 — Litière  (optionnel)
   unite_mesure   : sac
   seuil_alerte   : 20
   fournisseurs   : (laisser vide)
+
+INT-14 — Maïs concassé  ← requis (§5.3bis, ingrédient FormuleAliment)
+  designation    : ذرة مجروشة
+  categorie      : ALIMENT
+  stade          : tous
+  unite_mesure   : kg
+  seuil_alerte   : 100
+  fournisseurs   : ONAB Setifien
+
+INT-15 — Tourteau de Soja  ← requis (§5.3bis, ingrédient FormuleAliment)
+  designation    : كسب الصويا
+  categorie      : ALIMENT
+  stade          : tous
+  unite_mesure   : kg
+  seuil_alerte   : 100
+  fournisseurs   : ONAB Setifien
+
+INT-16 — Aliment Croissance (Fabrication Maison)  ← requis (§5.3bis)
+  designation    : علف النمو — تصنيع داخلي
+  categorie      : ALIMENT
+  stade          : tous
+  unite_mesure   : kg      ← NOTE : ProductionAliment.quantite_produite_kg est
+                              toujours exprimé en kg, quel que soit unite_mesure
+                              de l'intrant produit ; choisir kg ici évite toute
+                              ambiguïté avec les alim. achetés au sac (INT-2/3/4).
+  seuil_alerte   : 50
+  fournisseurs   : (laisser vide — jamais acheté via BL, uniquement produit)
 ```
 
 > ✅ **Phase 0 terminée.** Toutes les instances physiques nécessaires au cycle sont
-> créées. Stock = 0 partout. Passer à la Phase 1 — Achats Intrants.
+> créées. Stock = 0 partout. Passer à la Phase 0bis — Configuration Multi-Branches.
+
+---
+
+## Phase 0bis — Configuration Multi-Branches (v1.4)
+
+> **Prérequis** : Phase 0 (§0.1/0.2/0.4) déjà saisie. À exécuter **avant** §0.3
+> (Bâtiments), car `Batiment.branche` est une FK obligatoire (BR-BRA-01).
+> Connexion toujours `admin / admin1234` — seul l'admin peut créer/éditer une
+> `Branche` (BR-BRA-06).
+
+### 0bis.1 Ce qui reste global vs ce qui devient scindé par branche
+
+```
+GLOBAL (company-wide, BR-BRA-06) — ne change pas avec le multi-branches :
+  Fournisseur, Client, CategorieIntrant, CategorieQualite, ProduitFini,
+  CompanyInfo, ParametrageElevage, PrixMarche, Associe / RetraitAssocie
+  (BR-BRA-08 — les retraits d'associés restent au niveau de la société).
+
+SCINDÉ PAR BRANCHE (BR-BRA-01/07) — une FK `branche` explicite ou dérivée :
+  Batiment (explicite) → LotElevage, Employe (dérivés du bâtiment)
+  BLFournisseur / FactureFournisseur / ReglementFournisseur (explicite)
+  BLClient / FactureClient / PaiementClient / AcompteClient (explicite)
+  AbonnementClient (explicite) ; LivraisonPartielle (dérivée)
+  Depense (explicite)
+  StockIntrant / StockProduitFini / StockMouvement / StockAjustement
+    (une ligne par (branche, article) — BR-BRA-07, plus de solde unique global)
+  Mortalite / Consommation / PeseeEchantillon / RecolteOeufs / TransfertLot /
+    ProductionRecord / CollecteFertilisant / RetraitOeufs / ProductionAliment
+    (dérivés du lot ou du bâtiment)
+  Pointage / CongeEmploye / AcompteEmploye / BulletinPaie (dérivés de l'employé)
+```
+
+### 0bis.2 Créer les Branches
+
+```
+Module : PARAMÈTRES → Branches → [Nouvelle branche]   (admin uniquement — BR-BRA-06)
+Modèle : Branche
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BRA-1 — Branche EST  ← porte le lot broiler Ross 308 (Bâtiment A)
+  nom             : Branche Sétif-Est
+  code            : EST            ← utilisé dans toute référence de document
+                                     (BLF-EST-2026-0001, BR-BRA-05)
+  wilaya          : Sétif
+  telephone       : 036 50 10 20
+  chef_de_branche : (laissé vide pour l'instant — voir §0bis.3)
+  actif           : True
+
+BRA-2 — Branche OUEST  ← porte le lot Pondeuses 2026 (Bâtiments B & C)
+  nom             : Branche Sétif-Ouest
+  code            : OUEST
+  wilaya          : Sétif
+  telephone       : 036 50 30 40
+  chef_de_branche : (laissé vide pour l'instant — voir §0bis.3)
+  actif           : True
+```
+
+### 0bis.3 Créer les utilisateurs liés aux branches
+
+```
+Module : PARAMÈTRES → Utilisateurs → [Nouvel utilisateur]
+Modèle : User + UserProfile
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+USR-1 — chef_est / chefest1234
+  role     : chef_branche   ← BR-BRA-02 : branche obligatoire
+  branche  : Branche EST
+
+USR-2 — chef_ouest / chefouest1234
+  role     : chef_branche
+  branche  : Branche OUEST
+
+USR-3 — operateur1 (déjà seedé) → affecter branche = EST (BR-BRA-02)
+USR-4 — operateur2 / op2_1234 → role: operateur, branche = OUEST (nouveau)
+USR-5 — comptable (déjà seedé) → branche laissée vide (BR-BRA-04 : vue globale
+         consolidée sur les deux branches — c'est ce profil qui produit le
+         compte de résultat consolidé en §10)
+```
+
+Retour ensuite sur **BRA-1** et **BRA-2** (§0bis.2) pour renseigner
+`chef_de_branche = chef_est` / `chef_ouest` respectivement (BR-BRA-02 : le champ
+n'accepte qu'un utilisateur dont le `profile.role == chef_branche`).
+
+### 0bis.4 Sélecteur de branche et Vue Globale
+
+```
+✅ admin et comptable (non affecté) voient un sélecteur de branche
+   (« Vue Globale » / EST / OUEST) en haut de chaque module — BR-BRA-03/04.
+✅ chef_branche et operateur n'ont AUCUN sélecteur : chaque écran est filtré
+   automatiquement sur leur branche unique (BR-BRA-02), sans option de bascule.
+⚠️ Vue Globale est en LECTURE SEULE pour la création/édition (BR-BRA-04) :
+   toute vue de création (BLF, BL Client, Lot, Dépense...) exige qu'une branche
+   concrète soit active — le décorateur @require_branche_context redirige vers
+   le sélecteur si l'utilisateur est en Vue Globale.
+```
+
+> ✅ **Phase 0bis terminée.** Les deux branches existent, les utilisateurs sont
+> répartis, et §0.3 (Bâtiments) peut maintenant assigner `branche=EST` à
+> Bâtiment A/Dépôt Aliments et `branche=OUEST` à Bâtiments B et C. La Phase 1
+> (Achats) s'exécute connecté en tant que `operateur1` (branche EST active) pour
+> les BL du lot broiler, puis `operateur2` (branche OUEST) pour le BL Poussine
+> ISA Brown (§4.3).
 
 ---
 
 ## 3. Phase 1 — Achats Intrants
 
+> 📌 **Notation des références (BR-BRA-05)** : `generer_reference()` insère
+> désormais le code branche : `<préfixe>-<code_branche>-<AAAA>-<NNNN>`. Tous les
+> achats de cette Phase 1 sont saisis avec la branche **EST** active (opérateur1) —
+> les références réellement générées sont donc `BLF-EST-2026-0001` …
+> `BLF-EST-2026-0004`, `FRN-EST-2026-0001` … Le document conserve la forme courte
+> `BLF-2026-000x` dans le texte qui suit pour la lisibilité ; seule la Phase 2bis
+> (Lot Pondeuses, branche OUEST) rappelle explicitement le préfixe `OUEST` pour
+> souligner le cloisonnement (BR-BRA-01).
+
 ### 3.1 Vue d'ensemble des achats nécessaires
 
-| Intrant                              | Qtité lot 40j / 2 000 oiseaux | Unité | Fournisseur    |
-| ------------------------------------ | ----------------------------- | ----- | -------------- |
-| Poussin Ross 308                     | 2 000                         | unité | CCA Blida      |
-| Aliment Démarrage 1er âge (0–14j)    | 200                           | sac   | ONAB Setifien  |
-| Aliment Croissance 2ème âge (15–28j) | 180                           | sac   | ONAB Setifien  |
-| Aliment Finition 3ème âge (29–40j)   | 150                           | sac   | ONAB Setifien  |
-| Vaccin Newcastle (Hitchner B1)       | 4 000                         | dose  | Sanofi Algérie |
-| Vaccin Gumboro (IBD)                 | 4 000                         | dose  | Sanofi Algérie |
-| Amoxicilline 50% poudre              | 500                           | g     | Sanofi Algérie |
-| Vitamines + Électrolytes             | 10                            | litre | Sanofi Algérie |
+| Intrant                                | Qtité lot 40j / 2 000 oiseaux | Unité | Fournisseur    |
+| -------------------------------------- | ----------------------------- | ----- | -------------- |
+| Poussin Ross 308                       | 2 000                         | unité | CCA Blida      |
+| Aliment Démarrage 1er âge (0–14j)      | 200                           | sac   | ONAB Setifien  |
+| Aliment Croissance 2ème âge (15–28j)   | 180                           | sac   | ONAB Setifien  |
+| Aliment Finition 3ème âge (29–40j)     | 150                           | sac   | ONAB Setifien  |
+| Vaccin Newcastle (Hitchner B1)         | 4 000                         | dose  | Sanofi Algérie |
+| Vaccin Gumboro (IBD)                   | 4 000                         | dose  | Sanofi Algérie |
+| Amoxicilline 50% poudre                | 500                           | g     | Sanofi Algérie |
+| Vitamines + Électrolytes               | 10                            | litre | Sanofi Algérie |
+| Maïs concassé (§5.3bis, ingrédient)    | 500                           | kg    | ONAB Setifien  |
+| Tourteau de Soja (§5.3bis, ingrédient) | 300                           | kg    | ONAB Setifien  |
 
 ### 3.2 Flux des 4 BL Fournisseur
 
@@ -564,6 +738,22 @@ BLF-2026-0004 — Médicaments Sanofi
   │ Vitamines + Électrolytes    │     10   │ 850,0000      │   8 500 │
   └─────────────────────────────┴──────────┴───────────────┴─────────┘
   → Total BL : 51 700,00 DZD
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BLF-2026-0005 — Ingrédients bruts ONAB (pour §5.3bis, ProductionAliment)
+  reference   : BLF-2026-0005
+  fournisseur : ONAB Setifien
+  date_bl     : 2026-05-18
+  statut      : Reçu
+
+  Lignes :
+  ┌──────────────────────────────────────────────────────────────────┐
+  │ intrant                     │ quantite │ prix_unitaire │ total   │
+  ├─────────────────────────────┼──────────┼───────────────┼─────────┤
+  │ Maïs concassé               │  500,000 │ 45,0000       │ 22 500  │
+  │ Tourteau de Soja            │  300,000 │ 65,0000       │ 19 500  │
+  └─────────────────────────────┴──────────┴───────────────┴─────────┘
+  → Total BL : 42 000,00 DZD
 ```
 
 ### 3.4 Factures Fournisseur (`FactureFournisseurForm`)
@@ -604,6 +794,13 @@ FRN-2026-0004 — Facture Médicaments Sanofi
   date_facture   : 2026-05-09
   date_echeance  : 2026-06-08
   montant_total  : 51 700,00 DZD ← auto
+
+FRN-2026-0005 — Facture ingrédients bruts ONAB (§5.3bis)
+  fournisseur    : ONAB Setifien
+  bls            : [BLF-2026-0005]
+  date_facture   : 2026-05-19
+  date_echeance  : 2026-06-18
+  montant_total  : 42 000,00 DZD ← auto
 ```
 
 > ⚠️ **BR-BLF-02** : les BL passent au statut `Facturé` et sont verrouillés dès leur inclusion dans une facture.
@@ -644,7 +841,44 @@ REG-2026-0004 — Règlement Sanofi
   montant            : 51 700,00
   mode_paiement      : virement
   → FRN-2026-0004 soldée ✅
+
+REG-2026-0005 — Règlement ingrédients bruts ONAB
+  fournisseur        : ONAB Setifien
+  date_reglement     : 2026-06-01
+  montant            : 42 000,00
+  mode_paiement      : virement
+  → Alloué FIFO sur FRN-2026-0005 → soldée ✅
 ```
+
+### 3.6 Pièces Jointes (`PieceJointe`, v1.5)
+
+```
+Module : n'importe quel écran détail BL/Facture/Règlement → bloc « Pièces jointes »
+Modèle : PieceJointe (GenericForeignKey — attache à N'IMPORTE QUEL enregistrement)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PJ-1 — sur FRN-2026-0002 (Facture ONAB lot 1/2)
+  content_object  : FactureFournisseur FRN-2026-0002
+  type_document   : facture
+  fichier         : onab_facture_088.pdf
+  description     : "Facture papier scannée — copie ONAB"
+
+PJ-2 — sur REG-2026-0002 (Règlement chèque ONAB — acompte)
+  content_object  : ReglementFournisseur REG-2026-0002
+  type_document   : cheque
+  fichier         : cheque_0455_recto.jpg
+  description     : "Photo du chèque n°0455 avant remise en banque"
+
+PJ-3 — sur REG-2026-0001 (Règlement virement CCA)
+  content_object  : ReglementFournisseur REG-2026-0001
+  type_document   : virement
+  fichier         : confirmation_vir_bna_10052026.pdf
+```
+
+> ℹ️ Un même enregistrement peut recevoir **plusieurs** pièces jointes (ex. une
+> facture + sa confirmation de virement) : `content_object.pieces_jointes.all()`.
+> La suppression est un endpoint générique partagé par tous les modules
+> (`/pieces-jointes/<pk>/supprimer/`, v1.5, §11.2 urls).
 
 ---
 
@@ -817,6 +1051,70 @@ Phase Finition — J29 à J40 (150 sacs total — livraison BLF-0003 arrivée J+
   │ 2026-06-13 │ Alim. Finition       │  50,000  │  50 sacs          │
   │ 2026-06-18 │ Alim. Finition       │  50,000  │   0 sacs ✓ épuisé │
   └────────────┴──────────────────────┴──────────┴───────────────────┘
+```
+
+### 5.3bis Production d'Aliment en interne (`FormuleAliment` / `ProductionAliment`)
+
+```
+Module : ÉLEVAGE → Production Aliment → [Nouvelle production/réapprovisionnement]
+Modèles : FormuleAliment (recette, optionnelle) + ProductionAliment (événement)
+Règle   : la production crédite toujours le stock de l'aliment fini
+          (StockIntrant, scopé branche=EST) ; si une formule est fournie,
+          chaque ingrédient est débité proportionnellement (mais jamais
+          bloquant si le stock ingrédient passe en négatif — cf. Mortalite/
+          Consommation, comportement volontairement permissif).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FORM-1 — Formule Croissance Maison
+  nom             : Formule Croissance Maison
+  intrant_produit : Aliment Croissance (Fabrication Maison)  [INT-16]
+  actif           : True
+
+  Lignes (FormuleAlimentLigne) :
+  ┌────────────────────────┬──────────────────────────┐
+  │ intrant                │ proportion_kg /100kg      │
+  ├────────────────────────┼──────────────────────────┤
+  │ Maïs concassé          │ 55,000                    │
+  │ Tourteau de Soja       │ 35,000                    │
+  └────────────────────────┴──────────────────────────┘
+  (le complément 10 kg — prémix/minéraux — n'est pas suivi en stock ici ;
+   total_proportion_kg est purement informatif, ce n'est pas une contrainte)
+
+PROD-ALIM-1 — Fabrication avec formule
+  branche              : EST
+  date                 : 2026-05-20
+  formule              : Formule Croissance Maison
+  intrant_produit      : Aliment Croissance (Fabrication Maison)
+  quantite_produite_kg : 300,000
+  prix_unitaire        : 0  ← dérivé automatiquement du PMP des ingrédients débités
+  → Débits : Maïs concassé −165,000 kg (300×55/100) ; Tourteau de Soja −105,000 kg (300×35/100)
+  → Crédit : StockIntrant(Aliment Croissance Fabrication Maison) +300,000 kg
+
+PROD-ALIM-2 — Réapprovisionnement direct (sans formule)
+  branche              : EST
+  date                 : 2026-06-05
+  formule              : (vide)  ← chemin rapide, aucune traçabilité d'ingrédients
+  intrant_produit      : Aliment Croissance (Fabrication Maison)
+  quantite_produite_kg : 100,000
+  prix_unitaire        : 210,0000 DZD/kg  ← recalcule le PMP de l'aliment fini
+  → Crédit : StockIntrant(Aliment Croissance Fabrication Maison) +100,000 kg
+  → Coût   : 100 × 210 = 21 000,00 DZD (montant_total)
+```
+
+```
+Complément de consommation — Aliment Croissance (Fabrication Maison) :
+
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ date       │ intrant                              │ quantite │ stock │
+  ├────────────┼──────────────────────────────────────┼──────────┼───────┤
+  │ 2026-06-02 │ Aliment Croissance (Fabrication Maison)│  50,000 │ 250 kg│
+  └────────────┴──────────────────────────────────────┴──────────┴───────┘
+
+  ℹ️ Ce complément s'ajoute — sans le remplacer — au suivi historique en sacs
+  (§5.3, 180 sacs Alim. Croissance achetés) : les deux stocks (sac / kg)
+  coexistent sur des Intrant distincts (INT-3 vs INT-16), ce qui illustre
+  qu'un même stade d'élevage peut être couvert par plusieurs intrants —
+  achetés et/ou auto-produits — simultanément.
 ```
 
 ### 5.4 Consommations Médicaments
@@ -1079,6 +1377,46 @@ Montée en ponte (RecolteOeufs) :
     plusieurs mois (au-delà de la portée temporelle de ce document).
 ```
 
+#### 5.6.8 Retraits d'Œufs (`RetraitOeufsForm`) — sorties hors BL formel
+
+```
+Module : ÉLEVAGE → Lot Pondeuses → [Enregistrer retrait d'œufs]
+Modèle : RetraitOeufs — débite le même StockProduitFini (صينية بيض) que
+         RecolteOeufs crédite, scopé branche=OUEST. Si un client est
+         sélectionné (motif=client_camion), le formulaire génère
+         automatiquement un BLClient + ligne pour cette quantité — c'est
+         ALORS ce BLClient qui débite le stock, pas RetraitOeufs directement
+         (le signal se désactive dès que bl_genere est renseigné, pour
+         éviter un double débit).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RETRAIT-OEUFS-1 — Don échantillon vétérinaire
+  branche         : OUEST
+  lot             : Lot Pondeuses 2026 (informatif seulement)
+  date            : 2026-11-15
+  quantite_oeufs  : 30   (= 1 plateau)
+  motif           : don
+  destinataire    : "Clinique Vétérinaire Sanofi — contrôle qualité"
+  client          : (vide — pas de BL généré)
+  → StockProduitFini(صينية بيض) ↓ −1 plateau (directement, pas de BL)
+
+RETRAIT-OEUFS-2 — Vente directe camion (hors BL planifié)
+  branche         : OUEST
+  lot             : Lot Pondeuses 2026
+  date            : 2026-11-20
+  quantite_oeufs  : 60   (= 2 plateaux)
+  motif           : client_camion
+  client          : Épicerie Centrale Azazga  ← client existant (§0.2, CLI-4)
+  → Génère automatiquement BLC-2026-0005 (2 plateaux × 350 DZD = 700 DZD),
+    statut Livré ; RetraitOeufs.bl_genere = BLC-2026-0005
+  → C'est BLC-2026-0005 qui débite StockProduitFini (−2 plateaux), pas ce
+    RetraitOeufs (bl_genere renseigné → signal RetraitOeufs neutralisé)
+```
+
+> 📌 **Impact sur le stock disponible pour §8.4** : sur 471 plateaux récoltés,
+> 3 sont sortis en amont (1 don + 2 vente-camion, ci-dessus) → **468 plateaux**
+> restent disponibles pour la vente planifiée du Marché de Gros en §8.4.
+
 ---
 
 ## 6. Phase 4 — Abattage & Production
@@ -1248,9 +1586,9 @@ flowchart TD
 
 > ℹ️ Ce diagramme couvre uniquement la sortie du **lot broiler** (Poulet
 > vivant / Carcasse, juin 2026). Le **lot Pondeuses** produit également
-> 471 plateaux d'œufs, récoltés bien plus tard (S+19 à S+28, cf. §5.6.7) ;
-> leur vente (BLC-2026-0004) est traitée séparément en **§8.4**, une fois
-> la dernière récolte enregistrée.
+> 471 plateaux d'œufs, récoltés bien plus tard (S+19 à S+28, cf. §5.6.7) ; 3
+> plateaux sortent hors BL formel via `RetraitOeufs` (§5.6.8), et le solde de
+> 468 plateaux est vendu (BLC-2026-0004), traité séparément en **§8.4**.
 
 ### 8.2 Formulaires BL Client (`BLClientForm`)
 
@@ -1362,27 +1700,30 @@ FAC-2026-0003 — Restaurant Le Palmier
   taux_tva     : 0,00 %
   montant_tva  : 0,00
   montant_ttc  : 200 460,00
+  → Au moment de sa création, 50 000,00 DZD sont automatiquement consommés
+    depuis l'Acompte Client du 2026-06-15 (§8.5) → reste dû : 150 460,00 DZD
 
   Paiement 3 :
-    montant       : 200 460,00
+    montant       : 150 460,00   ← solde après consommation de l'acompte (§8.5)
     mode_paiement : virement
     reference     : "VIR-PALMIER-22062026"
     mode_allocation: manuel
-    Allocation    : → FAC-2026-0003 : 200 460 DZD → Payée ✅
+    Allocation    : → FAC-2026-0003 : 150 460 DZD → Payée ✅
 ```
 
 ### 8.4 Vente Œufs (`BLClientForm`) — Lot Pondeuses 2026
 
 ```
 ⚠️ Correction de cohérence : le lot Pondeuses 2026 (§5.6.7) récolte 14 130
-   œufs (≈ 471 plateaux) crédités à StockProduitFini (صينية بيض). Ce stock
-   restait auparavant invendu dans le document — cette section clôture la
-   boucle en écoulant l'intégralité des plateaux, une fois la dernière
-   récolte enregistrée (2026-11-27).
+   œufs (≈ 471 plateaux) crédités à StockProduitFini (صينية بيض), dont
+   3 plateaux sortis avant la vente planifiée via RetraitOeufs (§5.6.8 —
+   1 don + 1 vente-camion générant BLC-2026-0005). Cette section écoule le
+   solde restant (468 plateaux) une fois la dernière récolte enregistrée
+   (2026-11-27).
 
 Module : VENTES → BL Client → [Nouveau]
-Prérequis : dernière RecolteOeufs du 2026-11-27 déjà enregistrée
-            (§5.6.7 — total cumulé 471 plateaux en stock).
+Prérequis : dernière RecolteOeufs du 2026-11-27 (§5.6.7) et les deux
+            RetraitOeufs du §5.6.8 déjà enregistrés — solde 468 plateaux.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 BLC-2026-0004 — Marché de Gros Setifien (Œufs)
@@ -1395,10 +1736,10 @@ BLC-2026-0004 — Marché de Gros Setifien (Œufs)
   ┌──────────────────────────────────────────────────────────────────────────┐
   │ produit_fini          │ quantite  │ prix_unitaire │ montant_total         │
   ├───────────────────────┼───────────┼───────────────┼───────────────────────┤
-  │ Plateau œufs (30 œufs)│  471,000  │    350,0000   │  164 850,00           │
+  │ Plateau œufs (30 œufs)│  468,000  │    350,0000   │  163 800,00           │
   └───────────────────────┴───────────┴───────────────┴───────────────────────┘
-  Total BL : 164 850,00 DZD
-  → StockProduitFini(صينية بيض) ↓ −471 (reste 0) ✅ tout vendu
+  Total BL : 163 800,00 DZD
+  → StockProduitFini(صينية بيض) ↓ −468 (reste 0) ✅ tout vendu
 
 FAC-2026-0004 — Facture Œufs Marché de Gros
   reference      : FAC-2026-0004
@@ -1406,19 +1747,19 @@ FAC-2026-0004 — Facture Œufs Marché de Gros
   bls            : [BLC-2026-0004]
   date_facture   : 2026-11-30
   date_echeance  : 2026-12-30   ← +30 jours
-  montant_ht     : 164 850,00 ← auto
+  montant_ht     : 163 800,00 ← auto
   taux_tva       : 0,00 %      ← volaille/œufs exonérés TVA
   montant_tva    : 0,00
-  montant_ttc    : 164 850,00
+  montant_ttc    : 163 800,00
 
   Paiement 4 :
     client        : Marché de Gros Setifien
     date_paiement : 2026-12-01
-    montant       : 164 850,00
+    montant       : 163 800,00
     mode_paiement : virement
     reference     : "VIR-MG-OEUFS-301126"
     mode_allocation: manuel
-    Allocation    : → FAC-2026-0004 : 164 850 DZD → Payée ✅
+    Allocation    : → FAC-2026-0004 : 163 800 DZD → Payée ✅
 ```
 
 > ℹ️ **Portée du compte de résultat (§10)** : le Lot Pondeuses 2026 reste
@@ -1433,6 +1774,96 @@ FAC-2026-0004 — Facture Œufs Marché de Gros
 > tableau de bord des créances clients (§10.4), qui est transverse à tous
 > les clients et toutes les factures, indépendamment du lot.
 
+### 8.5 Acompte Client (`AcompteClient`) — Avance sur commande
+
+```
+Module : VENTES → Paiements Client → [Nouveau paiement] (aucune facture
+         sélectionnée / montant excédentaire)
+Modèle : AcompteClient — créé AUTOMATIQUEMENT dès qu'un PaiementClient laisse
+         un solde non alloué (paiement.solde_non_alloue > 0), typiquement une
+         avance versée avant l'émission de toute facture.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PAY-ADV-1 — Avance Restaurant Le Palmier (avant commande)
+  client         : Restaurant Le Palmier
+  branche        : EST
+  date_paiement  : 2026-06-15   ← 7 jours avant la création de BLC-2026-0003
+  montant        : 50 000,00
+  mode_paiement  : especes
+  mode_allocation: manuel
+  Allocation     : (aucune facture existante à cette date) → solde_non_alloue
+                   = 50 000,00 DZD
+
+  → ACOMPTE-CLI-1 créé automatiquement :
+      client          : Restaurant Le Palmier
+      branche         : EST (synchronisée depuis paiement.branche)
+      paiement        : PAY-ADV-1
+      montant         : 50 000,00
+      montant_restant : 50 000,00
+      utilise         : False
+
+  → Le 2026-06-22, dès que FAC-2026-0003 est créée pour ce même client/branche,
+    clients.utils.consommer_acomptes_client_fifo() consomme automatiquement
+    ACOMPTE-CLI-1 (le plus ancien d'abord) :
+      AllocationAcompteClient : acompte=ACOMPTE-CLI-1, facture=FAC-2026-0003,
+                                montant_alloue = 50 000,00
+      ACOMPTE-CLI-1.montant_restant → 0,00 → utilise = True
+  → Voir §8.3 : le Paiement 3 restant ne couvre donc que le solde de
+    150 460,00 DZD.
+```
+
+### 8.6 AbonnementClient — Livraison récurrente de Fertilisant (`AbonnementClientForm` / `LivraisonPartielleForm`)
+
+```
+Module : VENTES → Abonnements → [Nouvel abonnement] / [Nouvelle livraison]
+Modèles : AbonnementClient (accord-cadre) + LivraisonPartielle (chaque
+          tournée livrée) + VoyageLivraison (organisation logistique, optionnel)
+Règle   : BR-BRA-01 l'abonnement est scopé à une branche (stock consommé sur
+          cette branche uniquement) ; une livraison sur un abonnement non
+          `actif` est rejetée ; un quota (`quantite_totale_prevue`) non nul
+          ne peut jamais être dépassé cumulativement.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ABON-1 — Fertilisant mensuel, Marché de Gros Setifien
+  client                  : Marché de Gros Setifien
+  branche                 : EST   ← le Fertilisant traité (§5.5, 720 kg) vit
+                                    sur le stock de la branche EST
+  produit_fini            : سماد دواجن معالج (مجفف) [Fertilisant traité]
+  date_debut              : 2026-06-25
+  date_fin                : (vide — abonnement ouvert)
+  frequence               : mensuel
+  quantite_totale_prevue  : 720,000 kg   ← plafonné à la quantité traitée disponible
+  prix_unitaire           : 12,0000 DZD/kg
+  statut                  : actif
+
+VOYAGE-1 — Tournée fertilisant du 2026-06-26
+  date_voyage : 2026-06-26
+  chauffeur   : "Farid Belkacem"
+  vehicule    : "Camion benne — 12345-116-16"
+
+LIVR-1 — Première livraison partielle
+  abonnement      : ABON-1
+  voyage          : VOYAGE-1
+  date            : 2026-06-26
+  quantite_livree : 300,000 kg
+  → StockProduitFini(Fertilisant traité) ↓ −300 kg (reste 420 kg)
+  → quantite_livree_cumulee = 300,000 ; solde_restant = 420,000
+
+LIVR-2 — Deuxième livraison partielle
+  abonnement      : ABON-1
+  date            : 2026-07-10
+  quantite_livree : 420,000 kg
+  → StockProduitFini(Fertilisant traité) ↓ −420 kg (reste 0) ✅ quota atteint
+  → quantite_livree_cumulee = 720,000 = quantite_totale_prevue → solde_restant = 0
+  ⚠️ Toute tentative d'une 3ᵉ livraison sur ABON-1 serait bloquée par le
+     contrôle de quota (clean() de LivraisonPartielle) — non exercée ici.
+```
+
+> ℹ️ Contrairement à un `BLClient` (document ponctuel), aucune `FactureClient`
+> n'est générée automatiquement par une `LivraisonPartielle` : la facturation
+> du fertilisant livré reste, dans ce cycle, hors périmètre (facturation
+> manuelle mensuelle à mettre en place séparément si nécessaire).
+
 ---
 
 ## 9. Phase 7 — Dépenses Opérationnelles
@@ -1441,8 +1872,8 @@ FAC-2026-0004 — Facture Œufs Marché de Gros
 
 ```mermaid
 flowchart LR
-    subgraph DEP1["Salaires — SALAIRES"]
-        S1["date: 2026-06-30\nmontant: 45 000 DZD\nmode: especes\nbenef: Masse salariale juin"]
+    subgraph RH["RH & Paie — BulletinPaie ×3 (§9.2bis)"]
+        S1["3 employés Bâtiment A\nmontant_brut cumulé: 48 540 DZD\n− 1 acompte: 3 000 DZD\nmontant_net cumulé: 45 540 DZD"]
     end
     subgraph DEP2["Énergie — ENERGIE"]
         S2["date: 2026-06-30\nmontant: 18 000 DZD\nmode: virement\nbenef: Sonelgaz"]
@@ -1454,8 +1885,13 @@ flowchart LR
         S4["date: 2026-06-20\nmontant: 8 500 DZD\nmode: especes\nlot: Lot Mai 2026"]
     end
 
-    DEP1 & DEP2 & DEP3 & DEP4 --> TOTAL["Total dépenses\n83 500 DZD"]
+    RH & DEP2 & DEP3 & DEP4 --> TOTAL["Total charges\n87 040 DZD (accrual)\n48 540 masse salariale + 38 500 dépenses"]
 ```
+
+> 🆕 **Changement vs v1.3** : le poste Salaires n'est plus une `Depense`
+> forfaitaire unique (`DEP-001`). Il est désormais généré par le cycle
+> RH & Paie complet (§9.2bis) — `Employe` → `Pointage` → `BulletinPaie`,
+> avec un `AcompteEmploye` intermédiaire déduit du bulletin.
 
 ### 9.2 Formulaires Dépense (`DepenseForm`)
 
@@ -1465,16 +1901,6 @@ Règle  : BR-DEP-01/03 facture_liee uniquement pour factures TYPE_SERVICE (pas m
          BR-DEP-04 attribution lot optionnelle (rentabilité analytique)
          date ≤ aujourd'hui / montant > 0
 
-DEP-001 — Salaires juin
-  date               : 2026-06-30
-  categorie          : Salaires & Main-d'œuvre
-  description        : "Salaires ouvriers élevage — lot Mai 2026 — 3 personnes"
-  montant            : 45 000,00
-  mode_paiement      : especes
-  reference_document : "FP-JUIN-2026"
-  lot                : Lot Mai 2026 — Bâtiment A   ← attribution analytique (BR-DEP-04)
-  facture_liee       : (vide)
-
 DEP-002 — Électricité Sonelgaz
   date               : 2026-06-30
   categorie          : Énergie (Électricité / Gaz)
@@ -1482,6 +1908,7 @@ DEP-002 — Électricité Sonelgaz
   montant            : 18 000,00
   mode_paiement      : virement
   reference_document : "SONELGAZ-2026-06-8854"
+  branche            : EST   ← champ requis (BR-BRA-01)
   lot                : Lot Mai 2026 — Bâtiment A
 
 DEP-003 — Honoraires vétérinaire
@@ -1490,6 +1917,7 @@ DEP-003 — Honoraires vétérinaire
   description        : "Visite sanitaire + diagnostic coccidiose — Dr. Ammar Bouzid"
   montant            : 12 000,00
   mode_paiement      : especes
+  branche            : EST
   lot                : Lot Mai 2026 — Bâtiment A
   facture_liee       : (vide — honoraires directs, pas de facture service fournisseur)
   notes              : "Ordonnance + protocole de traitement Amoxicilline 250g"
@@ -1500,8 +1928,85 @@ DEP-004 — Transport livraison
   description        : "Transport abattage + livraisons clients — 20 & 21 juin"
   montant            : 8 500,00
   mode_paiement      : especes
+  branche            : EST
   lot                : Lot Mai 2026 — Bâtiment A
 ```
+
+> 🆕 **DEP-001 (Salaires) n'existe plus en tant que `Depense`** : ce poste est
+> désormais entièrement produit par le module RH & Paie ci-dessous (§9.2bis),
+> conformément au retrait de `RH (Employe/Pointage/BulletinPaie)` de la liste
+> des domaines non exercés (cf. ancienne Annexe B, v1.3).
+
+### 9.2bis RH & Paie — `Employe` / `Pointage` / `CongeEmploye` / `AcompteEmploye` / `BulletinPaie`
+
+```
+Module : RH → Employés / Pointages / Paie
+Règle  : BR-RH-01 rotation 6j/1-repos, binôme couvre le jour de repos
+         BR-RH-02 taux_journalier = salaire_base_mensuel / 25 (JOURS_REFERENCE_MENSUEL)
+         BR-RH-03 congé payé accumulé à 2,5 j/mois travaillé
+         BR-RH-04 acompte déduit du bulletin du mois, jamais inséré comme Depense
+         BR-RH-05 bulletin = snapshot calculé depuis Pointage (jamais recalculé après coup)
+         BR-BRA-09 Employe.branche est DÉRIVÉE de employe.batiment.branche (EST ici)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EMP-001 — Rachid Belkacem (chef d'équipe)
+  matricule             : OUV-EST-001
+  batiment              : Bâtiment A   ← branche EST dérivée automatiquement
+  jour_repos_habituel   : vendredi
+  binome                : (EMP-003 — Yacine Ferhat)
+  salaire_base_mensuel  : 18 000,00
+  heures_normales_jour  : 8,00
+  taux_majoration_heure_sup : 1,50
+
+EMP-002 — Karim Saadi
+  matricule             : OUV-EST-002
+  batiment              : Bâtiment A
+  jour_repos_habituel   : samedi
+  salaire_base_mensuel  : 15 000,00
+
+EMP-003 — Yacine Ferhat
+  matricule             : OUV-EST-003
+  batiment              : Bâtiment A
+  jour_repos_habituel   : vendredi
+  binome                : (EMP-001 — Rachid Belkacem)
+  salaire_base_mensuel  : 15 000,00
+
+Pointage (juin 2026, synthèse — 30 jours) :
+  ┌────────────┬────────────────┬──────────────┬──────────────┬─────────────────┐
+  │ employé    │ jours_presence │ jours_repos  │ heures_sup   │ notes           │
+  ├────────────┼────────────────┼──────────────┼──────────────┼─────────────────┤
+  │ EMP-001    │       25       │       5      │  4,00 (1 j.) │ garde nocturne  │
+  │ EMP-002    │       25       │       5      │  0,00        │ —               │
+  │ EMP-003    │       25       │       5      │  0,00        │ —               │
+  └────────────┴────────────────┴──────────────┴──────────────┴─────────────────┘
+
+AcompteEmploye :
+  ACOMPTE-EMP-1 : employe=EMP-001, date=2026-06-15, montant=3 000,00,
+                  mode_paiement=especes, motif="Avance sur salaire — urgence familiale"
+                  → bulletin_paie = (vide à cette date, sera lié au BulletinPaie de juin)
+
+BulletinPaie (mois=06, année=2026) :
+  ┌──────────┬────────────────┬───────────────┬─────────────┬─────────────┬────────────┬─────────────┐
+  │ employé  │ jours_presence │ taux_journalier│ montant_brut│ heures_sup  │ acomptes   │ montant_net │
+  ├──────────┼────────────────┼───────────────┼─────────────┼─────────────┼────────────┼─────────────┤
+  │ EMP-001  │       25       │    720,00      │  18 000,00  │   540,00 *  │  3 000,00  │  15 540,00  │
+  │ EMP-002  │       25       │    600,00      │  15 000,00  │     0,00    │      0,00  │  15 000,00  │
+  │ EMP-003  │       25       │    600,00      │  15 000,00  │     0,00    │      0,00  │  15 000,00  │
+  └──────────┴────────────────┴───────────────┴─────────────┴─────────────┴────────────┴─────────────┘
+  * EMP-001 : taux_horaire = 720/8 = 90,00 ; 4h × 90,00 × 1,50 = 540,00
+  → montant_brut total (accru) : 18 540,00 + 15 000,00 + 15 000,00 = 48 540,00
+  → total_acomptes déduits     : 3 000,00 (EMP-001 uniquement)
+  → montant_net total (à verser au 30/06) : 45 540,00
+  statut : brouillon → validé → payé (date_paiement=2026-06-30, mode_paiement=virement)
+  ACOMPTE-EMP-1.bulletin_paie ← lié au bulletin d'EMP-001, déduit de son montant_net
+```
+
+> 💰 **Coût salarial réellement accru pour le lot (charge comptable)** :
+> montant_brut cumulé = **48 540,00 DZD** (18 540 + 15 000 + 15 000). C'est ce
+> montant — et non le seul `montant_net` versé fin de mois — qui alimente la
+> ligne « Salaires » du compte de résultat (§10.2), puisque l'acompte de
+> 3 000 DZD déjà versé le 15/06 fait partie du même coût de main-d'œuvre,
+> simplement avancé en cours de mois plutôt que soldé le 30/06.
 
 ---
 
@@ -1517,7 +2022,7 @@ sankey-beta
   Charges,Achat Poussins,64000
   Charges,Achat Aliments,1028500
   Charges,Achat Médicaments,51700
-  Charges,Salaires,45000
+  Charges,Salaires,48540
   Charges,Énergie,18000
   Charges,Vétérinaire,12000
   Charges,Transport,8500
@@ -1540,15 +2045,15 @@ sankey-beta
 | **Total charges directes**                           | **−1 144 200,00**  |
 |                                                      |                    |
 | **CHARGES OPÉRATIONNELLES**                          |                    |
-| Salaires ouvriers                                    | −45 000,00         |
+| Salaires ouvriers (BulletinPaie ×3, §9.2bis)         | −48 540,00         |
 | Énergie électricité                                  | −18 000,00         |
 | Honoraires vétérinaire                               | −12 000,00         |
 | Transport livraison                                  | −8 500,00          |
-| **Total charges opérat.**                            | **−83 500,00**     |
+| **Total charges opérat.**                            | **−87 040,00**     |
 |                                                      |                    |
-| **RÉSULTAT NET LOT**                                 | **113 978,00 DZD** |
-| **Marge nette**                                      | **~8,5 %**         |
-| **Marge par oiseau vendu**                           | **58,15 DZD**      |
+| **RÉSULTAT NET LOT**                                 | **110 438,00 DZD** |
+| **Marge nette**                                      | **~8,2 %**         |
+| **Marge par oiseau vendu**                           | **56,35 DZD**      |
 
 ### 10.3 Tableau des mouvements de stock produits finis
 
@@ -1654,18 +2159,25 @@ flowchart LR
 
 ### 11.3 Rôles utilisateurs par phase
 
-| Phase          | Action clé                    | Rôle requis              |
-| -------------- | ----------------------------- | ------------------------ |
-| 1 — Achats     | Créer BL + valider            | `operateur` ou `manager` |
-| 1 — Achats     | Créer facture + règlement     | `comptable` ou `manager` |
-| 2 — Lot        | Ouvrir lot                    | `operateur` ou `manager` |
-| 3 — Suivi      | Mortalités + consommations    | `operateur` ou `manager` |
-| 4 — Production | Saisir + valider abattage     | `operateur` ou `manager` |
-| 4 — Production | Fermer lot                    | `manager`                |
-| 5 — Ajustement | Créer ajustement stock        | `manager`                |
-| 6 — Vente      | BL Client + valider           | `manager` ou `gerant`    |
-| 6 — Vente      | Facture + allocation paiement | `comptable` ou `manager` |
-| 7 — Dépenses   | Créer dépenses                | `manager` ou `comptable` |
+| Phase           | Action clé                         | Rôle requis                                                            |
+| --------------- | ---------------------------------- | ---------------------------------------------------------------------- |
+| 0bis — Branches | Créer branches + affecter chefs    | `admin` uniquement (BR-BRA-06)                                         |
+| 1 — Achats      | Créer BL + valider                 | `operateur` ou `chef_branche` ou `manager` (branche active, BR-BRA-02) |
+| 1 — Achats      | Créer facture + règlement          | `comptable` ou `manager`                                               |
+| 1 — Achats      | Ajouter pièce jointe (v1.5)        | tout rôle avec accès au document                                       |
+| 2 — Lot         | Ouvrir lot                         | `operateur` ou `chef_branche` ou `manager`                             |
+| 3 — Suivi       | Mortalités + consommations         | `operateur` ou `chef_branche` ou `manager`                             |
+| 3 — Suivi       | Production Aliment                 | `operateur` ou `chef_branche` ou `manager`                             |
+| 3 — Suivi       | Retrait d'Œufs                     | `operateur` ou `chef_branche` ou `manager`                             |
+| 4 — Production  | Saisir + valider abattage          | `operateur` ou `manager`                                               |
+| 4 — Production  | Fermer lot                         | `manager`                                                              |
+| 5 — Ajustement  | Créer ajustement stock             | `manager`                                                              |
+| 6 — Vente       | BL Client + valider                | `manager` ou `gerant`                                                  |
+| 6 — Vente       | Facture + allocation paiement      | `comptable` ou `manager`                                               |
+| 6 — Vente       | Abonnement + livraison partielle   | `manager` ou `gerant` (branche active)                                 |
+| 7 — Dépenses    | Créer dépenses                     | `manager` ou `comptable`                                               |
+| 7 — RH & Paie   | Pointages / Congés / Acomptes      | `manager` ou `chef_branche`                                            |
+| 7 — RH & Paie   | Générer / valider / payer bulletin | `comptable` ou `manager`                                               |
 
 ---
 
@@ -1673,40 +2185,55 @@ flowchart LR
 
 > **Point de départ** : `seed_db --mode minimal` → master data catégories présentes,
 > zéro opérationnel, zéro instance physique.
-> **Phase 0** : fournisseurs / clients / bâtiment / intrants saisis manuellement.
+> **Phase 0 / 0bis** : branches, fournisseurs / clients / bâtiments / intrants
+> saisis manuellement. Références réellement générées au format
+> `<préfixe>-<code_branche>-<AAAA>-<NNNN>` (BR-BRA-05) ; ex. `BLF-EST-2026-0001`.
 
-| Phase | Entité                  | Référence / Identifiant                  | Statut final              |
-| ----- | ----------------------- | ---------------------------------------- | ------------------------- |
-| 1     | BL Fournisseur          | BLF-2026-0001 (Poussins CCA)             | Facturé 🔒                |
-| 1     | BL Fournisseur          | BLF-2026-0002 (Aliments ONAB lot 1)      | Facturé 🔒                |
-| 1     | BL Fournisseur          | BLF-2026-0003 (Aliments ONAB finition)   | Facturé 🔒                |
-| 1     | BL Fournisseur          | BLF-2026-0004 (Médicaments Sanofi)       | Facturé 🔒                |
-| 1     | Facture Fournisseur     | FRN-2026-0001 (CCA 64 000 DZD)           | Payée ✅                  |
-| 1     | Facture Fournisseur     | FRN-2026-0002 (ONAB 721 000 DZD)         | Payée ✅                  |
-| 1     | Facture Fournisseur     | FRN-2026-0003 (ONAB 307 500 DZD)         | Non payée ⏳              |
-| 1     | Facture Fournisseur     | FRN-2026-0004 (Sanofi 51 700 DZD)        | Payée ✅                  |
-| 1     | Règlement Fournisseur   | REG-2026-0001/0002/0003/0004             | Immuables                 |
-| 2     | Lot d'élevage           | Lot Mai 2026 — Bâtiment A                | Fermé 🔒                  |
-| 3     | Mortalités              | 5 événements, 40 oiseaux                 | —                         |
-| 3     | Consommations           | 11 saisies aliment + 7 médicament        | —                         |
-| 3     | Collecte Fertilisant    | 4 collectes, 840 kg brut (Bâtiment A)    | Assignées au traitement   |
-| 3     | Traitement Fertilisant  | Traitement 2026-06-24 (720 kg)           | Validé ✅                 |
-| 2bis  | Lot d'élevage           | Lot Pondeuses 2026                       | Ouvert (Bâtiment B)       |
-| 3bis  | Mortalités (élevage)    | 6 événements, 105 oiseaux (≈3,5 %)       | —                         |
-| 3bis  | Consommations (élevage) | 11 aliment + 7 médicament                | —                         |
-| 3bis  | Pesées Échantillon      | 4 pesées (J0/J42/J84/J126)               | —                         |
-| 3bis  | Transfert Lot           | Poussinière C → Poulailler B (J+126)     | Immuable                  |
-| 3bis  | Consommations (ponte)   | 4 saisies Aliment Ponte (post-transfert) | —                         |
-| 3bis  | Récoltes d'Œufs         | 8 récoltes, 14 130 œufs (≈471 plateaux)  | Vendues (§8.4) ✅         |
-| 4     | ProductionRecord        | Production 2026-06-19                    | Validé ✅                 |
-| 5     | Ajustement stock        | ADJ-2026-0001 (−3 carcasses)             | —                         |
-| 6     | BL Client               | BLC-2026-0001/0002/0003                  | Facturés 🔒               |
-| 6     | Facture Client          | FAC-2026-0001/0002/0003                  | Payée / Partielle / Payée |
-| 6     | Paiement Client         | PAY-0001/0002/0003                       | Immuables                 |
-| 6bis  | BL Client (œufs)        | BLC-2026-0004 (Marché de Gros, §8.4)     | Facturé 🔒                |
-| 6bis  | Facture Client (œufs)   | FAC-2026-0004 (164 850 DZD)              | Payée ✅                  |
-| 6bis  | Paiement Client (œufs)  | PAY-0004                                 | Immuable                  |
-| 7     | Dépenses                | DEP-001/002/003/004                      | —                         |
+| Phase | Entité                         | Référence / Identifiant                                                                      | Statut final              |
+| ----- | ------------------------------ | -------------------------------------------------------------------------------------------- | ------------------------- |
+| 0bis  | Branche                        | EST (Bâtiment A/Dépôt) / OUEST (Bât. B & C)                                                  | Actives ✅                |
+| 0bis  | Utilisateurs branche           | chef_est, chef_ouest, operateur1(EST), operateur2(OUEST)                                     | —                         |
+| 1     | BL Fournisseur                 | BLF-EST-2026-0001 (Poussins CCA)                                                             | Facturé 🔒                |
+| 1     | BL Fournisseur                 | BLF-EST-2026-0002 (Aliments ONAB lot 1)                                                      | Facturé 🔒                |
+| 1     | BL Fournisseur                 | BLF-EST-2026-0003 (Aliments ONAB finition)                                                   | Facturé 🔒                |
+| 1     | BL Fournisseur                 | BLF-EST-2026-0004 (Médicaments Sanofi)                                                       | Facturé 🔒                |
+| 1     | BL Fournisseur                 | BLF-EST-2026-0005 (Ingrédients bruts, §5.3bis)                                               | Facturé 🔒                |
+| 1     | Facture Fournisseur            | FRN-EST-2026-0001 (CCA 64 000 DZD)                                                           | Payée ✅                  |
+| 1     | Facture Fournisseur            | FRN-EST-2026-0002 (ONAB 721 000 DZD)                                                         | Payée ✅                  |
+| 1     | Facture Fournisseur            | FRN-EST-2026-0003 (ONAB 307 500 DZD)                                                         | Non payée ⏳              |
+| 1     | Facture Fournisseur            | FRN-EST-2026-0004 (Sanofi 51 700 DZD)                                                        | Payée ✅                  |
+| 1     | Facture Fournisseur            | FRN-EST-2026-0005 (ONAB ingrédients 42 000)                                                  | Payée ✅                  |
+| 1     | Règlement Fournisseur          | REG-EST-2026-0001…0005                                                                       | Immuables                 |
+| 1     | Pièce Jointe (v1.5)            | PJ-1/2/3 (facture, chèque, virement)                                                         | —                         |
+| 2     | Lot d'élevage                  | Lot Mai 2026 — Bâtiment A (branche EST)                                                      | Fermé 🔒                  |
+| 3     | Mortalités                     | 5 événements, 40 oiseaux                                                                     | —                         |
+| 3     | Consommations                  | 11 saisies aliment + 7 médicament                                                            | —                         |
+| 3     | Formule Aliment                | Formule Croissance Maison (§5.3bis)                                                          | Active                    |
+| 3     | Production Aliment             | PROD-ALIM-1 (+300 kg, formule) / PROD-ALIM-2 (+100 kg, direct)                               | Créditées ✅              |
+| 3     | Collecte Fertilisant           | 4 collectes, 840 kg brut (Bâtiment A)                                                        | Assignées au traitement   |
+| 3     | Traitement Fertilisant         | Traitement 2026-06-24 (720 kg)                                                               | Validé ✅                 |
+| 2bis  | Lot d'élevage                  | Lot Pondeuses 2026 (branche OUEST)                                                           | Ouvert (Bâtiment B)       |
+| 3bis  | Mortalités (élevage)           | 6 événements, 105 oiseaux (≈3,5 %)                                                           | —                         |
+| 3bis  | Consommations (élevage)        | 11 aliment + 7 médicament                                                                    | —                         |
+| 3bis  | Pesées Échantillon             | 4 pesées (J0/J42/J84/J126)                                                                   | —                         |
+| 3bis  | Transfert Lot                  | Poussinière C → Poulailler B (J+126)                                                         | Immuable                  |
+| 3bis  | Consommations (ponte)          | 4 saisies Aliment Ponte (post-transfert)                                                     | —                         |
+| 3bis  | Récoltes d'Œufs                | 8 récoltes, 14 130 œufs (≈471 plateaux)                                                      | —                         |
+| 3bis  | Retraits d'Œufs (v1.4+)        | RETRAIT-OEUFS-1 (don, 1 plateau), RETRAIT-OEUFS-2 (vente camion, 2 plateaux → BLC-2026-0005) | —                         |
+| 4     | ProductionRecord               | Production 2026-06-19                                                                        | Validé ✅                 |
+| 5     | Ajustement stock               | ADJ-2026-0001 (−3 carcasses)                                                                 | —                         |
+| 6     | BL Client                      | BLC-2026-0001/0002/0003                                                                      | Facturés 🔒               |
+| 6     | Facture Client                 | FAC-2026-0001/0002/0003                                                                      | Payée / Partielle / Payée |
+| 6     | Paiement Client                | PAY-0001/0002/0003                                                                           | Immuables                 |
+| 6     | Acompte Client                 | ACOMPTE-CLI-1 (Restaurant Le Palmier, 50 000)                                                | Utilisé ✅ (§8.5)         |
+| 6     | Abonnement Client + Livraisons | ABON-1 (Fertilisant, Marché de Gros) + LIVR-1/LIVR-2                                         | Quota atteint ✅ (§8.6)   |
+| 6bis  | BL Client (œufs)               | BLC-2026-0004 (Marché de Gros, §8.4), BLC-2026-0005 (Épicerie, §5.6.8)                       | Facturés 🔒               |
+| 6bis  | Facture Client (œufs)          | FAC-2026-0004 (163 800 DZD)                                                                  | Payée ✅                  |
+| 6bis  | Paiement Client (œufs)         | PAY-0004                                                                                     | Immuable                  |
+| 7     | Dépenses                       | DEP-002/003/004                                                                              | —                         |
+| 7     | Employé / Pointage             | EMP-001/002/003 (Bâtiment A) — juin 2026                                                     | —                         |
+| 7     | Congé / Acompte Employé        | ACOMPTE-EMP-1 (3 000 DZD, EMP-001)                                                           | Déduit du bulletin        |
+| 7     | Bulletin de Paie               | BulletinPaie ×3 — juin 2026 (48 540 → net 45 540)                                            | Payé ✅                   |
 
 ---
 

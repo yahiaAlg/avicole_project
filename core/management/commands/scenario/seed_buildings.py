@@ -31,7 +31,7 @@ Utilisation :
 Bâtiments créés (scenario_avicole_full_cycle_fresh_start.md §0.3) :
     BAT-1 — Bâtiment A     : poussiniere, capacité 5 000  ← requis pour le lot
     BAT-2 — Bâtiment B     : poulailler,  capacité 4 000  (optionnel)
-    BAT-3 — Bâtiment C     : poulailler,  capacité 6 000  (optionnel)
+    BAT-3 — Bâtiment C     : poussiniere, capacité 3 500  (requis pour le lot pondeuses)
     BAT-4 — Dépôt Aliments : entrepot                       (optionnel)
 
 Idempotent : utilise get_or_create sur (nom, branche).
@@ -62,10 +62,10 @@ BATIMENT_DATA = [
     ),
     (
         "Bâtiment C",
-        "poulailler",
-        6000,
+        "poussiniere",
+        3500,
         "",
-        "حظيرة جديدة — عزل مُحسَّن",
+        "عنبر تربية صغار البياض (بادئة) — منفصل عن الحظيرة A، قبل التحويل إلى الحظيرة B",
     ),
     (
         "Dépôt Aliments",
