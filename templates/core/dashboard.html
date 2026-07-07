@@ -418,7 +418,10 @@ document.addEventListener('DOMContentLoaded', function () {
   /* ── Fetch KPI data from reporting AJAX endpoint ─────────────────── */
   var kpiUrl = "{% url 'reporting:kpi_summary_json' %}";
 
-  fetch(kpiUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+  fetch(kpiUrl + (kpiUrl.indexOf('?') === -1 ? '?' : '&') + '_=' + Date.now(), {
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    cache: 'no-store'
+  })
     .then(function (r) { return r.json(); })
     .then(function (d) {
 
@@ -555,4 +558,4 @@ document.addEventListener('DOMContentLoaded', function () {
 
 });
 </script>
-{% endblock %}
+{% endblock %}²x

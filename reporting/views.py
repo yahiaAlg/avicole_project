@@ -2651,7 +2651,7 @@ def kpi_summary_json(request):
         "solde_net": round(float(cf["solde_net"]), 2),
     }
 
-    return JsonResponse(
+    response = JsonResponse(
         {
             "dette_fournisseurs_totale": float(dette),
             "creances_clients_totale": float(creances),
@@ -2672,3 +2672,11 @@ def kpi_summary_json(request):
             "vue_globale": branche is None,
         }
     )
+    # This snapshot changes constantly (stock levels, invoices, lots, cash
+    # flow, ...) so it must never be served stale — same staleness bug as
+    # intrants.views.intrant_stock_json: without this header a GET response
+    # like this is fair game for the browser cache or any reverse-proxy/CDN
+    # cache in front of the app (common on shared hosting).
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    return response
