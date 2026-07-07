@@ -198,18 +198,20 @@ def stock_produit_fini_list(request):
     (branche, produit_fini) rows; Vue Globale shows every branche's row
     side by side.
     """
-    from production.models import ProduitFini
+    from production.models import ProduitFini, TypeProduitFini
 
     branche = get_active_branche(request)
-    qs = StockProduitFini.objects.select_related("produit_fini", "branche").order_by(
-        "produit_fini__type_produit", "produit_fini__designation", "branche__nom"
+    qs = StockProduitFini.objects.select_related(
+        "produit_fini", "produit_fini__type_produit", "branche"
+    ).order_by(
+        "produit_fini__type_produit__ordre", "produit_fini__designation", "branche__nom"
     )
     if branche is not None:
         qs = qs.filter(branche=branche)
 
     type_produit = request.GET.get("type_produit", "")
     if type_produit:
-        qs = qs.filter(produit_fini__type_produit=type_produit)
+        qs = qs.filter(produit_fini__type_produit_id=type_produit)
 
     q = request.GET.get("q", "").strip()
     if q:
@@ -238,7 +240,9 @@ def stock_produit_fini_list(request):
             "page": page,
             "q": q,
             "type_produit": type_produit,
-            "type_choices": ProduitFini.TYPE_CHOICES,
+            "type_choices": TypeProduitFini.objects.filter(actif=True).order_by(
+                "ordre"
+            ),
             "en_alerte": en_alerte,
             "valeur_totale": valeur_totale,
             "active_branche": branche,

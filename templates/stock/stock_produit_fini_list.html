@@ -37,8 +37,8 @@
       </div>
       <select name="type_produit" class="filter-select" id="filter-type">
         <option value="">كل الأنواع</option>
-        {% for val, label in type_choices %}
-        <option value="{{ val }}" {% if type_produit == val %}selected{% endif %}>{{ label }}</option>
+        {% for t in type_choices %}
+        <option value="{{ t.pk }}" {% if type_produit == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.libelle }}</option>
         {% endfor %}
       </select>
       <label class="alerte-toggle {% if en_alerte %}alerte-toggle--on{% endif %}" id="alerte-toggle-label">
@@ -86,7 +86,7 @@
             <td><span class="pill-branche"><i class="bx bxs-buildings"></i> {{ s.branche.nom }}</span></td>
             {% endif %}
             <td>
-              <span class="pill-type">{{ s.produit_fini.get_type_produit_display }}</span>
+              <span class="pill-type">{{ s.produit_fini.type_produit.libelle }}</span>
             </td>
             <td>
               <div style="display:flex;align-items:center;gap:7px;">
