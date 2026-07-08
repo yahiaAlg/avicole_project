@@ -725,10 +725,15 @@ def calculer_donnees_paie(employe, annee: int, mois: int) -> dict:
       jours_conge      = STATUT_CONGE rows in the month (from CongeEmploye)
       jours_presence   = jours_ouvrables − jours_absence − jours_conge
                         (never negative)
+      jours_feries     = JourFerie dates in the month actually worked by
+                        the employee (BR-RH-07); each is paid as TWO
+                        days via montant_jours_feries below.
 
-      taux_journalier      = salaire_base_mensuel / 25          (BR-RH-02)
+      taux_journalier      = salaire_base_mensuel / 30          (BR-RH-02)
       montant_heures_sup    = total_heures_sup × taux_horaire × taux_majoration
-      montant_brut         = taux_journalier × (jours_presence + jours_conge)
+      montant_brut         = taux_journalier × (jours_presence + jours_conge
+                              + jours_repos)   ← weekly rest days (weekends)
+                              are paid days, not deducted from salary
                             + montant_heures_sup
       total_acomptes        = sum of this employee's AcompteEmploye not yet
                               linked to a payslip (bulletin_paie is null),
@@ -744,7 +749,7 @@ def calculer_donnees_paie(employe, annee: int, mois: int) -> dict:
     'acomptes_a_deduire' (queryset) for the caller to link once saved.
     """
     from calendar import monthrange
-    from depenses.models import Pointage, AcompteEmploye
+    from depenses.models import Pointage, AcompteEmploye, JourFerie
     from django.db.models import Sum, Count
 
     premier_jour = datetime.date(annee, mois, 1)
@@ -767,6 +772,28 @@ def calculer_donnees_paie(employe, annee: int, mois: int) -> dict:
     jours_ouvrables = nb_jours_mois - jours_repos
     jours_presence = max(jours_ouvrables - jours_absence - jours_conge, 0)
 
+    # BR-RH-07 — ceremonial/holiday days (JourFerie) actually worked.
+    # A JourFerie date only counts if the employee was really present for
+    # it: not their weekly rest day, and not covered by an ABSENT/CONGÉ
+    # Pointage row (those days are already excluded from jours_presence
+    # above, so counting them again here would pay for a day not worked).
+    dates_feries = set(
+        JourFerie.objects.filter(
+            actif=True, date__gte=premier_jour, date__lte=dernier_jour
+        ).values_list("date", flat=True)
+    )
+    dates_non_travaillees = set(
+        pointages_qs.filter(
+            statut__in=[Pointage.STATUT_ABSENT, Pointage.STATUT_CONGE],
+            date__in=dates_feries,
+        ).values_list("date", flat=True)
+    )
+    jours_feries = sum(
+        1
+        for d in dates_feries
+        if d not in dates_non_travaillees and d.weekday() != employe.jour_repos_habituel
+    )
+
     total_heures_sup = pointages_qs.aggregate(total=Sum("heures_supplementaires"))[
         "total"
     ] or Decimal("0.00")
@@ -778,8 +805,19 @@ def calculer_donnees_paie(employe, annee: int, mois: int) -> dict:
         total_heures_sup * taux_horaire * employe.taux_majoration_heure_sup
     ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
+    # Each worked ceremonial day is paid as TWO days: jours_presence already
+    # counts it once, so the +1 extra day per jours_feries doubles its pay.
+    montant_jours_feries = (taux_journalier * Decimal(jours_feries)).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+
+    # BR-RH-02 — weekly rest days (weekends) are paid days: the monthly
+    # salary is referenced to 30 calendar days, so jours_repos is included
+    # alongside jours_presence/jours_conge rather than being deducted.
     montant_brut = (
-        taux_journalier * Decimal(jours_presence + jours_conge) + montant_heures_sup
+        taux_journalier * Decimal(jours_presence + jours_conge + jours_repos)
+        + montant_heures_sup
+        + montant_jours_feries
     ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     # Unlinked acomptes for this employee within the month (BR-RH-04).
@@ -800,6 +838,8 @@ def calculer_donnees_paie(employe, annee: int, mois: int) -> dict:
         "jours_absence": jours_absence,
         "jours_repos": jours_repos,
         "jours_conge": jours_conge,
+        "jours_feries": jours_feries,
+        "montant_jours_feries": montant_jours_feries,
         "total_heures_supplementaires": total_heures_sup,
         "salaire_base_reference": employe.salaire_base_mensuel,
         "taux_journalier": taux_journalier,
@@ -808,6 +848,41 @@ def calculer_donnees_paie(employe, annee: int, mois: int) -> dict:
         "total_acomptes": total_acomptes,
         "montant_net": montant_net,
         "acomptes_a_deduire": acomptes_a_deduire,
+    }
+
+
+# ---------------------------------------------------------------------------
+# RH — Employee debts (DetteEmploye / RemboursementDette)
+# ---------------------------------------------------------------------------
+
+
+def get_dettes_summary(branche=None) -> dict:
+    """
+    Outstanding-debt figures for the RH dashboard.
+
+    Returns dict with:
+        total_dettes_restantes — Decimal, sum of montant_restant across all
+                                  employee debts still owed (soldee=False)
+        nb_dettes_actives      — int, count of debts not yet fully repaid
+    """
+    from depenses.models import DetteEmploye
+    from django.db.models import Sum
+
+    qs = DetteEmploye.objects.all()
+    if branche is not None:
+        qs = qs.filter(employe__batiment__branche=branche)
+
+    total_restant = Decimal("0.00")
+    nb_actives = 0
+    for dette in qs:
+        restant = dette.montant_restant
+        if restant > 0:
+            total_restant += restant
+            nb_actives += 1
+
+    return {
+        "total_dettes_restantes": total_restant,
+        "nb_dettes_actives": nb_actives,
     }
 
 

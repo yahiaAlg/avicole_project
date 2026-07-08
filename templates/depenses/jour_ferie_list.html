@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}أيام الأعياد والاحتفالات — تربية الدواجن{% endblock %}
+{% block nav_rh %}active{% endblock %}
+{% block page_title %}أيام الأعياد والاحتفالات{% endblock %}
+{% block page_sub_text %}أي يوم عمل فيه العامل من هذه التواريخ يُحتسب كيومين في كشف راتبه{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'depenses:rh_dashboard' %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> لوحة RH</a>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+
+  <!-- Inline create form -->
+  <div class="form-card">
+    <div class="form-card__header">
+      <div class="section-eyebrow"><i class="bx bx-calendar-star"></i> إضافة يوم عيد / احتفال</div>
+    </div>
+    <div class="form-card__body">
+      <form method="post" action="">
+        {% csrf_token %}
+        <div class="form-row-3">
+          <div class="form-group">
+            <label class="form-label" for="{{ form.date.id_for_label }}">التاريخ <span class="form-required">*</span></label>
+            <div class="input-wrapper"><i class="bx bx-calendar input-icon"></i>{{ form.date }}</div>
+            {% for e in form.date.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ e }}</div>{% endfor %}
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="{{ form.nom.id_for_label }}">التسمية <span class="form-required">*</span></label>
+            <div class="input-wrapper"><i class="bx bx-tag input-icon"></i>{{ form.nom }}</div>
+            {% for e in form.nom.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ e }}</div>{% endfor %}
+          </div>
+          <div class="form-group form-group--checkbox">
+            <label class="checkbox-label">{{ form.actif }} <span>فعال</span></label>
+          </div>
+        </div>
+        {% if form.non_field_errors %}
+        <div class="nfe-block">{% for e in form.non_field_errors %}<div><i class="bx bxs-x-circle"></i> {{ e }}</div>{% endfor %}</div>
+        {% endif %}
+        <div class="form-actions-footer">
+          <button type="submit" class="btn-primary"><i class="bx bx-plus"></i> إضافة</button>
+        </div>
+      </form>
+      <div class="info-box">
+        <i class="bx bx-info-circle"></i>
+        <span>يمكن إضافة عدة أيام (متتالية أو متفرقة) — كل تاريخ يُضاف على حدة. أي عامل يعمل فعلياً في أحد هذه التواريخ (أي أنه ليس يوم راحته الأسبوعي ولم يُسجَّل غائباً أو في عطلة في ذلك اليوم) يُحتسب له يومان بدل يوم واحد عند حساب كشف راتبه.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- List -->
+  <div class="card">
+    <div class="card-header-row">
+      <div class="section-eyebrow"><i class="bx bx-calendar-star"></i> قائمة الأيام المسجّلة</div>
+    </div>
+    {% if jours %}
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>التاريخ</th>
+            <th>التسمية</th>
+            <th>الحالة</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for j in jours %}
+          <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+            <td style="font-weight:700;color:var(--text-primary);">{{ j.date|date:"d/m/Y" }}</td>
+            <td>{{ j.nom }}</td>
+            <td>
+              {% if j.actif %}<span class="pill-success"><i class="bx bxs-check-circle"></i> فعال</span>
+              {% else %}<span class="pill-neutral"><i class="bx bx-x-circle"></i> معطَّل</span>{% endif %}
+            </td>
+            <td>
+              <div class="actions-cell">
+                <form method="post" action="{% url 'depenses:jour_ferie_toggle_active' j.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="action-btn" title="{% if j.actif %}تعطيل{% else %}تفعيل{% endif %}">
+                    <i class="bx {% if j.actif %}bx-toggle-right{% else %}bx-toggle-left{% endif %}"></i>
+                  </button>
+                </form>
+                <form method="post" action="{% url 'depenses:jour_ferie_delete' j.pk %}" onsubmit="return confirm('حذف هذا اليوم نهائياً؟');">
+                  {% csrf_token %}
+                  <button type="submit" class="action-btn action-btn--danger" title="حذف"><i class="bx bxs-trash"></i></button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bx-calendar-star empty-state__icon"></i>
+      <div class="empty-state__title">لا توجد أيام مسجّلة</div>
+      <div class="empty-state__body">أضِف أول يوم عيد أو احتفال أعلاه.</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .page-body { padding:28px 32px; display:flex; flex-direction:column; gap:16px; }
+  @media (max-width:768px) { .page-body { padding:20px 16px; } }
+  .form-card { background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+  .form-card__header { padding:14px 20px 12px; border-bottom:1px solid var(--border); }
+  .form-card__body { padding:20px; display:flex; flex-direction:column; gap:16px; }
+  .section-eyebrow { font-size:10.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:6px; }
+  .form-row-3 { display:grid; grid-template-columns:1fr 1fr auto; gap:16px; align-items:end; }
+  @media (max-width:700px) { .form-row-3 { grid-template-columns:1fr; } }
+  .form-group { display:flex; flex-direction:column; margin:0; }
+  .form-group--checkbox { justify-content:flex-end; padding-bottom:10px; }
+  .form-label { display:block; font-size:12px; font-weight:500; color:var(--text-secondary); letter-spacing:.03em; margin-bottom:6px; }
+  .form-required { color:#dc2626; }
+  .checkbox-label { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-secondary); cursor:pointer; white-space:nowrap; }
+  .checkbox-label input[type="checkbox"] { width:16px; height:16px; accent-color:var(--accent); cursor:pointer; }
+  .input-wrapper { position:relative; }
+  .input-icon { position:absolute; left:13px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:15px; pointer-events:none; }
+  .input-wrapper:focus-within .input-icon { color:var(--accent-text); }
+  .input-wrapper input { width:100%; background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-md); color:var(--text-primary); font-family:'Inter',sans-serif; font-size:13.5px; padding:10px 12px 10px 40px; box-sizing:border-box; transition:border-color .15s,box-shadow .15s; }
+  .input-wrapper input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(34,197,94,.15); outline:none; }
+  .field-error { font-size:12px; color:#dc2626; margin-top:5px; display:flex; align-items:center; gap:4px; }
+  .nfe-block { background:rgba(239,68,68,.06); border:1px solid rgba(239,68,68,.18); border-radius:var(--radius-md); padding:12px 14px; font-size:12px; color:#dc2626; }
+  .info-box { background:rgba(56,189,248,.08); border:1px solid rgba(56,189,248,.2); border-radius:var(--radius-md); padding:12px 14px; font-size:12.5px; color:#0369a1; display:flex; align-items:flex-start; gap:8px; }
+  .info-box i { font-size:15px; flex-shrink:0; margin-top:1px; }
+  .form-actions-footer { display:flex; align-items:center; justify-content:flex-end; gap:10px; }
+  .btn-primary { background:var(--accent); color:#fff; font-family:'Nunito',sans-serif; font-weight:700; font-size:13.5px; border:none; border-radius:var(--radius-md); padding:10px 18px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:opacity .18s; text-decoration:none; }
+  .btn-primary:hover { opacity:.88; color:#fff; }
+  .btn-ghost { background:transparent; border:1px solid var(--border); color:var(--text-secondary); font-family:'Nunito',sans-serif; font-weight:600; font-size:13px; border-radius:var(--radius-md); padding:9px 16px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:background .12s; text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover); border-color:var(--border-strong); color:var(--text-primary); }
+  .card { background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+  .card-header-row { padding:14px 20px 12px; border-bottom:1px solid var(--border); }
+  .table-wrapper { overflow-x:auto; }
+  .data-table { width:100%; border-collapse:collapse; }
+  .data-table thead th { font-size:10.5px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--text-muted); padding:11px 14px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .data-table tbody tr { border-bottom:1px solid var(--border); animation:fadeIn .3s ease both; animation-delay:calc(var(--row-i,0)*30ms); transition:background .12s; }
+  .data-table tbody tr:last-child { border-bottom:none; }
+  .data-table tbody tr:hover { background:var(--bg-hover); }
+  .data-table td { padding:12px 14px; font-size:13px; color:var(--text-secondary); vertical-align:middle; }
+  .pill-success { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:500; background:rgba(34,197,94,.14); color:#15803d; }
+  .pill-neutral  { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:500; background:rgba(0,0,0,.06); color:var(--text-secondary); }
+  .actions-cell { display:flex; align-items:center; gap:4px; }
+  .action-btn { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:var(--radius-sm); border:1px solid var(--border); background:transparent; color:var(--text-muted); font-size:14px; cursor:pointer; transition:background .12s,color .12s; }
+  .action-btn:hover { background:var(--bg-hover); border-color:var(--border-strong); color:var(--text-primary); }
+  .action-btn--danger:hover { color:#dc2626; border-color:#dc2626; }
+  .empty-state { text-align:center; padding:48px 20px; color:var(--text-muted); }
+  .empty-state__icon { font-size:32px; display:block; margin-bottom:12px; color:var(--border-strong); }
+  .empty-state__title { font-family:'Nunito',sans-serif; font-size:15px; font-weight:700; color:var(--text-secondary); margin-bottom:6px; }
+  [dir="rtl"] .input-icon { left:auto; right:13px; }
+  [dir="rtl"] .input-wrapper input { padding:10px 40px 10px 12px; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+</style>
+{% endblock %}

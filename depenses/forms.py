@@ -45,8 +45,11 @@ from depenses.models import (
     RetraitAssocie,
     Employe,
     Pointage,
+    JourFerie,
     CongeEmploye,
     AcompteEmploye,
+    DetteEmploye,
+    RemboursementDette,
     BulletinPaie,
 )
 from elevage.models import LotElevage
@@ -529,6 +532,31 @@ class PointageForm(forms.ModelForm):
         return cleaned
 
 
+class JourFerieForm(forms.ModelForm):
+    """
+    Register a ceremonial/holiday date (BR-RH-07). HR adds one date at a
+    time — to cover a range of several ceremonial days, add each date
+    separately (they don't have to be contiguous).
+    """
+
+    class Meta:
+        model = JourFerie
+        fields = ["date", "nom", "actif"]
+        widgets = {
+            "date": forms.DateInput(attrs={"type": "date"}),
+            "nom": forms.TextInput(attrs={"placeholder": "مثال: عيد الأضحى"}),
+        }
+
+    def clean_date(self):
+        date = self.cleaned_data["date"]
+        qs = JourFerie.objects.filter(date=date)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise ValidationError("هذا التاريخ مسجل مسبقاً كيوم عيد.")
+        return date
+
+
 class PointageFilterForm(forms.Form):
     """
     Non-model filter form for the pointage list view.
@@ -656,6 +684,100 @@ class AcompteEmployeForm(forms.ModelForm):
 
 
 # ===========================================================================
+# RH — Employee debts (DetteEmploye / RemboursementDette)  (BR-BRA-09)
+# ===========================================================================
+
+
+class DetteEmployeForm(forms.ModelForm):
+    """
+    Register a new debt owed by an employee (a loan, etc). Repayment is
+    handled separately, in small manual installments, via
+    RemboursementDetteForm on each payslip.
+
+    Pass `branche=<Branche instance>` from the view to scope the `employe`
+    choices (BR-BRA-09).
+    """
+
+    class Meta:
+        model = DetteEmploye
+        fields = ["employe", "date", "montant", "motif", "notes"]
+        widgets = {
+            "date": forms.DateInput(attrs={"type": "date"}),
+            "montant": forms.NumberInput(attrs={"step": "0.01", "min": "0.01"}),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+        }
+
+    def __init__(self, *args, branche=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        employe_qs = Employe.objects.filter(actif=True).order_by("nom_complet")
+        if branche:
+            employe_qs = employe_qs.filter(batiment__branche=branche)
+        self.fields["employe"].queryset = employe_qs
+        self.fields["motif"].required = False
+        self.fields["notes"].required = False
+
+    def clean_date(self):
+        date = self.cleaned_data["date"]
+        if date > datetime.date.today():
+            raise ValidationError("تاريخ الدين لا يمكن أن يكون في المستقبل.")
+        return date
+
+    def clean_montant(self):
+        montant = self.cleaned_data["montant"]
+        if montant <= 0:
+            raise ValidationError("يجب أن يكون المبلغ أكبر من 0.")
+        return montant
+
+
+class RemboursementDetteForm(forms.ModelForm):
+    """
+    Add ONE manual debt-repayment installment to a payslip. Rendered on
+    the payslip detail page (while it's still 'brouillon') so the user can
+    type in whatever amount should be deducted this month.
+
+    Pass `employe=<Employe instance>` from the view to scope the `dette`
+    choices to that employee's still-outstanding debts.
+    """
+
+    dette = forms.ModelChoiceField(queryset=DetteEmploye.objects.none(), label="الدين")
+
+    class Meta:
+        model = RemboursementDette
+        fields = ["dette", "montant", "notes"]
+        widgets = {
+            "montant": forms.NumberInput(attrs={"step": "0.01", "min": "0.01"}),
+        }
+
+    def __init__(self, *args, employe=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        dettes_qs = DetteEmploye.objects.none()
+        if employe is not None:
+            dettes_qs = DetteEmploye.objects.filter(employe=employe).order_by("-date")
+        self.fields["dette"].queryset = dettes_qs
+        self.fields["dette"].label_from_instance = (
+            lambda d: f"{d.date:%d/%m/%Y} — {d.motif or 'دين'} — متبقي {d.montant_restant} دج"
+        )
+        self.fields["notes"].required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        dette = cleaned.get("dette")
+        montant = cleaned.get("montant")
+        if dette and montant:
+            if dette.soldee:
+                raise ValidationError({"dette": "هذا الدين مسدد بالكامل."})
+            if montant > dette.montant_restant:
+                raise ValidationError(
+                    {
+                        "montant": (
+                            f"المبلغ يتجاوز المتبقي من الدين ({dette.montant_restant} دج)."
+                        )
+                    }
+                )
+        return cleaned
+
+
+# ===========================================================================
 # RH — Payroll (BulletinPaie)  (BR-RH-02 / BR-RH-05 / BR-BRA-09)
 # ===========================================================================
 
@@ -743,4 +865,5 @@ class RHFilterForm(forms.Form):
 DepensePieceJointeFormSet = make_piece_jointe_formset(extra=1)
 RetraitAssociePieceJointeFormSet = make_piece_jointe_formset(extra=1)
 AcompteEmployePieceJointeFormSet = make_piece_jointe_formset(extra=1, max_num=3)
+DetteEmployePieceJointeFormSet = make_piece_jointe_formset(extra=1, max_num=3)
 BulletinPaiePieceJointeFormSet = make_piece_jointe_formset(extra=1, max_num=3)

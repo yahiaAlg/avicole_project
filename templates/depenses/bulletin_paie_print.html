@@ -122,6 +122,7 @@
           <th>أيام الراحة</th>
           <th>أيام العطلة المدفوعة</th>
           <th>الساعات الإضافية</th>
+          {% if bulletin.jours_feries %}<th>أيام الأعياد (×2)</th>{% endif %}
         </tr>
       </thead>
       <tbody>
@@ -131,6 +132,7 @@
           <td class="num">{{ bulletin.jours_repos }}</td>
           <td class="num">{{ bulletin.jours_conge }}</td>
           <td class="num">{{ bulletin.total_heures_supplementaires }}h</td>
+          {% if bulletin.jours_feries %}<td class="num">{{ bulletin.jours_feries }}</td>{% endif %}
         </tr>
       </tbody>
     </table>
@@ -150,11 +152,34 @@
     </table>
     {% endif %}
 
+    {% if remboursements_dettes %}
+    <table>
+      <thead><tr><th>تسديد الديون</th><th>المبلغ (دج)</th></tr></thead>
+      <tbody>
+        {% for r in remboursements_dettes %}
+        <tr>
+          <td>{{ r.dette.motif|default:"دين" }} — {{ r.dette.date|date:"d/m/Y" }}</td>
+          <td class="num">{{ r.montant|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    <div class="info-note" style="font-size:11.5px;color:var(--muted);background:#f4f6f4;border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:14px;">
+      ملاحظة: السعر اليومي محسوب على أساس 30 يوماً في الشهر، وتُحتسب أيام الراحة الأسبوعية (نهاية الأسبوع) كأيام مدفوعة الأجر ضمن الراتب الإجمالي حتى ولو لم يحضر العامل فيها.
+    </div>
+
     <div class="totals">
       <div class="row"><span>السعر اليومي</span><span class="val">{{ bulletin.taux_journalier|floatformat:2 }} دج</span></div>
+      <div class="row"><span>أيام الراحة المدفوعة</span><span class="val">{{ bulletin.jours_repos }}</span></div>
       <div class="row"><span>مبلغ الساعات الإضافية</span><span class="val">{{ bulletin.montant_heures_sup|floatformat:2 }} دج</span></div>
+      {% if bulletin.montant_jours_feries %}
+      <div class="row"><span>مبلغ أيام الأعياد الإضافي</span><span class="val">{{ bulletin.montant_jours_feries|floatformat:2 }} دج</span></div>
+      {% endif %}
       <div class="row"><span>الإجمالي الخام</span><span class="val">{{ bulletin.montant_brut|floatformat:2 }} دج</span></div>
       <div class="row deduct"><span>إجمالي التسبيقات</span><span class="val">− {{ bulletin.total_acomptes|floatformat:2 }} دج</span></div>
+      <div class="row deduct"><span>تسديد الديون</span><span class="val">− {{ bulletin.total_dettes|floatformat:2 }} دج</span></div>
       <div class="row net"><span>الصافي المستحق</span><span class="val">{{ bulletin.montant_net|floatformat:2 }} دج</span></div>
     </div>
 

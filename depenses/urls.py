@@ -95,6 +95,18 @@ urlpatterns = [
         views.pointage_edit,
         name="pointage_edit",
     ),
+    # ── RH — Jours fériés / cérémoniels ──────────────────────────────────
+    path("rh/jours-feries/", views.jour_ferie_list, name="jour_ferie_list"),
+    path(
+        "rh/jours-feries/<int:pk>/toggle-actif/",
+        views.jour_ferie_toggle_active,
+        name="jour_ferie_toggle_active",
+    ),
+    path(
+        "rh/jours-feries/<int:pk>/supprimer/",
+        views.jour_ferie_delete,
+        name="jour_ferie_delete",
+    ),
     # ── RH — Congés ──────────────────────────────────────────────────────
     path("rh/conges/", views.conge_list, name="conge_list"),
     path("rh/conges/creer/", views.conge_create, name="conge_create"),
@@ -110,6 +122,15 @@ urlpatterns = [
         "rh/acomptes/<int:pk>/piece-jointe/",
         views.acompte_employe_ajouter_piece_jointe,
         name="acompte_employe_ajouter_piece_jointe",
+    ),
+    # ── RH — Dettes employés ─────────────────────────────────────────────
+    path("rh/dettes/", views.dette_employe_list, name="dette_employe_list"),
+    path("rh/dettes/creer/", views.dette_employe_create, name="dette_employe_create"),
+    # POST-only: post-hoc attachment for an existing debt
+    path(
+        "rh/dettes/<int:pk>/piece-jointe/",
+        views.dette_employe_ajouter_piece_jointe,
+        name="dette_employe_ajouter_piece_jointe",
     ),
     # ── RH — Bulletins de paie ───────────────────────────────────────────
     path("rh/bulletins/", views.bulletin_paie_list, name="bulletin_paie_list"),
@@ -133,9 +154,31 @@ urlpatterns = [
         views.bulletin_paie_payer,
         name="bulletin_paie_payer",
     ),
+    # Admin-only: force back to brouillon, or hard-delete regardless of statut
+    path(
+        "rh/bulletins/<int:pk>/repasser-brouillon/",
+        views.bulletin_paie_repasser_brouillon,
+        name="bulletin_paie_repasser_brouillon",
+    ),
+    path(
+        "rh/bulletins/<int:pk>/supprimer/",
+        views.bulletin_paie_delete,
+        name="bulletin_paie_delete",
+    ),
     path(
         "rh/bulletins/<int:pk>/imprimer/",
         views.bulletin_paie_print,
         name="bulletin_paie_print",
+    ),
+    # POST-only: manual debt-repayment installment on a draft payslip
+    path(
+        "rh/bulletins/<int:pk>/dette/ajouter/",
+        views.bulletin_paie_ajouter_remboursement_dette,
+        name="bulletin_paie_ajouter_remboursement_dette",
+    ),
+    path(
+        "rh/bulletins/<int:pk>/dette/<int:remboursement_pk>/retirer/",
+        views.bulletin_paie_retirer_remboursement_dette,
+        name="bulletin_paie_retirer_remboursement_dette",
     ),
 ]

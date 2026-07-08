@@ -9,6 +9,7 @@
 {% block topbar_actions %}
   <a href="{% url 'depenses:employe_list' %}" class="btn-ghost"><i class="bx bxs-group"></i> العمال</a>
   <a href="{% url 'depenses:bulletin_paie_list' %}" class="btn-ghost"><i class="bx bx-receipt"></i> كشوف الرواتب</a>
+  <a href="{% url 'depenses:dette_employe_list' %}" class="btn-ghost"><i class="bx bx-credit-card-front"></i> الديون</a>
   <a href="{% url 'depenses:dashboard' %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> لوحة المصروفات</a>
 {% endblock %}
 
@@ -39,6 +40,10 @@
     <div class="kpi-card">
       <div class="kpi-label">كشوف في انتظار الدفع</div>
       <div class="kpi-value">{{ summary.nb_bulletins_valides }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">ديون غير مسددة</div>
+      <div class="kpi-value">{{ summary.total_dettes_restantes|floatformat:0 }} <span class="kpi-unit">دج</span></div>
     </div>
   </div>
 
@@ -118,6 +123,14 @@
     <a href="{% url 'depenses:acompte_employe_create' %}" class="ql-card">
       <i class="bx bx-wallet-alt ql-icon"></i>
       <div class="ql-label">تسجيل تسبيق</div>
+    </a>
+    <a href="{% url 'depenses:dette_employe_create' %}" class="ql-card">
+      <i class="bx bx-credit-card-front ql-icon"></i>
+      <div class="ql-label">تسجيل دين</div>
+    </a>
+    <a href="{% url 'depenses:jour_ferie_list' %}" class="ql-card">
+      <i class="bx bx-calendar-star ql-icon"></i>
+      <div class="ql-label">أيام الأعياد</div>
     </a>
     <a href="{% url 'depenses:bulletin_paie_generer' %}" class="ql-card">
       <i class="bx bx-file ql-icon"></i>

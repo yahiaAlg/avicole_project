@@ -23,8 +23,9 @@ Key business rules:
             rotation. The rest day is a fixed weekday (`jour_repos_habituel`)
             covered by a `binome` (partner) on the opposite rotation —
             informational, not enforced by the scheduler.
-  BR-RH-02  The monthly base salary is referenced to 25 worked days/month;
-            daily rate = salaire_base_mensuel / 25 (JOURS_REFERENCE_MENSUEL).
+  BR-RH-02  The monthly base salary is referenced to 30 calendar days/month
+            (weekends/rest days are paid days, not deducted);
+            daily rate = salaire_base_mensuel / 30 (JOURS_REFERENCE_MENSUEL).
   BR-RH-03  Paid leave (congé) accrues at 2.5 days per month worked (15 days
             after 6 months); a congé day is paid at the full daily rate and
             never counts as an absence.
@@ -357,7 +358,7 @@ class RetraitAssocie(models.Model):
 # ===========================================================================
 
 #: Monthly reference used to derive the daily rate (BR-RH-02).
-JOURS_REFERENCE_MENSUEL = Decimal("25")
+JOURS_REFERENCE_MENSUEL = Decimal("30")
 
 #: Paid-leave accrual rate per month worked (BR-RH-03): 2.5 × 6 = 15 days.
 CONGE_JOURS_PAR_MOIS = Decimal("2.5")
@@ -618,6 +619,32 @@ class Pointage(models.Model):
         return self.employe.branche if self.employe_id else None
 
 
+class JourFerie(models.Model):
+    """
+    A ceremonial / public-holiday date (BR-RH-07).
+
+    HR simply adds the date(s) here (e.g. religious feasts, national day —
+    there can be several per year, and they don't repeat automatically).
+    If an employee actually worked on that date — i.e. it's not their
+    weekly rest day and no STATUT_ABSENT/STATUT_CONGE Pointage row covers
+    it — depenses.utils.calculer_donnees_paie pays that day as TWO
+    working days on their next payslip instead of one.
+    """
+
+    date = models.DateField(unique=True, verbose_name="التاريخ")
+    nom = models.CharField(max_length=100, verbose_name="التسمية")
+    actif = models.BooleanField(default=True, verbose_name="فعال")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "يوم عيد / احتفال"
+        verbose_name_plural = "أيام الأعياد والاحتفالات"
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"{self.nom} — {self.date}"
+
+
 class CongeEmploye(models.Model):
     """
     A block of paid leave taken by an employee (BR-RH-03).
@@ -725,9 +752,7 @@ class AcompteEmploye(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     # v1.5 — proof of the advance handed to the employee (signed receipt, etc.).
-    pieces_jointes = GenericRelation(
-        PieceJointe, related_query_name="acompte_employe"
-    )
+    pieces_jointes = GenericRelation(PieceJointe, related_query_name="acompte_employe")
 
     class Meta:
         verbose_name = "تسبيق على الراتب"
@@ -750,6 +775,137 @@ class AcompteEmploye(models.Model):
     def branche(self):
         """v1.4 — inherited from employe.branche (BR-BRA-09), not stored."""
         return self.employe.branche if self.employe_id else None
+
+
+class DetteEmploye(models.Model):
+    """
+    A debt owed by an employee to the company (e.g. a loan/advance outside
+    the normal salary-advance workflow), distinct from AcompteEmploye.
+
+    Unlike an AcompteEmploye — deducted in FULL, automatically, the next
+    time a payslip is generated (BR-RH-04) — a debt is repaid in manual
+    installments: at each payslip generation the user types in whatever
+    amount should come off this month (RemboursementDette), and it keeps
+    recurring on future payslips until `montant_restant` reaches zero.
+    """
+
+    employe = models.ForeignKey(
+        Employe,
+        on_delete=models.PROTECT,
+        related_name="dettes",
+        verbose_name="العامل",
+    )
+    date = models.DateField(verbose_name="تاريخ الدين")
+    montant = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name="مبلغ الدين (د.ج)",
+        validators=[MinValueValidator(0.01)],
+    )
+    motif = models.CharField(max_length=255, blank=True, verbose_name="السبب")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+    enregistre_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="dettes_employes_enregistrees",
+        verbose_name="مسجّل من قبل",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    # Proof of the debt (loan agreement, signed acknowledgement, ...).
+    pieces_jointes = GenericRelation(PieceJointe, related_query_name="dette_employe")
+
+    class Meta:
+        verbose_name = "دين عامل"
+        verbose_name_plural = "ديون العمال"
+        ordering = ["-date"]
+
+    def __str__(self):
+        return (
+            f"{self.employe.nom_complet} — {self.montant} DZD "
+            f"[{'مسددّ' if self.soldee else 'قيد التسديد'}]"
+        )
+
+    @property
+    def montant_rembourse(self) -> Decimal:
+        return self.remboursements.aggregate(total=models.Sum("montant"))[
+            "total"
+        ] or Decimal("0.00")
+
+    @property
+    def montant_restant(self) -> Decimal:
+        return self.montant - self.montant_rembourse
+
+    @property
+    def soldee(self) -> bool:
+        return self.montant_restant <= 0
+
+    @property
+    def a_piece_jointe(self):
+        return self.pieces_jointes.exists()
+
+    @property
+    def branche(self):
+        """v1.4 — inherited from employe.branche (BR-BRA-09), not stored."""
+        return self.employe.branche if self.employe_id else None
+
+
+class RemboursementDette(models.Model):
+    """
+    One installment repaid against a DetteEmploye. The amount is typed in
+    manually by the user while generating/viewing a payslip — it is a
+    judgment call, not something derived from attendance — and is
+    deducted from that payslip's montant_net (see BulletinPaie).
+    """
+
+    dette = models.ForeignKey(
+        DetteEmploye,
+        on_delete=models.CASCADE,
+        related_name="remboursements",
+        verbose_name="الدين",
+    )
+    bulletin_paie = models.ForeignKey(
+        "BulletinPaie",
+        on_delete=models.CASCADE,
+        related_name="remboursements_dettes",
+        verbose_name="كشف الراتب",
+    )
+    montant = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name="المبلغ المخصوم (د.ج)",
+        validators=[MinValueValidator(0.01)],
+    )
+    notes = models.CharField(max_length=255, blank=True, verbose_name="ملاحظات")
+    enregistre_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="remboursements_dettes_enregistres",
+        verbose_name="مسجّل من قبل",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "تسديد دين"
+        verbose_name_plural = "تسديدات الديون"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.dette.employe.nom_complet} — {self.montant} DZD"
+
+    def clean(self):
+        if self.dette_id and self.montant is not None:
+            deja_rembourse = self.dette.remboursements.exclude(pk=self.pk).aggregate(
+                total=models.Sum("montant")
+            )["total"] or Decimal("0.00")
+            restant = self.dette.montant - deja_rembourse
+            if self.montant > restant:
+                raise ValidationError(
+                    {"montant": (f"المبلغ يتجاوز المتبقي من الدين ({restant} د.ج).")}
+                )
 
 
 class BulletinPaie(models.Model):
@@ -797,6 +953,17 @@ class BulletinPaie(models.Model):
     jours_conge = models.PositiveSmallIntegerField(
         default=0, verbose_name="أيام العطلة المدفوعة"
     )
+    # v1.6 — BR-RH-07: ceremonial/holiday dates (JourFerie) actually worked
+    # in the period, each paid as TWO days (see calculer_donnees_paie).
+    jours_feries = models.PositiveSmallIntegerField(
+        default=0, verbose_name="أيام الأعياد المُشتغلة"
+    )
+    montant_jours_feries = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="مبلغ أيام الأعياد الإضافي",
+    )
     total_heures_supplementaires = models.DecimalField(
         max_digits=6,
         decimal_places=2,
@@ -825,6 +992,16 @@ class BulletinPaie(models.Model):
         decimal_places=2,
         default=Decimal("0.00"),
         verbose_name="إجمالي التسبيقات",
+    )
+    # Manual debt repayments (RemboursementDette) attached to this payslip —
+    # unlike total_acomptes this is NOT computed by calculer_donnees_paie;
+    # it starts at 0 on generation and is updated as the user adds/removes
+    # RemboursementDette rows from the payslip detail page.
+    total_dettes = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="إجمالي تسديد الديون",
     )
     montant_net = models.DecimalField(
         max_digits=12, decimal_places=2, verbose_name="المبلغ الصافي"
@@ -857,9 +1034,7 @@ class BulletinPaie(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     # v1.5 — proof of salary payment (bank transfer confirmation, signed
     # receipt, ...), attached once `statut` moves to PAYE.
-    pieces_jointes = GenericRelation(
-        PieceJointe, related_query_name="bulletin_paie"
-    )
+    pieces_jointes = GenericRelation(PieceJointe, related_query_name="bulletin_paie")
 
     class Meta:
         verbose_name = "كشف راتب"

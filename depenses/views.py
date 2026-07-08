@@ -43,6 +43,7 @@ the same way, so every RH queryset below filters via the
 
 import datetime
 import logging
+from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -76,8 +77,12 @@ from depenses.forms import (
     EmployeForm,
     PointageForm,
     PointageFilterForm,
+    JourFerieForm,
     CongeEmployeForm,
     AcompteEmployeForm,
+    DetteEmployeForm,
+    DetteEmployePieceJointeFormSet,
+    RemboursementDetteForm,
     GenererBulletinPaieForm,
     BulletinPaiementForm,
     RHFilterForm,
@@ -89,8 +94,11 @@ from depenses.models import (
     RetraitAssocie,
     Employe,
     Pointage,
+    JourFerie,
     CongeEmploye,
     AcompteEmploye,
+    DetteEmploye,
+    RemboursementDette,
     BulletinPaie,
 )
 from depenses.utils import (
@@ -98,6 +106,7 @@ from depenses.utils import (
     get_depenses_summary,
     get_retraits_associes_summary,
     get_rh_summary,
+    get_dettes_summary,
     get_solde_conge,
     appliquer_conge_aux_pointages,
     calculer_donnees_paie,
@@ -137,6 +146,14 @@ def _ensure_employe_branche_access(request, obj):
     """
     if not branche_matches(request, obj):
         raise Http404("Cet enregistrement appartient à une autre branche.")
+
+
+def _is_admin(request):
+    """True when the logged-in user's profile role is 'admin' (BR-BRA-03)."""
+    profile = getattr(request.user, "profile", None) or getattr(
+        request.user, "userprofile", None
+    )
+    return bool(profile and profile.role == "admin")
 
 
 # ===========================================================================
@@ -1108,6 +1125,7 @@ def rh_dashboard(request):
         date_debut, date_fin = premier_du_mois, today
 
     summary = get_rh_summary(date_debut=date_debut, date_fin=date_fin, branche=branche)
+    summary.update(get_dettes_summary(branche=branche))
 
     bulletins_recents_qs = BulletinPaie.objects.select_related("employe")
     acomptes_recents_qs = AcompteEmploye.objects.select_related("employe")
@@ -1416,6 +1434,64 @@ def pointage_edit(request, pk):
 
 
 # ===========================================================================
+# RH — Jours fériés / cérémoniels (BR-RH-07)
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def jour_ferie_list(request):
+    """
+    List + inline-create ceremonial/holiday dates. Company-wide, not
+    branche-scoped (like Associe) — a ceremonial day applies to everyone.
+    """
+    if request.method == "POST":
+        form = JourFerieForm(request.POST)
+        if form.is_valid():
+            jour = form.save()
+            messages.success(
+                request, f"تمت إضافة يوم « {jour.nom} — {jour.date} » بنجاح."
+            )
+            logger.info("JourFerie pk=%s created by '%s'.", jour.pk, request.user)
+            return redirect("depenses:jour_ferie_list")
+        messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        form = JourFerieForm()
+
+    jours = JourFerie.objects.order_by("-date")
+    return render(
+        request,
+        "depenses/jour_ferie_list.html",
+        {
+            "form": form,
+            "jours": jours,
+            "title": "أيام الأعياد والاحتفالات",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def jour_ferie_toggle_active(request, pk):
+    jour = get_object_or_404(JourFerie, pk=pk)
+    jour.actif = not jour.actif
+    jour.save(update_fields=["actif"])
+    state = "مفعَّل" if jour.actif else "معطَّل"
+    messages.success(request, f"يوم « {jour.nom} » {state}.")
+    return redirect("depenses:jour_ferie_list")
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def jour_ferie_delete(request, pk):
+    jour = get_object_or_404(JourFerie, pk=pk)
+    nom = f"{jour.nom} — {jour.date}"
+    jour.delete()
+    messages.success(request, f"تم حذف « {nom} ».")
+    logger.info("JourFerie '%s' deleted by '%s'.", nom, request.user)
+    return redirect("depenses:jour_ferie_list")
+
+
+# ===========================================================================
 # RH — Congés
 # ===========================================================================
 
@@ -1601,6 +1677,116 @@ def acompte_employe_ajouter_piece_jointe(request, pk):
 
 
 # ===========================================================================
+# RH — Dettes employés (DetteEmploye)  (BR-BRA-09)
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def dette_employe_list(request):
+    """
+    v1.4 (§3.5.5 / BR-BRA-09): Vue par Branche shows only the active
+    branche's employee debts; Vue Globale shows every branche combined.
+    """
+    branche = get_active_branche(request)
+    qs = (
+        DetteEmploye.objects.select_related("employe")
+        .prefetch_related("remboursements")
+        .order_by("-date")
+    )
+    if branche is not None:
+        qs = qs.filter(employe__batiment__branche=branche)
+    employe_id = request.GET.get("employe")
+    if employe_id:
+        qs = qs.filter(employe_id=employe_id)
+
+    dettes = list(qs)
+    total_montant = sum((d.montant for d in dettes), Decimal("0.00"))
+    total_restant = sum((d.montant_restant for d in dettes), Decimal("0.00"))
+    page = _paginate(dettes, request.GET.get("page"))
+
+    return render(
+        request,
+        "depenses/dette_employe_list.html",
+        {
+            "page": page,
+            "total_montant": total_montant,
+            "total_restant": total_restant,
+            "active_branche": branche,
+            "title": "ديون العمال",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def dette_employe_create(request):
+    """BR-BRA-09: scope the employe picker to the request's active branche."""
+    branche = get_active_branche(request)
+    if request.method == "POST":
+        form = DetteEmployeForm(request.POST, branche=branche)
+        pj_formset = build_piece_jointe_formset(
+            DetteEmployePieceJointeFormSet, request, prefix="pj"
+        )
+        if form.is_valid() and pj_formset.is_valid():
+            try:
+                with transaction.atomic():
+                    dette = form.save(commit=False)
+                    dette.enregistre_par = request.user
+                    dette.full_clean()
+                    dette.save()
+                    pj_formset.instance = dette
+                    pj_formset.save()
+                messages.success(
+                    request,
+                    f"تم تسجيل دين « {dette.employe.nom_complet} » ({dette.montant} دج).",
+                )
+                logger.info(
+                    "DetteEmploye pk=%s created by '%s'.", dette.pk, request.user
+                )
+                return redirect("depenses:employe_detail", pk=dette.employe.pk)
+            except Exception as exc:
+                logger.exception("Error creating DetteEmploye: %s", exc)
+                messages.error(request, f"خطأ أثناء التسجيل: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        form = DetteEmployeForm(
+            initial={"date": datetime.date.today()}, branche=branche
+        )
+        pj_formset = build_piece_jointe_formset(
+            DetteEmployePieceJointeFormSet, request, prefix="pj"
+        )
+
+    return render(
+        request,
+        "depenses/dette_employe_form.html",
+        {
+            "form": form,
+            "pj_formset": pj_formset,
+            "active_branche": branche,
+            "title": "دين جديد",
+            "action_label": "حفظ",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def dette_employe_ajouter_piece_jointe(request, pk):
+    """DetteEmploye has no edit view — attach proof after the fact here."""
+    dette = get_object_or_404(DetteEmploye.objects.select_related("employe"), pk=pk)
+    _ensure_employe_branche_access(request, dette)
+    pj_formset = build_piece_jointe_formset(
+        DetteEmployePieceJointeFormSet, request, instance=dette, prefix="pj"
+    )
+    if pj_formset.is_valid():
+        pj_formset.save()
+        messages.success(request, "تم إضافة المرفقات.")
+    else:
+        messages.error(request, "يرجى تصحيح الأخطاء في المرفقات.")
+    return redirect("depenses:employe_detail", pk=dette.employe.pk)
+
+
+# ===========================================================================
 # RH — Bulletins de paie  (BR-RH-02 / BR-RH-05)
 # ===========================================================================
 
@@ -1677,6 +1863,17 @@ def bulletin_paie_generer(request):
                     donnees = calculer_donnees_paie(employe, annee, mois)
                     acomptes_a_deduire = donnees.pop("acomptes_a_deduire")
 
+                    # Recomputing attendance shouldn't wipe out debt
+                    # repayments already entered manually on this draft —
+                    # keep total_dettes and re-net against the fresh brut.
+                    total_dettes_existant = (
+                        existant.total_dettes if existant else Decimal("0.00")
+                    )
+                    donnees["total_dettes"] = total_dettes_existant
+                    donnees["montant_net"] = (
+                        donnees["montant_net"] - total_dettes_existant
+                    )
+
                     bulletin, _created = BulletinPaie.objects.update_or_create(
                         employe=employe,
                         annee=annee,
@@ -1740,6 +1937,14 @@ def bulletin_paie_detail(request, pk):
     pieces_jointes = bulletin.pieces_jointes.select_related("uploaded_by").order_by(
         "-created_at"
     )
+    remboursements_dettes = bulletin.remboursements_dettes.select_related(
+        "dette"
+    ).order_by("-created_at")
+    # Manual debt repayment can only be added/removed while the payslip is
+    # still a draft (BR-RH-05 — locked figures once validated).
+    remboursement_form = None
+    if bulletin.statut == BulletinPaie.STATUT_BROUILLON:
+        remboursement_form = RemboursementDetteForm(employe=bulletin.employe)
     return render(
         request,
         "depenses/bulletin_paie_detail.html",
@@ -1747,9 +1952,98 @@ def bulletin_paie_detail(request, pk):
             "bulletin": bulletin,
             "acomptes": acomptes,
             "pieces_jointes": pieces_jointes,
+            "remboursements_dettes": remboursements_dettes,
+            "remboursement_form": remboursement_form,
             "title": f"كشف راتب — {bulletin.employe.nom_complet} — {bulletin.periode_label}",
         },
     )
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def bulletin_paie_ajouter_remboursement_dette(request, pk):
+    """
+    Manually deduct an amount from one of the employee's debts on this
+    (still-draft) payslip. Updates BulletinPaie.total_dettes and
+    montant_net accordingly. BR-BRA-02/09 scoped.
+    """
+    bulletin = get_object_or_404(BulletinPaie.objects.select_related("employe"), pk=pk)
+    _ensure_employe_branche_access(request, bulletin)
+    if bulletin.statut != BulletinPaie.STATUT_BROUILLON:
+        messages.error(
+            request, "لا يمكن تعديل خصومات الديون إلا على كشف في حالة مسودة."
+        )
+        return redirect("depenses:bulletin_paie_detail", pk=pk)
+
+    form = RemboursementDetteForm(request.POST, employe=bulletin.employe)
+    if form.is_valid():
+        try:
+            with transaction.atomic():
+                remboursement = form.save(commit=False)
+                remboursement.bulletin_paie = bulletin
+                remboursement.enregistre_par = request.user
+                remboursement.full_clean()
+                remboursement.save()
+
+                bulletin.total_dettes = bulletin.total_dettes + remboursement.montant
+                bulletin.montant_net = bulletin.montant_net - remboursement.montant
+                bulletin.save(
+                    update_fields=["total_dettes", "montant_net", "updated_at"]
+                )
+            messages.success(
+                request,
+                f"تم خصم {remboursement.montant} دج من دين « "
+                f"{remboursement.dette.employe.nom_complet} ».",
+            )
+            logger.info(
+                "RemboursementDette pk=%s added to BulletinPaie pk=%s by '%s'.",
+                remboursement.pk,
+                pk,
+                request.user,
+            )
+        except Exception as exc:
+            logger.exception("Error adding RemboursementDette: %s", exc)
+            messages.error(request, f"خطأ أثناء الخصم: {exc}")
+    else:
+        for err in form.non_field_errors():
+            messages.error(request, err)
+        for field, errs in form.errors.items():
+            if field == "__all__":
+                continue
+            for err in errs:
+                messages.error(request, err)
+    return redirect("depenses:bulletin_paie_detail", pk=pk)
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def bulletin_paie_retirer_remboursement_dette(request, pk, remboursement_pk):
+    """Undo a manual debt-repayment installment from a draft payslip."""
+    bulletin = get_object_or_404(BulletinPaie.objects.select_related("employe"), pk=pk)
+    _ensure_employe_branche_access(request, bulletin)
+    if bulletin.statut != BulletinPaie.STATUT_BROUILLON:
+        messages.error(
+            request, "لا يمكن تعديل خصومات الديون إلا على كشف في حالة مسودة."
+        )
+        return redirect("depenses:bulletin_paie_detail", pk=pk)
+
+    remboursement = get_object_or_404(
+        RemboursementDette, pk=remboursement_pk, bulletin_paie=bulletin
+    )
+    with transaction.atomic():
+        montant = remboursement.montant
+        remboursement.delete()
+        bulletin.total_dettes = bulletin.total_dettes - montant
+        bulletin.montant_net = bulletin.montant_net + montant
+        bulletin.save(update_fields=["total_dettes", "montant_net", "updated_at"])
+    messages.success(request, "تم إلغاء خصم الدين.")
+    logger.info(
+        "RemboursementDette pk=%s removed from BulletinPaie pk=%s by '%s'.",
+        remboursement_pk,
+        pk,
+        request.user,
+    )
+    return redirect("depenses:bulletin_paie_detail", pk=pk)
 
 
 @login_required(login_url=LOGIN_URL)
@@ -1816,6 +2110,73 @@ def bulletin_paie_payer(request, pk):
 
 
 @login_required(login_url=LOGIN_URL)
+@require_POST
+def bulletin_paie_repasser_brouillon(request, pk):
+    """
+    Admin-only escape hatch: force a 'valide' or 'paye' payslip back to
+    'brouillon' so its figures can be recomputed/edited again. Bypasses
+    the normal one-way brouillon → valide → paye flow (BR-RH-05).
+    """
+    bulletin = get_object_or_404(BulletinPaie.objects.select_related("employe"), pk=pk)
+    _ensure_employe_branche_access(request, bulletin)
+    if not _is_admin(request):
+        messages.error(request, "هذا الإجراء متاح للمدير فقط.")
+        return redirect("depenses:bulletin_paie_detail", pk=pk)
+    if bulletin.statut == BulletinPaie.STATUT_BROUILLON:
+        messages.error(request, "هذا الكشف في حالة مسودة أصلاً.")
+        return redirect("depenses:bulletin_paie_detail", pk=pk)
+
+    ancien_statut = bulletin.get_statut_display()
+    bulletin.statut = BulletinPaie.STATUT_BROUILLON
+    bulletin.save(update_fields=["statut", "updated_at"])
+    messages.success(
+        request,
+        f"تم إرجاع كشف « {bulletin.periode_label} » من « {ancien_statut} » إلى مسودة.",
+    )
+    logger.info(
+        "BulletinPaie pk=%s reverted to brouillon by admin '%s'.", pk, request.user
+    )
+    return redirect("depenses:bulletin_paie_detail", pk=pk)
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def bulletin_paie_delete(request, pk):
+    """
+    Admin-only hard delete, allowed regardless of statut (brouillon,
+    valide, or payé). Unlinks acomptes (SET_NULL) and cascades
+    remboursements_dettes, per BulletinPaie's FK definitions.
+    """
+    bulletin = get_object_or_404(BulletinPaie.objects.select_related("employe"), pk=pk)
+    _ensure_employe_branche_access(request, bulletin)
+    if not _is_admin(request):
+        messages.error(request, "هذا الإجراء متاح للمدير فقط.")
+        return redirect("depenses:bulletin_paie_detail", pk=pk)
+
+    periode = bulletin.periode_label
+    employe_nom = bulletin.employe.nom_complet
+    try:
+        with transaction.atomic():
+            bulletin.delete()
+        messages.success(
+            request, f"تم حذف كشف راتب « {employe_nom} — {periode} » نهائياً."
+        )
+        logger.info(
+            "BulletinPaie pk=%s ('%s' — %s) deleted by admin '%s'.",
+            pk,
+            employe_nom,
+            periode,
+            request.user,
+        )
+    except Exception as exc:
+        logger.exception("Error deleting BulletinPaie pk=%s: %s", pk, exc)
+        messages.error(request, f"خطأ أثناء الحذف: {exc}")
+        return redirect("depenses:bulletin_paie_detail", pk=pk)
+
+    return redirect("depenses:bulletin_paie_list")
+
+
+@login_required(login_url=LOGIN_URL)
 def bulletin_paie_print(request, pk):
     """Print-optimised payslip voucher — no PDF library, @media print CSS.
     BR-BRA-02/09: scoped to the request's active branche (derived)."""
@@ -1824,6 +2185,9 @@ def bulletin_paie_print(request, pk):
     )
     _ensure_employe_branche_access(request, bulletin)
     acomptes = bulletin.acomptes_deduits.order_by("date")
+    remboursements_dettes = bulletin.remboursements_dettes.select_related(
+        "dette"
+    ).order_by("created_at")
 
     from core.models import CompanyInfo
 
@@ -1832,5 +2196,10 @@ def bulletin_paie_print(request, pk):
     return render(
         request,
         "depenses/bulletin_paie_print.html",
-        {"bulletin": bulletin, "acomptes": acomptes, "company": company},
+        {
+            "bulletin": bulletin,
+            "acomptes": acomptes,
+            "remboursements_dettes": remboursements_dettes,
+            "company": company,
+        },
     )
