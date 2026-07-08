@@ -7,7 +7,7 @@
 {% block page_sub_text %}{{ bulletin.periode_label }}{% endblock %}
 
 {% block topbar_actions %}
-  {% if not request.user.userprofile.role == 'viewer' %}
+  {% if not request.user.profile.role == 'viewer' %}
     {% if bulletin.statut == 'brouillon' %}
     <a href="{% url 'depenses:bulletin_paie_generer' %}" class="btn-ghost"><i class="bx bx-refresh"></i> إعادة حساب</a>
     <form method="post" action="{% url 'depenses:bulletin_paie_valider' bulletin.pk %}" style="display:inline;">
@@ -18,7 +18,7 @@
     <a href="{% url 'depenses:bulletin_paie_payer' bulletin.pk %}" class="btn-primary"><i class="bx bx-money"></i> تسجيل الدفع</a>
     {% endif %}
   {% endif %}
-  {% if request.user.userprofile.role == 'admin' %}
+  {% if request.user.profile.role == 'admin' %}
     {% if bulletin.statut != 'brouillon' %}
     <form method="post" action="{% url 'depenses:bulletin_paie_repasser_brouillon' bulletin.pk %}" style="display:inline;" onsubmit="return confirm('إرجاع هذا الكشف إلى مسودة؟ سيصبح قابلاً للتعديل وإعادة الحساب من جديد.');">
       {% csrf_token %}
@@ -225,7 +225,7 @@
         <a href="{{ pj.fichier.url }}" class="btn-ghost btn-sm" target="_blank">
           <i class="bx bx-download"></i> تحميل
         </a>
-        {% if not request.user.userprofile.role == 'viewer' %}
+        {% if not request.user.profile.role == 'viewer' %}
         <form method="post" action="{% url 'core:piece_jointe_delete' pj.pk %}" style="margin:0;">
           {% csrf_token %}
           <button type="submit" class="btn-ghost btn-sm" title="حذف" onclick="return confirm('حذف هذا المرفق؟');">

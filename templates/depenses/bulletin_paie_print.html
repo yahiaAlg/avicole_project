@@ -12,6 +12,10 @@
     --border: #d7ddd5;
     --accent: #22c55e;
   }
+  @page {
+    size: A4;
+    margin: 12mm 14mm;
+  }
   * { box-sizing: border-box; }
   body {
     font-family: 'Tajawal', sans-serif;
@@ -70,9 +74,47 @@
   .footer { margin-top: 30px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 10px; color: var(--muted); text-align: center; line-height: 1.7; }
 
   @media print {
-    body { background: #fff; padding: 0; }
-    .sheet { border: none; padding: 0; max-width: 100%; }
-    .no-print { display: none; }
+    html, body { background: #fff; }
+    body { padding: 0; margin: 0; }
+    .sheet {
+      border: none;
+      border-radius: 0;
+      padding: 0;
+      margin: 0;
+      max-width: none;
+      width: 100%;
+    }
+    .no-print { display: none !important; }
+
+    /* Compact vertical rhythm so everything fits one A4 page at 100% scale */
+    .doc-header { padding-bottom: 10px; margin-bottom: 12px; }
+    .info-grid { margin-bottom: 14px; gap: 2px 24px; }
+    .info-row { padding: 4px 0; }
+    table { margin-bottom: 12px; font-size: 11.5px; }
+    th, td { padding: 6px 8px; }
+    .info-note { padding: 7px 10px; margin-bottom: 10px; font-size: 10.5px; }
+    .totals { margin-top: 6px; }
+    .totals .row { padding: 4px 0; font-size: 12px; }
+    .totals .row.net { padding-top: 8px; font-size: 14px; }
+    .signatures { margin-top: 30px; }
+    .sig-line { margin-top: 34px; }
+    .footer { margin-top: 16px; padding-top: 8px; }
+
+    /* Avoid ugly mid-element page splits */
+    .doc-header,
+    .info-grid,
+    .totals,
+    .signatures,
+    table,
+    tr,
+    .info-note {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    thead { display: table-header-group; }
+    tfoot { display: table-footer-group; }
+
+    a[href]:after { content: ""; }
   }
 </style>
 </head>
