@@ -41,7 +41,7 @@
             <div class="form-group">
               <label class="form-label" for="{{ form.heures_supplementaires.id_for_label }}">ساعات إضافية</label>
               <div class="input-wrapper"><i class="bx bx-time-five input-icon"></i>{{ form.heures_supplementaires }}</div>
-              <div class="form-hint">فقط إذا كان الموظف حاضراً (BR-RH-02).</div>
+              <div class="form-hint">سجّل هذا السطر فقط في حال وجود ساعات إضافية أو غياب. أيام الحضور العادية وأيام الراحة تُحتسب تلقائياً.</div>
               {% for e in form.heures_supplementaires.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ e }}</div>{% endfor %}
             </div>
           </div>

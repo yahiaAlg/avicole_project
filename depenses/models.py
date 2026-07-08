@@ -501,17 +501,39 @@ class Employe(models.Model):
         """
         return self.batiment.branche if self.batiment_id else None
 
+    def jours_repos_dans_periode(self, date_debut, date_fin) -> int:
+        """Count this employee's scheduled rest days within [date_debut, date_fin]."""
+        import datetime
+
+        nb = 0
+        jour = date_debut
+        while jour <= date_fin:
+            if jour.weekday() == self.jour_repos_habituel:
+                nb += 1
+            jour += datetime.timedelta(days=1)
+        return nb
+
 
 class Pointage(models.Model):
     """
-    Daily attendance record for one employee.
+    Exception-based attendance record for one employee (BR-RH-06).
 
-    STATUT_REPOS is the scheduled weekly rest day (covered by `binome`) —
-    it is neither an absence nor an extra paid day; the 25-day monthly
-    reference (BR-RH-02) already accounts for it. STATUT_CONGE is paid
-    leave, billed at the full daily rate and debited from the leave
-    balance (BR-RH-03). Only STATUT_PRESENT and STATUT_CONGE earn pay;
-    STATUT_ABSENT simply earns nothing for that day.
+    HR no longer needs to fill in a row for every working day: presence
+    is the DEFAULT and is auto-computed by depenses.utils.calculer_donnees_paie
+    as (working days in the period) − (absences) − (congés). A Pointage
+    row only needs to exist for a day that deviates from that default:
+
+      - STATUT_ABSENT   → the employee did not work and is not paid for it.
+      - STATUT_CONGE    → paid leave (created automatically from
+                          CongeEmploye via appliquer_conge_aux_pointages).
+      - STATUT_PRESENT  → only needed to record heures_supplementaires on
+                          an otherwise-ordinary working day; a plain
+                          present day with no overtime needs no row at all.
+
+    STATUT_REPOS is kept only for historical data created before this
+    workflow existed — the employee's weekly rest day is now derived on
+    the fly from `jour_repos_habituel` and should never be recorded as a
+    new row (see clean() below).
     """
 
     STATUT_PRESENT = "present"
@@ -572,6 +594,20 @@ class Pointage(models.Model):
                 {
                     "heures_supplementaires": (
                         "لا يمكن تسجيل ساعات إضافية في يوم راحة أو غياب."
+                    )
+                }
+            )
+        if (
+            self.employe_id
+            and self.date
+            and self.statut != self.STATUT_REPOS
+            and self.date.weekday() == self.employe.jour_repos_habituel
+        ):
+            raise ValidationError(
+                {
+                    "date": (
+                        "هذا اليوم هو يوم الراحة الأسبوعي لهذا العامل — "
+                        "يُحتسب تلقائياً ولا حاجة لتسجيله."
                     )
                 }
             )

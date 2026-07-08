@@ -8,8 +8,7 @@
 
 {% block topbar_actions %}
   {% if not request.user.userprofile.role == 'viewer' %}
-  <button type="button" class="btn-ghost" id="btn-generer-mois"><i class="bx bx-calendar-plus"></i> توليد شهر</button>
-  <a href="{% url 'depenses:pointage_create' %}" class="btn-primary"><i class="bx bx-plus"></i> تسجيل</a>
+  <a href="{% url 'depenses:pointage_create' %}" class="btn-primary"><i class="bx bx-plus"></i> تسجيل استثناء</a>
   {% endif %}
   <a href="{% url 'depenses:rh_dashboard' %}" class="btn-ghost"><i class="bx bx-arrow-back"></i> لوحة RH</a>
 {% endblock %}
@@ -90,43 +89,10 @@
     {% else %}
     <div class="empty-state">
       <i class="bx bx-calendar empty-state__icon"></i>
-      <div class="empty-state__title">لا توجد سجلات حضور</div>
-      <div class="empty-state__body">استخدم «توليد شهر» لملء شهر كامل دفعة واحدة.</div>
+      <div class="empty-state__title">لا توجد استثناءات مسجّلة</div>
+      <div class="empty-state__body">الحضور محتسب تلقائياً؛ لا حاجة للتسجيل هنا إلا في حال غياب أو ساعات إضافية.</div>
     </div>
     {% endif %}
-  </div>
-</div>
-
-<!-- Generate month panel -->
-<div id="generer-panel" class="modal-overlay">
-  <div class="modal-box">
-    <div class="modal-header">
-      <div class="section-eyebrow"><i class="bx bx-calendar-plus"></i> توليد شهر حضور</div>
-      <button type="button" id="btn-close-generer" class="modal-close"><i class="bx bx-x"></i></button>
-    </div>
-    <p class="modal-hint">يُنشئ تسجيلات حضور تلقائية لشهر كامل (حاضر في أيام العمل، راحة في يوم الراحة). الأيام الموجودة مسبقاً لن تُعدَّل.</p>
-    <form method="post" action="{% url 'depenses:pointage_generer_mois' %}">
-      {% csrf_token %}
-      <div class="form-group" style="margin-bottom:14px;">
-        <label class="form-label">العامل <span class="form-required">*</span></label>
-        {{ generer_form.employe }}
-        {% for e in generer_form.employe.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ e }}</div>{% endfor %}
-      </div>
-      <div class="form-row-2">
-        <div class="form-group">
-          <label class="form-label">الشهر <span class="form-required">*</span></label>
-          {{ generer_form.mois }}
-        </div>
-        <div class="form-group">
-          <label class="form-label">السنة <span class="form-required">*</span></label>
-          {{ generer_form.annee }}
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button type="button" id="btn-close2" class="btn-ghost">إلغاء</button>
-        <button type="submit" class="btn-primary"><i class="bx bx-calendar-check"></i> توليد</button>
-      </div>
-    </form>
   </div>
 </div>
 {% endblock %}
@@ -192,14 +158,3 @@
 </style>
 {% endblock %}
 
-{% block extra_js %}
-<script>
-const panel = document.getElementById('generer-panel');
-function openPanel(){ panel.classList.add('is-open'); }
-function closePanel(){ panel.classList.remove('is-open'); }
-document.getElementById('btn-generer-mois').addEventListener('click', openPanel);
-document.getElementById('btn-close-generer').addEventListener('click', closePanel);
-document.getElementById('btn-close2').addEventListener('click', closePanel);
-panel.addEventListener('click', function(e){ if(e.target===this) closePanel(); });
-</script>
-{% endblock %}

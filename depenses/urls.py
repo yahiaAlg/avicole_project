@@ -95,11 +95,6 @@ urlpatterns = [
         views.pointage_edit,
         name="pointage_edit",
     ),
-    path(
-        "rh/pointages/generer-mois/",
-        views.pointage_generer_mois,
-        name="pointage_generer_mois",
-    ),
     # ── RH — Congés ──────────────────────────────────────────────────────
     path("rh/conges/", views.conge_list, name="conge_list"),
     path("rh/conges/creer/", views.conge_create, name="conge_create"),

@@ -713,19 +713,32 @@ def appliquer_conge_aux_pointages(conge) -> int:
 def calculer_donnees_paie(employe, annee: int, mois: int) -> dict:
     """
     Compute (without persisting) the figures for an employee's payslip for
-    a given calendar month, from their Pointage rows.
+    a given calendar month.
+
+    BR-RH-06 — presence is no longer read from an explicit STATUT_PRESENT
+    row per day. HR only records the exceptions (Pointage rows), so:
+
+      jours_repos     = weekly rest days in the month, derived from
+                        employe.jour_repos_habituel (calendar, not rows).
+      jours_ouvrables  = total days in month − jours_repos
+      jours_absence    = STATUT_ABSENT rows in the month
+      jours_conge      = STATUT_CONGE rows in the month (from CongeEmploye)
+      jours_presence   = jours_ouvrables − jours_absence − jours_conge
+                        (never negative)
 
       taux_journalier      = salaire_base_mensuel / 25          (BR-RH-02)
+      montant_heures_sup    = total_heures_sup × taux_horaire × taux_majoration
       montant_brut         = taux_journalier × (jours_presence + jours_conge)
                             + montant_heures_sup
-      montant_heures_sup    = total_heures_sup × taux_horaire × taux_majoration
       total_acomptes        = sum of this employee's AcompteEmploye not yet
                               linked to a payslip (bulletin_paie is null),
                               dated within the month
       montant_net           = montant_brut − total_acomptes
 
-    STATUT_ABSENT days simply contribute nothing (no line item needed);
-    STATUT_REPOS days are excluded from both pay and deductions.
+    total_heures_sup sums Pointage.heures_supplementaires across the month —
+    these are recorded as one-off exception rows on the days worked, not on
+    every day, so overtime is captured even though most working days have
+    no row at all.
 
     Returns a dict matching BulletinPaie's snapshot fields, plus
     'acomptes_a_deduire' (queryset) for the caller to link once saved.
@@ -736,6 +749,7 @@ def calculer_donnees_paie(employe, annee: int, mois: int) -> dict:
 
     premier_jour = datetime.date(annee, mois, 1)
     dernier_jour = datetime.date(annee, mois, monthrange(annee, mois)[1])
+    nb_jours_mois = (dernier_jour - premier_jour).days + 1
 
     pointages_qs = Pointage.objects.filter(
         employe=employe, date__gte=premier_jour, date__lte=dernier_jour
@@ -746,10 +760,12 @@ def calculer_donnees_paie(employe, annee: int, mois: int) -> dict:
         .annotate(nb=Count("pk"))
         .values_list("statut", "nb")
     )
-    jours_presence = par_statut.get(Pointage.STATUT_PRESENT, 0)
     jours_absence = par_statut.get(Pointage.STATUT_ABSENT, 0)
-    jours_repos = par_statut.get(Pointage.STATUT_REPOS, 0)
     jours_conge = par_statut.get(Pointage.STATUT_CONGE, 0)
+
+    jours_repos = employe.jours_repos_dans_periode(premier_jour, dernier_jour)
+    jours_ouvrables = nb_jours_mois - jours_repos
+    jours_presence = max(jours_ouvrables - jours_absence - jours_conge, 0)
 
     total_heures_sup = pointages_qs.aggregate(total=Sum("heures_supplementaires"))[
         "total"

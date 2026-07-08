@@ -43,7 +43,6 @@ the same way, so every RH queryset below filters via the
 
 import datetime
 import logging
-from calendar import monthrange
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -77,7 +76,6 @@ from depenses.forms import (
     EmployeForm,
     PointageForm,
     PointageFilterForm,
-    GenererPointagesMoisForm,
     CongeEmployeForm,
     AcompteEmployeForm,
     GenererBulletinPaieForm,
@@ -1324,7 +1322,6 @@ def pointage_list(request):
             qs = qs.filter(statut=cd["statut"])
 
     page = _paginate(qs, request.GET.get("page"))
-    generer_form = GenererPointagesMoisForm(branche=branche)
 
     return render(
         request,
@@ -1332,7 +1329,6 @@ def pointage_list(request):
         {
             "page": page,
             "filter_form": filter_form,
-            "generer_form": generer_form,
             "active_branche": branche,
             "title": "تسجيلات الحضور",
         },
@@ -1417,63 +1413,6 @@ def pointage_edit(request, pk):
             "action_label": "حفظ التعديلات",
         },
     )
-
-
-@login_required(login_url=LOGIN_URL)
-@require_POST
-def pointage_generer_mois(request):
-    """
-    Pre-fill a month of Pointage for one employee: PRESENT on regular days,
-    REPOS on jour_repos_habituel. Existing rows for that employe+date are
-    NEVER overwritten — only missing days are created (BR-RH-01).
-    """
-    form = GenererPointagesMoisForm(request.POST, branche=get_active_branche(request))
-    if not form.is_valid():
-        messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
-        return redirect("depenses:pointage_list")
-
-    employe = form.cleaned_data["employe"]
-    annee = form.cleaned_data["annee"]
-    mois = form.cleaned_data["mois"]
-
-    premier_jour = datetime.date(annee, mois, 1)
-    dernier_jour = datetime.date(annee, mois, monthrange(annee, mois)[1])
-
-    jours_existants = set(
-        Pointage.objects.filter(
-            employe=employe, date__gte=premier_jour, date__lte=dernier_jour
-        ).values_list("date", flat=True)
-    )
-
-    nouveaux = []
-    jour = premier_jour
-    while jour <= dernier_jour:
-        if jour not in jours_existants:
-            statut = (
-                Pointage.STATUT_REPOS
-                if jour.weekday() == employe.jour_repos_habituel
-                else Pointage.STATUT_PRESENT
-            )
-            nouveaux.append(Pointage(employe=employe, date=jour, statut=statut))
-        jour += datetime.timedelta(days=1)
-
-    if nouveaux:
-        Pointage.objects.bulk_create(nouveaux)
-
-    messages.success(
-        request,
-        f"تم إنشاء {len(nouveaux)} تسجيل حضور لـ « {employe.nom_complet} » "
-        f"({mois:02d}/{annee}). يرجى تصحيح الاستثناءات (غياب/عطلة/ساعات إضافية).",
-    )
-    logger.info(
-        "pointage_generer_mois: employe=%s %02d/%s → %s rows created by '%s'.",
-        employe.matricule,
-        mois,
-        annee,
-        len(nouveaux),
-        request.user,
-    )
-    return redirect(f"{reverse('depenses:pointage_list')}?employe={employe.pk}")
 
 
 # ===========================================================================

@@ -492,43 +492,41 @@ class PointageForm(forms.ModelForm):
             employe_qs = employe_qs.filter(batiment__branche=branche)
         self.fields["employe"].queryset = employe_qs
         self.fields["notes"].required = False
+        # BR-RH-06: rest days are auto-computed from jour_repos_habituel —
+        # HR should never create a REPOS row manually, so drop it from the
+        # picker. Only "present" (to log overtime) / "absent" / "congé"
+        # remain, i.e. only the exceptions to a normal working day.
+        self.fields["statut"].choices = [
+            c for c in Pointage.STATUT_CHOICES if c[0] != Pointage.STATUT_REPOS
+        ]
 
     def clean(self):
         cleaned = super().clean()
         statut = cleaned.get("statut")
         heures_sup = cleaned.get("heures_supplementaires") or 0
+        employe = cleaned.get("employe")
+        date = cleaned.get("date")
         if statut in (Pointage.STATUT_REPOS, Pointage.STATUT_ABSENT) and heures_sup:
             raise ValidationError(
                 {
                     "heures_supplementaires": "لا يمكن تسجيل ساعات إضافية في يوم راحة أو غياب."
                 }
             )
-        return cleaned
-
-
-class GenererPointagesMoisForm(forms.Form):
-    """
-    Non-model form: pre-fill a whole month of Pointage rows for one employee
-    (PRESENT by default, REPOS on jour_repos_habituel) so HR only has to
-    correct the exceptions (absences, congés, heures sup).
-
-    Pass `branche=<Branche instance>` from the view to scope the `employe`
-    choices (BR-BRA-09).
-    """
-
-    employe = forms.ModelChoiceField(
-        queryset=Employe.objects.filter(actif=True).order_by("nom_complet"),
-        label="العامل",
-    )
-    annee = forms.IntegerField(label="السنة", min_value=2000, max_value=2100)
-    mois = forms.IntegerField(label="الشهر", min_value=1, max_value=12)
-
-    def __init__(self, *args, branche=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        if branche:
-            self.fields["employe"].queryset = self.fields["employe"].queryset.filter(
-                batiment__branche=branche
+        if (
+            employe
+            and date
+            and statut != Pointage.STATUT_REPOS
+            and date.weekday() == employe.jour_repos_habituel
+        ):
+            raise ValidationError(
+                {
+                    "date": (
+                        "هذا اليوم هو يوم الراحة الأسبوعي لهذا العامل — "
+                        "يُحتسب تلقائياً ولا حاجة لتسجيله."
+                    )
+                }
             )
+        return cleaned
 
 
 class PointageFilterForm(forms.Form):
