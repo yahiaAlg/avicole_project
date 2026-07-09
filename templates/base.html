@@ -1117,6 +1117,10 @@
         <i class="bx bxs-droplet"></i>
         <span class="nav-link-label">الاستهلاك</span>
       </a>
+      <a href="{% url 'elevage:production_aliment_list' %}" class="nav-link {% block nav_production_aliment %}{% endblock %}">
+        <i class="bx bxs-cylinder"></i>
+        <span class="nav-link-label">تصنيع/تزويد العلف</span>
+      </a>
       <a href="{% url 'production:dashboard' %}" class="nav-link {% block nav_production_dashboard %}{% endblock %}">
         <i class="bx bxs-pie-chart-alt-2"></i>
         <span class="nav-link-label">لوحة التحكم</span>

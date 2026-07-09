@@ -10,7 +10,7 @@
 
 {% block topbar_actions %}
   {% if request.user.userprofile.role != 'viewer' %}
-  <a href="{% url 'elevage:production_aliment_create' %}" class="btn-ghost">
+  <a href="{% url 'elevage:production_aliment_list' %}" class="btn-ghost">
     <i class="bx bxs-cylinder"></i> تزويد علف
   </a>
   <a href="{% url 'elevage:lot_create' %}" class="btn-primary">
@@ -95,11 +95,11 @@
   <!-- Quick actions -->
   {% if request.user.userprofile.role != 'viewer' %}
   <div class="quick-actions mb-4">
-    <a href="{% url 'elevage:production_aliment_create' %}" class="quick-action-btn">
+    <a href="{% url 'elevage:production_aliment_list' %}" class="quick-action-btn">
       <div class="quick-action-icon" style="background:rgba(180,131,9,.10);color:#b45309;"><i class="bx bxs-cylinder"></i></div>
       <div>
         <div class="quick-action-title">تزويد/تصنيع علف</div>
-        <div class="quick-action-sub">إضافة إلى مخزون العلف الجاهز</div>
+        <div class="quick-action-sub">سجل العمليات — إضافة أو دفع أجرة التصنيع</div>
       </div>
     </a>
     <a href="{% url 'elevage:formule_aliment_list' %}" class="quick-action-btn">

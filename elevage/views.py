@@ -19,6 +19,7 @@ All write operations use Post-Redirect-Get.
 State changes (close lot, delete mortality/consumption) are POST-only.
 """
 
+import datetime
 import json
 import logging
 from decimal import Decimal
@@ -50,6 +51,7 @@ from elevage.forms import (
     MortaliteForm,
     PeseeEchantillonForm,
     ProductionAlimentForm,
+    ProductionAlimentPaiementForm,
     RecolteOeufsForm,
     RetraitOeufsForm,
     TransfertLotForm,
@@ -750,7 +752,6 @@ def mortalite_delete(request, pk):
         messages.error(request, f"خطأ أثناء الحذف: {exc}")
 
     return redirect("elevage:lot_detail", pk=lot.pk)
-
 
 
 # ===========================================================================
@@ -1805,6 +1806,14 @@ def production_aliment_create(request):
                         f"«{production.intrant_produit.designation}» وإنشاء "
                         f"مصروف تلقائي بمبلغ {depense.montant} د.ج.",
                     )
+                elif production.formule_id:
+                    messages.success(
+                        request,
+                        f"تم تسجيل تزويد {production.quantite_produite_kg} كغ من "
+                        f"«{production.intrant_produit.designation}» عبر تركيبة "
+                        f"«{production.formule.nom}». لا تنسَ دفع أجرة التصنيع "
+                        f"من هنا عند الحاجة.",
+                    )
                 else:
                     messages.success(
                         request,
@@ -1820,7 +1829,10 @@ def production_aliment_create(request):
                     request.user,
                     depense.pk if depense is not None else None,
                 )
-                return redirect("elevage:dashboard")
+                # Land on the production listing (not the dashboard) — this
+                # is where the record now lives, and where a formule-based
+                # entry gets its labor-cost payment batched (BR-request).
+                return redirect("elevage:production_aliment_list")
 
             except Exception as exc:
                 logger.exception("Error creating ProductionAliment: %s", exc)
@@ -1833,7 +1845,233 @@ def production_aliment_create(request):
     return render(
         request,
         "elevage/production_aliment_form.html",
-        {"form": form, "title": "تزويد/تصنيع علف", "action_label": "حفظ"},
+        {
+            "form": form,
+            "title": "تزويد/تصنيع علف",
+            "action_label": "حفظ",
+            "formule_intrant_map": json.dumps(
+                dict(
+                    FormuleAliment.objects.filter(actif=True).values_list(
+                        "pk", "intrant_produit_id"
+                    )
+                )
+            ),
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def production_aliment_list(request):
+    """
+    Cross list of feed replenishment/production records (direct entry or
+    via formule). This is where formule-based records — never auto-expensed
+    at creation (see _auto_creer_depense_production_aliment) — get selected
+    and batched into a labor-cost payment for the feed-mill worker; see
+    production_aliment_paiement_create.
+
+    Filters:
+      ?intrant=<pk>       — finished feed
+      ?formule=<pk>
+      ?paiement=impaye|paye
+      ?date_debut, ?date_fin
+    """
+    from intrants.models import Intrant
+
+    branche = get_active_branche(request)
+
+    qs = ProductionAliment.objects.select_related(
+        "intrant_produit", "formule", "branche", "depense_paiement"
+    ).order_by("-date", "-created_at")
+    if branche is not None:
+        qs = qs.filter(branche=branche)
+
+    intrant_pk = request.GET.get("intrant", "")
+    if intrant_pk:
+        qs = qs.filter(intrant_produit_id=intrant_pk)
+
+    formule_pk = request.GET.get("formule", "")
+    if formule_pk:
+        qs = qs.filter(formule_id=formule_pk)
+
+    date_debut = request.GET.get("date_debut", "")
+    date_fin = request.GET.get("date_fin", "")
+    if date_debut:
+        qs = qs.filter(date__gte=date_debut)
+    if date_fin:
+        qs = qs.filter(date__lte=date_fin)
+
+    statut_paiement = request.GET.get("paiement", "")
+    if statut_paiement == "impaye":
+        qs = qs.filter(formule__isnull=False, depense_paiement__isnull=True)
+    elif statut_paiement == "paye":
+        qs = qs.filter(depense_paiement__isnull=False)
+
+    page = _paginate(qs, request.GET.get("page"))
+
+    en_attente_qs = ProductionAliment.objects.filter(
+        formule__isnull=False, depense_paiement__isnull=True
+    )
+    if branche is not None:
+        en_attente_qs = en_attente_qs.filter(branche=branche)
+    total_kg_impaye = (
+        en_attente_qs.aggregate(total=Sum("quantite_produite_kg"))["total"] or 0
+    )
+
+    intrants = Intrant.objects.filter(categorie__code="ALIMENT", actif=True).order_by(
+        "designation"
+    )
+    formules = FormuleAliment.objects.order_by("nom")
+
+    return render(
+        request,
+        "elevage/production_aliment_list.html",
+        {
+            "page": page,
+            "intrant_pk": intrant_pk,
+            "formule_pk": formule_pk,
+            "statut_paiement": statut_paiement,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+            "intrants": intrants,
+            "formules": formules,
+            "nb_impaye": en_attente_qs.count(),
+            "total_kg_impaye": total_kg_impaye,
+            "active_branche": branche,
+            "title": "عمليات تصنيع/تزويد العلف",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+@require_branche_context
+def production_aliment_paiement_create(request):
+    """
+    Consolidate one or more unpaid formule-based ProductionAliment records
+    into ONE Depense paying the feed-mill worker's labor: a single
+    prix_unitaire (د.ج/كغ) × Σ quantite_produite_kg of everything selected.
+
+    GET  ?ids=<pk>&ids=<pk>…   — review screen (from production_aliment_list
+                                  checkboxes), prix_unitaire not decided yet.
+    POST production_ids=<pk>…  — final submission: creates the Depense and
+                                  marks every selected production paid via
+                                  depense_paiement (so it drops out of the
+                                  next batch — BR: never pay the same
+                                  production twice).
+    """
+    from depenses.models import CategorieDepense, Depense
+
+    branche = get_active_branche(request)
+
+    base_qs = ProductionAliment.objects.filter(
+        formule__isnull=False, depense_paiement__isnull=True
+    ).select_related("intrant_produit", "formule")
+    if branche is not None:
+        base_qs = base_qs.filter(branche=branche)
+
+    if request.method == "POST":
+        ids = request.POST.getlist("production_ids")
+        productions = list(base_qs.filter(pk__in=ids))
+        if not productions:
+            messages.error(
+                request,
+                "لم يتم العثور على عمليات تصنيع صالحة للدفع ضمن الاختيار "
+                "(ربما تم دفعها من قبل). يرجى إعادة الاختيار.",
+            )
+            return redirect("elevage:production_aliment_list")
+
+        branches_selectionnees = {p.branche_id for p in productions}
+        if len(branches_selectionnees) > 1:
+            messages.error(
+                request,
+                "لا يمكن تجميع عمليات من فروع مختلفة ضمن مصروف دفع واحد. "
+                "يرجى اختيار عمليات من نفس الفرع.",
+            )
+            return redirect("elevage:production_aliment_list")
+
+        form = ProductionAlimentPaiementForm(request.POST)
+        if form.is_valid():
+            total_kg = sum((p.quantite_produite_kg for p in productions), Decimal("0"))
+            prix_unitaire = form.cleaned_data["prix_unitaire"]
+            montant = (total_kg * prix_unitaire).quantize(Decimal("0.01"))
+
+            categorie, _ = CategorieDepense.objects.get_or_create(
+                code="MAIN_OEUVRE_ALIMENT",
+                defaults={
+                    "libelle": "يد عاملة تصنيع العلف",
+                    "description": (
+                        "أجرة عامل مصنع الأعلاف عن كميات مصنّعة عبر تركيبة."
+                    ),
+                    "actif": True,
+                },
+            )
+            noms = "، ".join(
+                sorted({p.intrant_produit.designation for p in productions})
+            )
+
+            try:
+                with transaction.atomic():
+                    depense = Depense.objects.create(
+                        date=form.cleaned_data["date"],
+                        branche=branche or productions[0].branche,
+                        categorie=categorie,
+                        description=(
+                            f"دفع تصنيع علف — {noms} "
+                            f"({total_kg} كغ عبر {len(productions)} عملية)"
+                        ),
+                        montant=montant,
+                        mode_paiement=form.cleaned_data["mode_paiement"],
+                        notes=form.cleaned_data.get("notes", ""),
+                        enregistre_par=request.user,
+                    )
+                    ProductionAliment.objects.filter(
+                        pk__in=[p.pk for p in productions]
+                    ).update(depense_paiement=depense)
+
+                messages.success(
+                    request,
+                    f"تم إنشاء مصروف بمبلغ {montant} د.ج لدفع {total_kg} كغ "
+                    f"عبر {len(productions)} عملية تصنيع.",
+                )
+                logger.info(
+                    "Depense pk=%s created for %s ProductionAliment payment "
+                    "(total_kg=%s, prix_unitaire=%s) by '%s'.",
+                    depense.pk,
+                    len(productions),
+                    total_kg,
+                    prix_unitaire,
+                    request.user,
+                )
+                # Land the user directly on the expense's edit form (not
+                # just the list) so the user can immediately attach the
+                # supporting document ("pièce jointe") and fill in the
+                # building/location info on the freshly created Depense.
+                return redirect("depenses:depense_edit", pk=depense.pk)
+            except Exception as exc:
+                logger.exception("Error creating paiement production: %s", exc)
+                messages.error(request, f"خطأ أثناء التسجيل: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        ids = request.GET.getlist("ids")
+        productions = list(base_qs.filter(pk__in=ids)) if ids else []
+        if not productions:
+            messages.error(
+                request, "يرجى اختيار عملية تصنيع واحدة على الأقل قبل المتابعة."
+            )
+            return redirect("elevage:production_aliment_list")
+        form = ProductionAlimentPaiementForm()
+
+    total_kg = sum((p.quantite_produite_kg for p in productions), Decimal("0"))
+
+    return render(
+        request,
+        "elevage/production_aliment_paiement_form.html",
+        {
+            "form": form,
+            "productions": productions,
+            "total_kg": total_kg,
+            "title": "دفع تصنيع العلف",
+        },
     )
 
 

@@ -1081,6 +1081,26 @@ class ProductionAliment(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Labor-cost payment tracking (BR-request): a `formule`-based production
+    # never gets an auto Depense (its implied cost is only the ingredients'
+    # PMP — see production_aliment_post_save), so the feed-mill worker's
+    # labor is still unpaid until batched into one consolidated Depense via
+    # views.production_aliment_paiement_create. Once linked here, this
+    # production drops out of future unpaid-batches. SET_NULL so deleting
+    # the Depense (rare, admin-only) simply reopens it for payment again.
+    depense_paiement = models.ForeignKey(
+        "depenses.Depense",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="productions_aliment_payees",
+        verbose_name="مصروف دفع اليد العاملة المرتبط",
+        help_text=(
+            "يُملأ تلقائياً عند تجميع هذه العملية ضمن دفعة أجرة تصنيع علف "
+            "(انظر: دفع تصنيع العلف)."
+        ),
+    )
+
     class Meta:
         verbose_name = "تصنيع/تزويد علف"
         verbose_name_plural = "عمليات تصنيع العلف"
@@ -1107,6 +1127,20 @@ class ProductionAliment(models.Model):
         (0 when prix_unitaire is 0 — e.g. formule-based entries priced from
         their ingredients instead, see signals.py)."""
         return self.quantite_produite_kg * self.prix_unitaire
+
+    @property
+    def est_paye(self):
+        """True once this production's labor cost has been batched into a
+        Depense — see depense_paiement / production_aliment_paiement_create."""
+        return self.depense_paiement_id is not None
+
+    @property
+    def necessite_paiement(self):
+        """True for formule-based productions still awaiting a labor-cost
+        Depense (direct/no-formule entries are priced via prix_unitaire and
+        auto-expensed at creation instead — see
+        _auto_creer_depense_production_aliment)."""
+        return self.formule_id is not None and self.depense_paiement_id is None
 
 
 # ---------------------------------------------------------------------------

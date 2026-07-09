@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block title %}{{ title }} — تربية الدواجن{% endblock %}
-{% block nav_lots %}active{% endblock %}
+{% block nav_production_aliment %}active{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 {% block page_sub_text %}تزويد مخزون العلف الجاهز — مع أو بدون تركيبة{% endblock %}
 
@@ -85,6 +85,9 @@
               <i class="bx bxs-package input-icon"></i>
               {{ form.intrant_produit }}
             </div>
+            <div id="intrant-auto-hint" style="font-size:11px;color:var(--accent-text);margin-top:4px;display:none;">
+              <i class="bx bx-check-circle"></i> تم تحديده تلقائياً من التركيبة المختارة.
+            </div>
             {% if form.intrant_produit.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.intrant_produit.errors|join:", " }}</div>{% endif %}
           </div>
 
@@ -158,4 +161,31 @@
   .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
   .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var formuleIntrantMap = {{ formule_intrant_map|default:"{}"|safe }};
+  var formuleSelect = document.getElementById('{{ form.formule.id_for_label }}');
+  var intrantSelect = document.getElementById('{{ form.intrant_produit.id_for_label }}');
+  var hint = document.getElementById('intrant-auto-hint');
+  if (!formuleSelect || !intrantSelect) return;
+
+  function applyFromFormule() {
+    var intrantId = formuleIntrantMap[formuleSelect.value];
+    if (intrantId) {
+      intrantSelect.value = String(intrantId);
+      hint.style.display = 'block';
+    } else {
+      hint.style.display = 'none';
+    }
+  }
+
+  formuleSelect.addEventListener('change', applyFromFormule);
+  // Re-apply on load too (e.g. re-rendered after a validation error with a
+  // formule already selected, or a browser-restored form value).
+  applyFromFormule();
+});
+</script>
 {% endblock %}

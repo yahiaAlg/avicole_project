@@ -160,6 +160,16 @@ urlpatterns = [
         views.production_aliment_create,
         name="production_aliment_create",
     ),
+    path(
+        "aliments/",
+        views.production_aliment_list,
+        name="production_aliment_list",
+    ),
+    path(
+        "aliments/paiement/creer/",
+        views.production_aliment_paiement_create,
+        name="production_aliment_paiement_create",
+    ),
     # ── RetraitOeufs ─────────────────────────────────────────────────────
     path(
         "recoltes-oeufs/retraits/creer/",

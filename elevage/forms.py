@@ -687,6 +687,54 @@ class ProductionAlimentForm(forms.ModelForm):
         return cleaned
 
 
+class ProductionAlimentPaiementForm(forms.Form):
+    """
+    Batch-pay the feed-mill worker for one or more formule-based
+    ProductionAliment records (see views.production_aliment_paiement_create).
+
+    Not a ModelForm: it doesn't edit a ProductionAliment itself, it collects
+    the info needed to create ONE consolidated depenses.Depense — the actual
+    ProductionAliment selection travels as hidden `production_ids` fields in
+    the template, validated/looked-up server-side in the view (never trusted
+    from cleaned_data here).
+    """
+
+    date = forms.DateField(
+        label="تاريخ الدفع",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    prix_unitaire = forms.DecimalField(
+        label="سعر الوحدة (د.ج/كغ)",
+        max_digits=12,
+        decimal_places=4,
+        min_value=Decimal("0.01"),
+        # NOTE: widget min is "0", NOT "0.01" — a fractional HTML min combined
+        # with step="0.01" trips browsers' floating-point stepMismatch check
+        # on perfectly valid values (e.g. entering 50 got rejected with
+        # "nearest valid values are 49.9901 / 50.0001"). min="0" sidesteps
+        # that; the real "must be > 0" rule is still enforced server-side via
+        # min_value above (same pattern as ProductionAlimentForm.prix_unitaire).
+        widget=forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+        help_text="أجرة تصنيع الكيلوغرام الواحد — يُضرب في إجمالي الكمية المختارة.",
+    )
+    mode_paiement = forms.ChoiceField(label="طريقة الدفع")
+    notes = forms.CharField(
+        label="ملاحظات",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 2}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from depenses.models import Depense
+
+        self.fields["mode_paiement"].choices = Depense.MODE_CHOICES
+        if not self.initial.get("date"):
+            self.fields["date"].initial = datetime.date.today()
+        if not self.initial.get("mode_paiement"):
+            self.fields["mode_paiement"].initial = Depense.MODE_ESPECES
+
+
 class RetraitOeufsForm(forms.ModelForm):
     """
     Withdraw eggs from stock outside the formal BLClient sales flow: direct
