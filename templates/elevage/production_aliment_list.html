@@ -109,7 +109,11 @@
                 {% endif %}
               </td>
               <td style="white-space:nowrap;">{{ p.date|date:"d/m/Y" }}</td>
-              <td style="font-weight:600;color:var(--text-primary);">{{ p.intrant_produit.designation }}</td>
+              <td>
+                <a href="{% url 'elevage:production_aliment_detail' p.pk %}" style="font-weight:600;color:var(--text-primary);text-decoration:none;">
+                  {{ p.intrant_produit.designation }}
+                </a>
+              </td>
               <td style="color:var(--text-muted);">{{ p.formule.nom|default:"— مباشر —" }}</td>
               <td style="text-align:right;font-weight:600;">{{ p.quantite_produite_kg|floatformat:2 }}</td>
               <td style="text-align:right;">

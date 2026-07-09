@@ -177,6 +177,11 @@ urlpatterns = [
         name="production_aliment_list",
     ),
     path(
+        "aliments/<int:pk>/",
+        views.production_aliment_detail,
+        name="production_aliment_detail",
+    ),
+    path(
         "aliments/paiement/creer/",
         views.production_aliment_paiement_create,
         name="production_aliment_paiement_create",

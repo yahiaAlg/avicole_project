@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
+{% block nav_production_aliment %}active{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}
+  {{ production.date|date:"d/m/Y" }} ·
+  {% if production.formule_id %}عبر تركيبة « {{ production.formule.nom }} »{% else %}تزويد مباشر{% endif %}
+{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'elevage:production_aliment_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> رجوع
+  </a>
+  {% if production.necessite_paiement %}
+  <a href="{% url 'elevage:production_aliment_paiement_create' %}?ids={{ production.pk }}" class="btn-primary">
+    <i class="bx bxs-wallet"></i> دفع أجرة التصنيع
+  </a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+
+  <!-- Batch progress banner -->
+  <div class="batch-banner mb-3">
+    <div class="batch-banner__icon"><i class="bx bxs-cylinder"></i></div>
+    <div class="batch-banner__body">
+      <div class="batch-banner__row">
+        <span class="batch-banner__title">{{ production.intrant_produit.designation }}</span>
+        {% if production.epuise %}
+        <span class="pill-success"><i class="bx bx-check"></i> مستهلكة بالكامل</span>
+        {% else %}
+        <span class="pill-warning">قيد الاستهلاك</span>
+        {% endif %}
+      </div>
+      <div class="batch-banner__bar">
+        <div class="batch-banner__fill" style="width:{{ production.taux_consommation_pct }}%;"></div>
+      </div>
+      <div class="batch-banner__sub">
+        استُهلك {{ production.quantite_consommee_kg|floatformat:2 }} كغ من أصل
+        {{ production.quantite_produite_kg|floatformat:2 }} كغ
+        ({{ production.taux_consommation_pct|floatformat:1 }}%) —
+        المتبقي {{ production.quantite_restante_kg|floatformat:2 }} كغ
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats cards -->
+  <div class="row g-3 mb-3">
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-amber"><i class="bx bxs-cylinder"></i></div>
+        <div class="metric-label">الكمية المصنّعة</div>
+        <div class="metric-value" style="font-size:20px;">{{ production.quantite_produite_kg|floatformat:2 }}</div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> كغ</span>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-blue"><i class="bx bxs-droplet"></i></div>
+        <div class="metric-label">المستهلك حتى الآن</div>
+        <div class="metric-value" style="font-size:20px;">{{ production.quantite_consommee_kg|floatformat:2 }}</div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> {{ production.taux_consommation_pct|floatformat:1 }}%</span>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-green"><i class="bx bx-package"></i></div>
+        <div class="metric-label">المتبقي من الدفعة</div>
+        <div class="metric-value" style="font-size:20px;">{{ production.quantite_restante_kg|floatformat:2 }}</div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> كغ</span>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-orange"><i class="bx bxs-wallet"></i></div>
+        <div class="metric-label">حالة أجرة التصنيع</div>
+        <div class="metric-value" style="font-size:20px;">
+          {% if production.est_paye %}مدفوعة{% elif production.necessite_paiement %}غير مدفوعة{% else %}—{% endif %}
+        </div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i>
+          {% if production.formule_id %}عبر تركيبة{% else %}لا تحتاج (تزويد مباشر){% endif %}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cost breakdown -->
+  <div class="card mb-3">
+    <div class="card__header">
+      <i class="bx bxs-wallet"></i> تفصيل التكلفة
+    </div>
+    <div class="cost-grid">
+      <div class="cost-item">
+        <div class="cost-item__label">سعر الوحدة المباشر</div>
+        <div class="cost-item__value">
+          {% if production.prix_unitaire %}{{ production.prix_unitaire|floatformat:2 }} د.ج/كغ{% else %}— (عبر تركيبة){% endif %}
+        </div>
+      </div>
+      <div class="cost-item">
+        <div class="cost-item__label">أجرة التصنيع للكيلوغرام</div>
+        <div class="cost-item__value">
+          {% if production.prix_facon_unitaire %}{{ production.prix_facon_unitaire|floatformat:2 }} د.ج/كغ{% else %}لم تُدفع بعد{% endif %}
+        </div>
+      </div>
+      <div class="cost-item">
+        <div class="cost-item__label">إجمالي أجرة التصنيع للدفعة</div>
+        <div class="cost-item__value">{{ production.cout_facon_total|floatformat:2 }} د.ج</div>
+      </div>
+      <div class="cost-item">
+        <div class="cost-item__label">أجرة محمّلة تراكمياً (على استهلاك فعلي)</div>
+        <div class="cost-item__value accent">{{ production.cout_facon_impute|floatformat:2 }} د.ج</div>
+      </div>
+      <div class="cost-item">
+        <div class="cost-item__label">أجرة متبقية (تُحمَّل تدريجياً لاحقاً)</div>
+        <div class="cost-item__value">{{ production.cout_facon_restant|floatformat:2 }} د.ج</div>
+      </div>
+      {% if production.depense_paiement_id %}
+      <div class="cost-item">
+        <div class="cost-item__label">مصروف الدفع المرتبط</div>
+        <div class="cost-item__value">
+          <a href="{% url 'depenses:depense_edit' production.depense_paiement_id %}">#{{ production.depense_paiement_id }} — {{ production.depense_paiement.montant|floatformat:2 }} د.ج</a>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    <div class="cost-note">
+      <i class="bx bxs-info-circle"></i>
+      أجرة التصنيع تُحمَّل تدريجياً كتكلفة على دفعات التربية بنسبة ما تستهلكه فعلياً
+      من هذه الدفعة (وليس دفعة واحدة عند الدفع) — انظر جدول الاستهلاك أدناه.
+    </div>
+  </div>
+
+  {% if ingredients %}
+  <!-- Formule ingredients -->
+  <div class="card mb-3">
+    <div class="card__header">
+      <i class="bx bx-dna"></i> مكوّنات التركيبة « {{ production.formule.nom }} »
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>المكوّن</th>
+            <th style="text-align:right;">النسبة (كغ / 100كغ)</th>
+            <th style="text-align:right;">الكمية المستعملة في هذه الدفعة</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ligne in ingredients %}
+          <tr>
+            <td style="font-weight:600;color:var(--text-primary);">{{ ligne.intrant.designation }}</td>
+            <td style="text-align:right;">{{ ligne.proportion_kg|floatformat:3 }}</td>
+            <td style="text-align:right;color:var(--text-muted);">
+              {{ ligne.proportion_kg|floatformat:3 }} × {{ production.quantite_produite_kg|floatformat:2 }} ÷ 100
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Consumption trail -->
+  <div class="card">
+    <div class="card__header">
+      <i class="bx bx-history"></i> سجلّ الاستهلاك من هذه الدفعة
+    </div>
+    {% if allocations %}
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>التاريخ</th>
+            <th>الدفعة (التربية)</th>
+            <th style="text-align:right;">الكمية المأخوذة (كغ)</th>
+            <th style="text-align:right;">حصة أجرة التصنيع</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for alloc in allocations %}
+          <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+            <td style="white-space:nowrap;">{{ alloc.consommation.date|date:"d/m/Y" }}</td>
+            <td>
+              <a href="{% url 'elevage:lot_detail' alloc.consommation.lot_id %}">{{ alloc.consommation.lot.designation }}</a>
+            </td>
+            <td style="text-align:right;font-weight:600;">{{ alloc.quantite_kg|floatformat:3 }}</td>
+            <td style="text-align:right;color:var(--text-muted);">
+              {% if alloc.cout_facon_alloue %}{{ alloc.cout_facon_alloue|floatformat:2 }} د.ج{% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:40px 20px;color:var(--text-muted);">
+      <i class="bx bx-history" style="font-size:30px;display:block;margin-bottom:10px;color:var(--border-strong);"></i>
+      لم تُستهلك أي كمية من هذه الدفعة بعد.
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+
+  .pill-success { display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;background:rgba(34,197,94,.1);color:var(--accent-text);font-size:11px;font-weight:600; }
+  .pill-warning { display:inline-flex;padding:3px 10px;border-radius:999px;background:rgba(234,88,12,.1);color:#ea580c;font-size:11px;font-weight:600; }
+
+  .batch-banner { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 22px;display:flex;gap:16px;align-items:flex-start; }
+  .batch-banner__icon { width:42px;height:42px;border-radius:var(--radius-sm);background:rgba(180,131,9,.1);color:#b45309;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0; }
+  .batch-banner__body { flex:1; }
+  .batch-banner__row { display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px; }
+  .batch-banner__title { font-family:'Nunito',sans-serif;font-weight:800;font-size:15.5px;color:var(--text-primary); }
+  .batch-banner__bar { width:100%;height:8px;border-radius:999px;background:var(--bg-hover);overflow:hidden; }
+  .batch-banner__fill { height:100%;background:var(--accent);border-radius:999px;transition:width .2s ease; }
+  .batch-banner__sub { font-size:12.5px;color:var(--text-muted);margin-top:8px; }
+
+  .metric-card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;height:100%; }
+  .metric-icon { width:36px;height:36px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:17px;margin-bottom:10px; }
+  .ic-amber { background:rgba(180,131,9,.1);color:#b45309; }
+  .ic-blue { background:rgba(59,130,246,.1);color:#3b82f6; }
+  .ic-green { background:rgba(34,197,94,.1);color:var(--accent-text); }
+  .ic-orange { background:rgba(234,88,12,.1);color:#ea580c; }
+  .metric-label { font-size:12px;color:var(--text-muted);margin-bottom:4px; }
+  .metric-value { font-family:'Nunito',sans-serif;font-weight:800;color:var(--text-primary); }
+  .metric-delta { font-size:11.5px;color:var(--text-muted);display:inline-flex;align-items:center;gap:4px;margin-top:6px; }
+
+  .card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden; }
+  .card__header { display:flex;align-items:center;gap:8px;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;color:var(--text-primary);padding:14px 18px;border-bottom:1px solid var(--border); }
+
+  .cost-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0; }
+  .cost-item { padding:14px 18px;border-bottom:1px solid var(--border);border-inline-end:1px solid var(--border); }
+  .cost-item__label { font-size:11.5px;color:var(--text-muted);margin-bottom:5px; }
+  .cost-item__value { font-family:'Nunito',sans-serif;font-weight:700;font-size:14px;color:var(--text-primary); }
+  .cost-item__value.accent { color:var(--accent-text); }
+  .cost-item__value a { color:var(--accent-text);text-decoration:none; }
+  .cost-note { display:flex;align-items:flex-start;gap:10px;background:rgba(59,130,246,.06);padding:12px 18px;font-size:12px;line-height:1.6;color:var(--text-secondary); }
+  .cost-note i { color:#3b82f6;font-size:15px;flex-shrink:0;margin-top:1px; }
+
+  .table-wrapper { overflow-x:auto; }
+  .data-table { width:100%;border-collapse:collapse; }
+  .data-table thead th { font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--bg-surface); }
+  .data-table tbody tr { border-bottom:1px solid var(--border);animation:fadeIn .3s ease both;animation-delay:calc(var(--row-i, 0) * 12ms); }
+  .data-table tbody tr:last-child { border-bottom:none; }
+  .data-table tbody tr:hover { background:var(--bg-hover); }
+  .data-table td { padding:10px 12px;font-size:13px;color:var(--text-secondary);vertical-align:middle; }
+  .data-table td a { color:var(--accent-text);text-decoration:none;font-weight:600; }
+</style>
+{% endblock %}

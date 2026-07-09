@@ -2310,6 +2310,52 @@ def production_aliment_create(request):
 
 
 @login_required(login_url=LOGIN_URL)
+def production_aliment_detail(request, pk):
+    """
+    Batch costing detail (BR-request): full picture of ONE ProductionAliment
+    batch — how much of it is left, its façon (mill labor) cost envelope
+    and how much of that has been recognized so far, and the complete
+    consumption trail (which lot drew how much, when, and at what façon
+    cost) via ConsommationAlimentAllocation.
+    """
+    production = get_object_or_404(
+        ProductionAliment.objects.select_related(
+            "intrant_produit", "formule", "branche", "depense_paiement"
+        ),
+        pk=pk,
+    )
+    # ProductionAliment carries its own `branche` FK directly (it isn't
+    # scoped to a single lot), so it can be passed straight to the same
+    # helper used for LotElevage-rooted records — branche_matches() only
+    # needs an object with a `.branche` attribute.
+    _ensure_branche_access(request, production)
+
+    allocations = (
+        production.allocations_consommees.select_related(
+            "consommation", "consommation__lot"
+        )
+        .order_by("-consommation__date", "-created_at")
+    )
+
+    ingredients = (
+        production.formule.lignes.select_related("intrant").all()
+        if production.formule_id
+        else []
+    )
+
+    return render(
+        request,
+        "elevage/production_aliment_detail.html",
+        {
+            "production": production,
+            "allocations": allocations,
+            "ingredients": ingredients,
+            "title": f"تفاصيل الدفعة — {production.intrant_produit.designation}",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
 def production_aliment_list(request):
     """
     Cross list of feed replenishment/production records (direct entry or
@@ -2355,6 +2401,15 @@ def production_aliment_list(request):
     elif statut_paiement == "paye":
         qs = qs.filter(depense_paiement__isnull=False)
 
+    # Batch costing (BR-request): filter by whether a batch's tracked stock
+    # is still open (quantite_restante_kg > 0) or fully consumed — lets an
+    # operator find, e.g., every batch still being drawn from.
+    statut_lot = request.GET.get("lot_stock", "")
+    if statut_lot == "ouvert":
+        qs = qs.filter(quantite_restante_kg__gt=0)
+    elif statut_lot == "epuise":
+        qs = qs.filter(quantite_restante_kg__lte=0)
+
     page = _paginate(qs, request.GET.get("page"))
 
     en_attente_qs = ProductionAliment.objects.filter(
@@ -2379,6 +2434,7 @@ def production_aliment_list(request):
             "intrant_pk": intrant_pk,
             "formule_pk": formule_pk,
             "statut_paiement": statut_paiement,
+            "statut_lot": statut_lot,
             "date_debut": date_debut,
             "date_fin": date_fin,
             "intrants": intrants,
