@@ -554,6 +554,40 @@ class Consommation(models.Model):
         validators=[MinValueValidator(0.001)],
     )
     notes = models.TextField(verbose_name="ملاحظات", blank=True)
+
+    # Costing / payment tracking (médicament/vaccin only — BR-request).
+    # Feed (ALIMENT) consumption never sets these; ConsommationForm doesn't
+    # expose the field, so it stays at 0 there. Mirrors the ProductionAliment
+    # prix_unitaire pattern: entered directly → auto-Depense at creation
+    # (see views._auto_creer_depense_consommation_medicament); left at 0 →
+    # stays unpaid until batched into ONE team/vet Depense (see
+    # views.consommation_medicament_paiement_create), same as a
+    # formule-based ProductionAliment awaiting its labor-cost payment.
+    prix_unitaire = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        default=Decimal("0"),
+        verbose_name="سعر الوحدة (اختياري)",
+        validators=[MinValueValidator(0)],
+        help_text=(
+            "سعر الوحدة الواحدة من الدواء/اللقاح — اختياري. أدخله هنا عند "
+            "معرفة السعر فوراً (يُنشئ مصروفاً تلقائياً). اتركه 0 لتجميع "
+            "هذا الاستهلاك لاحقاً ضمن دفعة أجرة طبيب/فريق بيطري واحدة "
+            "(انظر: استهلاكات الأدوية ← دفع أجرة)."
+        ),
+    )
+    depense_paiement = models.ForeignKey(
+        "depenses.Depense",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="consommations_medicament_payees",
+        verbose_name="مصروف دفع أجرة الطبيب/الفريق المرتبط",
+        help_text=(
+            "يُملأ تلقائياً عند تجميع هذا الاستهلاك ضمن دفعة أجرة "
+            "طبيب/فريق بيطري (انظر: دفع أجرة الأدوية)."
+        ),
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -586,6 +620,39 @@ class Consommation(models.Model):
     def branche(self):
         """v1.4 — inherited from the parent lot (BR-BRA-01), not stored."""
         return self.lot.branche if self.lot_id else None
+
+    @property
+    def est_medicament(self):
+        """True for médicament/vaccin/vitamine/… consumption (anything not
+        ALIMENT) — the only kind that ever carries a costing/payment."""
+        return bool(self.intrant_id) and self.intrant.categorie.code != "ALIMENT"
+
+    @property
+    def montant_total(self):
+        """Cost of this consumption, when a unit price was entered directly
+        (0 when prix_unitaire is 0 — e.g. médicament entries awaiting a
+        batched team/vet payment instead, see signals/views)."""
+        return self.quantite * self.prix_unitaire
+
+    @property
+    def est_paye(self):
+        """True once this médicament consumption's cost has been batched
+        into a Depense — see depense_paiement /
+        consommation_medicament_paiement_create."""
+        return self.depense_paiement_id is not None
+
+    @property
+    def necessite_paiement(self):
+        """True for médicament/vaccin consumptions still awaiting a
+        team/vet Depense (priced-at-entry consumptions are auto-expensed
+        at creation instead — see
+        views._auto_creer_depense_consommation_medicament). Feed (ALIMENT)
+        consumption never needs this."""
+        return (
+            self.est_medicament
+            and not self.prix_unitaire
+            and self.depense_paiement_id is None
+        )
 
 
 class TransfertLot(models.Model):

@@ -94,6 +94,17 @@ urlpatterns = [
         views.consommation_delete,
         name="consommation_delete",
     ),
+    # ── Consommation (médicament) — liste + dépense groupée ─────────────
+    path(
+        "consommations-medicaments/",
+        views.consommation_medicament_list,
+        name="consommation_medicament_list",
+    ),
+    path(
+        "consommations-medicaments/paiement/creer/",
+        views.consommation_medicament_paiement_create,
+        name="consommation_medicament_paiement_create",
+    ),
     # ── TransfertLot ─────────────────────────────────────────────────────
     path(
         "lots/<int:lot_pk>/transferer/",

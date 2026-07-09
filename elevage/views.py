@@ -44,6 +44,7 @@ from core.views import (
 from elevage.forms import (
     ConsommationForm,
     ConsommationMedicamentForm,
+    ConsommationMedicamentPaiementForm,
     FormuleAlimentForm,
     FormuleAlimentLigneFormSet,
     LotElevageForm,
@@ -192,6 +193,50 @@ def _auto_creer_depense_production_aliment(production, user):
         montant=production.montant_total,
         mode_paiement=Depense.MODE_ESPECES,
         notes=production.notes,
+        enregistre_par=user,
+    )
+
+
+def _auto_creer_depense_consommation_medicament(conso, user):
+    """
+    Auto-create a Depense for a médicament/vaccin Consommation entered with
+    a known unit price — the operator is recording an actual cash/bank
+    outlay ("we just used X units at Y DZD/unit"), so it should also land
+    in the dépenses ledger without a second manual entry.
+
+    Skipped when prix_unitaire is 0 (no known cost yet — the record stays
+    `necessite_paiement` and awaits a later batched team/vet payment via
+    consommation_medicament_paiement_create), or for feed (ALIMENT)
+    consumption which never carries a cost. Mirrors
+    _auto_creer_depense_production_aliment exactly.
+    """
+    from depenses.models import CategorieDepense, Depense
+
+    if not conso.est_medicament or not conso.prix_unitaire or conso.prix_unitaire <= 0:
+        return None
+
+    categorie, _ = CategorieDepense.objects.get_or_create(
+        code="ACHAT_MEDICAMENT",
+        defaults={
+            "libelle": "شراء أدوية/لقاحات",
+            "description": "مصاريف استهلاك أدوية/لقاحات مُسعّرة مباشرة عند التسجيل.",
+            "actif": True,
+        },
+    )
+
+    return Depense.objects.create(
+        date=conso.date,
+        branche=conso.branche,
+        lot=conso.lot,
+        categorie=categorie,
+        description=(
+            f"استهلاك دواء — {conso.intrant.designation} "
+            f"({conso.quantite} {conso.intrant.unite_mesure}) — دفعة "
+            f"{conso.lot.designation}"
+        ),
+        montant=conso.montant_total,
+        mode_paiement=Depense.MODE_ESPECES,
+        notes=conso.notes,
         enregistre_par=user,
     )
 
@@ -834,19 +879,46 @@ def _consommation_create(request, lot_pk, form_class, template, kind_label):
                     conso.created_by = request.user
                     conso.save()  # triggers signal → stock decrease + mouvement
 
-                messages.success(
-                    request,
-                    f"تم تسجيل الاستهلاك: {conso.quantite} {intrant.unite_mesure} من « {intrant.designation} » بتاريخ {conso.date}.",
-                )
+                    # BR-request: médicament/vaccin consumptions priced
+                    # directly at entry get their cost auto-expensed right
+                    # away; left at 0, they stay `necessite_paiement` and
+                    # wait for a later batched team/vet payment instead
+                    # (see consommation_medicament_list/paiement_create).
+                    depense = None
+                    if conso.est_medicament:
+                        depense = _auto_creer_depense_consommation_medicament(
+                            conso, request.user
+                        )
+
+                if depense is not None:
+                    messages.success(
+                        request,
+                        f"تم تسجيل الاستهلاك: {conso.quantite} {intrant.unite_mesure} "
+                        f"من « {intrant.designation} » بتاريخ {conso.date} وإنشاء "
+                        f"مصروف تلقائي بمبلغ {depense.montant} د.ج.",
+                    )
+                elif conso.est_medicament:
+                    messages.success(
+                        request,
+                        f"تم تسجيل الاستهلاك: {conso.quantite} {intrant.unite_mesure} "
+                        f"من « {intrant.designation} » بتاريخ {conso.date}. لا تنسَ "
+                        f"دفع أجرة الطبيب/الفريق من «استهلاكات الأدوية» عند الحاجة.",
+                    )
+                else:
+                    messages.success(
+                        request,
+                        f"تم تسجيل الاستهلاك: {conso.quantite} {intrant.unite_mesure} من « {intrant.designation} » بتاريخ {conso.date}.",
+                    )
                 logger.info(
                     "Consommation pk=%s created (lot pk=%s, intrant pk=%s, "
-                    "quantite=%s, date=%s) by '%s'.",
+                    "quantite=%s, date=%s) by '%s' — depense_auto=%s.",
                     conso.pk,
                     lot.pk,
                     intrant.pk,
                     conso.quantite,
                     conso.date,
                     request.user,
+                    depense.pk if depense is not None else None,
                 )
                 return redirect("elevage:lot_detail", pk=lot.pk)
 
@@ -1175,6 +1247,249 @@ def consommation_list(request):
             "total_par_intrant": total_par_intrant,
             "active_branche": branche,
             "title": "الاستهلاكات",
+        },
+    )
+
+
+# ===========================================================================
+# Consommation (médicament) — List + batched team/vet payment
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def consommation_medicament_list(request):
+    """
+    Cross-lot listing of médicament/vaccin Consommation records — its own
+    separate view from the generic consommation_list (BR-request), mirroring
+    production_aliment_list exactly. This is where consumptions left unpriced
+    at entry (necessite_paiement) get selected and batched into ONE
+    team/vet Depense; see consommation_medicament_paiement_create.
+
+    Filters:
+      ?intrant=<pk>       — médicament/vaccin
+      ?lot=<pk>
+      ?paiement=impaye|paye
+      ?date_debut, ?date_fin
+    """
+    from intrants.models import Intrant
+
+    branche = get_active_branche(request)
+
+    qs = Consommation.objects.select_related(
+        "lot", "intrant", "intrant__categorie", "depense_paiement"
+    ).exclude(intrant__categorie__code="ALIMENT").order_by("-date", "-created_at")
+    if branche is not None:
+        qs = qs.filter(lot__branche=branche)
+
+    intrant_pk = request.GET.get("intrant", "")
+    if intrant_pk:
+        qs = qs.filter(intrant_id=intrant_pk)
+
+    lot_pk = request.GET.get("lot", "")
+    if lot_pk:
+        qs = qs.filter(lot_id=lot_pk)
+
+    date_debut = request.GET.get("date_debut", "")
+    date_fin = request.GET.get("date_fin", "")
+    if date_debut:
+        qs = qs.filter(date__gte=date_debut)
+    if date_fin:
+        qs = qs.filter(date__lte=date_fin)
+
+    statut_paiement = request.GET.get("paiement", "")
+    if statut_paiement == "impaye":
+        qs = qs.filter(prix_unitaire=0, depense_paiement__isnull=True)
+    elif statut_paiement == "paye":
+        qs = qs.filter(Q(depense_paiement__isnull=False) | Q(prix_unitaire__gt=0))
+
+    page = _paginate(qs, request.GET.get("page"))
+
+    en_attente_qs = Consommation.objects.exclude(
+        intrant__categorie__code="ALIMENT"
+    ).filter(prix_unitaire=0, depense_paiement__isnull=True)
+    if branche is not None:
+        en_attente_qs = en_attente_qs.filter(lot__branche=branche)
+    total_qte_impaye = (
+        en_attente_qs.aggregate(total=Sum("quantite"))["total"] or 0
+    )
+
+    intrants = (
+        Intrant.objects.filter(categorie__consommable_en_lot=True, actif=True)
+        .exclude(categorie__code="ALIMENT")
+        .order_by("designation")
+    )
+    lots = LotElevage.objects.all()
+    if branche is not None:
+        lots = lots.filter(branche=branche)
+    lots = lots.order_by("-date_ouverture")
+
+    return render(
+        request,
+        "elevage/consommation_medicament_list.html",
+        {
+            "page": page,
+            "intrant_pk": intrant_pk,
+            "lot_pk": lot_pk,
+            "statut_paiement": statut_paiement,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+            "intrants": intrants,
+            "lots": lots,
+            "nb_impaye": en_attente_qs.count(),
+            "total_qte_impaye": total_qte_impaye,
+            "active_branche": branche,
+            "title": "استهلاكات الأدوية واللقاحات",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+@require_branche_context
+def consommation_medicament_paiement_create(request):
+    """
+    Consolidate one or more unpriced médicament/vaccin Consommation records
+    into ONE Depense paying the veterinarian/team's fee: a single
+    prix_unitaire × Σ quantite of everything selected. Exact mirror of
+    production_aliment_paiement_create.
+
+    GET  ?ids=<pk>&ids=<pk>…    — review screen (from
+                                  consommation_medicament_list checkboxes),
+                                  prix_unitaire not decided yet.
+    POST consommation_ids=<pk>… — final submission: creates the Depense and
+                                  marks every selected record paid via
+                                  depense_paiement (so it drops out of the
+                                  next batch — BR: never pay the same
+                                  consumption twice).
+    """
+    from depenses.models import CategorieDepense, Depense
+
+    branche = get_active_branche(request)
+
+    base_qs = Consommation.objects.exclude(
+        intrant__categorie__code="ALIMENT"
+    ).filter(prix_unitaire=0, depense_paiement__isnull=True).select_related(
+        "lot", "intrant"
+    )
+    if branche is not None:
+        base_qs = base_qs.filter(lot__branche=branche)
+
+    if request.method == "POST":
+        ids = request.POST.getlist("consommation_ids")
+        consommations = list(base_qs.filter(pk__in=ids))
+        if not consommations:
+            messages.error(
+                request,
+                "لم يتم العثور على استهلاكات صالحة للدفع ضمن الاختيار "
+                "(ربما تم دفعها من قبل). يرجى إعادة الاختيار.",
+            )
+            return redirect("elevage:consommation_medicament_list")
+
+        branches_selectionnees = {c.lot.branche_id for c in consommations}
+        if len(branches_selectionnees) > 1:
+            messages.error(
+                request,
+                "لا يمكن تجميع استهلاكات من فروع مختلفة ضمن مصروف دفع واحد. "
+                "يرجى اختيار استهلاكات من نفس الفرع.",
+            )
+            return redirect("elevage:consommation_medicament_list")
+
+        form = ConsommationMedicamentPaiementForm(request.POST)
+        if form.is_valid():
+            total_qte = sum((c.quantite for c in consommations), Decimal("0"))
+            prix_unitaire = form.cleaned_data["prix_unitaire"]
+            montant = (total_qte * prix_unitaire).quantize(Decimal("0.01"))
+
+            categorie, _ = CategorieDepense.objects.get_or_create(
+                code="MAIN_OEUVRE_MEDICAMENT",
+                defaults={
+                    "libelle": "أجرة الطبيب/الفريق البيطري",
+                    "description": (
+                        "أجرة الطبيب/الفريق البيطري عن استهلاكات أدوية/لقاحات."
+                    ),
+                    "actif": True,
+                },
+            )
+            # BR-request: vaccination/médicament names travel from the
+            # selected records into the Depense description, prepopulating
+            # a sensible default (same as production_aliment_paiement's
+            # `noms`) that stays free-text and fully editable via `notes`.
+            noms = "، ".join(
+                sorted({c.intrant.designation for c in consommations})
+            )
+
+            # BR-request: when every selected consumption belongs to the
+            # same lot, attribute the Depense to it directly so it feeds
+            # that lot's cout_total_depenses / marge_brute (lot_detail)
+            # without a manual edit. A batch spanning several lots is left
+            # unattributed (BR-DEP-04 is optional) — the user can still
+            # assign one lot manually from the Depense edit screen.
+            lots_selectionnes = {c.lot_id for c in consommations}
+            lot_unique = consommations[0].lot if len(lots_selectionnes) == 1 else None
+
+            try:
+                with transaction.atomic():
+                    depense = Depense.objects.create(
+                        date=form.cleaned_data["date"],
+                        branche=branche or consommations[0].lot.branche,
+                        lot=lot_unique,
+                        categorie=categorie,
+                        description=(
+                            f"دفع أجرة طبيب/فريق — {noms} "
+                            f"({total_qte} عبر {len(consommations)} استهلاك)"
+                        ),
+                        montant=montant,
+                        mode_paiement=form.cleaned_data["mode_paiement"],
+                        notes=form.cleaned_data.get("notes", ""),
+                        enregistre_par=request.user,
+                    )
+                    Consommation.objects.filter(
+                        pk__in=[c.pk for c in consommations]
+                    ).update(depense_paiement=depense)
+
+                messages.success(
+                    request,
+                    f"تم إنشاء مصروف بمبلغ {montant} د.ج لدفع {total_qte} "
+                    f"عبر {len(consommations)} استهلاك.",
+                )
+                logger.info(
+                    "Depense pk=%s created for %s Consommation(médicament) "
+                    "payment (total_qte=%s, prix_unitaire=%s) by '%s'.",
+                    depense.pk,
+                    len(consommations),
+                    total_qte,
+                    prix_unitaire,
+                    request.user,
+                )
+                # Same UX as production_aliment: land on the expense's edit
+                # form directly, to attach a supporting document right away.
+                return redirect("depenses:depense_edit", pk=depense.pk)
+            except Exception as exc:
+                logger.exception(
+                    "Error creating paiement consommation medicament: %s", exc
+                )
+                messages.error(request, f"خطأ أثناء التسجيل: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        ids = request.GET.getlist("ids")
+        consommations = list(base_qs.filter(pk__in=ids)) if ids else []
+        if not consommations:
+            messages.error(
+                request, "يرجى اختيار استهلاك واحد على الأقل قبل المتابعة."
+            )
+            return redirect("elevage:consommation_medicament_list")
+        form = ConsommationMedicamentPaiementForm()
+
+    total_qte = sum((c.quantite for c in consommations), Decimal("0"))
+
+    return render(
+        request,
+        "elevage/consommation_medicament_paiement_form.html",
+        {
+            "form": form,
+            "consommations": consommations,
+            "total_qte": total_qte,
+            "title": "دفع أجرة الطبيب/الفريق البيطري",
         },
     )
 

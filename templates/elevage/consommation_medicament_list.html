@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
+{% block nav_consommation_medicament %}active{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}استهلاك أدوية/لقاحات — مُسعّر مباشرة أو بانتظار دفع أجرة الطبيب/الفريق{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'elevage:dashboard' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> رجوع
+  </a>
+  <a href="{% url 'elevage:consommation_list' %}" class="btn-ghost">
+    <i class="bx bx-cylinder"></i> كل الاستهلاكات
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+
+  {% if nb_impaye %}
+  <div class="paiement-banner mb-3">
+    <div class="paiement-banner__icon"><i class="bx bxs-flask"></i></div>
+    <div class="paiement-banner__text">
+      <div class="paiement-banner__title">{{ nb_impaye }} استهلاك دواء/لقاح بانتظار دفع أجرة الطبيب/الفريق</div>
+      <div class="paiement-banner__sub">إجمالي الكمية غير المدفوعة: {{ total_qte_impaye|floatformat:2 }}. حدّد الاستهلاكات أدناه من عمود «✓» ثم اضغط «دفع أجرة الطبيب/الفريق».</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Filters -->
+  <div class="card mb-3">
+    <form method="get" class="filter-form">
+      <div class="filter-field">
+        <label>الدواء/اللقاح</label>
+        <select name="intrant" onchange="this.form.submit()">
+          <option value="">الكل</option>
+          {% for i in intrants %}
+          <option value="{{ i.pk }}" {% if intrant_pk == i.pk|stringformat:"s" %}selected{% endif %}>{{ i.designation }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-field">
+        <label>الدفعة</label>
+        <select name="lot" onchange="this.form.submit()">
+          <option value="">الكل</option>
+          {% for l in lots %}
+          <option value="{{ l.pk }}" {% if lot_pk == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.designation }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-field">
+        <label>حالة الدفع</label>
+        <select name="paiement" onchange="this.form.submit()">
+          <option value="">الكل</option>
+          <option value="impaye" {% if statut_paiement == "impaye" %}selected{% endif %}>بانتظار الدفع</option>
+          <option value="paye" {% if statut_paiement == "paye" %}selected{% endif %}>مدفوعة</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label>من تاريخ</label>
+        <input type="date" name="date_debut" value="{{ date_debut }}" onchange="this.form.submit()">
+      </div>
+      <div class="filter-field">
+        <label>إلى تاريخ</label>
+        <input type="date" name="date_fin" value="{{ date_fin }}" onchange="this.form.submit()">
+      </div>
+      {% if intrant_pk or lot_pk or statut_paiement or date_debut or date_fin %}
+      <a href="{% url 'elevage:consommation_medicament_list' %}" class="btn-ghost" style="align-self:flex-end;">إلغاء الفلترة</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <form method="get" action="{% url 'elevage:consommation_medicament_paiement_create' %}" id="paiement-form">
+    <div class="card">
+      {% if page.object_list %}
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:34px;"></th>
+              <th>التاريخ</th>
+              <th>الدفعة</th>
+              <th>الدواء/اللقاح</th>
+              <th style="text-align:right;">الكمية</th>
+              <th style="text-align:right;">سعر الوحدة</th>
+              <th style="text-align:right;">التكلفة/القيمة</th>
+              <th>حالة الدفع</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in page.object_list %}
+            <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+              <td>
+                {% if c.necessite_paiement %}
+                <input type="checkbox" name="ids" value="{{ c.pk }}" class="ligne-check" data-qte="{{ c.quantite }}">
+                {% endif %}
+              </td>
+              <td style="white-space:nowrap;">{{ c.date|date:"d/m/Y" }}</td>
+              <td style="color:var(--text-muted);">{{ c.lot.designation }}</td>
+              <td style="font-weight:600;color:var(--text-primary);">{{ c.intrant.designation }}</td>
+              <td style="text-align:right;font-weight:600;">{{ c.quantite|floatformat:2 }} {{ c.intrant.unite_mesure }}</td>
+              <td style="text-align:right;color:var(--text-muted);">{% if c.prix_unitaire %}{{ c.prix_unitaire|floatformat:2 }}{% else %}—{% endif %}</td>
+              <td style="text-align:right;color:var(--text-muted);">{% if c.montant_total %}{{ c.montant_total|floatformat:2 }}{% else %}—{% endif %}</td>
+              <td>
+                {% if c.prix_unitaire %}
+                <span class="pill-muted">مُسعّر مباشرة — لا يحتاج</span>
+                {% elif c.est_paye %}
+                <span class="pill-success"><i class="bx bx-check"></i> مدفوعة</span>
+                {% else %}
+                <span class="pill-warning">بانتظار الدفع</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if page.has_other_pages %}
+      <div class="pagination-bar">
+        {% if page.has_previous %}
+        <a href="?page={{ page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
+        {% endif %}
+        <span class="page-info">صفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}
+        <a href="?page={{ page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% else %}
+      <div style="text-align:center;padding:52px 20px;color:var(--text-muted);">
+        <i class="bx bxs-flask" style="font-size:34px;display:block;margin-bottom:12px;color:var(--border-strong);"></i>
+        <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">
+          لا توجد استهلاكات أدوية/لقاحات بعد
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Sticky selection bar -->
+    <div class="selection-bar" id="selection-bar">
+      <div><strong id="sel-count">0</strong> استهلاك محدّد — إجمالي <strong id="sel-qte">0</strong></div>
+      <button type="submit" class="btn-primary" id="sel-submit" disabled>
+        <i class="bx bxs-wallet"></i> دفع أجرة الطبيب/الفريق
+      </button>
+    </div>
+  </form>
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden; }
+  .table-wrapper { overflow-x:auto; }
+  .data-table { width:100%;border-collapse:collapse; }
+  .data-table thead th { font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--bg-surface); }
+  .data-table tbody tr { border-bottom:1px solid var(--border);animation:fadeIn .3s ease both;animation-delay:calc(var(--row-i, 0) * 12ms);transition:background .12s; }
+  .data-table tbody tr:last-child { border-bottom:none; }
+  .data-table tbody tr:hover { background:var(--bg-hover); }
+  .data-table td { padding:11px 12px;font-size:13px;color:var(--text-secondary);vertical-align:middle; }
+  .ligne-check { width:16px;height:16px;accent-color:var(--accent);cursor:pointer; }
+
+  .pill-success { display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;background:rgba(34,197,94,.1);color:var(--accent-text);font-size:11px;font-weight:600; }
+  .pill-warning { display:inline-flex;padding:3px 10px;border-radius:999px;background:rgba(234,88,12,.1);color:#ea580c;font-size:11px;font-weight:600; }
+  .pill-muted { display:inline-flex;padding:3px 10px;border-radius:999px;background:var(--bg-hover);color:var(--text-muted);font-size:11px;font-weight:600; }
+
+  .pagination-bar { display:flex;align-items:center;gap:8px;justify-content:center;padding:14px 18px;border-top:1px solid var(--border); }
+  .page-btn { display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-surface);color:var(--text-secondary);font-size:16px;text-decoration:none; }
+  .page-btn:hover { background:var(--bg-hover); }
+  .page-info { font-size:12px;color:var(--text-muted); }
+
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-primary:disabled { opacity:.45;cursor:not-allowed; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+
+  .filter-form { display:flex;gap:14px;flex-wrap:wrap;padding:14px 18px;align-items:flex-end; }
+  .filter-field { display:flex;flex-direction:column;gap:4px; }
+  .filter-field label { font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted); }
+  .filter-field select, .filter-field input { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13px;padding:8px 10px; }
+
+  .paiement-banner { display:flex;align-items:center;gap:14px;background:rgba(234,88,12,.07);border:1px solid rgba(234,88,12,.2);border-radius:var(--radius-lg);padding:14px 18px; }
+  .paiement-banner__icon { width:40px;height:40px;border-radius:var(--radius-sm);background:rgba(234,88,12,.12);color:#ea580c;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0; }
+  .paiement-banner__title { font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;color:var(--text-primary); }
+  .paiement-banner__sub { font-size:12px;color:var(--text-muted);margin-top:2px; }
+
+  .selection-bar { position:sticky;bottom:16px;margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:14px;background:var(--bg-surface);border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,.12);border-radius:var(--radius-lg);padding:12px 18px;font-size:13px;color:var(--text-secondary); }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var checks = document.querySelectorAll('.ligne-check');
+  var countEl = document.getElementById('sel-count');
+  var qteEl = document.getElementById('sel-qte');
+  var submitBtn = document.getElementById('sel-submit');
+
+  function update() {
+    var count = 0, qte = 0;
+    checks.forEach(function (c) {
+      if (c.checked) { count += 1; qte += parseFloat(c.dataset.qte) || 0; }
+    });
+    countEl.textContent = count;
+    qteEl.textContent = qte.toFixed(2);
+    submitBtn.disabled = count === 0;
+  }
+
+  checks.forEach(function (c) { c.addEventListener('change', update); });
+  update();
+});
+</script>
+{% endblock %}

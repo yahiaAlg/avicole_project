@@ -309,7 +309,35 @@ class ConsommationMedicamentForm(_BaseConsommationForm):
     *except* ALIMENT (that's ConsommationForm's job), so this dropdown only
     ever shows non-feed consommables — a distinct section/form/template
     from feed consumption, per separation of concerns.
+
+    Costing (BR-request, mirrors ProductionAliment.prix_unitaire): this is
+    the only Consommation form exposing `prix_unitaire` — a straight
+    per-unit cost known at entry time (auto-expensed immediately, see
+    views._auto_creer_depense_consommation_medicament). Left at 0 (the
+    default), the record instead awaits a later consolidated team/vet
+    payment batched across several records — see
+    views.consommation_medicament_paiement_create.
     """
+
+    class Meta(_BaseConsommationForm.Meta):
+        fields = ["lot", "date", "intrant", "quantite", "prix_unitaire", "notes"]
+        widgets = {
+            **_BaseConsommationForm.Meta.widgets,
+            "prix_unitaire": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["prix_unitaire"].required = False
+        self.fields["prix_unitaire"].label = "سعر الوحدة — اختياري"
+        self.fields["prix_unitaire"].help_text = (
+            "أدخله عند معرفة السعر فوراً (يُنشئ مصروفاً تلقائياً). اتركه 0 "
+            "لدفع أجرة الطبيب/الفريق لاحقاً دفعة واحدة عن عدة استهلاكات "
+            "(انظر: استهلاكات الأدوية ← دفع أجرة)."
+        )
+
+    def clean_prix_unitaire(self):
+        return self.cleaned_data.get("prix_unitaire") or Decimal("0")
 
     def _intrant_base_queryset(self):
         return (
@@ -716,6 +744,52 @@ class ProductionAlimentPaiementForm(forms.Form):
         # min_value above (same pattern as ProductionAlimentForm.prix_unitaire).
         widget=forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
         help_text="أجرة تصنيع الكيلوغرام الواحد — يُضرب في إجمالي الكمية المختارة.",
+    )
+    mode_paiement = forms.ChoiceField(label="طريقة الدفع")
+    notes = forms.CharField(
+        label="ملاحظات",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 2}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from depenses.models import Depense
+
+        self.fields["mode_paiement"].choices = Depense.MODE_CHOICES
+        if not self.initial.get("date"):
+            self.fields["date"].initial = datetime.date.today()
+        if not self.initial.get("mode_paiement"):
+            self.fields["mode_paiement"].initial = Depense.MODE_ESPECES
+
+
+class ConsommationMedicamentPaiementForm(forms.Form):
+    """
+    Batch-pay the veterinarian/team for one or more Consommation (médicament)
+    records left unpriced at entry (see
+    views.consommation_medicament_paiement_create). Mirrors
+    ProductionAlimentPaiementForm exactly — same rationale.
+
+    Not a ModelForm: it doesn't edit a Consommation itself, it collects the
+    info needed to create ONE consolidated depenses.Depense — the actual
+    Consommation selection travels as hidden `consommation_ids` fields in
+    the template, validated/looked-up server-side in the view (never
+    trusted from cleaned_data here).
+    """
+
+    date = forms.DateField(
+        label="تاريخ الدفع",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    prix_unitaire = forms.DecimalField(
+        label="سعر الوحدة",
+        max_digits=12,
+        decimal_places=4,
+        min_value=Decimal("0.01"),
+        # NOTE: widget min is "0", NOT "0.01" — see identical rationale in
+        # ProductionAlimentPaiementForm.prix_unitaire.
+        widget=forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+        help_text="سعر الوحدة الواحدة — يُضرب في إجمالي الكمية المختارة.",
     )
     mode_paiement = forms.ChoiceField(label="طريقة الدفع")
     notes = forms.CharField(

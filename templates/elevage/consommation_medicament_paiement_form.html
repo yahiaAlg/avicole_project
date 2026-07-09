@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} — تربية الدواجن{% endblock %}
+{% block nav_consommation_medicament %}active{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub_text %}دفعة أجرة طبيب/فريق بيطري واحدة لكل الاستهلاكات المحدّدة أدناه{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'elevage:consommation_medicament_list' %}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> رجوع
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+  <div class="row justify-content-center">
+    <div class="col-xl-7 col-lg-9">
+
+      <div class="form-card">
+        <div class="form-card__header">
+          <div class="form-card__icon" style="background:rgba(220,38,38,.1);color:#dc2626;">
+            <i class="bx bxs-flask"></i>
+          </div>
+          <div>
+            <div class="form-card__title">{{ title }}</div>
+            <div class="form-card__sub">{{ consommations|length }} استهلاك محدّد — إجمالي الكمية {{ total_qte|floatformat:2 }}</div>
+          </div>
+        </div>
+
+        <!-- Selected consommations -->
+        <div class="table-wrapper mb-3">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>الدفعة</th>
+                <th>الدواء/اللقاح</th>
+                <th style="text-align:right;">الكمية</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in consommations %}
+              <tr>
+                <td style="white-space:nowrap;">{{ c.date|date:"d/m/Y" }}</td>
+                <td style="color:var(--text-muted);">{{ c.lot.designation }}</td>
+                <td style="font-weight:600;color:var(--text-primary);">{{ c.intrant.designation }}</td>
+                <td style="text-align:right;font-weight:600;">{{ c.quantite|floatformat:2 }} {{ c.intrant.unite_mesure }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3" style="font-weight:700;color:var(--text-primary);">الإجمالي</td>
+                <td style="text-align:right;font-weight:800;font-family:'Nunito',sans-serif;" id="total-qte-display">{{ total_qte|floatformat:2 }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <form method="post">
+          {% csrf_token %}
+          {% for c in consommations %}
+          <input type="hidden" name="consommation_ids" value="{{ c.pk }}">
+          {% endfor %}
+          <input type="hidden" id="total-qte-value" value="{{ total_qte|stringformat:'f' }}">
+
+          {% if form.non_field_errors %}
+          <div class="form-errors-global">
+            <i class="bx bxs-error-circle"></i>
+            <div>{% for err in form.non_field_errors %}<div>{{ err }}</div>{% endfor %}</div>
+          </div>
+          {% endif %}
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.date.id_for_label }}">تاريخ الدفع <span class="required-star">*</span></label>
+                <div class="input-wrap">
+                  <i class="bx bxs-calendar input-icon"></i>
+                  {{ form.date }}
+                </div>
+                {% if form.date.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.date.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.prix_unitaire.id_for_label }}">سعر الوحدة <span class="required-star">*</span></label>
+                <div class="input-wrap">
+                  <i class="bx bxs-purchase-tag input-icon"></i>
+                  {{ form.prix_unitaire }}
+                </div>
+                {% if form.prix_unitaire.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.prix_unitaire.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="{{ form.mode_paiement.id_for_label }}">طريقة الدفع</label>
+            <div class="input-wrap">
+              <i class="bx bxs-credit-card input-icon"></i>
+              {{ form.mode_paiement }}
+            </div>
+            {% if form.mode_paiement.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.mode_paiement.errors|join:", " }}</div>{% endif %}
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="{{ form.notes.id_for_label }}">ملاحظات</label>
+            <div class="input-wrap input-wrap--textarea">
+              <i class="bx bx-note input-icon" style="top:14px;transform:none;"></i>
+              {{ form.notes }}
+            </div>
+          </div>
+
+          <div class="total-preview">
+            <span>المبلغ الإجمالي للمصروف</span>
+            <strong id="montant-preview">0.00</strong> د.ج
+          </div>
+
+          <div class="form-actions">
+            <a href="{% url 'elevage:consommation_medicament_list' %}" class="btn-ghost">إلغاء</a>
+            <button type="submit" class="btn-primary">
+              <i class="bx bxs-save"></i> إنشاء المصروف
+            </button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .form-card { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;animation:fadeIn .3s ease; }
+  .form-card__header { display:flex;align-items:center;gap:14px;margin-bottom:24px;padding-bottom:18px;border-bottom:1px solid var(--border); }
+  .form-card__icon { width:44px;height:44px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0; }
+  .form-card__title { font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;color:var(--text-primary); }
+  .form-card__sub { font-size:12px;color:var(--text-muted);margin-top:2px; }
+  .form-group { margin-bottom:18px; }
+  .form-label { display:block;font-size:12px;font-weight:500;color:var(--text-secondary);letter-spacing:.03em;margin-bottom:6px; }
+  .required-star { color:#dc2626; }
+  .input-wrap { position:relative; }
+  .input-icon { position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:15px;pointer-events:none; }
+  .input-wrap input,.input-wrap select,.input-wrap textarea { width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13.5px;padding:11px 40px 11px 13px;transition:border-color .15s,box-shadow .15s;appearance:none;-webkit-appearance:none; }
+  .input-wrap textarea { padding-top:12px;resize:vertical;min-height:64px; }
+  .input-wrap input:focus,.input-wrap select:focus,.input-wrap textarea:focus { border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.15);outline:none; }
+  .input-wrap--textarea .input-icon { top:14px;transform:none; }
+  .field-error { display:flex;align-items:center;gap:5px;font-size:12px;color:#dc2626;margin-top:5px; }
+  .form-errors-global { display:flex;align-items:flex-start;gap:10px;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius-md);padding:12px 16px;margin-bottom:20px;font-size:13px;color:#dc2626; }
+  .form-actions { display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:18px;border-top:1px solid var(--border); }
+  .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 20px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
+  .btn-primary:hover { opacity:.88;color:#fff; }
+  .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
+  .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+
+  .table-wrapper { overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-md); }
+  .data-table { width:100%;border-collapse:collapse; }
+  .data-table thead th { font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);padding:9px 12px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--bg-hover); }
+  .data-table td { padding:9px 12px;font-size:13px;color:var(--text-secondary);vertical-align:middle;border-bottom:1px solid var(--border); }
+  .data-table tfoot td { border-top:2px solid var(--border);border-bottom:none;padding-top:11px; }
+
+  .total-preview { display:flex;align-items:center;justify-content:space-between;background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius-md);padding:12px 16px;font-size:13px;color:var(--text-secondary);margin-top:6px; }
+  .total-preview strong { font-family:'Nunito',sans-serif;font-size:19px;font-weight:800;color:var(--accent-text);margin-inline:6px; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var totalQte = parseFloat(document.getElementById('total-qte-value').value) || 0;
+  var prixInput = document.getElementById('{{ form.prix_unitaire.id_for_label }}');
+  var preview = document.getElementById('montant-preview');
+
+  function update() {
+    var prix = parseFloat(prixInput.value) || 0;
+    preview.textContent = (totalQte * prix).toFixed(2);
+  }
+
+  if (prixInput) {
+    prixInput.addEventListener('input', update);
+    update();
+  }
+});
+</script>
+{% endblock %}

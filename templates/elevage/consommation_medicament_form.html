@@ -119,6 +119,23 @@
             </div>
           </div>
 
+          <!-- Prix unitaire (coût) -->
+          <div class="form-group">
+            <label class="form-label" for="{{ form.prix_unitaire.id_for_label }}">
+              سعر الوحدة <span style="font-size:11px;color:var(--text-muted);font-weight:400;">— اختياري</span>
+            </label>
+            <div class="input-wrap">
+              <i class="bx bxs-purchase-tag input-icon"></i>
+              {{ form.prix_unitaire }}
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+              أدخل السعر هنا عند معرفته فوراً لإنشاء مصروف تلقائي بهذا الاستهلاك.
+              اتركه 0 لدفع أجرة الطبيب/الفريق لاحقاً دفعة واحدة عن عدة استهلاكات من
+              <a href="{% url 'elevage:consommation_medicament_list' %}">استهلاكات الأدوية</a>.
+            </div>
+            {% if form.prix_unitaire.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.prix_unitaire.errors|join:", " }}</div>{% endif %}
+          </div>
+
           <!-- Notes -->
           <div class="form-group">
             <label class="form-label" for="{{ form.notes.id_for_label }}">ملاحظات</label>
