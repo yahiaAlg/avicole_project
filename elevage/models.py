@@ -418,8 +418,25 @@ class LotElevage(models.Model):
 
     @property
     def cout_aliments(self):
-        """Estimated feed cost = Σ (quantite × PMP) over ALIMENT consommations."""
-        return self._cout_consommations(only_aliment=True)
+        """
+        Estimated feed cost = Σ (quantite × PMP) over ALIMENT consommations,
+        PLUS each consumption's allocated share of façon (mill labor) cost
+        (BR-request: batch costing — see ConsommationAlimentAllocation).
+
+        This is what makes the mill worker's fee visible in a lot's P&L
+        progressively, in proportion to how much of the batch it milled has
+        actually been consumed by this lot — instead of only appearing as a
+        lump Depense on whichever date the fee was batched/paid.
+        """
+        from django.db.models import Sum
+
+        base = self._cout_consommations(only_aliment=True)
+        facon = self.consommations.filter(
+            intrant__categorie__code="ALIMENT"
+        ).aggregate(total=Sum("allocations_batch__cout_facon_alloue"))[
+            "total"
+        ] or 0
+        return round(float(base) + float(facon), 2)
 
     @property
     def cout_medicaments(self):
@@ -615,6 +632,18 @@ class Consommation(models.Model):
             f"{self.lot.designation} — {self.intrant.designation} "
             f"{self.quantite} {self.intrant.unite_mesure} ({self.date})"
         )
+
+    @property
+    def cout_facon_alloue_total(self):
+        """Σ cout_facon_alloue across this consumption's
+        ConsommationAlimentAllocation rows — 0 for non-ALIMENT
+        consommations, or feed batches whose façon fee isn't known yet.
+        Feeds into LotElevage.cout_aliments (batch costing, BR-request)."""
+        from django.db.models import Sum
+
+        return self.allocations_batch.aggregate(total=Sum("cout_facon_alloue"))[
+            "total"
+        ] or Decimal("0")
 
     @property
     def branche(self):
@@ -1146,6 +1175,51 @@ class ProductionAliment(models.Model):
         ),
     )
     notes = models.TextField(blank=True, verbose_name="ملاحظات")
+
+    # ── Batch costing (BR-request) ──────────────────────────────────────
+    # Each ProductionAliment row IS a distinct feed batch. quantite_restante_kg
+    # tracks how much of THIS batch specifically hasn't been consumed yet
+    # (independent of the aggregate StockIntrant.quantite pool, which merges
+    # every batch of the same feed together) — initialized to
+    # quantite_produite_kg on creation and depleted FIFO (oldest batch
+    # first) as Consommation records come in; see
+    # elevage.signals._allouer_consommation_aliment.
+    quantite_restante_kg = models.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        default=Decimal("0"),
+        verbose_name="الكمية المتبقية من هذه الدفعة (كغ)",
+        help_text=(
+            "تُهيّأ تلقائياً بقيمة الكمية المصنّعة عند الإنشاء، ثم تُخصم "
+            "تدريجياً مع كل استهلاك يُخصَّص لهذه الدفعة تحديداً (FIFO حسب "
+            "التاريخ). تُستعمل لتوزيع أجرة التصنيع تناسبياً مع نسبة الاستهلاك."
+        ),
+    )
+    prix_facon_unitaire = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        default=Decimal("0"),
+        verbose_name="أجرة التصنيع للكيلوغرام (د.ج/كغ)",
+        validators=[MinValueValidator(0)],
+        help_text=(
+            "يُملأ تلقائياً بسعر الوحدة المُدخل عند تجميع هذه الدفعة ضمن "
+            "دفع أجرة تصنيع (انظر production_aliment_paiement_create). "
+            "يبقى 0 للدفعات المباشرة (بدون تركيبة) أو التي لم تُدفع أجرتها بعد."
+        ),
+    )
+    cout_facon_impute = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0"),
+        verbose_name="تكلفة أجرة التصنيع المحمّلة تراكمياً",
+        help_text=(
+            "مجموع أجرة التصنيع المُعترف بها كتكلفة حتى الآن، بنسبة الكمية "
+            "المستهلكة فعلياً من هذه الدفعة × prix_facon_unitaire. يتحدّث "
+            "مع كل استهلاك جديد، وبأثر رجعي عند دفع الأجرة إن كان جزء من "
+            "الدفعة قد استُهلك من قبل — انظر signals.py و "
+            "views._recognize_facon_cost_for_batch."
+        ),
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -1215,6 +1289,106 @@ class ProductionAliment(models.Model):
         auto-expensed at creation instead — see
         _auto_creer_depense_production_aliment)."""
         return self.formule_id is not None and self.depense_paiement_id is None
+
+    # ── Batch costing (BR-request) ──────────────────────────────────────
+
+    @property
+    def quantite_consommee_kg(self):
+        """kg of this specific batch consumed so far (FIFO-allocated to
+        Consommation records — see ConsommationAlimentAllocation)."""
+        return self.quantite_produite_kg - self.quantite_restante_kg
+
+    @property
+    def taux_consommation(self):
+        """Fraction (0..1) of this batch consumed so far."""
+        if not self.quantite_produite_kg:
+            return Decimal("0")
+        return self.quantite_consommee_kg / self.quantite_produite_kg
+
+    @property
+    def taux_consommation_pct(self):
+        """taux_consommation as a plain 0..100 number, for template display
+        (width:{{ p.taux_consommation_pct }}% etc.) without needing a
+        custom template filter."""
+        return (self.taux_consommation * 100).quantize(Decimal("0.1"))
+
+    @property
+    def epuise(self):
+        """True once this batch's tracked stock is fully consumed."""
+        return self.quantite_restante_kg <= 0
+
+    @property
+    def cout_facon_total(self):
+        """Full façon (mill labor) cost envelope for this batch — 0 until
+        production_aliment_paiement_create sets prix_facon_unitaire."""
+        return (self.quantite_produite_kg * self.prix_facon_unitaire).quantize(
+            Decimal("0.01")
+        )
+
+    @property
+    def cout_facon_restant(self):
+        """Façon cost not yet attributed to any consumption — recognized
+        progressively as this batch's remaining stock gets consumed."""
+        return self.cout_facon_total - self.cout_facon_impute
+
+
+class ConsommationAlimentAllocation(models.Model):
+    """
+    Batch-costing ledger line (BR-request): records exactly which
+    ProductionAliment batch(es) a feed Consommation drew from — FIFO by
+    production date, see elevage.signals._allouer_consommation_aliment —
+    and the slice of that batch's façon (mill labor) cost recognized as
+    an expense for this specific slice.
+
+    A single Consommation can span several batches (e.g. it drains the
+    tail of an older batch then spills into the next one), hence a
+    separate ledger table rather than one FK directly on Consommation.
+
+    Stock predating this feature (or a StockAjustement correction) has no
+    matching open batch — allocation simply stops once none remain; the
+    unallocated remainder is a silent, tolerated gap, mirroring the
+    lenient negative-stock pattern used throughout this module.
+    """
+
+    consommation = models.ForeignKey(
+        Consommation,
+        on_delete=models.CASCADE,
+        related_name="allocations_batch",
+        verbose_name="الاستهلاك",
+    )
+    production = models.ForeignKey(
+        ProductionAliment,
+        on_delete=models.PROTECT,
+        related_name="allocations_consommees",
+        verbose_name="دفعة الإنتاج",
+    )
+    quantite_kg = models.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        verbose_name="الكمية المأخوذة من هذه الدفعة (كغ)",
+        validators=[MinValueValidator(0.001)],
+    )
+    cout_facon_alloue = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0"),
+        verbose_name="حصة أجرة التصنيع المخصّصة",
+        help_text=(
+            "quantite_kg × production.prix_facon_unitaire وقت التخصيص. "
+            "تبقى 0 إن لم تكن أجرة الدفعة معروفة بعد؛ تُحدَّث بأثر رجعي عند "
+            "دفع أجرة التصنيع (انظر views._recognize_facon_cost_for_batch)."
+        ),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "تخصيص دفعة علف مستهلكة"
+        verbose_name_plural = "تخصيصات دفعات العلف المستهلكة"
+        unique_together = ("consommation", "production")
+        ordering = ["consommation", "production__date"]
+
+    def __str__(self):
+        return f"{self.consommation} ← دفعة {self.production_id} ({self.quantite_kg} كغ)"
 
 
 # ---------------------------------------------------------------------------

@@ -28,7 +28,50 @@
           </div>
         </div>
 
-        <!-- Selected consommations -->
+        {% if est_non_homogene %}
+        <div class="non-homogene-banner mb-3">
+          <i class="bx bxs-info-circle"></i>
+          <div>
+            هذه الدفعة تضم أدوية/لقاحات <strong>غير متجانسة</strong>
+            ({% for d in intrants_distincts %}{{ d }}{% if not forloop.last %}، {% endif %}{% endfor %}) —
+            يُنصح باستخدام «مبلغ إجمالي مباشر» بدل سعر الوحدة لكل طير.
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Materials summary — accumulated quantity per intrant + its stock (PMP) cost -->
+        <div class="section-label">ملخص المواد المستهلكة (تكلفة المخزون)</div>
+        <div class="table-wrapper mb-3">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>الدواء/اللقاح</th>
+                <th style="text-align:right;">الكمية الإجمالية</th>
+                <th style="text-align:right;">سعر الوحدة (من المخزون)</th>
+                <th style="text-align:right;">التكلفة</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for g in materiel_groupes %}
+              <tr>
+                <td style="font-weight:600;color:var(--text-primary);">{{ g.designation }}</td>
+                <td style="text-align:right;font-weight:600;">{{ g.quantite|floatformat:2 }} {{ g.unite }}</td>
+                <td style="text-align:right;color:var(--text-muted);">{{ g.prix_moyen|floatformat:2 }}</td>
+                <td style="text-align:right;font-weight:600;">{{ g.montant|floatformat:2 }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3" style="font-weight:700;color:var(--text-primary);">إجمالي تكلفة المواد</td>
+                <td style="text-align:right;font-weight:800;font-family:'Nunito',sans-serif;" id="total-materiel-display">{{ total_materiel|floatformat:2 }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- Selected consommations (detail, for traceability) -->
+        <div class="section-label">تفاصيل الاستهلاكات المحدّدة</div>
         <div class="table-wrapper mb-3">
           <table class="data-table">
             <thead>
@@ -64,6 +107,7 @@
           <input type="hidden" name="consommation_ids" value="{{ c.pk }}">
           {% endfor %}
           <input type="hidden" id="total-effectif-value" value="{{ total_effectif|stringformat:'d' }}">
+          <input type="hidden" id="total-materiel-value" value="{{ total_materiel|stringformat:'.2f' }}">
 
           {% if form.non_field_errors %}
           <div class="form-errors-global">
@@ -85,12 +129,37 @@
             </div>
             <div class="col-md-6">
               <div class="form-group">
-                <label class="form-label" for="{{ form.prix_unitaire.id_for_label }}">سعر الوحدة <span class="required-star">*</span></label>
+                <label class="form-label">طريقة التسعير <span class="required-star">*</span></label>
+                <div class="mode-montant-toggle">
+                  {% for radio in form.mode_montant %}
+                  <label class="mode-montant-option">{{ radio.tag }} {{ radio.choice_label }}</label>
+                  {% endfor %}
+                </div>
+                {% if form.mode_montant.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.mode_montant.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-6" id="prix-unitaire-group">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.prix_unitaire.id_for_label }}">سعر الوحدة (لكل طير)</label>
                 <div class="input-wrap">
                   <i class="bx bxs-purchase-tag input-icon"></i>
                   {{ form.prix_unitaire }}
                 </div>
                 {% if form.prix_unitaire.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.prix_unitaire.errors|join:", " }}</div>{% endif %}
+              </div>
+            </div>
+            <div class="col-md-6" id="montant-direct-group">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.montant_direct.id_for_label }}">المبلغ الإجمالي المباشر</label>
+                <div class="input-wrap">
+                  <i class="bx bxs-wallet input-icon"></i>
+                  {{ form.montant_direct }}
+                </div>
+                {% if form.montant_direct.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.montant_direct.errors|join:", " }}</div>{% endif %}
+                <div class="field-hint">{{ form.montant_direct.help_text }}</div>
               </div>
             </div>
           </div>
@@ -113,8 +182,13 @@
           </div>
 
           <div class="total-preview">
-            <span>المبلغ الإجمالي للمصروف ({{ total_effectif|floatformat:0 }} طير × سعر الوحدة)</span>
+            <span id="montant-preview-label">مبلغ مصروف أجرة الفريق ({{ total_effectif|floatformat:0 }} طير × سعر الوحدة)</span>
             <strong id="montant-preview">0.00</strong> د.ج
+          </div>
+
+          <div class="grand-total-preview">
+            <span>الإجمالي الكلي (تكلفة المواد {{ total_materiel|floatformat:2 }} + أجرة الفريق)</span>
+            <strong id="grand-total-preview">{{ total_materiel|floatformat:2 }}</strong> د.ج
           </div>
 
           <div class="form-actions">
@@ -163,6 +237,23 @@
 
   .total-preview { display:flex;align-items:center;justify-content:space-between;background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius-md);padding:12px 16px;font-size:13px;color:var(--text-secondary);margin-top:6px; }
   .total-preview strong { font-family:'Nunito',sans-serif;font-size:19px;font-weight:800;color:var(--accent-text);margin-inline:6px; }
+
+  .grand-total-preview { display:flex;align-items:center;justify-content:space-between;background:rgba(37,99,235,.07);border:1px solid rgba(37,99,235,.2);border-radius:var(--radius-md);padding:12px 16px;font-size:13px;color:var(--text-secondary);margin-top:10px; }
+  .grand-total-preview strong { font-family:'Nunito',sans-serif;font-size:19px;font-weight:800;color:#2563eb;margin-inline:6px; }
+
+  .section-label { font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);margin:4px 2px 8px; }
+
+  .non-homogene-banner { display:flex;align-items:flex-start;gap:10px;background:rgba(234,88,12,.07);border:1px solid rgba(234,88,12,.2);border-radius:var(--radius-md);padding:12px 16px;font-size:12.5px;color:var(--text-secondary);line-height:1.6; }
+  .non-homogene-banner i { font-size:18px;color:#ea580c;flex-shrink:0;margin-top:1px; }
+  .non-homogene-banner strong { color:#ea580c; }
+
+  .mode-montant-toggle { display:flex;gap:14px;flex-wrap:wrap;padding:10px 2px; }
+  .mode-montant-option { display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary);cursor:pointer;font-weight:600; }
+  .mode-montant-option input { accent-color:var(--accent);width:15px;height:15px;cursor:pointer; }
+
+  .field-hint { font-size:11.5px;color:var(--text-muted);margin-top:5px;line-height:1.5; }
+
+  .pricing-group-disabled { opacity:.4;pointer-events:none; }
 </style>
 {% endblock %}
 
@@ -170,18 +261,47 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   var totalEffectif = parseFloat(document.getElementById('total-effectif-value').value) || 0;
+  var totalMateriel = parseFloat(document.getElementById('total-materiel-value').value) || 0;
   var prixInput = document.getElementById('{{ form.prix_unitaire.id_for_label }}');
+  var montantDirectInput = document.getElementById('{{ form.montant_direct.id_for_label }}');
   var preview = document.getElementById('montant-preview');
+  var previewLabel = document.getElementById('montant-preview-label');
+  var grandTotalPreview = document.getElementById('grand-total-preview');
+  var prixGroup = document.getElementById('prix-unitaire-group');
+  var montantDirectGroup = document.getElementById('montant-direct-group');
+  var modeRadios = document.querySelectorAll('input[name="mode_montant"]');
+
+  function currentMode() {
+    var checked = document.querySelector('input[name="mode_montant"]:checked');
+    return checked ? checked.value : 'unitaire';
+  }
 
   function update() {
-    var prix = parseFloat(prixInput.value) || 0;
-    preview.textContent = (totalEffectif * prix).toFixed(2);
+    var mode = currentMode();
+    var isDirect = mode === 'direct';
+    var fraisEquipe;
+
+    prixGroup.classList.toggle('pricing-group-disabled', isDirect);
+    montantDirectGroup.classList.toggle('pricing-group-disabled', !isDirect);
+
+    if (isDirect) {
+      fraisEquipe = parseFloat(montantDirectInput.value) || 0;
+      preview.textContent = fraisEquipe.toFixed(2);
+      previewLabel.textContent = 'مبلغ مصروف أجرة الفريق (مبلغ مباشر لـ ' + totalEffectif + ' طير)';
+    } else {
+      var prix = parseFloat(prixInput.value) || 0;
+      fraisEquipe = totalEffectif * prix;
+      preview.textContent = fraisEquipe.toFixed(2);
+      previewLabel.textContent = 'مبلغ مصروف أجرة الفريق (' + totalEffectif + ' طير × سعر الوحدة)';
+    }
+
+    grandTotalPreview.textContent = (totalMateriel + fraisEquipe).toFixed(2);
   }
 
-  if (prixInput) {
-    prixInput.addEventListener('input', update);
-    update();
-  }
+  modeRadios.forEach(function (r) { r.addEventListener('change', update); });
+  if (prixInput) prixInput.addEventListener('input', update);
+  if (montantDirectInput) montantDirectInput.addEventListener('input', update);
+  update();
 });
 </script>
 {% endblock %}

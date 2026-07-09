@@ -197,6 +197,43 @@ def _auto_creer_depense_production_aliment(production, user):
     )
 
 
+def _recognize_facon_cost_for_batch(production, prix_facon_unitaire):
+    """
+    Batch costing (BR-request): called once a ProductionAliment batch's
+    façon (mill labor) fee becomes known — i.e. from
+    production_aliment_paiement_create — to stamp prix_facon_unitaire on
+    the batch and retroactively recognize the cost for whatever portion of
+    it was ALREADY consumed before the payment was recorded.
+
+    Before this runs, every ConsommationAlimentAllocation row for this
+    batch was created with cout_facon_alloue=0 (the fee wasn't known yet
+    at consumption time — see elevage.signals._allouer_consommation_aliment).
+    This re-prices those existing rows and rolls the total into
+    production.cout_facon_impute, so LotElevage.cout_aliments reflects it
+    immediately for every affected lot — not just future consumption.
+    Consumption happening AFTER this call is priced directly at allocation
+    time, since prix_facon_unitaire is now set on the batch.
+    """
+    from elevage.models import ConsommationAlimentAllocation
+
+    production.prix_facon_unitaire = prix_facon_unitaire
+
+    allocations = list(production.allocations_consommees.all())
+    cout_deja_consomme = Decimal("0")
+    for alloc in allocations:
+        alloc.cout_facon_alloue = (alloc.quantite_kg * prix_facon_unitaire).quantize(
+            Decimal("0.01")
+        )
+        cout_deja_consomme += alloc.cout_facon_alloue
+    if allocations:
+        ConsommationAlimentAllocation.objects.bulk_update(
+            allocations, ["cout_facon_alloue"]
+        )
+
+    production.cout_facon_impute = cout_deja_consomme
+    production.save(update_fields=["prix_facon_unitaire", "cout_facon_impute"])
+
+
 def _auto_creer_depense_consommation_medicament(conso, user):
     """
     Auto-create a Depense for a médicament/vaccin Consommation entered with
@@ -1275,9 +1312,13 @@ def consommation_medicament_list(request):
 
     branche = get_active_branche(request)
 
-    qs = Consommation.objects.select_related(
-        "lot", "intrant", "intrant__categorie", "depense_paiement"
-    ).exclude(intrant__categorie__code="ALIMENT").order_by("-date", "-created_at")
+    qs = (
+        Consommation.objects.select_related(
+            "lot", "intrant", "intrant__categorie", "depense_paiement"
+        )
+        .exclude(intrant__categorie__code="ALIMENT")
+        .order_by("-date", "-created_at")
+    )
     if branche is not None:
         qs = qs.filter(lot__branche=branche)
 
@@ -1309,9 +1350,7 @@ def consommation_medicament_list(request):
     ).filter(prix_unitaire=0, depense_paiement__isnull=True)
     if branche is not None:
         en_attente_qs = en_attente_qs.filter(lot__branche=branche)
-    total_qte_impaye = (
-        en_attente_qs.aggregate(total=Sum("quantite"))["total"] or 0
-    )
+    total_qte_impaye = en_attente_qs.aggregate(total=Sum("quantite"))["total"] or 0
 
     intrants = (
         Intrant.objects.filter(categorie__consommable_en_lot=True, actif=True)
@@ -1365,10 +1404,10 @@ def consommation_medicament_paiement_create(request):
 
     branche = get_active_branche(request)
 
-    base_qs = Consommation.objects.exclude(
-        intrant__categorie__code="ALIMENT"
-    ).filter(prix_unitaire=0, depense_paiement__isnull=True).select_related(
-        "lot", "intrant"
+    base_qs = (
+        Consommation.objects.exclude(intrant__categorie__code="ALIMENT")
+        .filter(prix_unitaire=0, depense_paiement__isnull=True)
+        .select_related("lot", "intrant")
     )
     if branche is not None:
         base_qs = base_qs.filter(lot__branche=branche)
@@ -1402,8 +1441,20 @@ def consommation_medicament_paiement_create(request):
             # summed dose quantite.
             lots_uniques = {c.lot_id: c.lot for c in consommations}
             total_effectif = sum(l.effectif_vivant for l in lots_uniques.values())
-            prix_unitaire = form.cleaned_data["prix_unitaire"]
-            montant = (total_effectif * prix_unitaire).quantize(Decimal("0.01"))
+
+            # BR-request: non-homogeneous batches (several distinct
+            # médicaments/vaccins in one vet visit) don't always have a
+            # clean per-chick rate — the form now also accepts a single
+            # direct lump-sum amount for the whole batch as an alternative
+            # to prix_unitaire × total_effectif.
+            mode_montant = form.cleaned_data["mode_montant"]
+            prix_unitaire = form.cleaned_data.get("prix_unitaire")
+            montant_direct = form.cleaned_data.get("montant_direct")
+            if mode_montant == ConsommationMedicamentPaiementForm.MODE_DIRECT:
+                montant = montant_direct.quantize(Decimal("0.01"))
+                prix_unitaire = None
+            else:
+                montant = (total_effectif * prix_unitaire).quantize(Decimal("0.01"))
 
             categorie, _ = CategorieDepense.objects.get_or_create(
                 code="MAIN_OEUVRE_MEDICAMENT",
@@ -1419,9 +1470,7 @@ def consommation_medicament_paiement_create(request):
             # selected records into the Depense description, prepopulating
             # a sensible default (same as production_aliment_paiement's
             # `noms`) that stays free-text and fully editable via `notes`.
-            noms = "، ".join(
-                sorted({c.intrant.designation for c in consommations})
-            )
+            noms = "، ".join(sorted({c.intrant.designation for c in consommations}))
 
             # BR-request: when every selected consumption belongs to the
             # same lot, attribute the Depense to it directly so it feeds
@@ -1452,19 +1501,26 @@ def consommation_medicament_paiement_create(request):
                         pk__in=[c.pk for c in consommations]
                     ).update(depense_paiement=depense)
 
+                if mode_montant == ConsommationMedicamentPaiementForm.MODE_DIRECT:
+                    detail_montant = f"مبلغ إجمالي مباشر لـ {total_effectif} طير"
+                else:
+                    detail_montant = f"{total_effectif} طير × {prix_unitaire} د.ج"
                 messages.success(
                     request,
-                    f"تم إنشاء مصروف بمبلغ {montant} د.ج ({total_effectif} طير × "
-                    f"{prix_unitaire} د.ج) عبر {len(consommations)} استهلاك.",
+                    f"تم إنشاء مصروف بمبلغ {montant} د.ج ({detail_montant}) "
+                    f"عبر {len(consommations)} استهلاك.",
                 )
                 logger.info(
                     "Depense pk=%s created for %s Consommation(médicament) "
-                    "payment (total_effectif=%s, total_qte=%s, prix_unitaire=%s) by '%s'.",
+                    "payment (mode_montant=%s, total_effectif=%s, total_qte=%s, "
+                    "prix_unitaire=%s, montant_direct=%s) by '%s'.",
                     depense.pk,
                     len(consommations),
+                    mode_montant,
                     total_effectif,
                     total_qte,
                     prix_unitaire,
+                    montant_direct,
                     request.user,
                 )
                 # Same UX as production_aliment: land on the expense's edit
@@ -1481,15 +1537,79 @@ def consommation_medicament_paiement_create(request):
         ids = request.GET.getlist("ids")
         consommations = list(base_qs.filter(pk__in=ids)) if ids else []
         if not consommations:
-            messages.error(
-                request, "يرجى اختيار استهلاك واحد على الأقل قبل المتابعة."
-            )
+            messages.error(request, "يرجى اختيار استهلاك واحد على الأقل قبل المتابعة.")
             return redirect("elevage:consommation_medicament_list")
-        form = ConsommationMedicamentPaiementForm()
+        # BR-request: when the batch mixes several distinct médicaments/
+        # vaccins, default the form to the direct lump-sum mode instead of
+        # the per-chick unit price — a single per-bird rate rarely makes
+        # sense across non-homogeneous products.
+        intrants_distincts_init = sorted({c.intrant.designation for c in consommations})
+        mode_initial = (
+            ConsommationMedicamentPaiementForm.MODE_DIRECT
+            if len(intrants_distincts_init) > 1
+            else ConsommationMedicamentPaiementForm.MODE_UNITAIRE
+        )
+        form = ConsommationMedicamentPaiementForm(
+            initial={"mode_montant": mode_initial}
+        )
 
     total_qte = sum((c.quantite for c in consommations), Decimal("0"))
     lots_uniques_ctx = {c.lot_id: c.lot for c in consommations}
     total_effectif = sum(l.effectif_vivant for l in lots_uniques_ctx.values())
+    # BR-request: surface to the template whether this batch is
+    # non-homogeneous (>1 distinct médicament/vaccin), so it can nudge the
+    # user toward the direct lump-sum pricing mode.
+    intrants_distincts = sorted({c.intrant.designation for c in consommations})
+    est_non_homogene = len(intrants_distincts) > 1
+
+    # BR-request: "smarter" materials summary — instead of only listing every
+    # selected Consommation row-by-row (noisy when the same médicament was
+    # given on several dates), accumulate quantities per intrant and show
+    # what that accumulated quantity is actually worth AT STOCK COST (PMP —
+    # prix_moyen_pondéré), i.e. the material cost already being drawn from
+    # stock by this batch. This is purely informational: it does NOT get
+    # added to the Depense created below, which only ever pays the vet/team
+    # labor fee — the material cost itself is already tracked via
+    # StockIntrant/StockMouvement when each Consommation was first recorded
+    # (see LotElevage.cout_medicaments, same PMP logic, mirrored here).
+    from stock.models import StockIntrant
+
+    groupes_par_intrant = {}
+    for c in consommations:
+        stock = StockIntrant.objects.filter(
+            intrant_id=c.intrant_id, branche=c.lot.branche
+        ).first()
+        pmp = stock.prix_moyen_pondere if stock else Decimal("0")
+        cout_ligne = c.quantite * pmp
+        groupe = groupes_par_intrant.setdefault(
+            c.intrant_id,
+            {
+                "designation": c.intrant.designation,
+                "unite": c.intrant.unite_mesure,
+                "quantite": Decimal("0"),
+                "montant": Decimal("0"),
+            },
+        )
+        groupe["quantite"] += c.quantite
+        groupe["montant"] += cout_ligne
+
+    materiel_groupes = []
+    for g in sorted(groupes_par_intrant.values(), key=lambda g: g["designation"]):
+        prix_moyen = (
+            (g["montant"] / g["quantite"]).quantize(Decimal("0.0001"))
+            if g["quantite"]
+            else Decimal("0")
+        )
+        materiel_groupes.append(
+            {
+                "designation": g["designation"],
+                "unite": g["unite"],
+                "quantite": g["quantite"],
+                "prix_moyen": prix_moyen,
+                "montant": g["montant"].quantize(Decimal("0.01")),
+            }
+        )
+    total_materiel = sum((g["montant"] for g in materiel_groupes), Decimal("0"))
 
     return render(
         request,
@@ -1499,6 +1619,10 @@ def consommation_medicament_paiement_create(request):
             "consommations": consommations,
             "total_qte": total_qte,
             "total_effectif": total_effectif,
+            "intrants_distincts": intrants_distincts,
+            "est_non_homogene": est_non_homogene,
+            "materiel_groupes": materiel_groupes,
+            "total_materiel": total_materiel,
             "title": "دفع أجرة الطبيب/الفريق البيطري",
         },
     )
@@ -2348,6 +2472,14 @@ def production_aliment_paiement_create(request):
                         notes=form.cleaned_data.get("notes", ""),
                         enregistre_par=request.user,
                     )
+                    # Batch costing (BR-request): stamp the now-known façon
+                    # rate on every batch in this payment and retroactively
+                    # recognize the cost for whatever portion each batch has
+                    # already been consumed (see
+                    # _recognize_facon_cost_for_batch).
+                    for p in productions:
+                        _recognize_facon_cost_for_batch(p, prix_unitaire)
+
                     ProductionAliment.objects.filter(
                         pk__in=[p.pk for p in productions]
                     ).update(depense_paiement=depense)
@@ -2701,6 +2833,62 @@ def elevage_dashboard(request):
         nb_lots_fermes_qs = nb_lots_fermes_qs.filter(branche=branche)
     nb_lots_fermes = nb_lots_fermes_qs.count()
 
+    # --- Cost-per-chick roll-up (BR-request) -----------------------------
+    # The farm's real per-chick raising cost is médicaments (material +
+    # vet/team labor) plus aliment (material + mill-worker labor), spread
+    # over every chick ever placed (open AND closed lots — a chick's cost
+    # doesn't disappear once its lot closes). Mirrors the same
+    # material-vs-labor split already surfaced on the payment form and
+    # lot_detail page:
+    #   cout_medicaments / cout_aliments        → Σ quantite × PMP (stock)
+    #   MAIN_OEUVRE_MEDICAMENT / MAIN_OEUVRE_ALIMENT Depense → labor fee
+    # Feed-mill labor (MAIN_OEUVRE_ALIMENT) is NEVER attributable to a
+    # single lot — ProductionAliment feeds the shared branche stock, not
+    # one lot — so this roll-up only makes sense at this branch-wide (or
+    # global) scope, not per-lot.
+    lots_toutes_qs = LotElevage.objects.all()
+    if branche is not None:
+        lots_toutes_qs = lots_toutes_qs.filter(branche=branche)
+
+    total_cout_medicaments = sum(
+        (Decimal(str(lot.cout_medicaments)) for lot in lots_toutes_qs), Decimal("0")
+    )
+    total_cout_aliments = sum(
+        (Decimal(str(lot.cout_aliments)) for lot in lots_toutes_qs), Decimal("0")
+    )
+    total_poussins = (
+        lots_toutes_qs.aggregate(total=Sum("nombre_poussins_initial"))["total"] or 0
+    )
+
+    from depenses.models import Depense
+
+    depenses_main_oeuvre_qs = Depense.objects.filter(
+        categorie__code__in=["MAIN_OEUVRE_MEDICAMENT", "MAIN_OEUVRE_ALIMENT"]
+    )
+    if branche is not None:
+        depenses_main_oeuvre_qs = depenses_main_oeuvre_qs.filter(branche=branche)
+    main_oeuvre_par_categorie = {
+        row["categorie__code"]: row["total"]
+        for row in depenses_main_oeuvre_qs.values("categorie__code").annotate(
+            total=Sum("montant")
+        )
+    }
+    total_main_oeuvre_medicament = main_oeuvre_par_categorie.get(
+        "MAIN_OEUVRE_MEDICAMENT"
+    ) or Decimal("0")
+    total_main_oeuvre_aliment = main_oeuvre_par_categorie.get(
+        "MAIN_OEUVRE_ALIMENT"
+    ) or Decimal("0")
+
+    total_cout_traitement = total_cout_medicaments + total_main_oeuvre_medicament
+    total_cout_aliment_complet = total_cout_aliments + total_main_oeuvre_aliment
+    total_cout_elevage = total_cout_traitement + total_cout_aliment_complet
+    cout_par_poussin = (
+        (total_cout_elevage / total_poussins).quantize(Decimal("0.01"))
+        if total_poussins
+        else None
+    )
+
     return render(
         request,
         "elevage/dashboard.html",
@@ -2724,6 +2912,15 @@ def elevage_dashboard(request):
             "oeufs_retires_semaine": oeufs_retires_semaine,
             "recoltes_oeufs_recentes": recoltes_oeufs_recentes,
             "retraits_oeufs_recentes": retraits_oeufs_recentes,
+            "total_cout_medicaments": total_cout_medicaments,
+            "total_main_oeuvre_medicament": total_main_oeuvre_medicament,
+            "total_cout_traitement": total_cout_traitement,
+            "total_cout_aliments": total_cout_aliments,
+            "total_main_oeuvre_aliment": total_main_oeuvre_aliment,
+            "total_cout_aliment_complet": total_cout_aliment_complet,
+            "total_cout_elevage": total_cout_elevage,
+            "total_poussins": total_poussins,
+            "cout_par_poussin": cout_par_poussin,
             "title": "لوحة تحكم — التربية",
         },
     )

@@ -184,9 +184,12 @@
     <div class="col-xl-4 col-md-6">
       <div class="metric-card">
         <div class="metric-icon ic-blue"><i class="bx bxs-flask"></i></div>
-        <div class="metric-label">تكلفة الأدوية واللقاحات</div>
-        <div class="metric-value" style="font-size:20px;">{{ summary.cout_medicaments|floatformat:0 }}</div>
-        <span class="metric-delta neutral"><i class="bx bx-minus"></i> دج</span>
+        <div class="metric-label">تكلفة العلاج الإجمالية (أدوية + أجرة الفريق)</div>
+        <div class="metric-value" style="font-size:20px;">{{ summary.cout_traitement_total|floatformat:0 }}</div>
+        <span class="metric-delta neutral">
+          <i class="bx bx-minus"></i>
+          مواد {{ summary.cout_medicaments|floatformat:0 }} + أجرة {{ summary.cout_main_oeuvre_medicament|floatformat:0 }} دج
+        </span>
       </div>
     </div>
     <div class="col-xl-4 col-md-6">

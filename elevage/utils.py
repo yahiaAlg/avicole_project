@@ -79,7 +79,9 @@ def get_lot_summary(lot) -> dict:
         ic                       (Decimal | None)
         cout_total_intrants      (Decimal — DZD)
         cout_aliments            (Decimal — DZD)
-        cout_medicaments         (Decimal — DZD)
+        cout_medicaments         (Decimal — DZD, material/stock cost only)
+        cout_main_oeuvre_medicament (Decimal — DZD, vet/team labor fee Depense)
+        cout_traitement_total    (Decimal — DZD, cout_medicaments + cout_main_oeuvre_medicament)
         cout_mortalite_poussins  (Decimal — DZD)
         cout_total_depenses      (Decimal — DZD)
         revenus_ventes           (Decimal — DZD)
@@ -130,6 +132,22 @@ def get_lot_summary(lot) -> dict:
         "0"
     )
 
+    # --- Treatment cost (médicaments/vaccins) — full picture -------------
+    # cout_medicaments (above) is only the MATERIAL cost (Σ quantite × PMP,
+    # already drawn from stock at consumption time). The vet/team's labor
+    # fee is a separate Depense (catégorie MAIN_OEUVRE_MEDICAMENT, created
+    # via views.consommation_medicament_paiement_create) and is only
+    # attributed to THIS lot when every consommation in that payment batch
+    # belonged to it (see that view's lot_unique logic) — a batch spanning
+    # several lots stays unattributed, same limitation as
+    # cout_total_depenses above. cout_traitement_total is the sum shown to
+    # the user as "the real cost of treating this lot" (BR-request:
+    # clarity between stock-cost médicaments and vet/team labor).
+    cout_main_oeuvre_medicament = depenses.filter(
+        categorie__code="MAIN_OEUVRE_MEDICAMENT"
+    ).aggregate(total=Sum("montant"))["total"] or Decimal("0")
+    cout_traitement_total = cout_medicaments + cout_main_oeuvre_medicament
+
     # --- Sales revenue: BL Client lines traceable to this lot's production
     #     We link via: lot → production → produits finis → BLClientLigne
     revenus_ventes = _calculer_revenus_lot(lot)
@@ -165,6 +183,8 @@ def get_lot_summary(lot) -> dict:
         "cout_total_intrants": cout_total_intrants,
         "cout_aliments": cout_aliments,
         "cout_medicaments": cout_medicaments,
+        "cout_main_oeuvre_medicament": cout_main_oeuvre_medicament,
+        "cout_traitement_total": cout_traitement_total,
         "cout_mortalite_poussins": cout_mortalite_poussins,
         "cout_total_depenses": cout_total_depenses,
         "revenus_ventes": revenus_ventes,

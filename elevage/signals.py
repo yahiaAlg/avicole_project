@@ -245,7 +245,9 @@ def mortalite_pre_delete(sender, instance, **kwargs):
     )
 
 
-def _appliquer_sortie_mortalite(intrant, nombre, date, lot, branche, reference_id, notes=""):
+def _appliquer_sortie_mortalite(
+    intrant, nombre, date, lot, branche, reference_id, notes=""
+):
     from stock.models import StockIntrant, StockMouvement
 
     stock, _ = StockIntrant.objects.get_or_create(
@@ -289,7 +291,9 @@ def _appliquer_sortie_mortalite(intrant, nombre, date, lot, branche, reference_i
     )
 
 
-def _appliquer_entree_mortalite_correction(intrant, nombre, date, branche, reference_id, notes):
+def _appliquer_entree_mortalite_correction(
+    intrant, nombre, date, branche, reference_id, notes
+):
     from stock.models import StockIntrant, StockMouvement
 
     stock, _ = StockIntrant.objects.get_or_create(
@@ -378,6 +382,11 @@ def consommation_post_save(sender, instance, created, **kwargs):
     old_quantite = getattr(instance, "_old_quantite", None)
     old_intrant_id = getattr(instance, "_old_intrant_id", None)
 
+    est_aliment = bool(
+        getattr(intrant, "categorie_id", None)
+        and intrant.categorie.code == "ALIMENT"
+    )
+
     if created:
         # ── New record: decrease stock by full quantity ──────────────────
         _appliquer_sortie_stock(
@@ -389,11 +398,18 @@ def consommation_post_save(sender, instance, created, **kwargs):
             reference_id=instance.pk,
             created_by=instance.created_by,
         )
+        if est_aliment:
+            _allouer_consommation_aliment(instance, instance.quantite)
 
     else:
         intrant_changed = old_intrant_id and old_intrant_id != intrant.pk
 
         if intrant_changed:
+            # Batch-costing ledger (BR-request): reverse any allocation made
+            # against the OLD intrant's batches before touching stock, since
+            # a fresh allocation against the NEW intrant follows below.
+            _reverser_allocations_aliment(instance)
+
             # ── Intrant changed: restore old, apply full new ──────────────
             from intrants.models import Intrant as IntrantModel
 
@@ -428,6 +444,8 @@ def consommation_post_save(sender, instance, created, **kwargs):
                 reference_id=instance.pk,
                 created_by=instance.created_by,
             )
+            if est_aliment:
+                _allouer_consommation_aliment(instance, instance.quantite)
 
         elif old_quantite is not None and old_quantite != instance.quantite:
             # ── Same intrant, quantity changed: apply net delta ───────────
@@ -457,6 +475,15 @@ def consommation_post_save(sender, instance, created, **kwargs):
                     created_by=instance.created_by,
                 )
 
+            # Batch-costing ledger (BR-request): re-derive the FIFO
+            # allocation from scratch against the new quantity rather than
+            # patching the delta — simpler, and always consistent since the
+            # set of open batches may itself have changed since the
+            # original allocation.
+            if est_aliment:
+                _reverser_allocations_aliment(instance)
+                _allouer_consommation_aliment(instance, instance.quantite)
+
 
 # ---------------------------------------------------------------------------
 # pre_delete: reverse stock decrease when a Consommation is deleted
@@ -476,6 +503,15 @@ def consommation_pre_delete(sender, instance, **kwargs):
         instance.quantite,
         instance.intrant_id,
     )
+
+    # Batch-costing ledger (BR-request): give back the kg + façon cost to
+    # whichever ProductionAliment batch(es) this consumption had drawn from,
+    # before restoring the aggregate StockIntrant balance below.
+    if (
+        getattr(instance.intrant, "categorie_id", None)
+        and instance.intrant.categorie.code == "ALIMENT"
+    ):
+        _reverser_allocations_aliment(instance)
 
     _appliquer_entree_stock_correction(
         intrant=instance.intrant,
@@ -595,6 +631,106 @@ def _appliquer_entree_stock_correction(
         stock.quantite,
         branche.code,
     )
+
+
+# ---------------------------------------------------------------------------
+# Batch costing (BR-request): FIFO-allocate a feed (ALIMENT) Consommation
+# across open ProductionAliment batches, and keep each batch's
+# quantite_restante_kg / cout_facon_impute in sync as consumptions come in,
+# get edited, or get deleted.
+#
+# This runs ALONGSIDE the aggregate StockIntrant decrease above (unchanged) —
+# it's a separate, finer-grained ledger (ConsommationAlimentAllocation) that
+# answers "which specific milling batch did this consumption actually come
+# from, and how much of that batch's façon (mill labor) fee should this
+# consumption's lot be charged". See ProductionAliment.quantite_restante_kg /
+# prix_facon_unitaire / cout_facon_impute and Consommation.cout_facon_alloue_total.
+# ---------------------------------------------------------------------------
+
+
+def _allouer_consommation_aliment(consommation, quantite):
+    """
+    FIFO-allocate *quantite* kg of a feed Consommation across open
+    ProductionAliment batches — same branche, same intrant_produit,
+    quantite_restante_kg > 0 — oldest production date first.
+
+    For every batch touched: decrement its quantite_restante_kg, recognize
+    its façon cost slice (quantite_kg × prix_facon_unitaire — 0 if the
+    batch's façon fee isn't known/paid yet) into cout_facon_impute, and
+    record a ConsommationAlimentAllocation row so the slice can later be
+    reversed (edit/delete) or retroactively re-priced once the façon fee
+    IS known (see views._recognize_facon_cost_for_batch).
+
+    Leniently stops once no open batch remains, even if *quantite* isn't
+    fully allocated — pre-existing stock (predating this feature) or a
+    manual StockAjustement correction has no batch to draw from. Never
+    blocks the Consommation save; the gap is just logged.
+    """
+    from elevage.models import ConsommationAlimentAllocation, ProductionAliment
+
+    restante = Decimal(str(quantite))
+    if restante <= 0:
+        return
+
+    batches = ProductionAliment.objects.select_for_update().filter(
+        branche=consommation.lot.branche,
+        intrant_produit_id=consommation.intrant_id,
+        quantite_restante_kg__gt=0,
+    ).order_by("date", "created_at")
+
+    for batch in batches:
+        if restante <= 0:
+            break
+
+        pris = min(batch.quantite_restante_kg, restante)
+        if pris <= 0:
+            continue
+
+        cout_slice = Decimal("0")
+        if batch.prix_facon_unitaire and batch.prix_facon_unitaire > 0:
+            cout_slice = (pris * batch.prix_facon_unitaire).quantize(Decimal("0.01"))
+
+        batch.quantite_restante_kg = batch.quantite_restante_kg - pris
+        batch.cout_facon_impute = batch.cout_facon_impute + cout_slice
+        batch.save(update_fields=["quantite_restante_kg", "cout_facon_impute"])
+
+        ConsommationAlimentAllocation.objects.create(
+            consommation=consommation,
+            production=batch,
+            quantite_kg=pris,
+            cout_facon_alloue=cout_slice,
+        )
+
+        restante -= pris
+
+    if restante > 0:
+        logger.info(
+            "Consommation pk=%s: %s kg de « %s » non rattachés à une "
+            "ProductionAliment ouverte (stock antérieur à la fonctionnalité "
+            "de traçabilité par lot, ou correction manuelle) — coût façon "
+            "ignoré pour cette part.",
+            consommation.pk,
+            restante,
+            consommation.intrant.designation,
+        )
+
+
+def _reverser_allocations_aliment(consommation):
+    """
+    Undo every ConsommationAlimentAllocation tied to *consommation*:
+    restore each batch's quantite_restante_kg and cout_facon_impute, then
+    delete the allocation rows. Called before an update (quantity or
+    intrant change) or a delete, so the batch FIFO ledger stays consistent
+    — mirrors the existing entrée-corrective pattern used for StockIntrant
+    elsewhere in this module. No-op (queryset simply empty) for a
+    non-ALIMENT consommation or one with no allocations yet.
+    """
+    for alloc in consommation.allocations_batch.select_related("production").all():
+        batch = alloc.production
+        batch.quantite_restante_kg = batch.quantite_restante_kg + alloc.quantite_kg
+        batch.cout_facon_impute = batch.cout_facon_impute - alloc.cout_facon_alloue
+        batch.save(update_fields=["quantite_restante_kg", "cout_facon_impute"])
+    consommation.allocations_batch.all().delete()
 
 
 # ---------------------------------------------------------------------------
@@ -969,7 +1105,7 @@ def production_aliment_post_save(sender, instance, created, **kwargs):
                 reference_label=(
                     f"Mélange {instance.formule.nom} pour "
                     f"{instance.intrant_produit.designation} ({instance.date})"
-                ),
+                )[:100],
                 created_by=instance.created_by,
             )
 
@@ -1019,9 +1155,35 @@ def production_aliment_post_save(sender, instance, created, **kwargs):
         quantite_apres=stock.quantite,
         date_mouvement=instance.date,
         reference_id=instance.pk,
-        reference_label=f"Production aliment — {instance.intrant_produit.designation} ({instance.date})",
+        reference_label=(
+            f"Production aliment — {instance.intrant_produit.designation} ({instance.date})"
+        )[:100],
         created_by=instance.created_by,
     )
+
+    # --- Batch costing (BR-request): this ProductionAliment row IS a batch;
+    #     keep its own quantite_restante_kg in sync with quantite_produite_kg
+    #     edits. Uses a bare .update() (no re-save()) to avoid re-entering
+    #     this same post_save signal. ------------------------------------
+    if created:
+        ProductionAliment.objects.filter(pk=instance.pk).update(
+            quantite_restante_kg=instance.quantite_produite_kg
+        )
+        instance.quantite_restante_kg = instance.quantite_produite_kg
+    else:
+        # An edit changed quantite_produite_kg by `delta` — shift the
+        # still-untouched remainder by the same amount, clamped to
+        # [0, quantite_produite_kg] (never let a downward edit push it
+        # negative, never let an upward edit push it above the new total).
+        nouvelle_restante = instance.quantite_restante_kg + delta
+        if nouvelle_restante < 0:
+            nouvelle_restante = Decimal("0")
+        elif nouvelle_restante > instance.quantite_produite_kg:
+            nouvelle_restante = instance.quantite_produite_kg
+        ProductionAliment.objects.filter(pk=instance.pk).update(
+            quantite_restante_kg=nouvelle_restante
+        )
+        instance.quantite_restante_kg = nouvelle_restante
 
 
 @receiver(pre_delete, sender=ProductionAliment)
@@ -1053,7 +1215,9 @@ def production_aliment_pre_delete(sender, instance, **kwargs):
         quantite_apres=stock.quantite,
         date_mouvement=instance.date,
         reference_id=instance.pk,
-        reference_label=f"Annulation production aliment pk={instance.pk} (suppression)",
+        reference_label=(
+            f"Annulation production aliment pk={instance.pk} (suppression)"
+        )[:100],
         created_by=instance.created_by,
     )
 
@@ -1129,9 +1293,7 @@ def retrait_oeufs_post_save(sender, instance, created, **kwargs):
     delta = (
         instance.quantite_oeufs
         if created
-        else (
-            instance.quantite_oeufs - old_qty if old_qty is not None else 0
-        )
+        else (instance.quantite_oeufs - old_qty if old_qty is not None else 0)
     )
     if delta == 0:
         return

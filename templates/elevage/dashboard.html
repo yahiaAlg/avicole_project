@@ -92,6 +92,54 @@
     </div>
   </div>
 
+  <!-- Cost roll-up row — material (stock/PMP) + labor (Depense), all lots -->
+  <div class="section-eyebrow mb-2">تكلفة التربية الإجمالية (كل القطعان{% if vue_globale %} — كل الفروع{% endif %})</div>
+  <div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-blue"><i class="bx bxs-flask"></i></div>
+        <div class="metric-label">تكلفة العلاج (أدوية + أجرة الفريق)</div>
+        <div class="metric-value" style="font-size:20px;">{{ total_cout_traitement|floatformat:0 }}</div>
+        <span class="metric-delta neutral">
+          <i class="bx bx-minus"></i>
+          مواد {{ total_cout_medicaments|floatformat:0 }} + أجرة {{ total_main_oeuvre_medicament|floatformat:0 }} دج
+        </span>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-amber"><i class="bx bxs-cylinder"></i></div>
+        <div class="metric-label">تكلفة العلف (مواد + أجرة التصنيع)</div>
+        <div class="metric-value" style="font-size:20px;">{{ total_cout_aliment_complet|floatformat:0 }}</div>
+        <span class="metric-delta neutral">
+          <i class="bx bx-minus"></i>
+          مواد {{ total_cout_aliments|floatformat:0 }} + أجرة {{ total_main_oeuvre_aliment|floatformat:0 }} دج
+        </span>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-orange"><i class="bx bxs-wallet"></i></div>
+        <div class="metric-label">إجمالي تكلفة التربية</div>
+        <div class="metric-value" style="font-size:20px;">{{ total_cout_elevage|floatformat:0 }}</div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> علاج + علف، مواد وأجرة، دج</span>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon ic-green"><i class="bx bxs-user-voice"></i></div>
+        <div class="metric-label">تكلفة الكتكوت الواحد</div>
+        <div class="metric-value" style="font-size:20px;">
+          {% if cout_par_poussin is not None %}{{ cout_par_poussin|floatformat:2 }}{% else %}—{% endif %}
+        </div>
+        <span class="metric-delta neutral">
+          <i class="bx bx-minus"></i>
+          {% if total_poussins %}÷ {{ total_poussins|floatformat:0 }} كتكوت مربّى{% else %}لا توجد قطعان بعد{% endif %}
+        </span>
+      </div>
+    </div>
+  </div>
+
   <!-- Quick actions -->
   {% if request.user.userprofile.role != 'viewer' %}
   <div class="quick-actions mb-4">

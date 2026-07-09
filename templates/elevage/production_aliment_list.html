@@ -61,6 +61,14 @@
         </select>
       </div>
       <div class="filter-field">
+        <label>حالة الدفعة</label>
+        <select name="lot_stock" onchange="this.form.submit()">
+          <option value="">الكل</option>
+          <option value="ouvert" {% if statut_lot == "ouvert" %}selected{% endif %}>لا تزال قيد الاستهلاك</option>
+          <option value="epuise" {% if statut_lot == "epuise" %}selected{% endif %}>مستهلكة بالكامل</option>
+        </select>
+      </div>
+      <div class="filter-field">
         <label>من تاريخ</label>
         <input type="date" name="date_debut" value="{{ date_debut }}" onchange="this.form.submit()">
       </div>
@@ -68,7 +76,7 @@
         <label>إلى تاريخ</label>
         <input type="date" name="date_fin" value="{{ date_fin }}" onchange="this.form.submit()">
       </div>
-      {% if intrant_pk or formule_pk or statut_paiement or date_debut or date_fin %}
+      {% if intrant_pk or formule_pk or statut_paiement or statut_lot or date_debut or date_fin %}
       <a href="{% url 'elevage:production_aliment_list' %}" class="btn-ghost" style="align-self:flex-end;">إلغاء الفلترة</a>
       {% endif %}
     </form>
@@ -86,6 +94,7 @@
               <th>العلف</th>
               <th>التركيبة</th>
               <th style="text-align:right;">الكمية (كغ)</th>
+              <th style="text-align:right;">المتبقي من الدفعة</th>
               <th style="text-align:right;">سعر الوحدة</th>
               <th style="text-align:right;">التكلفة/القيمة</th>
               <th>حالة الدفع</th>
@@ -103,8 +112,26 @@
               <td style="font-weight:600;color:var(--text-primary);">{{ p.intrant_produit.designation }}</td>
               <td style="color:var(--text-muted);">{{ p.formule.nom|default:"— مباشر —" }}</td>
               <td style="text-align:right;font-weight:600;">{{ p.quantite_produite_kg|floatformat:2 }}</td>
+              <td style="text-align:right;">
+                <div class="batch-remaining" title="استُهلك {{ p.taux_consommation_pct|floatformat:0 }}% من هذه الدفعة">
+                  <div class="batch-remaining__bar">
+                    <div class="batch-remaining__fill" style="width:{{ p.taux_consommation_pct }}%;"></div>
+                  </div>
+                  <span class="batch-remaining__label">
+                    {{ p.quantite_restante_kg|floatformat:2 }} كغ
+                    {% if p.epuise %}<i class="bx bxs-check-circle" style="color:var(--accent-text);" title="دفعة مستهلكة بالكامل"></i>{% endif %}
+                  </span>
+                </div>
+              </td>
               <td style="text-align:right;color:var(--text-muted);">{% if p.prix_unitaire %}{{ p.prix_unitaire|floatformat:2 }}{% else %}—{% endif %}</td>
-              <td style="text-align:right;color:var(--text-muted);">{% if p.montant_total %}{{ p.montant_total|floatformat:2 }}{% else %}—{% endif %}</td>
+              <td style="text-align:right;color:var(--text-muted);">
+                {% if p.montant_total %}{{ p.montant_total|floatformat:2 }}{% else %}—{% endif %}
+                {% if p.prix_facon_unitaire %}
+                <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px;" title="أجرة التصنيع: محمّلة {{ p.cout_facon_impute|floatformat:2 }} د.ج من أصل {{ p.cout_facon_total|floatformat:2 }} د.ج">
+                  أجرة: {{ p.cout_facon_impute|floatformat:2 }} / {{ p.cout_facon_total|floatformat:2 }} د.ج
+                </div>
+                {% endif %}
+              </td>
               <td>
                 {% if p.formule_id %}
                   {% if p.est_paye %}
@@ -174,6 +201,11 @@
   .pill-success { display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;background:rgba(34,197,94,.1);color:var(--accent-text);font-size:11px;font-weight:600; }
   .pill-warning { display:inline-flex;padding:3px 10px;border-radius:999px;background:rgba(234,88,12,.1);color:#ea580c;font-size:11px;font-weight:600; }
   .pill-muted { display:inline-flex;padding:3px 10px;border-radius:999px;background:var(--bg-hover);color:var(--text-muted);font-size:11px;font-weight:600; }
+
+  .batch-remaining { display:flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:86px; }
+  .batch-remaining__bar { width:100%;height:5px;border-radius:999px;background:var(--bg-hover);overflow:hidden; }
+  .batch-remaining__fill { height:100%;background:var(--accent);border-radius:999px;transition:width .2s ease; }
+  .batch-remaining__label { font-size:11.5px;color:var(--text-secondary);display:inline-flex;align-items:center;gap:4px;white-space:nowrap; }
 
   .pagination-bar { display:flex;align-items:center;gap:8px;justify-content:center;padding:14px 18px;border-top:1px solid var(--border); }
   .page-btn { display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-surface);color:var(--text-secondary);font-size:16px;text-decoration:none; }

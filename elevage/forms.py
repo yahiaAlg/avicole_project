@@ -781,15 +781,52 @@ class ConsommationMedicamentPaiementForm(forms.Form):
         label="تاريخ الدفع",
         widget=forms.DateInput(attrs={"type": "date"}),
     )
+    # BR-request: a batch can mix several non-homogeneous médicaments/vaccins
+    # (e.g. one vet visit covering both a vaccine and an antibiotic). Forcing
+    # a single per-chick prix_unitaire in that case is often wrong — the vet/
+    # team fee is frequently a single lump sum for the whole visit, not a
+    # clean per-bird rate. So the form now offers TWO mutually-exclusive ways
+    # to price the batch, selected via `mode_montant`:
+    #   "unitaire" → prix_unitaire × total_effectif (unchanged legacy path)
+    #   "direct"   → montant_direct entered as-is, for the whole batch
+    # Exactly one of the two amount fields must be filled in, enforced in
+    # clean() below — never both, never neither.
+    MODE_UNITAIRE = "unitaire"
+    MODE_DIRECT = "direct"
+    MODE_CHOICES_MONTANT = [
+        (MODE_UNITAIRE, "سعر الوحدة لكل طير"),
+        (MODE_DIRECT, "مبلغ إجمالي مباشر"),
+    ]
+
+    mode_montant = forms.ChoiceField(
+        label="طريقة التسعير",
+        choices=MODE_CHOICES_MONTANT,
+        initial=MODE_UNITAIRE,
+        widget=forms.RadioSelect,
+    )
     prix_unitaire = forms.DecimalField(
         label="سعر الوحدة",
         max_digits=12,
         decimal_places=4,
-        min_value=Decimal("0.01"),
+        required=False,
+        min_value=Decimal("0"),
         # NOTE: widget min is "0", NOT "0.01" — see identical rationale in
         # ProductionAlimentPaiementForm.prix_unitaire.
         widget=forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
         help_text="سعر الوحدة الواحدة (لكل طير) — يُضرب في إجمالي عدد الطيور الحية للدفعة/الدفعات المعنية.",
+    )
+    montant_direct = forms.DecimalField(
+        label="المبلغ الإجمالي المباشر",
+        max_digits=12,
+        decimal_places=2,
+        required=False,
+        min_value=Decimal("0"),
+        widget=forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+        help_text=(
+            "مبلغ إجمالي واحد يُغطّي كامل عملية الطبيب/الفريق البيطري — "
+            "مناسب عندما تضم الدفعة أدوية/لقاحات غير متجانسة وليس لها سعر "
+            "موحّد لكل طير."
+        ),
     )
     mode_paiement = forms.ChoiceField(label="طريقة الدفع")
     notes = forms.CharField(
@@ -807,6 +844,26 @@ class ConsommationMedicamentPaiementForm(forms.Form):
             self.fields["date"].initial = datetime.date.today()
         if not self.initial.get("mode_paiement"):
             self.fields["mode_paiement"].initial = Depense.MODE_ESPECES
+
+    def clean(self):
+        cleaned_data = super().clean()
+        mode = cleaned_data.get("mode_montant")
+        prix_unitaire = cleaned_data.get("prix_unitaire")
+        montant_direct = cleaned_data.get("montant_direct")
+
+        if mode == self.MODE_DIRECT:
+            if not montant_direct:
+                self.add_error(
+                    "montant_direct",
+                    "أدخل المبلغ الإجمالي المباشر لهذه الدفعة.",
+                )
+        else:
+            if not prix_unitaire:
+                self.add_error(
+                    "prix_unitaire",
+                    "أدخل سعر الوحدة لكل طير لهذه الدفعة.",
+                )
+        return cleaned_data
 
 
 class RetraitOeufsForm(forms.ModelForm):
