@@ -147,11 +147,27 @@ class Command(BaseCommand):
             try:
                 lot = LotElevage.objects.get(designation=lot_designation)
             except LotElevage.DoesNotExist:
-                raise CommandError(
-                    f"Lot introuvable : «{lot_designation}». "
-                    "Exécutez d'abord 'python manage.py seed_elevage_lot', "
-                    "ou passez --lot '' pour ne rattacher aucun lot."
-                )
+                if lot_designation == DEFAULT_LOT_DESIGNATION:
+                    # Le lot par défaut du scénario n'existe pas encore —
+                    # on délègue sa création à seed_elevage_lot (--what none
+                    # = résout/crée le lot sans peupler mortalités/aliments…),
+                    # plutôt que d'échouer immédiatement.
+                    self.stdout.write(
+                        self.style.WARNING(
+                            f"  Lot «{lot_designation}» introuvable — "
+                            "création automatique via seed_elevage_lot…"
+                        )
+                    )
+                    from django.core.management import call_command
+
+                    call_command("seed_elevage_lot", lot=lot_designation, what="none")
+                    lot = LotElevage.objects.get(designation=lot_designation)
+                else:
+                    raise CommandError(
+                        f"Lot introuvable : «{lot_designation}». "
+                        "Exécutez d'abord 'python manage.py seed_elevage_lot', "
+                        "ou passez --lot '' pour ne rattacher aucun lot."
+                    )
 
         admin = User.objects.filter(is_superuser=True).first()
 

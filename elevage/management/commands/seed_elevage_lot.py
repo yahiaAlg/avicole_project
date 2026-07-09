@@ -82,7 +82,7 @@ Données incluses (scénario Lot Pondeuses 2026, cycle biologique complet §5.6)
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.contrib.auth.models import User
@@ -98,6 +98,18 @@ from django.db import transaction
 # ---------------------------------------------------------------------------
 
 DEFAULT_LOT_DESIGNATION = "Lot Mai 2026 — Bâtiment A"
+
+# Données de création automatique du lot broiler par défaut (scénario §4.2)
+# — utilisées uniquement quand --lot garde sa valeur par défaut ET que le
+# lot n'existe pas encore en base (auto-création idempotente, voir
+# _ensure_lot_broiler ci-dessous). Pour tout autre --lot, le lot doit
+# continuer d'être créé manuellement via l'interface.
+DEFAULT_BATIMENT_NOM = "Bâtiment A"
+DEFAULT_FOURNISSEUR_NOM = "Couvoirs du Centre — CCA"
+DEFAULT_BL_REFERENCE = "BLF-2026-0001"
+DEFAULT_SOUCHE = "Ross 308"
+DEFAULT_NOMBRE_POUSSINS = 2000
+DEFAULT_LOT_AGE_JOURS = 40  # date_ouverture = date.today() - 40j (cf. §5.1)
 
 # Format : (jour_depuis_ouverture, nombre, cause)
 MORTALITE_DATA = [
@@ -313,6 +325,7 @@ class Command(BaseCommand):
                 "oeufs",
                 "pondeuse-elevage",
                 "pondeuse-transfert",
+                "none",
             ],
             default="all",
             help=(
@@ -320,7 +333,9 @@ class Command(BaseCommand):
                 "'mortalites' / 'aliments' / 'medics' / 'fertilisant' / "
                 "'oeufs' (post-transfert) / 'pondeuse-elevage' (mortalités+aliments+"
                 "médics+pesées, phase Poussinière) / 'pondeuse-transfert' "
-                "(TransfertLot Poussinière → Poulailler, J+126)."
+                "(TransfertLot Poussinière → Poulailler, J+126) / 'none' "
+                "(résout/crée le lot sans peupler de données — utilisé par "
+                "d'autres commandes de seed comme seed_depenses)."
             ),
         )
         parser.add_argument(
@@ -351,20 +366,13 @@ class Command(BaseCommand):
             )
         )
 
-        # ── Resolve lot ───────────────────────────────────────────────────
+        # ── Resolve (or auto-create) lot ─────────────────────────────────
         try:
             from elevage.models import LotElevage
         except ImportError as exc:
             raise CommandError(f"Impossible d'importer elevage.models : {exc}") from exc
 
-        try:
-            lot = LotElevage.objects.get(designation=lot_designation)
-        except LotElevage.DoesNotExist:
-            raise CommandError(
-                f"Lot introuvable : «{lot_designation}».\n"
-                "Créez le lot via l'interface (ÉLEVAGE → Lots → Ouvrir un nouveau lot) "
-                "avant d'exécuter cette commande."
-            )
+        lot = self._ensure_lot_broiler(lot_designation)
 
         if lot.statut != LotElevage.STATUT_OUVERT:
             self.stdout.write(
@@ -409,6 +417,106 @@ class Command(BaseCommand):
             self._seed_transfert(options["lot_pondeuses"], admin, offset)
 
         self.stdout.write(self.style.SUCCESS("\n✓ seed_elevage_lot terminé.\n"))
+
+    # ------------------------------------------------------------------
+    # Résolution / auto-création du lot broiler par défaut
+    # ------------------------------------------------------------------
+
+    def _ensure_lot_broiler(self, designation: str):
+        """
+        Retourne le LotElevage «designation», en le créant automatiquement
+        s'il n'existe pas ENCORE et qu'il s'agit de la désignation par
+        défaut du scénario (DEFAULT_LOT_DESIGNATION).
+
+        Auparavant ce lot était créé par le script monolithique seed_db.py ;
+        avec la séquence granulaire actuelle (seed_db_minimal → seed_buildings
+        → seed_achats_scenario → seed_elevage_lot → seed_depenses), plus rien
+        ne le créait, d'où le «Lot introuvable» — cette méthode comble ce
+        manque en recréant le lot du §4.2 du scénario à la volée.
+
+        Pour toute autre désignation (--lot personnalisé, lot pondeuses…),
+        le comportement historique est conservé : le lot doit déjà exister.
+        """
+        from elevage.models import LotElevage
+
+        try:
+            return LotElevage.objects.get(designation=designation)
+        except LotElevage.DoesNotExist:
+            pass
+
+        if designation != DEFAULT_LOT_DESIGNATION:
+            raise CommandError(
+                f"Lot introuvable : «{designation}».\n"
+                "Créez le lot via l'interface (ÉLEVAGE → Lots → Ouvrir un nouveau lot) "
+                "avant d'exécuter cette commande, ou utilisez la désignation par "
+                f"défaut «{DEFAULT_LOT_DESIGNATION}» pour bénéficier de la "
+                "création automatique."
+            )
+
+        self.stdout.write(
+            self.style.WARNING(
+                f"  ~ Lot «{designation}» introuvable — création automatique "
+                f"({DEFAULT_NOMBRE_POUSSINS} poussins {DEFAULT_SOUCHE}, "
+                f"{DEFAULT_BATIMENT_NOM})…"
+            )
+        )
+
+        from intrants.models import Batiment
+
+        try:
+            batiment = Batiment.objects.get(nom=DEFAULT_BATIMENT_NOM)
+        except Batiment.DoesNotExist:
+            raise CommandError(
+                f"Bâtiment «{DEFAULT_BATIMENT_NOM}» introuvable — "
+                "exécutez d'abord 'python manage.py seed_buildings'."
+            )
+        except Batiment.MultipleObjectsReturned:
+            batiment = Batiment.objects.filter(nom=DEFAULT_BATIMENT_NOM).first()
+
+        try:
+            from intrants.models import Fournisseur
+        except ImportError as exc:
+            raise CommandError(f"Impossible d'importer achats.models : {exc}") from exc
+
+        try:
+            fournisseur = Fournisseur.objects.get(nom=DEFAULT_FOURNISSEUR_NOM)
+        except Fournisseur.DoesNotExist:
+            raise CommandError(
+                f"Fournisseur «{DEFAULT_FOURNISSEUR_NOM}» introuvable — "
+                "exécutez d'abord 'python manage.py seed_achats_scenario'."
+            )
+        except Fournisseur.MultipleObjectsReturned:
+            fournisseur = Fournisseur.objects.filter(
+                nom=DEFAULT_FOURNISSEUR_NOM
+            ).first()
+
+        from achats.models import BLFournisseur
+
+        bl_poussins = BLFournisseur.objects.filter(
+            reference=DEFAULT_BL_REFERENCE
+        ).first()
+        if bl_poussins is None:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"    (BL fournisseur «{DEFAULT_BL_REFERENCE}» introuvable — "
+                    "le lot sera créé sans lien vers le BL, champ optionnel)"
+                )
+            )
+
+        lot = LotElevage.objects.create(
+            designation=designation,
+            date_ouverture=date.today() - timedelta(days=DEFAULT_LOT_AGE_JOURS),
+            nombre_poussins_initial=DEFAULT_NOMBRE_POUSSINS,
+            fournisseur_poussins=fournisseur,
+            bl_fournisseur_poussins=bl_poussins,
+            batiment=batiment,
+            souche=DEFAULT_SOUCHE,
+            notes="Créé automatiquement par seed_elevage_lot (lot par défaut du scénario).",
+        )
+        self.stdout.write(
+            self.style.SUCCESS(f"  ✓ Lot créé : «{lot.designation}» (id={lot.pk})\n")
+        )
+        return lot
 
     # ------------------------------------------------------------------
     # Lot Pondeuses — phase élevage (Poussinière) : mortalités, aliments,
