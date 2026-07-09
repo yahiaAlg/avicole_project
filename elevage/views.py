@@ -1396,8 +1396,14 @@ def consommation_medicament_paiement_create(request):
         form = ConsommationMedicamentPaiementForm(request.POST)
         if form.is_valid():
             total_qte = sum((c.quantite for c in consommations), Decimal("0"))
+            # BR-request fix: prix_unitaire is per-chick/bird, not per-dose
+            # — multiply by the total effectif_vivant of the lot(s) covered
+            # by this batch (summed once per distinct lot), not by the
+            # summed dose quantite.
+            lots_uniques = {c.lot_id: c.lot for c in consommations}
+            total_effectif = sum(l.effectif_vivant for l in lots_uniques.values())
             prix_unitaire = form.cleaned_data["prix_unitaire"]
-            montant = (total_qte * prix_unitaire).quantize(Decimal("0.01"))
+            montant = (total_effectif * prix_unitaire).quantize(Decimal("0.01"))
 
             categorie, _ = CategorieDepense.objects.get_or_create(
                 code="MAIN_OEUVRE_MEDICAMENT",
@@ -1423,7 +1429,7 @@ def consommation_medicament_paiement_create(request):
             # without a manual edit. A batch spanning several lots is left
             # unattributed (BR-DEP-04 is optional) — the user can still
             # assign one lot manually from the Depense edit screen.
-            lots_selectionnes = {c.lot_id for c in consommations}
+            lots_selectionnes = set(lots_uniques.keys())
             lot_unique = consommations[0].lot if len(lots_selectionnes) == 1 else None
 
             try:
@@ -1448,14 +1454,15 @@ def consommation_medicament_paiement_create(request):
 
                 messages.success(
                     request,
-                    f"تم إنشاء مصروف بمبلغ {montant} د.ج لدفع {total_qte} "
-                    f"عبر {len(consommations)} استهلاك.",
+                    f"تم إنشاء مصروف بمبلغ {montant} د.ج ({total_effectif} طير × "
+                    f"{prix_unitaire} د.ج) عبر {len(consommations)} استهلاك.",
                 )
                 logger.info(
                     "Depense pk=%s created for %s Consommation(médicament) "
-                    "payment (total_qte=%s, prix_unitaire=%s) by '%s'.",
+                    "payment (total_effectif=%s, total_qte=%s, prix_unitaire=%s) by '%s'.",
                     depense.pk,
                     len(consommations),
+                    total_effectif,
                     total_qte,
                     prix_unitaire,
                     request.user,
@@ -1481,6 +1488,8 @@ def consommation_medicament_paiement_create(request):
         form = ConsommationMedicamentPaiementForm()
 
     total_qte = sum((c.quantite for c in consommations), Decimal("0"))
+    lots_uniques_ctx = {c.lot_id: c.lot for c in consommations}
+    total_effectif = sum(l.effectif_vivant for l in lots_uniques_ctx.values())
 
     return render(
         request,
@@ -1489,6 +1498,7 @@ def consommation_medicament_paiement_create(request):
             "form": form,
             "consommations": consommations,
             "total_qte": total_qte,
+            "total_effectif": total_effectif,
             "title": "دفع أجرة الطبيب/الفريق البيطري",
         },
     )

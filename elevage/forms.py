@@ -789,7 +789,7 @@ class ConsommationMedicamentPaiementForm(forms.Form):
         # NOTE: widget min is "0", NOT "0.01" — see identical rationale in
         # ProductionAlimentPaiementForm.prix_unitaire.
         widget=forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
-        help_text="سعر الوحدة الواحدة — يُضرب في إجمالي الكمية المختارة.",
+        help_text="سعر الوحدة الواحدة (لكل طير) — يُضرب في إجمالي عدد الطيور الحية للدفعة/الدفعات المعنية.",
     )
     mode_paiement = forms.ChoiceField(label="طريقة الدفع")
     notes = forms.CharField(

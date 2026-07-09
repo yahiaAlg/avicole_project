@@ -631,7 +631,14 @@ class Consommation(models.Model):
     def montant_total(self):
         """Cost of this consumption, when a unit price was entered directly
         (0 when prix_unitaire is 0 — e.g. médicament entries awaiting a
-        batched team/vet payment instead, see signals/views)."""
+        batched team/vet payment instead, see signals/views).
+
+        For médicament/vaccin, prix_unitaire is a per-chick/bird price, not
+        a per-dose price — it's multiplied by the lot's current
+        effectif_vivant (the birds the batch was administered to), not by
+        the dose quantite (BR-request)."""
+        if self.prix_unitaire and self.est_medicament and self.lot_id:
+            return self.lot.effectif_vivant * self.prix_unitaire
         return self.quantite * self.prix_unitaire
 
     @property

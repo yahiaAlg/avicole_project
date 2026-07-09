@@ -24,7 +24,7 @@
           </div>
           <div>
             <div class="form-card__title">{{ title }}</div>
-            <div class="form-card__sub">{{ consommations|length }} استهلاك محدّد — إجمالي الكمية {{ total_qte|floatformat:2 }}</div>
+            <div class="form-card__sub">{{ consommations|length }} استهلاك محدّد — إجمالي الكمية {{ total_qte|floatformat:2 }} — إجمالي عدد الطيور {{ total_effectif|floatformat:0 }}</div>
           </div>
         </div>
 
@@ -63,7 +63,7 @@
           {% for c in consommations %}
           <input type="hidden" name="consommation_ids" value="{{ c.pk }}">
           {% endfor %}
-          <input type="hidden" id="total-qte-value" value="{{ total_qte|stringformat:'f' }}">
+          <input type="hidden" id="total-effectif-value" value="{{ total_effectif|stringformat:'d' }}">
 
           {% if form.non_field_errors %}
           <div class="form-errors-global">
@@ -113,7 +113,7 @@
           </div>
 
           <div class="total-preview">
-            <span>المبلغ الإجمالي للمصروف</span>
+            <span>المبلغ الإجمالي للمصروف ({{ total_effectif|floatformat:0 }} طير × سعر الوحدة)</span>
             <strong id="montant-preview">0.00</strong> د.ج
           </div>
 
@@ -169,13 +169,13 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  var totalQte = parseFloat(document.getElementById('total-qte-value').value) || 0;
+  var totalEffectif = parseFloat(document.getElementById('total-effectif-value').value) || 0;
   var prixInput = document.getElementById('{{ form.prix_unitaire.id_for_label }}');
   var preview = document.getElementById('montant-preview');
 
   function update() {
     var prix = parseFloat(prixInput.value) || 0;
-    preview.textContent = (totalQte * prix).toFixed(2);
+    preview.textContent = (totalEffectif * prix).toFixed(2);
   }
 
   if (prixInput) {
