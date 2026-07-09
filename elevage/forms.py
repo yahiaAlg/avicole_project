@@ -704,6 +704,9 @@ class ProductionAlimentForm(forms.ModelForm):
         cleaned = super().clean()
         formule = cleaned.get("formule")
         intrant_produit = cleaned.get("intrant_produit")
+        quantite_produite_kg = cleaned.get("quantite_produite_kg")
+        branche = cleaned.get("branche") or getattr(self.instance, "branche", None)
+
         if (
             formule
             and intrant_produit
@@ -712,6 +715,33 @@ class ProductionAlimentForm(forms.ModelForm):
             raise ValidationError(
                 "التركيبة المختارة تُنتج علفاً مختلفاً عن العلف المحدد."
             )
+
+        # BR-INT-03 equivalent for formule-based production: each raw
+        # ingredient debited by signals.production_aliment_post_save must
+        # actually be available in stock — a mix can't be manufactured out
+        # of thin air any more than a direct Consommation can draw on an
+        # empty batch. Checked here (creation is the only flow — there's no
+        # edit view for ProductionAliment) so the whole mix is validated
+        # atomically before any StockIntrant is ever touched.
+        if formule and quantite_produite_kg:
+            insuffisants = []
+            for ligne in formule.lignes.select_related("intrant").all():
+                qte_ingredient = (quantite_produite_kg / Decimal("100")) * ligne.proportion_kg
+                if qte_ingredient <= 0:
+                    continue
+                stock_dispo = ligne.intrant.quantite_en_stock(branche=branche)
+                if qte_ingredient > stock_dispo:
+                    insuffisants.append(
+                        f"«\u202f{ligne.intrant.designation}\u202f» "
+                        f"(متاح\u202f: {stock_dispo} {ligne.intrant.unite_mesure} — "
+                        f"مطلوب\u202f: {qte_ingredient} {ligne.intrant.unite_mesure})"
+                    )
+            if insuffisants:
+                raise ValidationError(
+                    "BR-INT-03 : المخزون غير كافٍ لتصنيع هذه الكمية عبر التركيبة "
+                    f"« {formule.nom} » للمكوّنات التالية — " + "، ".join(insuffisants)
+                )
+
         return cleaned
 
 

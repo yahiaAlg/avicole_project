@@ -1034,8 +1034,15 @@ def production_aliment_post_save(sender, instance, created, **kwargs):
     """
     Credit intrant_produit's StockIntrant by the (signed) delta of
     quantite_produite_kg, scoped to instance.branche. If a formule is set,
-    also debit each ingredient's StockIntrant proportionally — leniently,
-    without blocking on negative stock (same tolerance as Consommation).
+    also debit each ingredient's StockIntrant proportionally.
+
+    Ingredient sufficiency (BR-INT-03) is enforced upstream in
+    ProductionAlimentForm.clean() before this signal ever runs, so this
+    debit should never push a StockIntrant negative in the normal form
+    flow. This save is still not blocked here at the model layer (mirrors
+    Consommation's tolerance) so a manual/scripted ProductionAliment.save()
+    outside the form is never silently rejected — only warned about via
+    the resulting negative StockIntrant.quantite.
 
     Costing (BR-request — direct entry is the primary flow): when this
     replenishment adds stock (delta > 0), the feed's
