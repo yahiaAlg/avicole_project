@@ -544,13 +544,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const qtyEl  = row.querySelector('input[name$="-quantite"]');
     const priceEl = row.querySelector('input[name$="-prix_unitaire"]');
     if (!pk) { if (hint) hint.textContent = ''; return; }
-    fetch(STOCK_URL_TPL[type].replace('99999', pk))
+    let url = STOCK_URL_TPL[type].replace('99999', pk);
+    if (type === 'intrant' && clientSel && clientSel.value) {
+      url += '?client=' + encodeURIComponent(clientSel.value);
+    }
+    fetch(url)
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(data => {
         const stock = parseFloat(data.quantite) || 0;
         const qty   = parseFloat(qtyEl?.value) || 0;
 
-        // No default sale price exists for intrants — only auto-fill for produits finis.
+        // Produits finis: catalogue default sale price.
         if (type === 'produit_fini' && priceEl && data.prix_vente_defaut !== undefined) {
           const currentPrice = parseFloat(priceEl.value) || 0;
           if (forcePrice || currentPrice === 0) {
@@ -559,14 +563,34 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         }
 
+        // Intrants: no catalogue price exists, so prefill from the last
+        // price this intrant was actually sold at (client-specific first,
+        // any client otherwise), or — if it's never been sold — from its
+        // weighted-average purchase cost as a last-resort floor. Still just
+        // a starting point — editable.
+        if (type === 'intrant' && priceEl && data.dernier_prix_vente !== undefined && data.dernier_prix_vente !== null) {
+          const currentPrice = parseFloat(priceEl.value) || 0;
+          if (forcePrice || currentPrice === 0) {
+            priceEl.value = parseFloat(data.dernier_prix_vente).toFixed(4);
+            updateTotals();
+          }
+        }
+
         if (!hint) return;
+        let hintText;
         if (qty > 0 && qty > stock) {
-          hint.textContent = '\u26a0\ufe0f غير كافٍ \u2014 المتاح\u202f: ' + stock.toLocaleString('fr-DZ') + '\u00a0' + (data.unite_mesure || '');
+          hintText = '\u26a0\ufe0f غير كافٍ \u2014 المتاح\u202f: ' + stock.toLocaleString('fr-DZ') + '\u00a0' + (data.unite_mesure || '');
           hint.classList.add('over');
         } else {
-          hint.textContent = 'المتاح\u202f: ' + stock.toLocaleString('fr-DZ') + '\u00a0' + (data.unite_mesure || '');
+          hintText = 'المتاح\u202f: ' + stock.toLocaleString('fr-DZ') + '\u00a0' + (data.unite_mesure || '');
           hint.classList.remove('over');
         }
+        if (type === 'intrant' && data.prix_source === 'cout') {
+          hintText += ' \u2014 السعر مقترح من التكلفة، يُرجى مراجعته';
+        } else if (type === 'intrant' && (data.prix_source === 'vente' || data.prix_source === 'vente_client')) {
+          hintText += ' \u2014 السعر من آخر عملية بيع';
+        }
+        hint.textContent = hintText;
       })
       .catch(() => { if (hint) hint.textContent = ''; });
   }

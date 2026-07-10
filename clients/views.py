@@ -1865,23 +1865,79 @@ def intrant_stock_json(request, pk):
     intrants that can now be sold to clients on a BL Client line
     (BR-BLC-06, v1.6).
 
-    No "prix_vente_defaut" concept exists for Intrant (unlike ProduitFini),
-    so the price is left for the user to fill in manually.
+    No catalogue "prix_vente_defaut" exists for Intrant (unlike ProduitFini)
+    since intrants aren't normally sold — only occasional surplus. Instead
+    of leaving the price fully blank, we prefill it with the best price hint
+    we can derive, in this order:
+
+      1. Last sale to THIS client (?client=<pk> query param) — pricing is
+         often client-specific (negotiated rates).
+      2. Last sale to ANY client — this intrant has been sold before, just
+         not to this client.
+      3. StockIntrant.prix_moyen_pondere (weighted-average purchase cost)
+         for the active branche — this intrant has NEVER been sold, so
+         there's no sale price at all yet; the cost is the only number on
+         record, and is offered purely as a floor/starting point (the user
+         still needs to add a margin — it is NOT a suggested sale price).
+      4. null if there's no sale history AND no stock/cost on record either
+         (e.g. quantity and PMP both still at 0).
+
+    Only lines on non-brouillon BLs count (brouillon prices aren't final
+    yet — the line could still be edited before validation).
 
     Returns:
         {
           "quantite": float,
           "unite_mesure": str,
+          "dernier_prix_vente": float | null,
+          "prix_source": "vente_client" | "vente" | "cout" | null,
         }
     """
     from intrants.models import Intrant
+    from stock.models import StockIntrant
 
     intrant = get_object_or_404(Intrant, pk=pk)
     branche = get_active_branche(request)
 
+    lignes_vendues = BLClientLigne.objects.filter(
+        intrant=intrant,
+    ).exclude(bl__statut=BLClient.STATUT_BROUILLON)
+
+    dernier_prix_vente = None
+    prix_source = None
+
+    client_pk = request.GET.get("client")
+    if client_pk:
+        derniere_ligne = (
+            lignes_vendues.filter(bl__client_id=client_pk)
+            .order_by("-bl__date_bl", "-bl_id", "-id")
+            .first()
+        )
+        if derniere_ligne:
+            dernier_prix_vente = derniere_ligne.prix_unitaire
+            prix_source = "vente_client"
+
+    if dernier_prix_vente is None:
+        derniere_ligne = lignes_vendues.order_by(
+            "-bl__date_bl", "-bl_id", "-id"
+        ).first()
+        if derniere_ligne:
+            dernier_prix_vente = derniere_ligne.prix_unitaire
+            prix_source = "vente"
+
+    if dernier_prix_vente is None and branche is not None:
+        stock = StockIntrant.objects.filter(branche=branche, intrant=intrant).first()
+        if stock and stock.prix_moyen_pondere:
+            dernier_prix_vente = stock.prix_moyen_pondere
+            prix_source = "cout"
+
     data = {
         "quantite": float(intrant.quantite_en_stock(branche)),
         "unite_mesure": str(intrant.unite_mesure),
+        "dernier_prix_vente": (
+            float(dernier_prix_vente) if dernier_prix_vente is not None else None
+        ),
+        "prix_source": prix_source,
     }
     return JsonResponse(data)
 
