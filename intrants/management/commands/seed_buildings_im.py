@@ -26,7 +26,7 @@ Utilisation :
     1. python manage.py seed_db_minimal   ← crée la Branche par défaut (STF)
     2. python manage.py seed_phase0       ← Fournisseurs / Clients / Intrants
     3. python manage.py seed_buildings    ← ce script (Bâtiments)
-    4. Lancer Phase 1 — Achats Intrants (BLF-2026-0001 …)
+    4. Lancer Phase 1 — Achats Intrants (BLF-2025-0001 …)
 
 Bâtiments créés (scenario_avicole_full_cycle_fresh_start.md §0.3) :
     BAT-1 — Bâtiment A     : poussiniere, capacité 5 000  ← requis pour le lot

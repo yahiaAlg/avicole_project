@@ -37,17 +37,17 @@ Utilisation :
        Sans ce stock, la validation des BL Client (statut Livré) créera un
        solde négatif — le script avertit mais ne bloque pas (BR-BLC-02 est
        appliquée côté formulaire/vue, pas au niveau ORM direct).
-    4. Pour BLC-2026-0004 (œufs, §8.4) : le lot Pondeuses 2026 doit avoir
-       enregistré ses 8 RecolteOeufs (§5.6.7, dernière récolte 2026-11-27),
+    4. Pour BLC-2025-0004 (œufs, §8.4) : le lot Pondeuses 2025 doit avoir
+       enregistré ses 8 RecolteOeufs (§5.6.7, dernière récolte 2025-11-27),
        de sorte que StockProduitFini(صينية بيض) ≥ 471 plateaux.
 
 Détails (scenario §8.2 → §8.4) :
-    BLC-2026-0001 — Marché de Gros Setifien   (300 Poulet vivant + 800 Carcasse)
-    BLC-2026-0002 — Boucherie Amrane & Fils   (200 Poulet vivant + 400 Carcasse)
-    BLC-2026-0003 — Restaurant Le Palmier     (257 Carcasse)
-    BLC-2026-0004 — Marché de Gros Setifien   (471 plateaux œufs — clôture Lot Pondeuses, §8.4)
+    BLC-2025-0001 — Marché de Gros Setifien   (300 Poulet vivant + 800 Carcasse)
+    BLC-2025-0002 — Boucherie Amrane & Fils   (200 Poulet vivant + 400 Carcasse)
+    BLC-2025-0003 — Restaurant Le Palmier     (257 Carcasse)
+    BLC-2025-0004 — Marché de Gros Setifien   (471 plateaux œufs — clôture Lot Pondeuses, §8.4)
 
-    FAC-2026-0001 → 0004 — une facture par BL, montant_ht auto-calculé
+    FAC-2025-0001 → 0004 — une facture par BL, montant_ht auto-calculé
                             (BR-FAC-01), TVA 0% (volaille/œufs exonérés).
 
     Paiements — allocation MANUELLE (BR-FAC-03, pas de FIFO automatique côté
@@ -55,10 +55,10 @@ Détails (scenario §8.2 → §8.4) :
     PaiementClientAllocation correspondantes, et appelle
     facture.recalculer_solde() pour refléter le nouveau statut, exactement
     comme le ferait la vue de paiement.
-        • FAC-2026-0001 : payée intégralement (744 000 DZD, espèces)
-        • FAC-2026-0002 : acompte partiel (200 000 / 396 000 DZD, chèque)
-        • FAC-2026-0003 : payée intégralement (200 460 DZD, virement)
-        • FAC-2026-0004 : payée intégralement (164 850 DZD, virement — œufs)
+        • FAC-2025-0001 : payée intégralement (744 000 DZD, espèces)
+        • FAC-2025-0002 : acompte partiel (200 000 / 396 000 DZD, chèque)
+        • FAC-2025-0003 : payée intégralement (200 460 DZD, virement)
+        • FAC-2025-0004 : payée intégralement (164 850 DZD, virement — œufs)
 
 Idempotent : get_or_create sur `reference` pour BLC/FAC. Les paiements
 n'ont pas de champ reference unique dans le modèle ; l'idempotence se fait
@@ -86,9 +86,9 @@ WHAT_CHOICES = ["all", "bls", "factures", "paiements"]
 #           [ (produit_designation, quantite, prix_unitaire), ... ])
 BLC_DATA = [
     (
-        "BLC-2026-0001",
+        "BLC-2025-0001",
         "Marché de Gros Setifien",
-        datetime.date(2026, 6, 20),
+        datetime.date(2025, 6, 20),
         "Zone de marché, Route nationale 5, Setifien",
         "Boualem Khaled — Réceptionnaire",
         [
@@ -97,9 +97,9 @@ BLC_DATA = [
         ],
     ),
     (
-        "BLC-2026-0002",
+        "BLC-2025-0002",
         "Boucherie Amrane & Fils",
-        datetime.date(2026, 6, 21),
+        datetime.date(2025, 6, 21),
         "",
         "",
         [
@@ -108,22 +108,22 @@ BLC_DATA = [
         ],
     ),
     (
-        "BLC-2026-0003",
+        "BLC-2025-0003",
         "Restaurant Le Palmier",
-        datetime.date(2026, 6, 22),
+        datetime.date(2025, 6, 22),
         "",
         "",
         [
             ("جثة كاملة منزوعة الأحشاء", Decimal("257"), Decimal("780.0000")),
         ],
     ),
-    # BLC-2026-0004 — Vente Œufs (Lot Pondeuses 2026, §8.4).
+    # BLC-2025-0004 — Vente Œufs (Lot Pondeuses 2025, §8.4).
     # Clôt la boucle sur les 471 plateaux récoltés au §5.6.7 (dernière
-    # récolte 2026-11-27) — auparavant produits mais jamais vendus.
+    # récolte 2025-11-27) — auparavant produits mais jamais vendus.
     (
-        "BLC-2026-0004",
+        "BLC-2025-0004",
         "Marché de Gros Setifien",
-        datetime.date(2026, 11, 30),
+        datetime.date(2025, 11, 30),
         "",
         "",
         [
@@ -135,35 +135,35 @@ BLC_DATA = [
 # Format : (reference, client_nom, [bl_references], date_facture, date_echeance, taux_tva)
 FAC_DATA = [
     (
-        "FAC-2026-0001",
+        "FAC-2025-0001",
         "Marché de Gros Setifien",
-        ["BLC-2026-0001"],
-        datetime.date(2026, 6, 20),
-        datetime.date(2026, 7, 20),
+        ["BLC-2025-0001"],
+        datetime.date(2025, 6, 20),
+        datetime.date(2025, 7, 20),
         Decimal("0.00"),
     ),
     (
-        "FAC-2026-0002",
+        "FAC-2025-0002",
         "Boucherie Amrane & Fils",
-        ["BLC-2026-0002"],
-        datetime.date(2026, 6, 21),
-        datetime.date(2026, 7, 21),
+        ["BLC-2025-0002"],
+        datetime.date(2025, 6, 21),
+        datetime.date(2025, 7, 21),
         Decimal("0.00"),
     ),
     (
-        "FAC-2026-0003",
+        "FAC-2025-0003",
         "Restaurant Le Palmier",
-        ["BLC-2026-0003"],
-        datetime.date(2026, 6, 22),
-        datetime.date(2026, 7, 22),
+        ["BLC-2025-0003"],
+        datetime.date(2025, 6, 22),
+        datetime.date(2025, 7, 22),
         Decimal("0.00"),
     ),
     (
-        "FAC-2026-0004",
+        "FAC-2025-0004",
         "Marché de Gros Setifien",
-        ["BLC-2026-0004"],
-        datetime.date(2026, 11, 30),
-        datetime.date(2026, 12, 30),
+        ["BLC-2025-0004"],
+        datetime.date(2025, 11, 30),
+        datetime.date(2025, 12, 30),
         Decimal("0.00"),
     ),
 ]
@@ -173,35 +173,35 @@ FAC_DATA = [
 PAIEMENT_DATA = [
     (
         "Marché de Gros Setifien",
-        datetime.date(2026, 6, 20),
+        datetime.date(2025, 6, 20),
         Decimal("744000.00"),
         "especes",
         "",
-        [("FAC-2026-0001", Decimal("744000.00"))],
+        [("FAC-2025-0001", Decimal("744000.00"))],
     ),
     (
         "Boucherie Amrane & Fils",
-        datetime.date(2026, 6, 21),
+        datetime.date(2025, 6, 21),
         Decimal("200000.00"),
         "cheque",
         "CHQ-AMRANE-1044",
-        [("FAC-2026-0002", Decimal("200000.00"))],
+        [("FAC-2025-0002", Decimal("200000.00"))],
     ),
     (
         "Restaurant Le Palmier",
-        datetime.date(2026, 6, 22),
+        datetime.date(2025, 6, 22),
         Decimal("200460.00"),
         "virement",
-        "VIR-PALMIER-22062026",
-        [("FAC-2026-0003", Decimal("200460.00"))],
+        "VIR-PALMIER-22062025",
+        [("FAC-2025-0003", Decimal("200460.00"))],
     ),
     (
         "Marché de Gros Setifien",
-        datetime.date(2026, 12, 1),
+        datetime.date(2025, 12, 1),
         Decimal("164850.00"),
         "virement",
         "VIR-MG-OEUFS-301126",
-        [("FAC-2026-0004", Decimal("164850.00"))],
+        [("FAC-2025-0004", Decimal("164850.00"))],
     ),
 ]
 

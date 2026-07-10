@@ -34,15 +34,15 @@ Utilisation :
     5. Ouverture du Lot d'Élevage (Phase 2, saisie manuelle ou script dédié)
 
 Détails (scenario §3.2 → §3.5) :
-    BLF-2026-0001 — Poussins CCA               (2 000 × Poussin Ross 308 @ 32,00)
-    BLF-2026-0002 — Aliments ONAB (lot 1/2)    (200 sacs Démarrage + 180 sacs Croissance)
-    BLF-2026-0003 — Aliments ONAB (finition)   (150 sacs Finition)
-    BLF-2026-0004 — Médicaments Sanofi         (Vaccins Newcastle/Gumboro + Amox. + Vitamines)
-    BLF-2026-0005 — Matières premières ONAB    (500 kg Maïs concassé + 300 kg Tourteau de
+    BLF-2025-0001 — Poussins CCA               (2 000 × Poussin Ross 308 @ 32,00)
+    BLF-2025-0002 — Aliments ONAB (lot 1/2)    (200 sacs Démarrage + 180 sacs Croissance)
+    BLF-2025-0003 — Aliments ONAB (finition)   (150 sacs Finition)
+    BLF-2025-0004 — Médicaments Sanofi         (Vaccins Newcastle/Gumboro + Amox. + Vitamines)
+    BLF-2025-0005 — Matières premières ONAB    (500 kg Maïs concassé + 300 kg Tourteau de
                                                  soja — ingrédients FeedFormula, §5.3bis)
 
-    FRN-2026-0001 → 0005 — une facture par BL, montant_total auto-calculé (BR-FAF-01)
-    REG-2026-0001 → 0005 — allocation FIFO automatique (BR-REG-03) via signal
+    FRN-2025-0001 → 0005 — une facture par BL, montant_total auto-calculé (BR-FAF-01)
+    REG-2025-0001 → 0005 — allocation FIFO automatique (BR-REG-03) via signal
                             post_save sur ReglementFournisseur.
 
 Idempotent : get_or_create sur `reference` pour BLF/FRN, et sur la combinaison
@@ -77,10 +77,10 @@ WHAT_CHOICES = ["all", "bls", "factures", "reglements"]
 #           notes_reception, [ (intrant_designation, quantite, prix_unitaire, notes), ... ])
 BLF_DATA = [
     (
-        "BLF-2026-0001",
+        "BLF-2025-0001",
         "Couvoirs du Centre — CCA",
-        datetime.date(2026, 5, 5),
-        "BC-CCA-0512-2026",
+        datetime.date(2025, 5, 5),
+        "BC-CCA-0512-2025",
         "Arrivée 07h30 — camion frigorifique — bonne condition",
         [
             (
@@ -92,10 +92,10 @@ BLF_DATA = [
         ],
     ),
     (
-        "BLF-2026-0002",
+        "BLF-2025-0002",
         "ONAB Setifien",
-        datetime.date(2026, 5, 7),
-        "ONAB-BL-20260507-088",
+        datetime.date(2025, 5, 7),
+        "ONAB-BL-20250507-088",
         "",
         [
             (
@@ -113,9 +113,9 @@ BLF_DATA = [
         ],
     ),
     (
-        "BLF-2026-0003",
+        "BLF-2025-0003",
         "ONAB Setifien",
-        datetime.date(2026, 5, 30),
+        datetime.date(2025, 5, 30),
         "",
         "",
         [
@@ -128,9 +128,9 @@ BLF_DATA = [
         ],
     ),
     (
-        "BLF-2026-0004",
+        "BLF-2025-0004",
         "Sanofi Algérie (Vétérinaire)",
-        datetime.date(2026, 5, 8),
+        datetime.date(2025, 5, 8),
         "",
         "",
         [
@@ -141,9 +141,9 @@ BLF_DATA = [
         ],
     ),
     (
-        "BLF-2026-0005",
+        "BLF-2025-0005",
         "ONAB Setifien",
-        datetime.date(2026, 5, 18),
+        datetime.date(2025, 5, 18),
         "",
         "",
         [
@@ -158,39 +158,39 @@ BLF_DATA = [
 # Format : (reference, fournisseur_nom, [bl_references], date_facture, date_echeance)
 FRN_DATA = [
     (
-        "FRN-2026-0001",
+        "FRN-2025-0001",
         "Couvoirs du Centre — CCA",
-        ["BLF-2026-0001"],
-        datetime.date(2026, 5, 6),
-        datetime.date(2026, 6, 5),
+        ["BLF-2025-0001"],
+        datetime.date(2025, 5, 6),
+        datetime.date(2025, 6, 5),
     ),
     (
-        "FRN-2026-0002",
+        "FRN-2025-0002",
         "ONAB Setifien",
-        ["BLF-2026-0002"],
-        datetime.date(2026, 5, 8),
-        datetime.date(2026, 6, 7),
+        ["BLF-2025-0002"],
+        datetime.date(2025, 5, 8),
+        datetime.date(2025, 6, 7),
     ),
     (
-        "FRN-2026-0003",
+        "FRN-2025-0003",
         "ONAB Setifien",
-        ["BLF-2026-0003"],
-        datetime.date(2026, 5, 31),
-        datetime.date(2026, 6, 30),
+        ["BLF-2025-0003"],
+        datetime.date(2025, 5, 31),
+        datetime.date(2025, 6, 30),
     ),
     (
-        "FRN-2026-0004",
+        "FRN-2025-0004",
         "Sanofi Algérie (Vétérinaire)",
-        ["BLF-2026-0004"],
-        datetime.date(2026, 5, 9),
-        datetime.date(2026, 6, 8),
+        ["BLF-2025-0004"],
+        datetime.date(2025, 5, 9),
+        datetime.date(2025, 6, 8),
     ),
     (
-        "FRN-2026-0005",
+        "FRN-2025-0005",
         "ONAB Setifien",
-        ["BLF-2026-0005"],
-        datetime.date(2026, 5, 19),
-        datetime.date(2026, 6, 18),
+        ["BLF-2025-0005"],
+        datetime.date(2025, 5, 19),
+        datetime.date(2025, 6, 18),
     ),
 ]
 
@@ -198,35 +198,35 @@ FRN_DATA = [
 REG_DATA = [
     (
         "Couvoirs du Centre — CCA",
-        datetime.date(2026, 5, 10),
+        datetime.date(2025, 5, 10),
         Decimal("64000.00"),
         "virement",
-        "VIR-BNA-10052026-001",
+        "VIR-BNA-10052025-001",
     ),
     (
         "ONAB Setifien",
-        datetime.date(2026, 5, 10),
+        datetime.date(2025, 5, 10),
         Decimal("400000.00"),
         "cheque",
         "CHQ-0455",
     ),
     (
         "ONAB Setifien",
-        datetime.date(2026, 5, 25),
+        datetime.date(2025, 5, 25),
         Decimal("321000.00"),
         "virement",
         "",
     ),
     (
         "Sanofi Algérie (Vétérinaire)",
-        datetime.date(2026, 5, 15),
+        datetime.date(2025, 5, 15),
         Decimal("51700.00"),
         "virement",
         "",
     ),
     (
         "ONAB Setifien",
-        datetime.date(2026, 6, 1),
+        datetime.date(2025, 6, 1),
         Decimal("42000.00"),
         "virement",
         "",

@@ -12,7 +12,7 @@ management/commands/seed_phase0.py
     1. python manage.py seed_db_minimal   ← يجب تشغيله أولاً (التصنيفات + ProduitFini)
     2. python manage.py seed_phase0       ← هذا الملف (الموردون/العملاء/المدخلات)
     3. Bâtiments                          ← تُنشأ يدوياً (branch-scoped, لا يوجد مصنع افتراضي)
-    4. لانطلاق سيناريو الدورة : Phase 1 — Achats Intrants (BLF-2026-0001 …)
+    4. لانطلاق سيناريو الدورة : Phase 1 — Achats Intrants (BLF-2025-0001 …)
 
 ما يتم إنشاؤه (مطابق لـ scenario_avicole_full_cycle_fresh_start.md §Phase 0) :
     • Fournisseur (5)  — CCA / ONAB / Sanofi / Proxi-Aliments / Techno-Avicole
@@ -85,7 +85,7 @@ class Command(BaseCommand):
                 "  Étapes suivantes :\n"
                 "    1. Créer les bâtiments  → STOCK › Bâtiments › Nouveau\n"
                 "       (Bâtiment A, type=poussiniere, requis pour ouvrir le lot)\n"
-                "    2. Lancer Phase 1 — Achats Intrants (BLF-2026-0001 …)\n"
+                "    2. Lancer Phase 1 — Achats Intrants (BLF-2025-0001 …)\n"
             )
         )
 

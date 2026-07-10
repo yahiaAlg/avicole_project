@@ -1133,10 +1133,6 @@
         <i class="bx bx-refresh"></i>
         <span class="nav-link-label">الإنتاج</span>
       </a>
-      <a href="{% url 'production:produit_fini_list' %}" class="nav-link {% block nav_produits_finis %}{% endblock %}">
-        <i class="bx bxs-badge-check"></i>
-        <span class="nav-link-label">كتالوج المنتجات النهائية</span>
-      </a>
       <a href="{% url 'production:collecte_fertilisant_list' %}" class="nav-link {% block nav_collecte_fertilisant %}{% endblock %}">
         <i class="bx bxs-leaf"></i>
         <span class="nav-link-label">جمع السماد الخام</span>
@@ -1155,6 +1151,10 @@
       <a href="{% url 'stock:stock_produit_fini_list' %}" class="nav-link {% block nav_stock_produits %}{% endblock %}">
         <i class="bx bxs-badge-check"></i>
         <span class="nav-link-label">مخزون المنتجات النهائية</span>
+      </a>
+      <a href="{% url 'production:produit_fini_list' %}" class="nav-link {% block nav_produits_finis %}{% endblock %}">
+        <i class="bx bxs-badge-check"></i>
+        <span class="nav-link-label">كتالوج المنتجات النهائية</span>
       </a>
       <a href="{% url 'intrants:intrant_list' %}" class="nav-link {% block nav_intrants %}{% endblock %}">
         <i class="bx bxs-package"></i>

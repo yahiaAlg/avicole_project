@@ -79,6 +79,9 @@ def get_lot_summary(lot) -> dict:
         ic                       (Decimal | None)
         cout_total_intrants      (Decimal — DZD)
         cout_aliments            (Decimal — DZD)
+        cout_matiere_aliments    (Decimal — DZD, feed material only, PMP-based)
+        cout_facon_aliments      (Decimal — DZD, mill labor slice — BR-request batch costing)
+        batches_aliment_consommes (queryset — per-batch kg/façon breakdown for this lot)
         cout_medicaments         (Decimal — DZD, material/stock cost only)
         cout_main_oeuvre_medicament (Decimal — DZD, vet/team labor fee Depense)
         cout_traitement_total    (Decimal — DZD, cout_medicaments + cout_main_oeuvre_medicament)
@@ -125,6 +128,41 @@ def get_lot_summary(lot) -> dict:
     cout_aliments = Decimal(str(lot.cout_aliments))
     cout_medicaments = Decimal(str(lot.cout_medicaments))
     cout_mortalite_poussins = Decimal(str(lot.cout_mortalite_poussins))
+
+    # --- Feed cost breakdown: raw material (PMP) vs façon (BR-request:
+    #     batch costing) ----------------------------------------------------
+    # cout_aliments (above, from the model property) is ALREADY the sum of
+    # both parts — this just separates them so the Lot Detail page can show
+    # the mill worker's fee as its own line, the same way cout_traitement_total
+    # already breaks out cout_main_oeuvre_medicament from cout_medicaments.
+    # See ConsommationAlimentAllocation / ProductionAliment.cout_facon_impute.
+    cout_facon_aliments = conso_aliment_qs.aggregate(
+        total=Sum("allocations_batch__cout_facon_alloue")
+    )["total"] or Decimal("0")
+    cout_matiere_aliments = cout_aliments - cout_facon_aliments
+
+    # --- Batch costing (BR-request): which ProductionAliment batch(es) fed
+    #     this lot, how much, and at what façon cost — mirrors the
+    #     consumption-trail table on the batch detail page, but grouped from
+    #     the lot's side instead of the batch's side.
+    from elevage.models import ConsommationAlimentAllocation
+
+    batches_aliment_consommes = (
+        ConsommationAlimentAllocation.objects.filter(
+            consommation__in=conso_aliment_qs
+        )
+        .values(
+            "production_id",
+            "production__intrant_produit__designation",
+            "production__date",
+            "production__formule__nom",
+        )
+        .annotate(
+            quantite_totale_kg=Sum("quantite_kg"),
+            cout_facon_totale=Sum("cout_facon_alloue"),
+        )
+        .order_by("-production__date")
+    )
 
     # --- Attributed operational expenses --------------------------------
     depenses = lot.depenses.all()
@@ -182,6 +220,9 @@ def get_lot_summary(lot) -> dict:
         "ic": ic,
         "cout_total_intrants": cout_total_intrants,
         "cout_aliments": cout_aliments,
+        "cout_matiere_aliments": cout_matiere_aliments,
+        "cout_facon_aliments": cout_facon_aliments,
+        "batches_aliment_consommes": batches_aliment_consommes,
         "cout_medicaments": cout_medicaments,
         "cout_main_oeuvre_medicament": cout_main_oeuvre_medicament,
         "cout_traitement_total": cout_traitement_total,

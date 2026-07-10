@@ -372,9 +372,7 @@ class Command(BaseCommand):
         seeds = [
             dict(code="GROSSISTE", libelle="تاجر جملة", ordre=1, actif=True),
             dict(code="DETAILLANT", libelle="تاجر تجزئة", ordre=2, actif=True),
-            dict(
-                code="RESTAURATION", libelle="مطاعم / فندقة", ordre=3, actif=True
-            ),
+            dict(code="RESTAURATION", libelle="مطاعم / فندقة", ordre=3, actif=True),
             dict(code="PARTICULIER", libelle="فرد", ordre=4, actif=True),
             dict(code="AUTRE", libelle="أخرى", ordre=5, actif=True),
         ]
@@ -642,7 +640,7 @@ class Command(BaseCommand):
             )
             return
 
-        today = datetime.date.today()
+        today = datetime.date(2025, 7, 10)  # ancre fixe (scénario figé sur 2025)
 
         # Three price points spread over ~90 days for the egg plateau.
         # Prices reflect a mild upward trend typical of Algerian egg markets.

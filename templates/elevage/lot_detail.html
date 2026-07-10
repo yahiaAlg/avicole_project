@@ -178,7 +178,10 @@
         <div class="metric-icon ic-amber"><i class="bx bxs-droplet"></i></div>
         <div class="metric-label">تكلفة العلف</div>
         <div class="metric-value" style="font-size:20px;">{{ summary.cout_aliments|floatformat:0 }}</div>
-        <span class="metric-delta neutral"><i class="bx bx-minus"></i> دج</span>
+        <span class="metric-delta neutral">
+          <i class="bx bx-minus"></i>
+          مواد {{ summary.cout_matiere_aliments|floatformat:0 }} + أجرة تصنيع {{ summary.cout_facon_aliments|floatformat:0 }} دج
+        </span>
       </div>
     </div>
     <div class="col-xl-4 col-md-6">
@@ -426,6 +429,49 @@
         </div>
         {% endif %}
       </div>
+
+      <!-- Batch costing (BR-request): which feed batches fed this lot -->
+      {% if summary.batches_aliment_consommes %}
+      <div class="card mb-3">
+        <div class="section-header">
+          <span class="section-eyebrow"><i class="bx bxs-cylinder" style="font-size:12px;color:var(--accent-text);"></i> دفعات العلف المصدر</span>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>تاريخ الدفعة</th>
+                <th>العلف</th>
+                <th>التركيبة</th>
+                <th style="text-align:right;">الكمية المستهلكة من هذا اللوت (كغ)</th>
+                <th style="text-align:right;">حصة أجرة التصنيع</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for b in summary.batches_aliment_consommes %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td style="color:var(--text-muted);">{{ b.production__date|date:"d/m/Y" }}</td>
+                <td style="font-weight:500;color:var(--text-primary);">
+                  <a href="{% url 'elevage:production_aliment_detail' b.production_id %}">{{ b.production__intrant_produit__designation }}</a>
+                </td>
+                <td style="color:var(--text-muted);">{{ b.production__formule__nom|default:"— مباشر —" }}</td>
+                <td style="font-family:'Nunito',sans-serif;font-weight:700;">{{ b.quantite_totale_kg|floatformat:2 }}</td>
+                <td style="color:var(--text-muted);">
+                  {% if b.cout_facon_totale %}{{ b.cout_facon_totale|floatformat:2 }} دج{% else %}—{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="batch-source-note">
+          <i class="bx bxs-info-circle"></i>
+          حصة أجرة التصنيع هنا تحديداً هي ما دخل في «تكلفة العلف» أعلاه — تُخصَّص
+          لهذا اللوت بنسبة ما استهلكه فعلياً من كل دفعة، وتتحدّث تلقائياً بأثر
+          رجعي إذا دُفعت الأجرة لاحقاً.
+        </div>
+      </div>
+      {% endif %}
 
       <!-- Consommations médicaments section (separate from feed: own form/template) -->
       <div class="card mb-3">
@@ -966,6 +1012,8 @@
   .data-table tbody tr:hover { background:var(--bg-hover); }
   .data-table td { padding:11px 14px;font-size:13px;color:var(--text-secondary);vertical-align:middle; }
   .empty-state-sm { display:flex;align-items:center;gap:10px;padding:18px 18px;font-size:13px;color:var(--text-muted); }
+  .batch-source-note { display:flex;align-items:flex-start;gap:8px;padding:11px 18px;font-size:11.5px;line-height:1.6;color:var(--text-muted);background:rgba(59,130,246,.06);border-top:1px solid var(--border); }
+  .batch-source-note i { color:#3b82f6;font-size:14px;flex-shrink:0;margin-top:1px; }
   .empty-state-sm i { font-size:18px; }
   .actions-cell { display:flex;align-items:center;justify-content:flex-end;gap:4px; }
   .action-btn { display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:13px;cursor:pointer;transition:background .12s,color .12s,border-color .12s;text-decoration:none; }

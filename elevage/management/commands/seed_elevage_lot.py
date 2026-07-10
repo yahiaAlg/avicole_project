@@ -8,19 +8,24 @@ de toutes les mortalités, consommations d'aliments et de médicaments.
 Utilisation :
     # Peuplement complet (mortalités + aliments + médicaments + fertilisant
     # + œufs si le lot pondeuses existe déjà)
-    python manage.py seed_elevage_lot --lot "Lot Mai 2026 — Bâtiment A"
+    python manage.py seed_elevage_lot --lot "Lot Mai 2025 — Bâtiment A"
 
     # Seulement les mortalités
-    python manage.py seed_elevage_lot --lot "Lot Mai 2026 — Bâtiment A" --what mortalites
+    python manage.py seed_elevage_lot --lot "Lot Mai 2025 — Bâtiment A" --what mortalites
 
     # Seulement les consommations aliments
-    python manage.py seed_elevage_lot --lot "Lot Mai 2026 — Bâtiment A" --what aliments
+    python manage.py seed_elevage_lot --lot "Lot Mai 2025 — Bâtiment A" --what aliments
+
+    # Seulement la production interne d'aliment (FormuleAliment + ProductionAliment
+    # "Grower Feed", §5.3bis) — pour tester le coût par lot/batch (batch costing)
+    # ⚠️ nécessite seed_phase0 mis à jour (INT-14/15/16, §5.3bis) exécuté avant.
+    python manage.py seed_elevage_lot --lot "Lot Mai 2025 — Bâtiment A" --what formule-interne
 
     # Seulement les consommations médicaments
-    python manage.py seed_elevage_lot --lot "Lot Mai 2026 — Bâtiment A" --what medics
+    python manage.py seed_elevage_lot --lot "Lot Mai 2025 — Bâtiment A" --what medics
 
     # Seulement la collecte + traitement du fertilisant (bâtiment du lot broiler)
-    python manage.py seed_elevage_lot --lot "Lot Mai 2026 — Bâtiment A" --what fertilisant
+    python manage.py seed_elevage_lot --lot "Lot Mai 2025 — Bâtiment A" --what fertilisant
 
     # Cycle Lot Pondeuses (séparé, cf. §5.6 du scénario) — dans l'ordre :
     #   1) Mortalités + Aliments + Médicaments + Pesées, phase Poussinière
@@ -29,7 +34,7 @@ Utilisation :
     python manage.py seed_elevage_lot --what pondeuse-transfert
     #   3) Aliment Ponte + récolte d'œufs (post-transfert uniquement)
     python manage.py seed_elevage_lot --what oeufs
-    python manage.py seed_elevage_lot --what oeufs --lot-pondeuses "Lot Pondeuses 2026"
+    python manage.py seed_elevage_lot --what oeufs --lot-pondeuses "Lot Pondeuses 2025"
 
     # Utiliser le lot par défaut (celui ouvert dans Bâtiment A par seed_db.py)
     python manage.py seed_elevage_lot
@@ -37,7 +42,7 @@ Utilisation :
 Notes :
     - La commande est idempotente (get_or_create partout).
     - Le lot doit déjà exister avec le statut OUVERT (créé par `seed_db`, qui
-      seed "Lot Mai 2026 — Bâtiment A" avec une date_ouverture RELATIVE —
+      seed "Lot Mai 2025 — Bâtiment A" avec une date_ouverture RELATIVE —
       date.today() - 40 jours — et non une date calendaire fixe).
     - Les intrants référencés doivent exister dans la base (créés via l'interface
       après avoir exécuté seed_db_minimal pour les catégories).
@@ -63,15 +68,19 @@ Notes :
       à jour lot.batiment vers le Poulailler — il ne peut être exécuté
       qu'une fois (immuable) et seulement après `pondeuse-elevage`.
 
-Données incluses (scénario Lot Mai 2026 — Bâtiment A, 2 000 poussins Ross 308) :
+Données incluses (scénario Lot Mai 2025 — Bâtiment A, 2 000 poussins Ross 308) :
     Mortalités   : 5 événements, 40 oiseaux au total
     Aliments     : 11 saisies (démarrage / croissance / finition)
+    Production interne d'aliment (§5.3bis, batch costing) :
+                   1 FormuleAliment (2 ingrédients) + 2 ProductionAliment
+                   (300 kg via formule, 100 kg direct) + 1 consommation de
+                   50 kg piochant explicitement dans le batch «via formule»
     Médicaments  : 7 saisies (vaccins + amoxicilline + vitamines)
     Fertilisant  : 4 collectes brutes (Bâtiment A) + 1 traitement validé
     (Offsets vérifiés contre scenario_avicole_full_cycle_fresh_start.md §5.2-5.4 :
-    date_ouverture = 2026-05-10 (J0) ; ex. mortalité J+3 = 2026-05-13, etc.)
+    date_ouverture = 2025-05-10 (J0) ; ex. mortalité J+3 = 2025-05-13, etc.)
 
-Données incluses (scénario Lot Pondeuses 2026, cycle biologique complet §5.6) :
+Données incluses (scénario Lot Pondeuses 2025, cycle biologique complet §5.6) :
     Mortalités   : 6 événements phase élevage, 105 oiseaux (≈3,5 %)
     Aliments     : 11 saisies démarrage/croissance/pré-ponte + 4 aliment Ponte
     Médicaments  : 7 saisies (vaccins + amoxicilline + vitamines)
@@ -83,6 +92,12 @@ Données incluses (scénario Lot Pondeuses 2026, cycle biologique complet §5.6)
 from __future__ import annotations
 
 from datetime import date, timedelta
+
+# Ancre fixe utilisée à la place de date.today() : le scénario doit rester
+# figé sur l'année 2025 quelle que soit la date réelle d'exécution du script
+# (autrement les dates relatives — ouverture de lot, etc. — dérivent avec le
+# temps et finissent par retomber sur l'année courante réelle).
+SEED_TODAY = date(2025, 7, 10)
 from decimal import Decimal
 
 from django.contrib.auth.models import User
@@ -90,14 +105,14 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 # ---------------------------------------------------------------------------
-# Données du scénario — Lot Mai 2026 — Bâtiment A
+# Données du scénario — Lot Mai 2025 — Bâtiment A
 # Toutes les dates sont exprimées en jours écoulés depuis lot.date_ouverture
 # (J0 = date d'ouverture) pour rester valides quelle que soit la date réelle
 # à laquelle seed_db a été exécuté. Modifiez ces constantes si vous utilisez
 # un autre scénario.
 # ---------------------------------------------------------------------------
 
-DEFAULT_LOT_DESIGNATION = "Lot Mai 2026 — Bâtiment A"
+DEFAULT_LOT_DESIGNATION = "Lot Mai 2025 — Bâtiment A"
 
 # Données de création automatique du lot broiler par défaut (scénario §4.2)
 # — utilisées uniquement quand --lot garde sa valeur par défaut ET que le
@@ -106,7 +121,7 @@ DEFAULT_LOT_DESIGNATION = "Lot Mai 2026 — Bâtiment A"
 # continuer d'être créé manuellement via l'interface.
 DEFAULT_BATIMENT_NOM = "Bâtiment A"
 DEFAULT_FOURNISSEUR_NOM = "Couvoirs du Centre — CCA"
-DEFAULT_BL_REFERENCE = "BLF-2026-0001"
+DEFAULT_BL_REFERENCE = "BLF-2025-0001"
 DEFAULT_SOUCHE = "Ross 308"
 DEFAULT_NOMBRE_POUSSINS = 2000
 DEFAULT_LOT_AGE_JOURS = 40  # date_ouverture = date.today() - 40j (cf. §5.1)
@@ -151,6 +166,55 @@ MEDIC_DATA = [
 ]
 
 # ---------------------------------------------------------------------------
+# In-House Feed Production — Grower Feed (scenario §5.3bis)
+#
+# Demonstrates FormuleAliment/ProductionAliment plus the batch-costing
+# feature (ConsommationAlimentAllocation): FEED-PROD-1 mills 300 kg via a
+# formula (2 raw ingredients debited proportionally, see
+# FORMULE_INTERNE_LIGNES), then an ordinary Consommation partially eats into
+# THAT exact batch — this is what to check afterward in
+# production_aliment_detail's "سجلّ الاستهلاك" table and lot_detail's
+# "دفعات العلف المصدر" card: the consumed % should match what was actually
+# drawn, and the façon cost (once FEED-PROD-1 is paid via
+# production_aliment_paiement_create) should prorate accordingly.
+#
+# The 3 intrants below (INT-14/15/16 — finished feed + 2 raw ingredients)
+# are ALREADY seeded by seed_phase0 (updated for §5.3bis) — this section only
+# RESOLVES them by their exact designation (raises CommandError, same
+# pattern as _seed_consommations' missing-intrant guard, if seed_phase0
+# hasn't been run/updated yet) and builds the FormuleAliment on top, which
+# nothing else creates.
+# ---------------------------------------------------------------------------
+
+FORMULE_INTERNE_NOM = "تركيبة علف النمو — إنتاج داخلي"
+
+INTRANT_ALIMENT_INTERNE_DESIGNATION = "علف النمو — إنتاج داخلي (In-House Production)"
+INTRANT_MAIS_CONCASSE_DESIGNATION = "ذرة مجروشة (Maïs concassé)"
+INTRANT_TOURTEAU_SOJA_DESIGNATION = "كسب الصويا (Tourteau de soja)"
+
+# Format : (designation_intrant, proportion_kg pour 100 kg de produit fini)
+FORMULE_INTERNE_LIGNES = [
+    (INTRANT_MAIS_CONCASSE_DESIGNATION, Decimal("55.000")),
+    (INTRANT_TOURTEAU_SOJA_DESIGNATION, Decimal("35.000")),
+]
+
+# Format : (jour_depuis_ouverture, avec_formule, quantite_produite_kg, prix_unitaire)
+# Dates calendaires du scénario converties en offsets depuis
+# date_ouverture = 2025-05-10 (J0) : FEED-PROD-1 2025-05-20 → J+10 ;
+# FEED-PROD-2 2025-06-05 → J+26.
+PRODUCTION_ALIMENT_INTERNE_DATA = [
+    (10, True, Decimal("300.000"), Decimal("0")),  # FEED-PROD-1 — via formule
+    (26, False, Decimal("100.000"), Decimal("210.0000")),  # FEED-PROD-2 — direct
+]
+
+# Format : (jour_depuis_ouverture, designation_intrant, quantite)
+# Consommation supplémentaire ciblant explicitement le batch FEED-PROD-1
+# (produit J+10, donc encore ouvert à J+23) : 2025-06-02 → J+23.
+ALIMENT_DATA_INTERNE = [
+    (23, INTRANT_ALIMENT_INTERNE_DESIGNATION, Decimal("50.000")),
+]
+
+# ---------------------------------------------------------------------------
 # Fertilisant — collecte brute + traitement (rattachés au BÂTIMENT du lot
 # broiler, Bâtiment A — pas au lot lui-même : la litière est un sous-produit
 # du bâtiment, cf. modèle CollecteFertilisant). Offsets relatifs à
@@ -185,7 +249,14 @@ FERTILISANT_TRAITEMENT = dict(
 # Un lot broiler Ross 308 n'a jamais cette phase (cf. Annexe B du scénario).
 # ---------------------------------------------------------------------------
 
-DEFAULT_LOT_PONDEUSES_DESIGNATION = "Lot Pondeuses 2026"
+DEFAULT_LOT_PONDEUSES_DESIGNATION = "Lot Pondeuses 2025"
+DEFAULT_BATIMENT_NOM_PONDEUSES = "Bâtiment C"
+DEFAULT_FOURNISSEUR_NOM_PONDEUSES = "Couvoirs du Centre — CCA"
+DEFAULT_SOUCHE_PONDEUSES = "ISA Brown"
+DEFAULT_NOMBRE_POUSSINES_PONDEUSES = 2000
+DEFAULT_LOT_PONDEUSES_AGE_JOURS = (
+    130  # date_ouverture = date.today() - 130j (post J+126 transfert)
+)
 
 # Format : (jour_depuis_ouverture, nombre, cause) — mortalité phase élevage
 # (Poussinière), avant transfert. Cumul visé ≈ 3,5 % à J+126 (standard pour
@@ -287,7 +358,7 @@ RECOLTE_OEUFS_DATA = [
 class Command(BaseCommand):
     help = (
         "Peuplement rapide des mortalités, consommations d'aliments et de médicaments "
-        "pour un lot d'élevage existant (scénario Lot Mai 2026 par défaut)."
+        "pour un lot d'élevage existant (scénario Lot Mai 2025 par défaut)."
     )
 
     def add_arguments(self, parser):
@@ -320,6 +391,7 @@ class Command(BaseCommand):
                 "all",
                 "mortalites",
                 "aliments",
+                "formule-interne",
                 "medics",
                 "fertilisant",
                 "oeufs",
@@ -330,7 +402,9 @@ class Command(BaseCommand):
             default="all",
             help=(
                 "Sous-ensemble à peupler : 'all' (défaut, lot broiler uniquement) / "
-                "'mortalites' / 'aliments' / 'medics' / 'fertilisant' / "
+                "'mortalites' / 'aliments' / 'formule-interne' (FormuleAliment + "
+                "ProductionAliment «Grower Feed» in-house, §5.3bis — batch costing) / "
+                "'medics' / 'fertilisant' / "
                 "'oeufs' (post-transfert) / 'pondeuse-elevage' (mortalités+aliments+"
                 "médics+pesées, phase Poussinière) / 'pondeuse-transfert' "
                 "(TransfertLot Poussinière → Poulailler, J+126) / 'none' "
@@ -398,6 +472,9 @@ class Command(BaseCommand):
             self._seed_consommations(
                 lot, ALIMENT_DATA, "Aliments", admin, offset, "ALIMENT"
             )
+
+        if what in ("all", "aliments", "formule-interne"):
+            self._seed_production_aliment_interne(lot, admin, offset)
 
         if what in ("all", "medics"):
             self._seed_consommations(
@@ -505,7 +582,7 @@ class Command(BaseCommand):
 
         lot = LotElevage.objects.create(
             designation=designation,
-            date_ouverture=date.today() - timedelta(days=DEFAULT_LOT_AGE_JOURS),
+            date_ouverture=SEED_TODAY - timedelta(days=DEFAULT_LOT_AGE_JOURS),
             nombre_poussins_initial=DEFAULT_NOMBRE_POUSSINS,
             fournisseur_poussins=fournisseur,
             bl_fournisseur_poussins=bl_poussins,
@@ -529,12 +606,65 @@ class Command(BaseCommand):
         try:
             return LotElevage.objects.get(designation=designation)
         except LotElevage.DoesNotExist:
+            pass
+
+        if designation != DEFAULT_LOT_PONDEUSES_DESIGNATION:
             raise CommandError(
                 f"Lot pondeuses introuvable : «{designation}».\n"
                 "Créez-le via l'interface (ÉLEVAGE → Lots → Ouvrir un nouveau "
                 "lot, bâtiment = Bâtiment C / poussinière) avant d'exécuter "
                 "cette section."
             )
+
+        self.stdout.write(
+            self.style.WARNING(
+                f"  ~ Lot «{designation}» introuvable — création automatique "
+                f"({DEFAULT_NOMBRE_POUSSINES_PONDEUSES} poussines "
+                f"{DEFAULT_SOUCHE_PONDEUSES}, {DEFAULT_BATIMENT_NOM_PONDEUSES})…"
+            )
+        )
+
+        from intrants.models import Batiment, Fournisseur
+
+        try:
+            batiment = Batiment.objects.get(nom=DEFAULT_BATIMENT_NOM_PONDEUSES)
+        except Batiment.DoesNotExist:
+            raise CommandError(
+                f"Bâtiment «{DEFAULT_BATIMENT_NOM_PONDEUSES}» introuvable — "
+                "exécutez d'abord 'python manage.py seed_buildings'."
+            )
+        except Batiment.MultipleObjectsReturned:
+            batiment = Batiment.objects.filter(
+                nom=DEFAULT_BATIMENT_NOM_PONDEUSES
+            ).first()
+
+        try:
+            fournisseur = Fournisseur.objects.get(nom=DEFAULT_FOURNISSEUR_NOM_PONDEUSES)
+        except Fournisseur.DoesNotExist:
+            raise CommandError(
+                f"Fournisseur «{DEFAULT_FOURNISSEUR_NOM_PONDEUSES}» introuvable — "
+                "exécutez d'abord 'python manage.py seed_achats_scenario'."
+            )
+        except Fournisseur.MultipleObjectsReturned:
+            fournisseur = Fournisseur.objects.filter(
+                nom=DEFAULT_FOURNISSEUR_NOM_PONDEUSES
+            ).first()
+
+        lot_pondeuses = LotElevage.objects.create(
+            designation=designation,
+            date_ouverture=SEED_TODAY - timedelta(days=DEFAULT_LOT_PONDEUSES_AGE_JOURS),
+            nombre_poussins_initial=DEFAULT_NOMBRE_POUSSINES_PONDEUSES,
+            fournisseur_poussins=fournisseur,
+            batiment=batiment,
+            souche=DEFAULT_SOUCHE_PONDEUSES,
+            notes="Créé automatiquement par seed_elevage_lot (lot pondeuses par défaut du scénario).",
+        )
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"  ✓ Lot créé : «{lot_pondeuses.designation}» (id={lot_pondeuses.pk})\n"
+            )
+        )
+        return lot_pondeuses
 
     def _seed_pondeuse_elevage(self, lot_pondeuses_designation: str, offset: timedelta):
         from elevage.models import Mortalite, PeseeEchantillon
@@ -754,6 +884,157 @@ class Command(BaseCommand):
         self._log_summary(label, created_count, len(data))
 
     # ------------------------------------------------------------------
+    # In-House Feed Production — Grower Feed (scenario §5.3bis)
+    # ------------------------------------------------------------------
+
+    def _seed_formule_aliment_interne(self, admin):
+        """
+        Resolves the 3 intrants (finished feed + 2 raw ingredients) already
+        seeded by `seed_phase0` — INT-14 (Cracked Corn), INT-15 (Soybean
+        Meal), INT-16 (Grower Feed, In-House Production), added there for
+        exactly this scenario (§5.3bis) — then idempotently creates the
+        FormuleAliment and its 2 lines on top, which nothing else does.
+
+        Deliberately does NOT create the intrants itself: get_or_create'ing
+        them here with even a slightly different designation string would
+        silently produce duplicate catalog entries instead of reusing
+        seed_phase0's INT-14/15/16, splitting stock tracking across two
+        rows for what's supposed to be the same ingredient.
+
+        Returns (grower_feed_intrant, formule).
+        """
+        from intrants.models import Intrant
+
+        designations_needed = [INTRANT_ALIMENT_INTERNE_DESIGNATION] + [
+            d for d, _proportion in FORMULE_INTERNE_LIGNES
+        ]
+        intrant_cache: dict[str, object] = {}
+        missing: list[str] = []
+        for designation in designations_needed:
+            try:
+                intrant_cache[designation] = Intrant.objects.get(
+                    designation=designation, categorie__code="ALIMENT"
+                )
+            except Intrant.DoesNotExist:
+                missing.append(designation)
+
+        if missing:
+            raise CommandError(
+                "Intrant(s) introuvable(s) pour la production interne d'aliment "
+                "(§5.3bis — INT-14/15/16) :\n"
+                + "\n".join(f"      • {d}" for d in missing)
+                + "\n  Exécutez d'abord 'python manage.py seed_phase0' (mis à "
+                "jour pour inclure ces 3 intrants), ou créez-les manuellement "
+                "via STOCK → Intrants → Nouvel intrant (catégorie ALIMENT)."
+            )
+
+        grower_feed = intrant_cache[INTRANT_ALIMENT_INTERNE_DESIGNATION]
+        ingredient_cache = {
+            designation: intrant_cache[designation]
+            for designation, _proportion in FORMULE_INTERNE_LIGNES
+        }
+
+        from elevage.models import FormuleAliment, FormuleAlimentLigne
+
+        formule, created = FormuleAliment.objects.get_or_create(
+            nom=FORMULE_INTERNE_NOM,
+            defaults=dict(intrant_produit=grower_feed, actif=True),
+        )
+        self.stdout.write(
+            (self.style.SUCCESS("  ✓") if created else self.style.WARNING("  ~"))
+            + f" Formule «{formule.nom}» "
+            + ("créée" if created else "déjà existante")
+        )
+
+        for designation, proportion in FORMULE_INTERNE_LIGNES:
+            _, ligne_created = FormuleAlimentLigne.objects.get_or_create(
+                formule=formule,
+                intrant=ingredient_cache[designation],
+                defaults=dict(proportion_kg=proportion),
+            )
+            if ligne_created:
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"    ✓ Ligne : {designation} — {proportion} kg/100kg"
+                    )
+                )
+
+        return grower_feed, formule
+
+    def _seed_production_aliment_interne(self, lot, admin, offset: timedelta):
+        """
+        FEED-PROD-1 (via formule — debits the 2 raw ingredients
+        proportionally) + FEED-PROD-2 (direct, own prix_unitaire), then one
+        Consommation drawing 50 kg back out of the batch produced by
+        FEED-PROD-1. This is the scenario that exercises batch costing
+        end-to-end (§5.3bis): after running it, production_aliment_detail
+        for FEED-PROD-1 should show quantite_restante_kg = 250 kg
+        (300 − 50) and a matching entry in its consumption trail.
+        """
+        from elevage.models import ProductionAliment
+
+        grower_feed, formule = self._seed_formule_aliment_interne(admin)
+
+        created_count = 0
+        for (
+            jour,
+            avec_formule,
+            quantite,
+            prix_unitaire,
+        ) in PRODUCTION_ALIMENT_INTERNE_DATA:
+            dt = lot.date_ouverture + timedelta(days=jour) + offset
+            _, created = ProductionAliment.objects.get_or_create(
+                branche=lot.branche,
+                date=dt,
+                intrant_produit=grower_feed,
+                quantite_produite_kg=quantite,
+                defaults=dict(
+                    formule=formule if avec_formule else None,
+                    prix_unitaire=prix_unitaire,
+                    created_by=admin,
+                    notes=(
+                        "FEED-PROD-1 — via formule (scénario §5.3bis)"
+                        if avec_formule
+                        else "FEED-PROD-2 — tazwid mubasher (scénario §5.3bis)"
+                    ),
+                ),
+            )
+            if created:
+                created_count += 1
+                cout_str = (
+                    " (via formule — coût dérivé des ingrédients)"
+                    if avec_formule
+                    else f"  @ {prix_unitaire} DA/kg"
+                )
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"  ✓ Production {dt}  {grower_feed.designation[:35]:<35}  "
+                        f"{quantite} kg{cout_str}"
+                    )
+                )
+            else:
+                self.stdout.write(
+                    self.style.WARNING(f"  ~ Production {dt}  (déjà existante)")
+                )
+
+        self._log_summary(
+            "Production aliment (interne)",
+            created_count,
+            len(PRODUCTION_ALIMENT_INTERNE_DATA),
+        )
+
+        # Extra consumption drawing from FEED-PROD-1's batch — reuses the
+        # generic consumption seeder (same tuple format as ALIMENT_DATA).
+        self._seed_consommations(
+            lot,
+            ALIMENT_DATA_INTERNE,
+            "Aliment (production interne — consommation)",
+            admin,
+            offset,
+            "ALIMENT",
+        )
+
+    # ------------------------------------------------------------------
     # Fertilisant — collecte brute (bâtiment du lot) + traitement
     # ------------------------------------------------------------------
 
@@ -873,15 +1154,18 @@ class Command(BaseCommand):
                 designation=lot_pondeuses_designation
             )
         except LotElevage.DoesNotExist:
-            message = (
-                f"Lot pondeuses introuvable : «{lot_pondeuses_designation}».\n"
-                "Créez-le via l'interface (ÉLEVAGE → Lots → Ouvrir un nouveau lot, "
-                "bâtiment = Bâtiment B / poulailler) avant d'exécuter cette section."
-            )
-            if strict:
-                raise CommandError(message)
-            self.stdout.write(self.style.WARNING(f"  ~ Œufs ignorés : {message}"))
-            return
+            if lot_pondeuses_designation == DEFAULT_LOT_PONDEUSES_DESIGNATION:
+                lot_pondeuses = self._resolve_lot_pondeuses(lot_pondeuses_designation)
+            else:
+                message = (
+                    f"Lot pondeuses introuvable : «{lot_pondeuses_designation}».\n"
+                    "Créez-le via l'interface (ÉLEVAGE → Lots → Ouvrir un nouveau lot, "
+                    "bâtiment = Bâtiment B / poulailler) avant d'exécuter cette section."
+                )
+                if strict:
+                    raise CommandError(message)
+                self.stdout.write(self.style.WARNING(f"  ~ Œufs ignorés : {message}"))
+                return
 
         if lot_pondeuses.statut != LotElevage.STATUT_OUVERT:
             self.stdout.write(
