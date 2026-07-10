@@ -77,6 +77,11 @@ class DepenseForm(forms.ModelForm):
     choices are scoped to that same branche, and clean() duplicates
     Depense.clean()'s same-branche guard for a friendlier form-level error.
 
+    Pass `lot=<LotElevage instance>` (mirrors `voyage=<...>`) to pre-select
+    and lock the `lot` field — used when this form is reached from the
+    production record form's "+ إضافة تكلفة يد عاملة" shortcut for a
+    known lot.
+
     BR-DEP-03: facture_liee is optional and restricted to Service-type invoices
                only.  The queryset is filtered accordingly.
     BR-DEP-04: lot attribution is optional.
@@ -106,7 +111,7 @@ class DepenseForm(forms.ModelForm):
             ),
         }
 
-    def __init__(self, *args, branche=None, voyage=None, **kwargs):
+    def __init__(self, *args, branche=None, voyage=None, lot=None, **kwargs):
         super().__init__(*args, **kwargs)
         from core.models import Branche
 
@@ -146,6 +151,14 @@ class DepenseForm(forms.ModelForm):
             lot_qs = lot_qs.filter(branche=branche)
         self.fields["lot"].queryset = lot_qs
         self.fields["lot"].required = False
+
+        # Pass `lot=<LotElevage instance>` from the view to pre-select and
+        # lock the field, same pattern as `voyage` above — used by
+        # production:production_record_create(_for_lot)'s "+ إضافة تكلفة
+        # يد عاملة" shortcut, which redirects here for the lot at hand.
+        if lot:
+            self.fields["lot"].initial = lot
+            self.fields["lot"].widget = forms.HiddenInput()
 
         # BR-DEP-03 / BR-BRA-01: only Service-type supplier invoices may be
         # linked, scoped to this branche when locked (same reasoning as lot).

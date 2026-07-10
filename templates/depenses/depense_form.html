@@ -9,7 +9,11 @@
 {% block page_sub_text %}{% if depense %}تعديل المصروف بتاريخ {{ depense.date|date:"d/m/Y" }}{% else %}تسجيل مصروف تشغيلي جديد{% endif %}{% endblock %}
 
 {% block topbar_actions %}
-  {% if depense %}
+  {% if next %}
+  <a href="{{ next }}" class="btn-ghost">
+    <i class="bx bx-arrow-back"></i> العودة إلى سجل الإنتاج
+  </a>
+  {% elif depense %}
   <a href="{% url 'depenses:depense_detail' depense.pk %}" class="btn-ghost">
     <i class="bx bx-arrow-back"></i> العودة إلى البطاقة
   </a>
@@ -24,6 +28,7 @@
 <div class="page-body">
   <form method="post" action="" enctype="multipart/form-data" id="depense-form">
     {% csrf_token %}
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
     <div class="form-grid">
 
       <!-- ── LEFT column ── -->
@@ -93,6 +98,13 @@
             <div class="section-eyebrow"><i class="bx bxs-buildings"></i> الدفعة المخصصة (اختياري — BR-DEP-04)</div>
           </div>
           <div class="form-card__body">
+            {% if form.lot.field.widget.input_type == "hidden" %}
+            {{ form.lot }}
+            <div class="branche-indicator">
+              <i class="bx bxs-leaf"></i>
+              <span>مصروف يد عاملة مرتبط بالدفعة <strong>{{ form.lot.initial.designation }}</strong></span>
+            </div>
+            {% else %}
             <div class="form-group" style="margin-bottom:0;">
               <label class="form-label" for="{{ form.lot.id_for_label }}">دفعة التربية</label>
               <div class="input-wrapper">
@@ -104,6 +116,7 @@
               <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
               {% endfor %}
             </div>
+            {% endif %}
           </div>
         </div>
 
@@ -305,7 +318,9 @@
 
         <!-- Actions -->
         <div class="form-actions-footer">
-          {% if depense %}
+          {% if next %}
+          <a href="{{ next }}" class="btn-ghost">إلغاء</a>
+          {% elif depense %}
           <a href="{% url 'depenses:depense_detail' depense.pk %}" class="btn-ghost">إلغاء</a>
           {% else %}
           <a href="{% url 'depenses:depense_list' %}" class="btn-ghost">إلغاء</a>

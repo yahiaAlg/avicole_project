@@ -583,9 +583,9 @@ def production_record_detail(request, pk):
         ),
         pk=pk,
     )
-    lignes = record.lignes.select_related("produit_fini", "produit_fini__type_produit").order_by(
-        "produit_fini__type_produit__ordre"
-    )
+    lignes = record.lignes.select_related(
+        "produit_fini", "produit_fini__type_produit"
+    ).order_by("produit_fini__type_produit__ordre")
 
     rendement = None
     if record.statut == ProductionRecord.STATUT_VALIDE:
@@ -1389,6 +1389,12 @@ def lot_effectif_json(request, lot_pk):
 
     BR-BRA-02: the lot must belong to the request's active branche.
 
+    Also includes the lot's most recent bird weighing sample
+    (elevage.PeseeEchantillon, type_pesee="oiseaux"), if any, so the form
+    can suggest a `poids_total_kg` = dernier_poids_moyen_g × nombre abattus.
+    This is only ever a suggestion — the actual slaughter weight is the
+    authoritative figure and the field stays user-editable.
+
     Returns:
         {
           "effectif_vivant": int,
@@ -1397,11 +1403,21 @@ def lot_effectif_json(request, lot_pk):
           "taux_mortalite": float,
           "designation": str,
           "statut": str,
+          "dernier_poids_moyen_g": float | null,
+          "dernier_poids_date": "YYYY-MM-DD" | null,
         }
     """
-    from elevage.models import LotElevage
+    from elevage.models import LotElevage, PeseeEchantillon
 
     lot = branche_object_or_404(request, LotElevage, pk=lot_pk)
+
+    derniere_pesee = (
+        PeseeEchantillon.objects.filter(
+            lot=lot, type_pesee=PeseeEchantillon.TYPE_OISEAUX
+        )
+        .order_by("-date")
+        .first()
+    )
 
     return JsonResponse(
         {
@@ -1411,6 +1427,12 @@ def lot_effectif_json(request, lot_pk):
             "taux_mortalite": float(lot.taux_mortalite),
             "designation": lot.designation,
             "statut": lot.statut,
+            "dernier_poids_moyen_g": (
+                float(derniere_pesee.poids_moyen_g) if derniere_pesee else None
+            ),
+            "dernier_poids_date": (
+                derniere_pesee.date.isoformat() if derniere_pesee else None
+            ),
         }
     )
 
@@ -1593,9 +1615,7 @@ def production_dashboard_charts_json(request):
     if branche is not None:
         lignes_qs = lignes_qs.filter(production__branche=branche)
     for ligne in lignes_qs:
-        type_totals[ligne.produit_fini.type_produit.libelle] += float(
-            ligne.quantite
-        )
+        type_totals[ligne.produit_fini.type_produit.libelle] += float(ligne.quantite)
 
     type_labels = list(type_totals.keys())
     type_values = list(type_totals.values())

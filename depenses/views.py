@@ -53,6 +53,7 @@ from django.db.models import Q, Sum
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from core.views import (
@@ -621,6 +622,14 @@ def depense_create(request):
     saved so its transport cost gets logged immediately. On success, if the
     dépense is tied to a trip, redirect back to that trip's page instead of
     the dépense's own detail page.
+
+    v1.8: `?lot=<pk>` pre-selects and locks the lot attribution — used by
+    the production record form's "+ إضافة تكلفة يد عاملة" shortcut, so a
+    production-labor cost can be logged against the lot at hand without
+    leaving the harvest workflow. An optional `?next=<path>` (same-site
+    only) sends the user back to that in-progress form afterwards instead
+    of the dépense's own detail page; falls back to the voyage/detail
+    redirect when absent.
     """
     branche = get_active_branche(request)
 
@@ -631,8 +640,26 @@ def depense_create(request):
 
         voyage = get_object_or_404(VoyageLivraison, pk=voyage_pk)
 
+    lot = None
+    lot_pk = request.POST.get("lot") or request.GET.get("lot")
+    if lot_pk:
+        from elevage.models import LotElevage
+
+        lot = branche_object_or_404(request, LotElevage, pk=lot_pk)
+
+    # Same-site-only redirect target, carried through GET/POST so it
+    # survives the form round-trip (mirrors how `lot`/`voyage` are read
+    # from either dict above).
+    next_url = request.POST.get("next") or request.GET.get("next")
+    if next_url and not url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        next_url = None
+
     if request.method == "POST":
-        form = DepenseForm(request.POST, request.FILES, branche=branche, voyage=voyage)
+        form = DepenseForm(
+            request.POST, request.FILES, branche=branche, voyage=voyage, lot=lot
+        )
         pj_formset = build_piece_jointe_formset(
             DepensePieceJointeFormSet, request, prefix="pj"
         )
@@ -660,6 +687,8 @@ def depense_create(request):
                     depense.montant,
                     depense.date,
                 )
+                if next_url:
+                    return redirect(next_url)
                 if depense.voyage_id:
                     return redirect("clients:voyage_detail", pk=depense.voyage_id)
                 return redirect("depenses:depense_detail", pk=depense.pk)
@@ -684,7 +713,16 @@ def depense_create(request):
             ).first()
             if transport_cat:
                 initial["categorie"] = transport_cat.pk
-        form = DepenseForm(initial=initial, branche=branche, voyage=voyage)
+        elif lot:
+            initial["description"] = f"يد عاملة — إنتاج الدفعة {lot.designation}"
+            # Best-effort: "SALAIRES" is seeded by seed_db_minimal
+            # (_seed_categories_depense) but may be missing/renamed.
+            salaires_cat = CategorieDepense.objects.filter(
+                code="SALAIRES", actif=True
+            ).first()
+            if salaires_cat:
+                initial["categorie"] = salaires_cat.pk
+        form = DepenseForm(initial=initial, branche=branche, voyage=voyage, lot=lot)
         pj_formset = build_piece_jointe_formset(
             DepensePieceJointeFormSet, request, prefix="pj"
         )
@@ -698,6 +736,7 @@ def depense_create(request):
             "active_branche": branche,
             "title": "تسجيل مصروف",
             "action_label": "حفظ المصروف",
+            "next": next_url,
         },
     )
 
@@ -782,7 +821,9 @@ def depense_edit(request, pk):
         else:
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
-        form = DepenseForm(instance=depense, branche=depense.branche, voyage=depense.voyage)
+        form = DepenseForm(
+            instance=depense, branche=depense.branche, voyage=depense.voyage
+        )
         pj_formset = build_piece_jointe_formset(
             DepensePieceJointeFormSet, request, instance=depense, prefix="pj"
         )

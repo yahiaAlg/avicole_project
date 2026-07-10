@@ -11,6 +11,11 @@
 {% endblock %}
 
 {% block topbar_actions %}
+  {% if lot %}
+    <a href="{% url 'depenses:depense_create' %}?lot={{ lot.pk }}&next={{ request.path|urlencode }}" class="btn-ghost">
+      <i class="bx bx-money"></i> إضافة تكلفة يد عاملة
+    </a>
+  {% endif %}
   {% if record %}
     <a href="{% url 'production:production_record_detail' record.pk %}" class="btn-ghost">
       <i class="bx bx-arrow-back"></i> إلغاء
@@ -50,7 +55,7 @@
 
               {% if not lot %}
               <!-- Lot selector (shown only when no lot pre-scoped) -->
-              <div class="col-12">
+              <div class="col-md-6">
                 <div class="form-field">
                   <label class="field-label" for="{{ form.lot.id_for_label }}">
                     دفعة التربية <span class="required-star">*</span>
@@ -130,6 +135,14 @@
                   {% endif %}
                   <div id="poids-overweight" class="field-warning" style="display:none;">
                     <i class="bx bxs-error"></i> <span id="poids-overweight-msg"></span>
+                  </div>
+                  <div id="poids-suggestion" class="field-hint" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;">
+                    <i class="bx bxs-info-circle"></i>
+                    <span>تقدير من آخر قياس عيّنة (<span id="poids-suggestion-date"></span>): <strong id="poids-suggestion-value"></strong> كجم</span>
+                    <button type="button" id="poids-suggestion-btn"
+                      style="background:none;border:none;padding:0;color:var(--accent-text);font-size:11.5px;font-weight:600;text-decoration:underline;cursor:pointer;">
+                      استخدام هذا التقدير
+                    </button>
                   </div>
                 </div>
               </div>
@@ -633,11 +646,44 @@ document.addEventListener('DOMContentLoaded', function () {
   const lotInfoMort    = document.getElementById('lot-info-mortalite');
   const poidsTotal     = document.querySelector('[name="poids_total_kg"]');
   const poidsMoyenDisp = document.getElementById('poids-moyen-display');
+  const poidsSuggestion    = document.getElementById('poids-suggestion');
+  const poidsSuggestionVal = document.getElementById('poids-suggestion-value');
+  const poidsSuggestionDate= document.getElementById('poids-suggestion-date');
+  const poidsSuggestionBtn = document.getElementById('poids-suggestion-btn');
 
   let currentEffectif = {% if lot %}{{ lot.effectif_vivant }}{% else %}null{% endif %};
+  let dernierPoidsMoyenG = null; // from the lot's most recent bird PeseeEchantillon
+
+  function formatDateFr(isoDate) {
+    if (!isoDate) return '';
+    const parts = isoDate.split('-');
+    return parts.length === 3 ? (parts[2] + '/' + parts[1] + '/' + parts[0]) : isoDate;
+  }
+
+  function updatePoidsSuggestion() {
+    if (!poidsSuggestion || !oiseauxInput) return;
+    const oiseaux = parseInt(oiseauxInput.value, 10);
+    if (dernierPoidsMoyenG === null || isNaN(oiseaux) || oiseaux <= 0) {
+      poidsSuggestion.style.display = 'none';
+      delete poidsSuggestion.dataset.value;
+      return;
+    }
+    const suggestionKg = (dernierPoidsMoyenG / 1000) * oiseaux;
+    poidsSuggestionVal.textContent = suggestionKg.toFixed(3);
+    poidsSuggestion.style.display = 'flex';
+    poidsSuggestion.dataset.value = suggestionKg.toFixed(3);
+  }
+
+  if (poidsSuggestionBtn) {
+    poidsSuggestionBtn.addEventListener('click', function () {
+      if (!poidsTotal || !poidsSuggestion.dataset.value) return;
+      poidsTotal.value = poidsSuggestion.dataset.value;
+      poidsTotal.dispatchEvent(new Event('input'));
+    });
+  }
 
   function fetchEffectif(lotPk) {
-    if (!lotPk) { currentEffectif = null; return; }
+    if (!lotPk) { currentEffectif = null; dernierPoidsMoyenG = null; updatePoidsSuggestion(); return; }
     fetch('/production/lots/' + lotPk + '/effectif.json')
       .then(r => r.json())
       .then(data => {
@@ -649,9 +695,11 @@ document.addEventListener('DOMContentLoaded', function () {
           lotInfoEffectif.textContent = data.effectif_vivant.toLocaleString('fr-FR');
           lotInfoMort.textContent = data.taux_mortalite.toFixed(2);
         }
+        dernierPoidsMoyenG = data.dernier_poids_moyen_g;
+        if (poidsSuggestionDate) poidsSuggestionDate.textContent = formatDateFr(data.dernier_poids_date);
         validateOiseaux();
       })
-      .catch(() => { currentEffectif = null; });
+      .catch(() => { currentEffectif = null; dernierPoidsMoyenG = null; updatePoidsSuggestion(); });
   }
 
   if (lotSelect) {
@@ -659,6 +707,12 @@ document.addEventListener('DOMContentLoaded', function () {
       fetchEffectif(this.value);
     });
   }
+
+  {% if lot %}
+  // Lot pre-scoped (create-for-lot / edit) — no change event will fire,
+  // so fetch the weighing-sample suggestion data once on load.
+  fetchEffectif({{ lot.pk }});
+  {% endif %}
 
   // ── Validate nombre_oiseaux_abattus ───────────────────────────────────
   function validateOiseaux() {
@@ -672,6 +726,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (overquotaMsg) overquotaMsg.style.display = 'none';
     }
     updatePoidsMoyen();
+    updatePoidsSuggestion();
   }
 
   if (oiseauxInput) {
