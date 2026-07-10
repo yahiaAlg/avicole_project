@@ -289,6 +289,45 @@ def _ensure_branche_access(request, lot):
         raise Http404("Ce lot appartient à une autre branche.")
 
 
+def _scope_lots_pour_operateur_terrain(request, qs):
+    """
+    BR-RH-06 — an opérateur account auto-provisioned from an RH Employe
+    record is restricted further than the usual branche scoping: it may
+    only see currently OPEN lots in its own assigned bâtiment. Every other
+    account (admin, manager, chef_branche, comptable, or a manually-created
+    opérateur with no linked Employe) passes through unchanged.
+
+    Returns an empty queryset (not a 404) when the operator has no bâtiment
+    assigned yet — nothing to show rather than an error.
+    """
+    profile = getattr(request.user, "profile", None)
+    if not getattr(profile, "est_operateur_terrain", False):
+        return qs
+    batiment_id = profile.employe.batiment_id if profile.employe_id else None
+    if not batiment_id:
+        return qs.none()
+    return qs.filter(batiment_id=batiment_id, statut=LotElevage.STATUT_OUVERT)
+
+
+def _ensure_lot_visible_pour_operateur_terrain(request, lot):
+    """
+    404 when an opérateur-terrain account (BR-RH-06) reaches a lot outside
+    its own bâtiment, or a lot that's no longer open — mirrors
+    _scope_lots_pour_operateur_terrain but for a single already-fetched
+    lot (detail view and any sub-record view keyed off a lot pk).
+    """
+    profile = getattr(request.user, "profile", None)
+    if not getattr(profile, "est_operateur_terrain", False):
+        return
+    batiment_id = profile.employe.batiment_id if profile.employe_id else None
+    if (
+        not batiment_id
+        or lot.batiment_id != batiment_id
+        or lot.statut != LotElevage.STATUT_OUVERT
+    ):
+        raise Http404("Ce lot n'est pas accessible à ce compte.")
+
+
 # ===========================================================================
 # LotElevage — List
 # ===========================================================================
@@ -316,6 +355,7 @@ def lot_list(request):
     ).order_by("-date_ouverture")
     if branche is not None:
         qs = qs.filter(branche=branche)
+    qs = _scope_lots_pour_operateur_terrain(request, qs)
 
     statut = request.GET.get("statut", "")
     if statut in (LotElevage.STATUT_OUVERT, LotElevage.STATUT_FERME):
@@ -339,6 +379,7 @@ def lot_list(request):
     counts_qs = LotElevage.objects.all()
     if branche is not None:
         counts_qs = counts_qs.filter(branche=branche)
+    counts_qs = _scope_lots_pour_operateur_terrain(request, counts_qs)
     nb_ouverts = counts_qs.filter(statut=LotElevage.STATUT_OUVERT).count()
     nb_fermes = counts_qs.filter(statut=LotElevage.STATUT_FERME).count()
 
@@ -450,6 +491,7 @@ def lot_detail(request, pk):
         ),
         pk=pk,
     )
+    _ensure_lot_visible_pour_operateur_terrain(request, lot)
 
     summary = get_lot_summary(lot)
     mortalite_anormale = verifier_mortalite_anormale(lot)
@@ -531,6 +573,7 @@ def lot_edit(request, pk):
     total mortalité) is computed — not editable through this view.
     """
     lot = branche_object_or_404(request, LotElevage, pk=pk)
+    _ensure_lot_visible_pour_operateur_terrain(request, lot)
 
     if lot.statut == LotElevage.STATUT_FERME:
         messages.error(

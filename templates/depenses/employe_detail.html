@@ -112,6 +112,26 @@
     </div>
   </div>
 
+  <!-- Linked opérateur account -->
+  <div class="card">
+    <div class="card-header-row">
+      <div class="section-eyebrow"><i class="bx bx-lock-alt"></i> حساب الدخول (مشغّل)</div>
+    </div>
+    {% if compte_utilisateur %}
+    <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div style="font-size:13px;color:var(--text-secondary);">
+        اسم المستخدم : <code class="code-badge">{{ compte_utilisateur.user.username }}</code>
+        <span style="margin-right:10px;color:var(--text-muted);">— محصور بالتربية فقط، ومبنى « {{ employe.batiment.nom|default:"—" }} » المفتوح.</span>
+      </div>
+      <span class="pill-success">مُفعّل</span>
+    </div>
+    {% else %}
+    <div class="empty-mini">
+      {% if employe.batiment %}لم يُنشأ الحساب بعد.{% else %}لا يمكن إنشاء الحساب قبل تحديد المبنى المخصص.{% endif %}
+    </div>
+    {% endif %}
+  </div>
+
   <!-- Pending advances -->
   {% if acomptes_en_attente %}
   <div class="card">

@@ -1097,11 +1097,13 @@
     <!-- Navigation -->
     <div class="sidebar-nav">
 
+      {% if not request.user.profile.est_operateur_terrain %}
       <!-- Dashboard -->
       <a href="{% url 'core:dashboard' %}" class="nav-link {% block nav_dashboard %}{% endblock %}">
         <i class="bx bxs-dashboard"></i>
         <span class="nav-link-label">لوحة التحكم</span>
       </a>
+      {% endif %}
 
       <!-- تربية الدواجن -->
       <div class="nav-group-label">التربية</div>
@@ -1141,6 +1143,8 @@
         <i class="bx bxs-flask"></i>
         <span class="nav-link-label">معالجة السماد</span>
       </a>
+
+      {% if not request.user.profile.est_operateur_terrain %}
 
       <!-- المخزون -->
       <div class="nav-group-label">المخزون</div>
@@ -1281,6 +1285,8 @@
         <i class="bx bxs-user-badge"></i>
         <span class="nav-link-label">أنواع الموردين</span>
       </a>
+
+      {% endif %}
 
     </div><!-- /sidebar-nav -->
 

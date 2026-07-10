@@ -957,3 +957,81 @@ def get_rh_summary(date_debut=None, date_fin=None, branche=None) -> dict:
         "nb_employes_actifs": employes_actifs_qs.count(),
         "bulletins_en_attente": bulletins_en_attente_qs.count(),
     }
+
+
+# ---------------------------------------------------------------------------
+# RH — auto-provisioning an opérateur login account from an Employe
+# ---------------------------------------------------------------------------
+
+
+def provisionner_compte_operateur(employe):
+    """
+    Ensure *employe* has a linked opérateur login account (BR-RH-06).
+
+    An account created this way is intentionally more restricted than a
+    regular opérateur: core.UserProfile.est_operateur_terrain marks it, and
+    elevage.views scopes such accounts to their own bâtiment's currently
+    OPEN lots only (closed lots and other bâtiments/branches stay hidden) —
+    base.html also collapses the sidebar to just the التربية (elevage)
+    section for these accounts.
+
+    Behaviour:
+      - No bâtiment assigned yet → Employe.branche (a derived property,
+        BR-BRA-09) can't be resolved, so there's no branch to bind the
+        profile to. Nothing is created; call this again once a bâtiment
+        is set (employe_edit already does).
+      - Already has a linked account → keep its branche in sync with the
+        current bâtiment (an operator reassigned to another bâtiment/branche
+        keeps the same login rather than getting a second account).
+      - Otherwise → create a new User (username derived from the matricule)
+        + UserProfile(role=OPERATEUR, employe=employe), with a randomly
+        generated password.
+
+    Returns:
+        (User, plaintext_password) when a NEW account was just created —
+        the caller (view) is responsible for showing this password to the
+        admin ONCE; it is never stored or shown again.
+        None when nothing changed (skipped, or an account already existed).
+    """
+    from django.contrib.auth.models import User
+    from django.utils.crypto import get_random_string
+    from django.utils.text import slugify
+
+    from core.models import UserProfile
+
+    if not employe.batiment_id:
+        return None
+
+    branche = employe.branche  # derived property — resolvable now (BR-BRA-09)
+    if branche is None:
+        return None
+
+    profil_existant = getattr(employe, "compte_utilisateur", None)
+    if profil_existant is not None:
+        if profil_existant.branche_id != branche.id:
+            profil_existant.branche = branche
+            profil_existant.save(update_fields=["branche"])
+        return None
+
+    base_username = slugify(employe.matricule) or f"employe-{employe.pk}"
+    username = base_username
+    suffixe = 1
+    while User.objects.filter(username=username).exists():
+        suffixe += 1
+        username = f"{base_username}-{suffixe}"
+
+    prenom, _, nom = employe.nom_complet.strip().partition(" ")
+    password = get_random_string(12)
+
+    user = User(username=username, first_name=prenom, last_name=nom, is_active=True)
+    user.set_password(password)
+    user.save()
+
+    UserProfile.objects.create(
+        user=user,
+        role=UserProfile.ROLE_OPERATEUR,
+        branche=branche,
+        employe=employe,
+    )
+
+    return user, password

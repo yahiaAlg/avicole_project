@@ -281,6 +281,26 @@ class UserProfile(models.Model):
     )
     telephone = models.CharField(max_length=30, verbose_name="الهاتف", blank=True)
     notes = models.TextField(verbose_name="ملاحظات", blank=True)
+    # BR-RH-06 — links this login account to the RH Employe record it was
+    # auto-provisioned for (depenses.provisionner_compte_operateur). Only
+    # set for opérateur accounts created that way — a manually-created
+    # opérateur (or any other role) leaves this null. Used to scope such
+    # accounts to the التربية (elevage) app only, further restricted to
+    # their own bâtiment's OPEN lots (see est_operateur_terrain below).
+    #
+    # on_delete=CASCADE mirrors the `branche` field's tradeoff on this same
+    # model: deleting the Employe is a deliberate RH action, and the linked
+    # login's profile goes with it (the underlying User row survives,
+    # profile-less, same as a deleted-branche chef_branche/opérateur).
+    employe = models.OneToOneField(
+        "depenses.Employe",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="compte_utilisateur",
+        verbose_name="العامل المرتبط",
+        help_text="يُملأ تلقائياً عند إنشاء حساب مشغّل من بطاقة عامل (RH) — BR-RH-06.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -307,6 +327,10 @@ class UserProfile(models.Model):
                     )
                 }
             )
+        if self.employe_id and self.role != self.ROLE_OPERATEUR:
+            raise ValidationError(
+                {"employe": ("BR-RH-06 : حساب مرتبط بعامل يجب أن يكون دوره «مشغّل».")}
+            )
 
     @property
     def a_vue_globale(self):
@@ -322,6 +346,17 @@ class UserProfile(models.Model):
     def peut_changer_de_branche(self):
         """True for roles that get a branch switcher in the UI (§3.5.4)."""
         return self.a_vue_globale
+
+    @property
+    def est_operateur_terrain(self):
+        """
+        True for an opérateur account auto-provisioned from an RH Employe
+        record (BR-RH-06). These accounts are scoped tighter than a regular
+        opérateur: limited to the التربية (elevage) app, and — within it —
+        only to their own bâtiment's currently-open lots (enforced in
+        elevage.views, not here; this flag just marks the account).
+        """
+        return self.role == self.ROLE_OPERATEUR and self.employe_id is not None
 
 
 # ---------------------------------------------------------------------------
@@ -379,9 +414,7 @@ class PieceJointe(models.Model):
         default=TYPE_AUTRE,
         verbose_name="نوع الوثيقة",
     )
-    description = models.CharField(
-        max_length=200, blank=True, verbose_name="وصف مختصر"
-    )
+    description = models.CharField(max_length=200, blank=True, verbose_name="وصف مختصر")
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

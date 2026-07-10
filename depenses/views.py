@@ -111,6 +111,7 @@ from depenses.utils import (
     get_solde_conge,
     appliquer_conge_aux_pointages,
     calculer_donnees_paie,
+    provisionner_compte_operateur,
 )
 
 logger = logging.getLogger(__name__)
@@ -1293,6 +1294,22 @@ def employe_create(request):
                     employe.save()
                 messages.success(request, f"تم تسجيل العامل « {employe.nom_complet} ».")
                 logger.info("Employe pk=%s created by '%s'.", employe.pk, request.user)
+
+                compte = provisionner_compte_operateur(employe)
+                if compte:
+                    user, password = compte
+                    messages.success(
+                        request,
+                        f"تم إنشاء حساب دخول (مشغّل) للعامل — اسم المستخدم: «{user.username}» "
+                        f"— كلمة المرور: «{password}» (احفظها الآن، لن تُعرض مرة أخرى).",
+                    )
+                elif not employe.batiment_id:
+                    messages.warning(
+                        request,
+                        "لم يُنشأ حساب دخول بعد — حدّد المبنى المخصص للعامل أولاً "
+                        "(يُستعمل لتحديد الفرع، BR-BRA-09).",
+                    )
+
                 return redirect("depenses:employe_detail", pk=employe.pk)
             except Exception as exc:
                 logger.exception("Error creating Employe: %s", exc)
@@ -1330,6 +1347,16 @@ def employe_edit(request, pk):
                     updated.save()
                 messages.success(request, f"تم تحديث « {employe.nom_complet} ».")
                 logger.info("Employe pk=%s updated by '%s'.", employe.pk, request.user)
+
+                compte = provisionner_compte_operateur(updated)
+                if compte:
+                    user, password = compte
+                    messages.success(
+                        request,
+                        f"تم إنشاء حساب دخول (مشغّل) للعامل — اسم المستخدم: «{user.username}» "
+                        f"— كلمة المرور: «{password}» (احفظها الآن، لن تُعرض مرة أخرى).",
+                    )
+
                 return redirect("depenses:employe_detail", pk=employe.pk)
             except Exception as exc:
                 logger.exception("Error updating Employe pk=%s: %s", pk, exc)
@@ -1367,6 +1394,7 @@ def employe_detail(request, pk):
         "-date"
     )
     bulletins_recents = employe.bulletins_paie.order_by("-annee", "-mois")[:12]
+    compte_utilisateur = getattr(employe, "compte_utilisateur", None)
 
     return render(
         request,
@@ -1377,6 +1405,7 @@ def employe_detail(request, pk):
             "pointages_recents": pointages_recents,
             "acomptes_en_attente": acomptes_en_attente,
             "bulletins_recents": bulletins_recents,
+            "compte_utilisateur": compte_utilisateur,
             "title": f"العامل — {employe.nom_complet}",
         },
     )
