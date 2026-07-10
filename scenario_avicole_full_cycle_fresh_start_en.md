@@ -40,7 +40,7 @@
 4. [Phase 0bis — Multi-Branch Configuration (v1.4)](#phase-0bis--multi-branch-configuration-v14)
 5. [Phase 1 — Input Purchases (Delivery Note + Invoice + Payment + Attachments)](#3-phase-1--input-purchases)
 6. [Phase 2 — Opening the Rearing Batch (+ Layer Batch, Pullet House Building C)](#4-phase-2--opening-the-rearing-batch)
-7. [Phase 3 — Daily Tracking (Mortalities + Consumption + Feed Production + Fertilizer + Layer Rearing/Transfer/Laying/Egg Valuation/Egg Withdrawal)](#5-phase-3--daily-tracking)
+7. [Phase 3 — Daily Tracking (Mortalities + Consumption + Feed Production + Sample Weighings + Fertilizer + Layer Rearing/Transfer/Laying/Egg Valuation/Egg Withdrawal)](#5-phase-3--daily-tracking)
 8. [Phase 4 — Slaughter & Production](#6-phase-4--slaughter--production)
 9. [Phase 5 — Stock Adjustment](#7-phase-5--stock-adjustment)
 10. [Phase 6 — Customer Sale & Delivery (+ Deposit, Fertilizer Subscription, Forfait Billing & Prepayment)](#8-phase-6--customer-sale--delivery)
@@ -1154,6 +1154,33 @@ Preventive & Curative Phase:
   Vitamins           :    10 -    10 =     0 L ← depleted
 ```
 
+### 5.4bis Sample Weighings (`SampleWeighingForm`) — Growth Curve
+
+```
+Module: REARING → Batch → [New sample weighing]
+Rule   : weighing_type=birds; average_weight_g = total_weight_g / subject_count;
+         quality derived via intrants.utils.determine_quality (QualityCategory)
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ date       │ age      │ subject_count │ total_weight_g │ average_weight_g│
+├────────────┼──────────┼───────────────┼───────────────┼───────────────┤
+│ 2026-05-10 │ D0       │      50       │    2,100.00   │     42.00 g   │
+│ 2026-05-24 │ D+14     │      40       │   18,400.00   │    460.00 g   │
+│ 2026-06-07 │ D+28     │      40       │   60,000.00   │  1,500.00 g   │
+│ 2026-06-17 │ D+38     │      40       │   84,000.00   │  2,100.00 g   │
+└────────────┴──────────┴───────────────┴───────────────┴───────────────┘
+  This is the same batch as §5.2/§5.3 (Building A, 2,000 Ross 308 chicks,
+  40-day cycle) — this table exercises SampleWeighing independently from
+  the Layer Batch's own growth curve (§5.6.3).
+
+  The D+38 weighing — 2 days before slaughter (D+40, §6.2) — is the one
+  read by production_record_form's "Use this estimate" suggestion when
+  creating the ProductionRecord: 1,960 survivors (live_count at D+40,
+  §5.2) × 2.100 kg/bird = 4,116.000 kg, matching total_weight_kg in §6.2
+  exactly (the actual weight measured at slaughter can still differ —
+  this is only ever a pre-fill suggestion, never an override).
+```
+
 ### 5.5 Fertilizer — Collection & Treatment (`FertilizerCollectionForm` / `FertilizerTreatmentForm`)
 
 ```
@@ -1518,6 +1545,14 @@ Model: ProductionRecord
 
   → average_weight_kg auto-calculated: 4,116.000 / 1,960 = 2.100 kg
   → status = draft
+
+  💡 total_weight_kg suggestion ("Use this estimate" button, next to the
+     field): the form reads the batch's most recent bird SampleWeighing
+     (§5.4bis, D+38 → 2.100 kg/bird) and offers
+     2.100 kg × 1,960 birds = 4,116.000 kg — exactly the value entered
+     above. One click fills the field; the user can still overwrite it
+     with the actual measured weight — the sample is only ever a
+     suggestion, never authoritative.
 ```
 
 ### 6.3 Production Lines (`ProductionLineFormSet`)

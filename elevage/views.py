@@ -580,7 +580,9 @@ def lot_fermer(request, pk):
     Close an open lot d'élevage.
 
     BR-LOT-04: at least one validated ProductionRecord must exist before
-               closure is allowed.
+               closure is allowed — except for lots in a poussinière-type
+               building, where this requirement is skipped entirely (the
+               expected path there is transfer, not on-site production).
     BR-LOT-05: once closed, no further entries are accepted.
 
     GET  — renders the closure confirmation form.
@@ -593,19 +595,29 @@ def lot_fermer(request, pk):
         return redirect("elevage:lot_detail", pk=lot.pk)
 
     # BR-LOT-04: at least one validated production record required.
+    # Exception: lots housed in a poussinière-type building are exempt — the
+    # expected path for such lots is transfer (TransfertLot) to a grow-out
+    # building, not an on-site production record, so the requirement is
+    # skipped entirely when the current batiment is a poussinière.
     from production.models import ProductionRecord
+    from intrants.models import Batiment
 
-    has_production = ProductionRecord.objects.filter(
-        lot=lot,
-        statut=ProductionRecord.STATUT_VALIDE,
-    ).exists()
+    est_poussiniere = (
+        lot.batiment_id and lot.batiment.type_batiment == Batiment.TYPE_POUSSINIERE
+    )
 
-    if not has_production:
-        messages.error(
-            request,
-            "BR-LOT-04: لا يمكن إغلاق الدفعة دون وجود سجل إنتاج محقق. يرجى تسجيل الإنتاج والتحقق منه أولًا.",
-        )
-        return redirect("elevage:lot_detail", pk=lot.pk)
+    if not est_poussiniere:
+        has_production = ProductionRecord.objects.filter(
+            lot=lot,
+            statut=ProductionRecord.STATUT_VALIDE,
+        ).exists()
+
+        if not has_production:
+            messages.error(
+                request,
+                "BR-LOT-04: لا يمكن إغلاق الدفعة دون وجود سجل إنتاج محقق. يرجى تسجيل الإنتاج والتحقق منه أولًا.",
+            )
+            return redirect("elevage:lot_detail", pk=lot.pk)
 
     if request.method == "POST":
         form = LotFermetureForm(request.POST)
@@ -1885,9 +1897,7 @@ def pesee_create(request, lot_pk):
             "action_label": "حفظ",
             "is_admin_user": getattr(form, "is_admin_user", False),
             "prix_marche_data_json": json.dumps(prix_marche_data),
-            "prix_marche_create_url": reverse(
-                "elevage:prix_marche_quick_create_json"
-            ),
+            "prix_marche_create_url": reverse("elevage:prix_marche_quick_create_json"),
         },
     )
 
@@ -2365,12 +2375,9 @@ def production_aliment_detail(request, pk):
     # needs an object with a `.branche` attribute.
     _ensure_branche_access(request, production)
 
-    allocations = (
-        production.allocations_consommees.select_related(
-            "consommation", "consommation__lot"
-        )
-        .order_by("-consommation__date", "-created_at")
-    )
+    allocations = production.allocations_consommees.select_related(
+        "consommation", "consommation__lot"
+    ).order_by("-consommation__date", "-created_at")
 
     ingredients = (
         production.formule.lignes.select_related("intrant").all()
@@ -3188,7 +3195,11 @@ def prix_marche_quick_create_json(request):
     produit_oeufs = _get_produit_oeufs()
     if not produit_oeufs:
         return JsonResponse(
-            {"errors": {"__all__": ["لا يوجد منتج نهائي نشط من نوع «بيض» في الكتالوج."]}},
+            {
+                "errors": {
+                    "__all__": ["لا يوجد منتج نهائي نشط من نوع «بيض» في الكتالوج."]
+                }
+            },
             status=400,
         )
 

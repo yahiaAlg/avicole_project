@@ -7,6 +7,8 @@ Business-logic helpers for the client AR cycle.
   generer_reference_bl_client      — Sequential BLC reference
   generer_reference_facture_client — Sequential FAC reference
   get_client_solde                 — Full financial snapshot for one client
+  get_releve_compte_client         — Chronological running-balance statement
+                                      of account (printable "état des dettes")
   get_client_aging_buckets         — Aged-receivable analysis for reporting
 
 v1.4 — Multi-Branch Architecture (§3.5): Client stays global (BR-BRA-06), but
@@ -893,6 +895,40 @@ def generer_reference_bl_client(branche) -> str:
     return generer_reference(BLClient, prefix, branche=branche)
 
 
+def dispo_ligne_bl_client(ligne, branche) -> Decimal:
+    """
+    Return the stock quantity currently available, in `branche`, for
+    whichever article a BLClientLigne sells (produit_fini or a surplus
+    intrant — BR-BLC-06, v1.6). Used by both the form-level check
+    (BLClientLigneForm.clean) and the view-level atomic re-checks.
+    """
+    if ligne.intrant_id:
+        return ligne.intrant.quantite_en_stock(branche)
+    return ligne.produit_fini.quantite_en_stock_branche(branche)
+
+
+def verifier_stock_lignes_bl_client(lignes, branche) -> list[str]:
+    """
+    Check every ligne of a BL Client (produit_fini or intrant, BR-BLC-06)
+    against its available stock in `branche` and return a list of
+    human-readable "insufficient stock" messages (empty list = all OK).
+
+    Centralises the BR-BLC-02 check that was previously duplicated,
+    produit_fini-only, across bl_client_create/edit/valider.
+    """
+    insuffisant = []
+    for ligne in lignes:
+        article = ligne.produit_fini or ligne.intrant
+        dispo = dispo_ligne_bl_client(ligne, branche)
+        if ligne.quantite > dispo:
+            insuffisant.append(
+                f"« {article.designation} » : "
+                f"demandé {ligne.quantite}, disponible {dispo} "
+                f"{article.unite_mesure}"
+            )
+    return insuffisant
+
+
 def generer_reference_facture_client(branche) -> str:
     """
     Generate the next Facture Client reference, scoped to *branche*.
@@ -983,6 +1019,157 @@ def get_client_solde(client, branche=None) -> dict:
         "acompte_disponible": acompte_disponible,
         "nb_factures_retard": nb_factures_retard,
         "depasse_plafond": depasse_plafond,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Relevé de compte client (printable "état des dettes" statement)
+# ---------------------------------------------------------------------------
+
+
+def get_releve_compte_client(
+    client, branche=None, date_debut=None, date_fin=None
+) -> dict:
+    """
+    Build a chronological, running-balance statement of account (كشف حساب)
+    for one client — the printable équivalent of an "état des dettes",
+    mirroring achats.utils.get_releve_compte_fournisseur on the AR side.
+
+    Débit lines come from FactureClient.montant_ttc (invoicing — whether
+    BL-driven or an abonnement échéance, BR-ABO-03 — is what creates a
+    receivable, not the BL/delivery itself), crédit lines from
+    PaiementClient.montant. AcompteClient rows are NOT listed separately:
+    an acompte is only the still-unconsumed portion of a paiement that has
+    already been counted in full as that paiement's crédit line, so adding
+    it again would double-count the payment.
+
+    BLs aren't débit rows themselves; each facture row's `bls` list carries
+    the BL references it bundles (empty for an abonnement-driven facture,
+    which instead carries `abonnement` + `periode_debut`/`periode_fin`), and
+    `bls_non_factures` (goods delivered but not yet invoiced — no effect on
+    the balance) is returned separately for an informational section.
+
+    Args:
+        client (Client): The client instance.
+        branche (Branche | None): Scope to one branch (Vue par Branche);
+            omit for Vue Globale — every branch's transactions combined.
+        date_debut (date | None): First day included in the main table.
+            Everything strictly before this date is folded into
+            `solde_initial` instead of appearing as its own row.
+        date_fin (date | None): Last day included in the main table.
+
+    Returns:
+        dict with keys:
+            solde_initial     — opening balance carried in from before date_debut
+            lignes            — list of dicts, chronological, each with
+                                 date / type ("facture"|"paiement") /
+                                 reference / bls / abonnement / mode_paiement /
+                                 statut / debit / credit / solde (running balance)
+            solde_final       — closing balance (== last ligne's solde, or
+                                 solde_initial when there are no lignes)
+            total_debit       — sum of débit over the period shown
+            total_credit      — sum of crédit over the period shown
+            bls_non_factures  — BLClient queryset (STATUT_LIVRE), delivered
+                                 in the period but not yet part of a facture
+    """
+    from clients.models import BLClient, FactureClient, PaiementClient
+
+    factures_qs = (
+        FactureClient.objects.filter(client=client)
+        .prefetch_related("bls")
+        .select_related("abonnement")
+    )
+    paiements_qs = PaiementClient.objects.filter(client=client)
+
+    if branche is not None:
+        factures_qs = factures_qs.filter(branche=branche)
+        paiements_qs = paiements_qs.filter(branche=branche)
+
+    # --- Opening balance: net of everything strictly before date_debut ---
+    solde_initial = Decimal("0")
+    if date_debut is not None:
+        solde_initial += factures_qs.filter(date_facture__lt=date_debut).aggregate(
+            total=models.Sum("montant_ttc")
+        )["total"] or Decimal("0")
+        solde_initial -= paiements_qs.filter(date_paiement__lt=date_debut).aggregate(
+            total=models.Sum("montant")
+        )["total"] or Decimal("0")
+        factures_qs = factures_qs.filter(date_facture__gte=date_debut)
+        paiements_qs = paiements_qs.filter(date_paiement__gte=date_debut)
+
+    if date_fin is not None:
+        factures_qs = factures_qs.filter(date_facture__lte=date_fin)
+        paiements_qs = paiements_qs.filter(date_paiement__lte=date_fin)
+
+    lignes = []
+    for facture in factures_qs.order_by("date_facture", "pk"):
+        lignes.append(
+            {
+                "date": facture.date_facture,
+                "type": "facture",
+                "reference": facture.reference,
+                "bls": list(facture.bls.all()),
+                "abonnement": facture.abonnement,
+                "periode_debut": facture.periode_debut,
+                "periode_fin": facture.periode_fin,
+                "mode_paiement": None,
+                "statut": facture.statut,
+                "statut_display": facture.get_statut_display(),
+                "debit": facture.montant_ttc,
+                "credit": Decimal("0"),
+                "objet": facture,
+            }
+        )
+    for paiement in paiements_qs.order_by("date_paiement", "pk"):
+        lignes.append(
+            {
+                "date": paiement.date_paiement,
+                "type": "paiement",
+                "reference": paiement.reference_paiement or "—",
+                "bls": [],
+                "abonnement": None,
+                "periode_debut": None,
+                "periode_fin": None,
+                "mode_paiement": paiement.get_mode_paiement_display(),
+                "statut": None,
+                "statut_display": None,
+                "debit": Decimal("0"),
+                "credit": paiement.montant,
+                "objet": paiement,
+            }
+        )
+
+    # Chronological; on a tie, the facture is listed before the paiement
+    # (the receivable is booked before a same-day payment against it).
+    lignes.sort(key=lambda l: (l["date"], 0 if l["type"] == "facture" else 1))
+
+    solde = solde_initial
+    for ligne in lignes:
+        solde += ligne["debit"] - ligne["credit"]
+        ligne["solde"] = solde
+
+    total_debit = sum((l["debit"] for l in lignes), Decimal("0"))
+    total_credit = sum((l["credit"] for l in lignes), Decimal("0"))
+
+    # --- Informational only: goods delivered but not yet invoiced ---
+    bls_non_factures_qs = BLClient.objects.filter(
+        client=client,
+        statut=BLClient.STATUT_LIVRE,
+    ).order_by("date_bl")
+    if branche is not None:
+        bls_non_factures_qs = bls_non_factures_qs.filter(branche=branche)
+    if date_debut is not None:
+        bls_non_factures_qs = bls_non_factures_qs.filter(date_bl__gte=date_debut)
+    if date_fin is not None:
+        bls_non_factures_qs = bls_non_factures_qs.filter(date_bl__lte=date_fin)
+
+    return {
+        "solde_initial": solde_initial,
+        "lignes": lignes,
+        "solde_final": solde,
+        "total_debit": total_debit,
+        "total_credit": total_credit,
+        "bls_non_factures": list(bls_non_factures_qs),
     }
 
 

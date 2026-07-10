@@ -17,6 +17,7 @@ import datetime
 from decimal import Decimal
 from django.db import models
 from django.core.validators import MinValueValidator
+from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericRelation
 from core.models import PieceJointe
@@ -249,12 +250,20 @@ class BLClient(models.Model):
 
 class BLClientLigne(models.Model):
     """
-    One line on a BL Client — one product, quantity, and unit price.
+    One line on a BL Client — one article, quantity, and unit price.
     The line_total is computed as a property; no stored field to avoid drift.
 
+    v1.6 (BR-BLC-06) — a line now sells EITHER a finished product
+    (`produit_fini`, decremented from StockProduitFini) OR a surplus
+    input good (`intrant`, decremented from StockIntrant). Excess
+    intrants (unused feed, packaging, etc.) can be sold to clients
+    exactly like a finished product; exactly one of the two FKs must
+    be set (enforced in `clean()` and mirrored in BLClientLigneForm).
+
     When the parent BL is validated (statut → livre), a post_save signal
-    on BLClientLigne triggers the StockProduitFini decrease and logs a
-    StockMouvement (sortie, source = bl_client).
+    on BLClient processes every ligne and triggers the matching stock
+    decrease (StockProduitFini or StockIntrant) plus a StockMouvement
+    (sortie, source = bl_client).
     """
 
     bl = models.ForeignKey(
@@ -267,7 +276,18 @@ class BLClientLigne(models.Model):
         "production.ProduitFini",
         on_delete=models.PROTECT,
         related_name="lignes_bl_client",
+        null=True,
+        blank=True,
         verbose_name="المنتج النهائي",
+    )
+    # v1.6 — surplus/excess intrants sold as finished goods (BR-BLC-06).
+    intrant = models.ForeignKey(
+        "intrants.Intrant",
+        on_delete=models.PROTECT,
+        related_name="lignes_bl_client",
+        null=True,
+        blank=True,
+        verbose_name="المدخل (فائض للبيع)",
     )
     quantite = models.DecimalField(
         max_digits=12,
@@ -281,19 +301,49 @@ class BLClientLigne(models.Model):
         default=0,
         verbose_name="سعر الوحدة (د.ج)",
         validators=[MinValueValidator(0)],
-        help_text="يُملأ مسبقاً من سعر البيع الافتراضي للمنتج النهائي.",
+        help_text="يُملأ مسبقاً من سعر البيع الافتراضي للمنتج النهائي، أو يُدخل يدويًا للمدخلات.",
     )
     notes = models.TextField(blank=True, verbose_name="ملاحظات")
 
     class Meta:
         verbose_name = "سطر وصل تسليم العميل"
         verbose_name_plural = "أسطر وصل تسليم العملاء"
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(produit_fini__isnull=False, intrant__isnull=True)
+                    | models.Q(produit_fini__isnull=True, intrant__isnull=False)
+                ),
+                name="bl_client_ligne_un_seul_article",
+            )
+        ]
 
     def __str__(self):
-        return (
-            f"{self.bl.reference} — "
-            f"{self.produit_fini.designation} × {self.quantite}"
-        )
+        return f"{self.bl.reference} — {self.designation} × {self.quantite}"
+
+    def clean(self):
+        super().clean()
+        if bool(self.produit_fini_id) == bool(self.intrant_id):
+            raise ValidationError(
+                "BR-BLC-06 : يجب اختيار منتج نهائي واحد أو مدخل واحد للبيع، وليس كليهما أو لا شيء."
+            )
+
+    @property
+    def article(self):
+        """Whichever catalogue item (ProduitFini or Intrant) this line sells."""
+        return self.produit_fini or self.intrant
+
+    @property
+    def type_article(self):
+        return "produit_fini" if self.produit_fini_id else "intrant"
+
+    @property
+    def designation(self):
+        return self.article.designation if self.article else ""
+
+    @property
+    def unite_mesure(self):
+        return self.article.unite_mesure if self.article else ""
 
     @property
     def montant_total(self):

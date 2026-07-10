@@ -94,7 +94,7 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>المنتج النهائي</th>
+                <th>البند</th>
                 <th style="text-align:right;">الكمية</th>
                 <th style="text-align:right;">سعر الوحدة</th>
                 <th style="text-align:right;">الإجمالي</th>
@@ -104,10 +104,12 @@
               {% for ligne in bl.lignes.all %}
               <tr>
                 <td>
-                  <span style="font-weight:500;color:var(--text-primary);">{{ ligne.produit_fini.designation }}</span>
-                  <div style="font-size:11px;color:var(--text-muted);">{{ ligne.produit_fini.get_type_produit_display }}</div>
+                  <span style="font-weight:500;color:var(--text-primary);">{{ ligne.designation }}</span>
+                  <div style="font-size:11px;color:var(--text-muted);">
+                    {% if ligne.produit_fini %}{{ ligne.produit_fini.get_type_produit_display }}{% else %}مدخل (فائض للبيع){% endif %}
+                  </div>
                 </td>
-                <td style="text-align:right;">{{ ligne.quantite|floatformat:2 }} {{ ligne.produit_fini.unite_mesure }}</td>
+                <td style="text-align:right;">{{ ligne.quantite|floatformat:2 }} {{ ligne.unite_mesure }}</td>
                 <td style="text-align:right;color:var(--text-muted);">{{ ligne.prix_unitaire|floatformat:2 }} DZD</td>
                 <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ ligne.montant_total|floatformat:0 }} DZD</td>
               </tr>

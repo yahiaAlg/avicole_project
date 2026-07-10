@@ -102,7 +102,7 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>المنتج النهائي</th>
+                <th>البند</th>
                 <th style="text-align:left;">الكمية</th>
                 <th style="text-align:left;">سعر الوحدة</th>
                 <th style="text-align:left;">المجموع</th>
@@ -113,10 +113,13 @@
               {% for ligne in lignes %}
               <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
                 <td>
-                  <span style="font-weight:500;color:var(--text-primary);">{{ ligne.produit_fini.designation }}</span>
-                  <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">{{ ligne.produit_fini.get_type_produit_display }}</div>
+                  <span style="font-weight:500;color:var(--text-primary);">{{ ligne.designation }}</span>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">
+                    {% if ligne.produit_fini %}{{ ligne.produit_fini.get_type_produit_display }}
+                    {% else %}<span class="pill-neutral">مدخل (فائض للبيع)</span>{% endif %}
+                  </div>
                 </td>
-                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ ligne.quantite|floatformat:2 }} {{ ligne.produit_fini.unite_mesure }}</td>
+                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ ligne.quantite|floatformat:2 }} {{ ligne.unite_mesure }}</td>
                 <td style="text-align:left;color:var(--text-secondary);">{{ ligne.prix_unitaire|floatformat:2 }} دج</td>
                 <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ ligne.montant_total|floatformat:0 }} دج</td>
                 <td style="color:var(--text-muted);font-size:12px;">{{ ligne.notes|default:"—" }}</td>

@@ -9,6 +9,9 @@ Function-based views for the full client AR (accounts-receivable) cycle:
   FactureClient  : list, create, detail, print
   PaiementClient : list, create (with ?facture= pre-population), detail, print
   Dashboard      : clients overview with receivable aging
+  releve_compte_client : printable running-balance statement of account
+                         (état des dettes) — factures (débit) + paiements
+                         (crédit), chronological, cumulative
   AJAX           : client financial snapshot endpoint
 
 Business rules enforced here (complementing model.clean(), forms, and signals):
@@ -84,6 +87,7 @@ from clients.utils import (
     generer_echeances_abonnements_forfait,
     get_client_aging_buckets,
     get_client_solde,
+    verifier_stock_lignes_bl_client,
 )
 from core.views import (
     branche_object_or_404,
@@ -454,18 +458,12 @@ def bl_client_create(request, client_pk=None):
                     pj_formset.save()
 
                     if wanted_statut == BLClient.STATUT_LIVRE:
-                        lignes = bl.lignes.select_related("produit_fini").all()
-                        insuffisant = []
-                        for ligne in lignes:
-                            dispo = ligne.produit_fini.quantite_en_stock_branche(
-                                bl.branche
-                            )
-                            if ligne.quantite > dispo:
-                                insuffisant.append(
-                                    f"« {ligne.produit_fini.designation} » : "
-                                    f"demandé {ligne.quantite}, disponible {dispo} "
-                                    f"{ligne.produit_fini.unite_mesure}"
-                                )
+                        lignes = bl.lignes.select_related(
+                            "produit_fini", "intrant"
+                        ).all()
+                        insuffisant = verifier_stock_lignes_bl_client(
+                            lignes, bl.branche
+                        )
                         if insuffisant:
                             raise ValueError(
                                 "BR-BLC-02 : stock insuffisant — "
@@ -541,7 +539,7 @@ def bl_client_detail(request, pk):
         BLClient.objects.select_related("client", "branche", "created_by"),
         pk=pk,
     )
-    lignes = bl.lignes.select_related("produit_fini").all()
+    lignes = bl.lignes.select_related("produit_fini", "intrant").all()
     factures = bl.factures.order_by("-date_facture")
     pieces_jointes = bl.pieces_jointes.select_related("uploaded_by").order_by(
         "-created_at"
@@ -631,18 +629,12 @@ def bl_client_edit(request, pk):
                     formset.save()
                     pj_formset.save()
                     if transitioning_to_livre:
-                        lignes = bl.lignes.select_related("produit_fini").all()
-                        insuffisant = []
-                        for ligne in lignes:
-                            dispo = ligne.produit_fini.quantite_en_stock_branche(
-                                bl.branche
-                            )
-                            if ligne.quantite > dispo:
-                                insuffisant.append(
-                                    f"« {ligne.produit_fini.designation} » : "
-                                    f"demandé {ligne.quantite}, disponible {dispo} "
-                                    f"{ligne.produit_fini.unite_mesure}"
-                                )
+                        lignes = bl.lignes.select_related(
+                            "produit_fini", "intrant"
+                        ).all()
+                        insuffisant = verifier_stock_lignes_bl_client(
+                            lignes, bl.branche
+                        )
                         if insuffisant:
                             raise ValueError(
                                 "BR-BLC-02 : stock insuffisant — "
@@ -716,7 +708,7 @@ def bl_client_valider(request, pk):
         )
         return redirect("clients:bl_client_detail", pk=bl.pk)
 
-    lignes = bl.lignes.select_related("produit_fini").all()
+    lignes = bl.lignes.select_related("produit_fini", "intrant").all()
     if not lignes.exists():
         messages.error(
             request,
@@ -726,15 +718,7 @@ def bl_client_valider(request, pk):
 
     # BR-BLC-02: atomic stock check before committing the transition.
     with transaction.atomic():
-        insuffisant = []
-        for ligne in lignes:
-            dispo = ligne.produit_fini.quantite_en_stock_branche(bl.branche)
-            if ligne.quantite > dispo:
-                insuffisant.append(
-                    f"« {ligne.produit_fini.designation} » : "
-                    f"demandé {ligne.quantite}, disponible {dispo} "
-                    f"{ligne.produit_fini.unite_mesure}"
-                )
+        insuffisant = verifier_stock_lignes_bl_client(lignes, bl.branche)
 
         if insuffisant:
             messages.error(
@@ -894,7 +878,7 @@ def bl_client_print(request, pk):
         )
         return redirect("clients:bl_client_detail", pk=bl.pk)
 
-    lignes = bl.lignes.select_related("produit_fini").all()
+    lignes = bl.lignes.select_related("produit_fini", "intrant").all()
 
     from core.models import CompanyInfo
 
@@ -1093,7 +1077,9 @@ def facture_client_detail(request, pk):
         FactureClient.objects.select_related("client", "created_by"),
         pk=pk,
     )
-    bls = facture.bls.prefetch_related("lignes__produit_fini").order_by("date_bl")
+    bls = facture.bls.prefetch_related(
+        "lignes__produit_fini", "lignes__intrant"
+    ).order_by("date_bl")
     allocations = facture.allocations.select_related("paiement").order_by(
         "-paiement__date_paiement"
     )
@@ -1168,7 +1154,9 @@ def facture_client_print(request, pk):
         FactureClient.objects.select_related("client", "created_by"),
         pk=pk,
     )
-    bls = facture.bls.prefetch_related("lignes__produit_fini").order_by("date_bl")
+    bls = facture.bls.prefetch_related(
+        "lignes__produit_fini", "lignes__intrant"
+    ).order_by("date_bl")
 
     from core.models import CompanyInfo
 
@@ -1865,6 +1853,35 @@ def client_solde_json(request, pk):
         "nb_factures_retard": solde["nb_factures_retard"],
         "depasse_plafond": solde["depasse_plafond"],
         "plafond_credit": float(client.plafond_credit),
+    }
+    return JsonResponse(data)
+
+
+@login_required(login_url=LOGIN_URL)
+def intrant_stock_json(request, pk):
+    """
+    Return the current branche-scoped StockIntrant balance for one Intrant,
+    as JSON. Mirrors production:produit_fini_stock_json but for the surplus
+    intrants that can now be sold to clients on a BL Client line
+    (BR-BLC-06, v1.6).
+
+    No "prix_vente_defaut" concept exists for Intrant (unlike ProduitFini),
+    so the price is left for the user to fill in manually.
+
+    Returns:
+        {
+          "quantite": float,
+          "unite_mesure": str,
+        }
+    """
+    from intrants.models import Intrant
+
+    intrant = get_object_or_404(Intrant, pk=pk)
+    branche = get_active_branche(request)
+
+    data = {
+        "quantite": float(intrant.quantite_en_stock(branche)),
+        "unite_mesure": str(intrant.unite_mesure),
     }
     return JsonResponse(data)
 
@@ -2648,6 +2665,86 @@ def fiche_dettes_client(request, pk):
             "produits_disponibles": produits_disponibles,
             "active_branche": branche,
             "title": f"فيشة الديون — {client.nom}",
+        },
+    )
+
+
+# ===========================================================================
+# Relevé de compte client (printable "état des dettes")
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def releve_compte_client(request, pk):
+    """
+    Printable, chronological running-balance statement of account (كشف حساب)
+    for one client — équivalent of an "état des dettes / client": every
+    FactureClient (débit) and PaiementClient (crédit) in date order with a
+    cumulative solde column. Mirrors achats.views.releve_compte_fournisseur
+    on the supplier side.
+
+    BLs aren't débit rows on their own (invoicing creates the receivable
+    here, not delivery — BR-FAC-01); each facture row lists the BL
+    references it bundles (or the abonnement période it bills), and goods
+    delivered but not yet invoiced are shown in a separate informational
+    section that doesn't affect the balance.
+
+    v1.4 (§3.5.3 ¶4): scoped to the active branche like the rest of the
+    client views (Vue par Branche); Vue Globale (no active branche) sums
+    every branch this client has ever been served by.
+
+    GET params:
+        date_debut, date_fin (YYYY-MM-DD) — optional reporting period.
+        Everything before date_debut is folded into the opening balance.
+    """
+    import datetime as dt_module
+
+    from clients.utils import get_releve_compte_client
+    from core.models import CompanyInfo
+
+    client = get_object_or_404(Client, pk=pk)
+    branche = get_active_branche(request)
+
+    date_debut = None
+    date_fin = None
+    date_debut_str = request.GET.get("date_debut", "").strip()
+    date_fin_str = request.GET.get("date_fin", "").strip()
+
+    if date_debut_str:
+        try:
+            date_debut = dt_module.datetime.strptime(date_debut_str, "%Y-%m-%d").date()
+        except ValueError:
+            messages.warning(request, "تاريخ البداية غير صالح — تم تجاهله.")
+
+    if date_fin_str:
+        try:
+            date_fin = dt_module.datetime.strptime(date_fin_str, "%Y-%m-%d").date()
+        except ValueError:
+            messages.warning(request, "تاريخ النهاية غير صالح — تم تجاهله.")
+
+    if date_debut and date_fin and date_debut > date_fin:
+        messages.warning(
+            request, "تاريخ البداية يجب أن يسبق تاريخ النهاية — تم تجاهل الفترة."
+        )
+        date_debut = None
+        date_fin = None
+
+    releve = get_releve_compte_client(
+        client, branche=branche, date_debut=date_debut, date_fin=date_fin
+    )
+    company = CompanyInfo.get_instance()
+
+    return render(
+        request,
+        "clients/releve_compte_client.html",
+        {
+            "client": client,
+            "releve": releve,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+            "active_branche": branche,
+            "company": company,
+            "title": f"كشف حساب — {client.nom}",
         },
     )
 

@@ -195,6 +195,12 @@ urlpatterns = [
         views.fiche_dettes_client,
         name="fiche_dettes_client",
     ),
+    # ── Relevé de compte client (كشف حساب / état des dettes) ────────────
+    path(
+        "clients/<int:pk>/releve/",
+        views.releve_compte_client,
+        name="releve_compte_client",
+    ),
     # ── Prix Marché ──────────────────────────────────────────────────────
     path(
         "prix-marche/",
@@ -221,6 +227,13 @@ urlpatterns = [
         "clients/<int:pk>/solde.json",
         views.client_solde_json,
         name="client_solde_json",
+    ),
+    # v1.6 (BR-BLC-06) — surplus intrant stock lookup for the BL Client
+    # line picker (mirrors production:produit_fini_stock_json).
+    path(
+        "intrants/<int:pk>/stock.json",
+        views.intrant_stock_json,
+        name="intrant_stock_json",
     ),
     # ── AbonnementClient ─────────────────────────────────────────────────
     path(

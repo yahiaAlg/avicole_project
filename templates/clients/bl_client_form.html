@@ -122,7 +122,7 @@
         <div class="form-card__header" style="justify-content:space-between;">
           <div style="display:flex;align-items:center;gap:10px;">
             <i class="bx bxs-cube-alt ic-icon"></i>
-            <span class="form-card__title">بنود المنتجات النهائية</span>
+            <span class="form-card__title">بنود البيع (منتجات نهائية أو مدخلات فائضة)</span>
           </div>
           <div style="display:flex;align-items:center;gap:12px;">
             <span class="section-eyebrow">المجموع : <strong id="bl-grand-total">0 دج</strong></span>
@@ -142,22 +142,35 @@
           <table class="data-table" id="formset-table">
             <thead>
               <tr>
-                <th style="width:35%;">المنتج النهائي</th>
-                <th style="width:14%;">الكمية</th>
-                <th style="width:18%;">سعر الوحدة (دج)</th>
-                <th style="width:16%;">المبلغ</th>
+                <th style="width:10%;">النوع</th>
+                <th style="width:27%;">البند</th>
+                <th style="width:13%;">الكمية</th>
+                <th style="width:17%;">سعر الوحدة (دج)</th>
+                <th style="width:15%;">المبلغ</th>
                 <th style="width:13%;">المخزون المتاح</th>
                 <th style="width:4%;text-align:center;"></th>
               </tr>
             </thead>
             <tbody id="formset-container">
               {% for ligne_form in formset %}
-              <tr class="ligne-form {% if ligne_form.instance.pk %}ligne-existing{% endif %}" data-form-idx="{{ forloop.counter0 }}">
+              <tr class="ligne-form {% if ligne_form.instance.pk %}ligne-existing{% endif %}" data-form-idx="{{ forloop.counter0 }}" data-type="{% if ligne_form.instance.pk and ligne_form.instance.intrant_id %}intrant{% else %}produit_fini{% endif %}">
                 <td>
                   {% for hfield in ligne_form.hidden_fields %}{{ hfield }}{% endfor %}
                   {{ ligne_form.DELETE }}
-                  {{ ligne_form.produit_fini }}
-                  {% for err in ligne_form.produit_fini.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+                  <select class="article-type-select">
+                    <option value="produit_fini" {% if not ligne_form.instance.intrant_id %}selected{% endif %}>منتج نهائي</option>
+                    <option value="intrant" {% if ligne_form.instance.intrant_id %}selected{% endif %}>مدخل (فائض)</option>
+                  </select>
+                </td>
+                <td>
+                  <div class="article-field article-field--produit_fini">
+                    {{ ligne_form.produit_fini }}
+                    {% for err in ligne_form.produit_fini.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+                  </div>
+                  <div class="article-field article-field--intrant">
+                    {{ ligne_form.intrant }}
+                    {% for err in ligne_form.intrant.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+                  </div>
                 </td>
                 <td>
                   {{ ligne_form.quantite }}
@@ -312,11 +325,18 @@
 
 <!-- Empty form template for JS cloning -->
 <template id="empty-form-template">
-  <tr class="ligne-form" data-form-idx="__prefix__">
+  <tr class="ligne-form" data-form-idx="__prefix__" data-type="produit_fini">
     <td>
       {{ formset.empty_form.id }}
       {{ formset.empty_form.DELETE }}
-      {{ formset.empty_form.produit_fini }}
+      <select class="article-type-select">
+        <option value="produit_fini" selected>منتج نهائي</option>
+        <option value="intrant">مدخل (فائض)</option>
+      </select>
+    </td>
+    <td>
+      <div class="article-field article-field--produit_fini">{{ formset.empty_form.produit_fini }}</div>
+      <div class="article-field article-field--intrant">{{ formset.empty_form.intrant }}</div>
     </td>
     <td>{{ formset.empty_form.quantite }}</td>
     <td>{{ formset.empty_form.prix_unitaire }}</td>
@@ -391,6 +411,12 @@
   .data-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; text-align: right; }
   .ligne-form td input, .ligne-form td select { padding: 8px 10px; font-size: 13px; border-radius: var(--radius-sm); }
   .stock-hint.over { color: #dc2626; }
+
+  /* v1.6 (BR-BLC-06) — produit_fini vs intrant toggle per line */
+  .article-type-select { font-size: 12px; padding: 7px 8px; }
+  .article-field { display: none; }
+  .ligne-form[data-type="produit_fini"] .article-field--produit_fini,
+  .ligne-form[data-type="intrant"] .article-field--intrant { display: block; }
 
   .delete-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--radius-sm); border: 1px solid rgba(239,68,68,.2); background: transparent; color: #dc2626; cursor: pointer; font-size: 14px; transition: background .12s; }
   .delete-btn:hover { background: rgba(239,68,68,.08); }
@@ -505,21 +531,27 @@ document.addEventListener('DOMContentLoaded', function () {
     if (summaryTotalEl) summaryTotalEl.textContent = fmt(grand);
   }
 
-  const STOCK_URL_TPL = '{% url "production:produit_fini_stock_json" 99999 %}';
+  const STOCK_URL_TPL = {
+    produit_fini: '{% url "production:produit_fini_stock_json" 99999 %}',
+    intrant: '{% url "clients:intrant_stock_json" 99999 %}',
+  };
 
   function fetchStockHint(selectEl, row, forcePrice) {
-    const pk      = selectEl.value;
-    const hint    = row.querySelector('.stock-hint');
-    const qtyEl   = row.querySelector('input[name$="-quantite"]');
+    if (!selectEl) return;
+    const type   = row.dataset.type || 'produit_fini';
+    const pk     = selectEl.value;
+    const hint   = row.querySelector('.stock-hint');
+    const qtyEl  = row.querySelector('input[name$="-quantite"]');
     const priceEl = row.querySelector('input[name$="-prix_unitaire"]');
     if (!pk) { if (hint) hint.textContent = ''; return; }
-    fetch(STOCK_URL_TPL.replace('99999', pk))
+    fetch(STOCK_URL_TPL[type].replace('99999', pk))
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(data => {
         const stock = parseFloat(data.quantite) || 0;
         const qty   = parseFloat(qtyEl?.value) || 0;
 
-        if (priceEl && data.prix_vente_defaut !== undefined) {
+        // No default sale price exists for intrants — only auto-fill for produits finis.
+        if (type === 'produit_fini' && priceEl && data.prix_vente_defaut !== undefined) {
           const currentPrice = parseFloat(priceEl.value) || 0;
           if (forcePrice || currentPrice === 0) {
             priceEl.value = parseFloat(data.prix_vente_defaut).toFixed(4);
@@ -539,18 +571,40 @@ document.addEventListener('DOMContentLoaded', function () {
       .catch(() => { if (hint) hint.textContent = ''; });
   }
 
+  function currentArticleSelect(row) {
+    const type = row.dataset.type || 'produit_fini';
+    return row.querySelector('select[name$="-' + type + '"]');
+  }
+
   function bindRow(row) {
-    const sel   = row.querySelector('select[name$="-produit_fini"]');
+    const typeSel = row.querySelector('.article-type-select');
     const qty   = row.querySelector('input[name$="-quantite"]');
     const price = row.querySelector('input[name$="-prix_unitaire"]');
     const del   = row.querySelector('.delete-btn');
     const chk   = row.querySelector('input[name$="-DELETE"]');
+    const pfSel = row.querySelector('select[name$="-produit_fini"]');
+    const inSel = row.querySelector('select[name$="-intrant"]');
 
-    if (sel) {
-      sel.addEventListener('change', function () { fetchStockHint(sel, row, true); });
-      if (sel.value) fetchStockHint(sel, row, false);
+    if (typeSel) {
+      typeSel.addEventListener('change', function () {
+        row.dataset.type = typeSel.value;
+        // Clear whichever select is now hidden so it isn't submitted.
+        if (typeSel.value === 'produit_fini' && inSel) inSel.value = '';
+        if (typeSel.value === 'intrant' && pfSel) pfSel.value = '';
+        const hint = row.querySelector('.stock-hint');
+        if (hint) hint.textContent = '';
+        fetchStockHint(currentArticleSelect(row), row, false);
+      });
     }
-    if (qty)   qty.addEventListener('input', function () { fetchStockHint(sel, row, false); updateTotals(); });
+
+    [pfSel, inSel].forEach(function (sel) {
+      if (!sel) return;
+      sel.addEventListener('change', function () { fetchStockHint(currentArticleSelect(row), row, true); });
+    });
+    if (currentArticleSelect(row) && currentArticleSelect(row).value) {
+      fetchStockHint(currentArticleSelect(row), row, false);
+    }
+    if (qty)   qty.addEventListener('input', function () { fetchStockHint(currentArticleSelect(row), row, false); updateTotals(); });
     if (price) price.addEventListener('input', updateTotals);
 
     if (del) {

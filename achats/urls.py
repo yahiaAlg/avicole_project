@@ -137,6 +137,12 @@ urlpatterns = [
         views.fournisseur_tableau_de_bord,
         name="fournisseur_tableau_de_bord",
     ),
+    # ── Relevé de compte fournisseur (كشف حساب / état des dettes) ───────
+    path(
+        "fournisseurs/<int:pk>/releve/",
+        views.releve_compte_fournisseur,
+        name="releve_compte_fournisseur",
+    ),
     # ── AJAX ────────────────────────────────────────────────────────────
     path(
         "bls/totaux.json",

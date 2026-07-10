@@ -24,6 +24,10 @@ Utilisation :
     # Seulement les consommations médicaments
     python manage.py seed_elevage_lot --lot "Lot Mai 2025 — Bâtiment A" --what medics
 
+    # Seulement les pesées d'échantillon (oiseaux, courbe de croissance) —
+    # nécessaire pour tester la suggestion de poids en production (§20.x)
+    python manage.py seed_elevage_lot --lot "Lot Mai 2025 — Bâtiment A" --what pesees
+
     # Seulement la collecte + traitement du fertilisant (bâtiment du lot broiler)
     python manage.py seed_elevage_lot --lot "Lot Mai 2025 — Bâtiment A" --what fertilisant
 
@@ -81,6 +85,10 @@ Données incluses (scénario Lot Mai 2025 — Bâtiment A, 2 000 poussins Ross 3
                    (300 kg via formule, 100 kg direct) + 1 consommation de
                    50 kg piochant explicitement dans le batch «via formule»
     Médicaments  : 7 saisies (vaccins + amoxicilline + vitamines)
+    Pesées (oiseaux) : 4 PeseeEchantillon (J0/J14/J28/J38 — courbe de
+                   croissance ; J38 alimente la suggestion de poids
+                   « استخدام هذا التقدير » du formulaire d'enregistrement
+                   de production, cf. production/views.lot_effectif_json)
     Fertilisant  : 4 collectes brutes (Bâtiment A) + 1 traitement validé
     (Offsets vérifiés contre scenario_avicole_full_cycle_fresh_start.md §5.2-5.4 :
     date_ouverture = 2025-05-10 (J0) ; ex. mortalité J+3 = 2025-05-13, etc.)
@@ -171,6 +179,22 @@ MEDIC_DATA = [
     (22, "لقاح غامبورو (IBD متوسط)", Decimal("1965.000")),
     (22, "أموكسيسيلين 50% مسحوق", Decimal("250.000")),
     (22, "فيتامينات + إلكتروليتات (مركّب)", Decimal("5.000")),
+]
+
+# Format : (jour_depuis_ouverture, nombre_sujets, poids_total_g)
+# Suivi de croissance corporelle — cibles standard Ross 308 (chair) :
+# ~42 g au jour 0, ~460 g à J14, ~1 500 g à J28, ~2 100 g à J38 (proche de
+# l'abattage à J40, cf. DEFAULT_LOT_AGE_JOURS). La dernière pesée (J38) est
+# celle utilisée par la suggestion de poids en production (production/
+# lot_effectif_json → « استخدام هذا التقدير ») : 1 960 survivants (2 000 −
+# 40 mortalités, §5.2) × 2,100 kg = 4 116 kg — exactement le total_weight_kg
+# du scénario de démonstration (scenario_avicole_full_cycle_fresh_start.md
+# §6.2), pour que la suggestion reproduise ce chiffre à l'identique.
+PESEE_DATA = [
+    (0, 50, Decimal("2100.00")),
+    (14, 40, Decimal("18400.00")),
+    (28, 40, Decimal("60000.00")),
+    (38, 40, Decimal("84000.00")),
 ]
 
 # ---------------------------------------------------------------------------
@@ -423,6 +447,7 @@ class Command(BaseCommand):
                 "aliments",
                 "formule-interne",
                 "medics",
+                "pesees",
                 "fertilisant",
                 "oeufs",
                 "pondeuse-elevage",
@@ -434,7 +459,10 @@ class Command(BaseCommand):
                 "Sous-ensemble à peupler : 'all' (défaut, lot broiler uniquement) / "
                 "'mortalites' / 'aliments' / 'formule-interne' (FormuleAliment + "
                 "ProductionAliment «Grower Feed» in-house, §5.3bis — batch costing) / "
-                "'medics' / 'fertilisant' / "
+                "'medics' / "
+                "'pesees' (4 PeseeEchantillon oiseaux — courbe de croissance, "
+                "utilisée pour tester la suggestion de poids en production) / "
+                "'fertilisant' / "
                 "'oeufs' (post-transfert — récolte + 3 pesées œufs/PrixMarche) / "
                 "'pondeuse-elevage' (mortalités+aliments+"
                 "médics+pesées, phase Poussinière) / 'pondeuse-transfert' "
@@ -511,6 +539,9 @@ class Command(BaseCommand):
             self._seed_consommations(
                 lot, MEDIC_DATA, "Médicaments", admin, offset, "MEDICAMENT"
             )
+
+        if what in ("all", "pesees"):
+            self._seed_pesees(lot, admin, offset)
 
         if what in ("all", "fertilisant"):
             self._seed_fertilisant(lot, admin, offset)
@@ -846,6 +877,52 @@ class Command(BaseCommand):
                 )
 
         self._log_summary("Mortalités", created_count, len(MORTALITE_DATA))
+
+    # ------------------------------------------------------------------
+    # Pesées d'échantillon (oiseaux) — courbe de croissance du lot broiler
+    # ------------------------------------------------------------------
+
+    def _seed_pesees(self, lot, admin, offset: timedelta):
+        """
+        Seed PESEE_DATA (PeseeEchantillon, type_pesee=oiseaux) for the
+        broiler lot — mirrors _seed_pondeuse_elevage's inline pesée loop.
+
+        Exercises production.views.lot_effectif_json's
+        dernier_poids_moyen_g/dernier_poids_date fields and the production
+        record form's « استخدام هذا التقدير » poids_total_kg suggestion:
+        the last entry (J38) is the one that suggestion will read from when
+        creating a harvest record on this lot at/after J38.
+        """
+        from elevage.models import PeseeEchantillon
+
+        created_count = 0
+        for jour, nombre_sujets, poids_total_g in PESEE_DATA:
+            dt = lot.date_ouverture + timedelta(days=jour) + offset
+            _, created = PeseeEchantillon.objects.get_or_create(
+                lot=lot,
+                date=dt,
+                type_pesee=PeseeEchantillon.TYPE_OISEAUX,
+                defaults={
+                    "nombre_sujets": nombre_sujets,
+                    "poids_total_g": poids_total_g,
+                    "created_by": admin,
+                },
+            )
+            if created:
+                created_count += 1
+                poids_moyen = poids_total_g / nombre_sujets
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"  ✓ Pesée oiseaux {dt}  {poids_moyen:.1f} g/oiseau "
+                        f"({nombre_sujets} sujets)"
+                    )
+                )
+            else:
+                self.stdout.write(
+                    self.style.WARNING(f"  ~ Pesée oiseaux {dt}  (déjà existante)")
+                )
+
+        self._log_summary("Pesées (oiseaux)", created_count, len(PESEE_DATA))
 
     # ------------------------------------------------------------------
     # Consommations (aliments ou médicaments)

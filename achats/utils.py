@@ -13,6 +13,8 @@ Business-logic helpers for the supplier procurement cycle.
   generer_reference_facture_fournisseur — Sequential FRN reference
   get_supplier_aging_buckets — Aged debt analysis for reporting
   get_fournisseur_solde      — Full financial summary for one supplier
+  get_releve_compte_fournisseur — Chronological running-balance statement
+                                   of account (printable "état des dettes")
 
 v1.4 — Multi-Branch Architecture (§3.5): Fournisseur stays global (BR-BRA-06),
 but BLFournisseur / FactureFournisseur / ReglementFournisseur / AcompteFournisseur
@@ -303,17 +305,13 @@ def supprimer_facture_fournisseur_cascade(facture):
             .values_list("reglement_id", flat=True)
             .distinct()
         )
-        reglements = list(
-            ReglementFournisseur.objects.filter(pk__in=reglement_ids)
-        )
+        reglements = list(ReglementFournisseur.objects.filter(pk__in=reglement_ids))
 
         for reglement in reglements:
             # 1a. Allocations of this règlement to OTHER factures also
             #     vanish with it — recompute those factures' soldes.
             autres_allocations = list(
-                reglement.allocations.exclude(facture=facture).select_related(
-                    "facture"
-                )
+                reglement.allocations.exclude(facture=facture).select_related("facture")
             )
             for alloc in autres_allocations:
                 autre_facture = alloc.facture
@@ -383,7 +381,9 @@ def supprimer_facture_fournisseur_cascade(facture):
         #     Give that money back to the advance.
         for alloc in list(facture.allocations_acompte.select_related("acompte")):
             source_acompte = alloc.acompte
-            source_acompte.montant_restant = source_acompte.montant_restant + alloc.montant_alloue
+            source_acompte.montant_restant = (
+                source_acompte.montant_restant + alloc.montant_alloue
+            )
             source_acompte.utilise = source_acompte.montant_restant <= 0
             source_acompte.save(update_fields=["montant_restant", "utilise"])
             alloc.delete()
@@ -396,9 +396,7 @@ def supprimer_facture_fournisseur_cascade(facture):
 
         # 2. BLs included in the facture: reverse stock, then delete.
         bls = list(
-            facture.bls.select_related("branche").prefetch_related(
-                "lignes__intrant"
-            )
+            facture.bls.select_related("branche").prefetch_related("lignes__intrant")
         )
         for bl in bls:
             annuler_entrees_stock_bl(bl)
@@ -685,6 +683,147 @@ def get_fournisseur_solde(fournisseur, branche=None) -> dict:
         "factures_ouvertes": factures_ouvertes,
         "total_reglements": total_reglements,
         "nb_factures_retard": nb_factures_retard,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Relevé de compte fournisseur (printable "état des dettes" statement)
+# ---------------------------------------------------------------------------
+
+
+def get_releve_compte_fournisseur(
+    fournisseur, branche=None, date_debut=None, date_fin=None
+) -> dict:
+    """
+    Build a chronological, running-balance statement of account (كشف حساب)
+    for one supplier — the printable équivalent of an "état des dettes".
+
+    Débit lines come from FactureFournisseur (invoicing, not receipt, is
+    what creates debt in this system — BR-FAF-01), crédit lines from
+    ReglementFournisseur. AcompteFournisseur rows are NOT listed separately:
+    an acompte is only the still-unconsumed portion of a règlement that has
+    already been counted in full as that règlement's crédit line, so adding
+    it again would double-count the payment.
+
+    BLs are not débit rows themselves (see above); instead each facture
+    row's `bls` list carries its included BL references so the statement
+    still shows what was delivered, and `bls_non_factures` (goods received
+    but not yet invoiced — no effect on the balance) is returned separately
+    for an informational section beneath the main table.
+
+    Args:
+        fournisseur (Fournisseur): The supplier instance.
+        branche (Branche | None): Scope to one branch (Vue par Branche);
+            omit for Vue Globale — every branch's transactions combined.
+        date_debut (date | None): First day included in the main table.
+            Everything strictly before this date is folded into
+            `solde_initial` instead of appearing as its own row.
+        date_fin (date | None): Last day included in the main table.
+
+    Returns:
+        dict with keys:
+            solde_initial     — opening balance carried in from before date_debut
+            lignes            — list of dicts, chronological, each with
+                                 date / type ("facture"|"reglement") /
+                                 reference / bls / mode_paiement / statut /
+                                 debit / credit / solde (running balance)
+            solde_final       — closing balance (== last ligne's solde, or
+                                 solde_initial when there are no lignes)
+            total_debit       — sum of débit over the period shown
+            total_credit      — sum of crédit over the period shown
+            bls_non_factures  — BLFournisseur queryset (STATUT_RECU), received
+                                 in the period but not yet part of a facture
+    """
+    from achats.models import BLFournisseur, FactureFournisseur, ReglementFournisseur
+
+    factures_qs = FactureFournisseur.objects.filter(
+        fournisseur=fournisseur
+    ).prefetch_related("bls")
+    reglements_qs = ReglementFournisseur.objects.filter(fournisseur=fournisseur)
+
+    if branche is not None:
+        factures_qs = factures_qs.filter(branche=branche)
+        reglements_qs = reglements_qs.filter(branche=branche)
+
+    # --- Opening balance: net of everything strictly before date_debut ---
+    solde_initial = Decimal("0")
+    if date_debut is not None:
+        solde_initial += factures_qs.filter(date_facture__lt=date_debut).aggregate(
+            total=django_models.Sum("montant_total")
+        )["total"] or Decimal("0")
+        solde_initial -= reglements_qs.filter(date_reglement__lt=date_debut).aggregate(
+            total=django_models.Sum("montant")
+        )["total"] or Decimal("0")
+        factures_qs = factures_qs.filter(date_facture__gte=date_debut)
+        reglements_qs = reglements_qs.filter(date_reglement__gte=date_debut)
+
+    if date_fin is not None:
+        factures_qs = factures_qs.filter(date_facture__lte=date_fin)
+        reglements_qs = reglements_qs.filter(date_reglement__lte=date_fin)
+
+    lignes = []
+    for facture in factures_qs.order_by("date_facture", "pk"):
+        lignes.append(
+            {
+                "date": facture.date_facture,
+                "type": "facture",
+                "reference": facture.reference,
+                "bls": list(facture.bls.all()),
+                "mode_paiement": None,
+                "statut": facture.statut,
+                "statut_display": facture.get_statut_display(),
+                "debit": facture.montant_total,
+                "credit": Decimal("0"),
+                "objet": facture,
+            }
+        )
+    for reglement in reglements_qs.order_by("date_reglement", "pk"):
+        lignes.append(
+            {
+                "date": reglement.date_reglement,
+                "type": "reglement",
+                "reference": reglement.reference_paiement or "—",
+                "bls": [],
+                "mode_paiement": reglement.get_mode_paiement_display(),
+                "statut": None,
+                "statut_display": None,
+                "debit": Decimal("0"),
+                "credit": reglement.montant,
+                "objet": reglement,
+            }
+        )
+
+    # Chronological; on a tie, the facture is listed before the règlement
+    # (goods/debt are booked before a same-day payment against them).
+    lignes.sort(key=lambda l: (l["date"], 0 if l["type"] == "facture" else 1))
+
+    solde = solde_initial
+    for ligne in lignes:
+        solde += ligne["debit"] - ligne["credit"]
+        ligne["solde"] = solde
+
+    total_debit = sum((l["debit"] for l in lignes), Decimal("0"))
+    total_credit = sum((l["credit"] for l in lignes), Decimal("0"))
+
+    # --- Informational only: goods received but not yet invoiced ---
+    bls_non_factures_qs = BLFournisseur.objects.filter(
+        fournisseur=fournisseur,
+        statut=BLFournisseur.STATUT_RECU,
+    ).order_by("date_bl")
+    if branche is not None:
+        bls_non_factures_qs = bls_non_factures_qs.filter(branche=branche)
+    if date_debut is not None:
+        bls_non_factures_qs = bls_non_factures_qs.filter(date_bl__gte=date_debut)
+    if date_fin is not None:
+        bls_non_factures_qs = bls_non_factures_qs.filter(date_bl__lte=date_fin)
+
+    return {
+        "solde_initial": solde_initial,
+        "lignes": lignes,
+        "solde_final": solde,
+        "total_debit": total_debit,
+        "total_credit": total_credit,
+        "bls_non_factures": list(bls_non_factures_qs),
     }
 
 

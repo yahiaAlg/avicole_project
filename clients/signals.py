@@ -6,9 +6,12 @@ Signals for the client AR (accounts-receivable) cycle.
 Registered signals:
   1. pre_save   on BLClient        → cache old statut for transition detection.
   2. post_save  on BLClient        → when statut transitions to LIVRE, decrease
-                                      StockProduitFini (scoped to bl.branche) for
-                                      every BL line and create a StockMouvement
-                                      (sortie / bl_client).
+                                      StockProduitFini OR StockIntrant (scoped
+                                      to bl.branche — v1.6/BR-BLC-06: a line
+                                      may sell a surplus intrant instead of a
+                                      finished product) for every BL line and
+                                      create a StockMouvement (sortie /
+                                      bl_client).
   3. pre_save   on FactureClient   → cache old statut / is_new flag.
   4. post_save  on FactureClient   → on creation: log only (BLs not linked yet).
   5. m2m_changed on FactureClient.bls.through →
@@ -112,7 +115,7 @@ def bl_client_post_save(sender, instance, created, **kwargs):
     if not is_transitioning_to_livre:
         return
 
-    lignes = instance.lignes.select_related("produit_fini").all()
+    lignes = instance.lignes.select_related("produit_fini", "intrant").all()
 
     if not lignes.exists():
         logger.warning(
@@ -131,36 +134,91 @@ def bl_client_post_save(sender, instance, created, **kwargs):
     )
 
     for ligne in lignes:
-        _appliquer_sortie_stock_produit_fini(
-            ligne=ligne,
-            date_bl=instance.date_bl,
-            created_by=instance.created_by,
-            reference_label=instance.reference,
-            reference_id=instance.pk,
-            branche=instance.branche,
-        )
+        # v1.6 (BR-BLC-06) — a line sells either a produit_fini or a
+        # surplus intrant; dispatch to the matching stock segment.
+        if ligne.intrant_id:
+            _appliquer_sortie_stock_intrant(
+                ligne=ligne,
+                date_bl=instance.date_bl,
+                created_by=instance.created_by,
+                reference_label=instance.reference,
+                reference_id=instance.pk,
+                branche=instance.branche,
+            )
+        else:
+            _appliquer_sortie_stock_produit_fini(
+                ligne=ligne,
+                date_bl=instance.date_bl,
+                created_by=instance.created_by,
+                reference_label=instance.reference,
+                reference_id=instance.pk,
+                branche=instance.branche,
+            )
 
 
 def annuler_sortie_stock_bl_client(instance):
     """
-    ADMIN-ONLY reversal counterpart to ``_appliquer_sortie_stock_produit_fini``.
+    ADMIN-ONLY reversal counterpart to ``_appliquer_sortie_stock_produit_fini``
+    / ``_appliquer_sortie_stock_intrant``.
 
-    Increases StockProduitFini.quantite back up and logs a corrective
-    StockMouvement (ENTREE) for every ligne of a BL Client that previously
-    triggered a stock decrease (i.e. was LIVRE/FACTURE). Called exclusively
-    by ``clients.utils.supprimer_facture_client_cascade`` right before the
-    BL itself is deleted, as part of an admin-triggered hard delete of a
+    Increases the matching stock balance (StockProduitFini or StockIntrant)
+    back up and logs a corrective StockMouvement (ENTREE) for every ligne of
+    a BL Client that previously triggered a stock decrease (i.e. was
+    LIVRE/FACTURE). Called exclusively by
+    ``clients.utils.supprimer_facture_client_cascade`` right before the BL
+    itself is deleted, as part of an admin-triggered hard delete of a
     FactureClient (and everything it created).
 
     Mirrors the existing ``livraison_partielle_pre_delete`` reversal pattern
     (same direction of correction, same source category kept for audit
     continuity).
     """
-    from stock.models import StockProduitFini, StockMouvement
+    from stock.models import StockProduitFini, StockIntrant, StockMouvement
 
-    lignes = instance.lignes.select_related("produit_fini").all()
+    lignes = instance.lignes.select_related("produit_fini", "intrant").all()
 
     for ligne in lignes:
+        if ligne.intrant_id:
+            intrant = ligne.intrant
+
+            stock, _ = StockIntrant.objects.get_or_create(
+                branche=instance.branche,
+                intrant=intrant,
+                defaults={
+                    "quantite": Decimal("0"),
+                    "prix_moyen_pondere": Decimal("0"),
+                },
+            )
+
+            quantite_avant = stock.quantite
+            stock.quantite = stock.quantite + ligne.quantite
+            stock.save(update_fields=["quantite", "derniere_mise_a_jour"])
+
+            StockMouvement.objects.create(
+                branche=instance.branche,
+                intrant=intrant,
+                type_mouvement=StockMouvement.TYPE_ENTREE,
+                source=StockMouvement.SOURCE_BL_CLIENT,
+                quantite=ligne.quantite,
+                quantite_avant=quantite_avant,
+                quantite_apres=stock.quantite,
+                date_mouvement=datetime.date.today(),
+                reference_id=instance.pk,
+                reference_label=f"Annulation {instance.reference} (suppression admin)",
+                created_by=None,
+            )
+
+            logger.info(
+                "Stock reversal (admin delete): intrant pk=%s +%s → %s "
+                "(branche=%s). BL Client %s.",
+                intrant.pk,
+                ligne.quantite,
+                stock.quantite,
+                instance.branche.code,
+                instance.reference,
+            )
+            continue
+
         produit_fini = ligne.produit_fini
 
         stock, _ = StockProduitFini.objects.get_or_create(
@@ -257,6 +315,69 @@ def _appliquer_sortie_stock_produit_fini(
     logger.debug(
         "Stock sortie (BL Client): produit_fini pk=%s -%s → %s (branche=%s). BL %s.",
         produit_fini.pk,
+        ligne.quantite,
+        stock.quantite,
+        branche.code,
+        reference_label,
+    )
+
+
+def _appliquer_sortie_stock_intrant(
+    ligne, date_bl, created_by, reference_label, reference_id, branche
+):
+    """
+    Decrease StockIntrant.quantite for one BLClientLigne that sells a
+    surplus intrant (BR-BLC-06), scoped to `branche`, and record a
+    StockMouvement (SORTIE / BL_CLIENT) in the same branche.
+
+    Mirrors ``_appliquer_sortie_stock_produit_fini`` exactly, but on the
+    StockIntrant segment. A negative balance is allowed at the model level
+    (physical discrepancy); a warning is logged so operators can reconcile
+    via StockAjustement.
+    """
+    from stock.models import StockIntrant, StockMouvement
+
+    intrant = ligne.intrant
+
+    stock, _ = StockIntrant.objects.get_or_create(
+        branche=branche,
+        intrant=intrant,
+        defaults={
+            "quantite": Decimal("0"),
+            "prix_moyen_pondere": Decimal("0"),
+        },
+    )
+
+    quantite_avant = stock.quantite
+    stock.quantite = stock.quantite - ligne.quantite
+    stock.save(update_fields=["quantite", "derniere_mise_a_jour"])
+
+    if stock.quantite < 0:
+        logger.warning(
+            "Stock négatif après BL Client (intrant vendu): intrant pk=%s quantite=%s "
+            "(branche=%s). Vérifiez les entrées ou créez un ajustement.",
+            intrant.pk,
+            stock.quantite,
+            branche.code,
+        )
+
+    StockMouvement.objects.create(
+        branche=branche,
+        intrant=intrant,
+        type_mouvement=StockMouvement.TYPE_SORTIE,
+        source=StockMouvement.SOURCE_BL_CLIENT,
+        quantite=ligne.quantite,
+        quantite_avant=quantite_avant,
+        quantite_apres=stock.quantite,
+        date_mouvement=date_bl,
+        reference_id=reference_id,
+        reference_label=reference_label,
+        created_by=created_by,
+    )
+
+    logger.debug(
+        "Stock sortie (BL Client, intrant vendu): intrant pk=%s -%s → %s (branche=%s). BL %s.",
+        intrant.pk,
         ligne.quantite,
         stock.quantite,
         branche.code,

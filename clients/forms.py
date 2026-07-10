@@ -31,6 +31,7 @@ from clients.models import (
     LivraisonPartielle,
 )
 from production.models import ProduitFini
+from intrants.models import Intrant
 from core.forms import make_piece_jointe_formset
 
 # ---------------------------------------------------------------------------
@@ -153,21 +154,23 @@ class BLClientForm(forms.ModelForm):
 
 class BLClientLigneForm(forms.ModelForm):
     """
-    One line on a BL Client.
+    One line on a BL Client — sells EITHER a finished product (`produit_fini`)
+    OR a surplus intrant (`intrant`), never both (BR-BLC-06, v1.6).
 
-    BR-BLC-02: requested quantity cannot exceed available stock produits finis.
-    This check runs per-line at form validation time; the view must also
+    BR-BLC-02: requested quantity cannot exceed the available stock for
+    whichever article was chosen (StockProduitFini or StockIntrant). This
+    check runs per-line at form validation time; the view must also
     re-check atomically before committing to prevent race conditions.
 
-    BR-BRA-07: stock is now keyed by (branche, produit_fini). Pass
-    `branche=<Branche instance>` from the view (via the formset's
-    `form_kwargs`) so the availability check reads that branche's balance
-    instead of the Vue Globale total across every branch.
+    BR-BRA-07: stock is now keyed by (branche, produit_fini) /
+    (branche, intrant). Pass `branche=<Branche instance>` from the view
+    (via the formset's `form_kwargs`) so the availability check reads that
+    branche's balance instead of the Vue Globale total across every branch.
     """
 
     class Meta:
         model = BLClientLigne
-        fields = ["produit_fini", "quantite", "prix_unitaire", "notes"]
+        fields = ["produit_fini", "intrant", "quantite", "prix_unitaire", "notes"]
         widgets = {
             "quantite": forms.NumberInput(attrs={"step": "1", "min": "1"}),
             "prix_unitaire": forms.NumberInput(attrs={"step": "0.0001", "min": "0"}),
@@ -177,13 +180,29 @@ class BLClientLigneForm(forms.ModelForm):
     def __init__(self, *args, branche=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["produit_fini"].queryset = ProduitFini.objects.filter(actif=True)
+        self.fields["produit_fini"].required = False
+        # v1.6 (BR-BLC-06) — excess/surplus intrants sellable as finished
+        # goods. Only active intrants are offered.
+        self.fields["intrant"].queryset = Intrant.objects.filter(
+            actif=True
+        ).select_related("categorie", "unite_mesure")
+        self.fields["intrant"].required = False
         self.fields["notes"].required = False
         self._branche = branche
 
     def clean(self):
         cleaned = super().clean()
+        if cleaned.get("DELETE"):
+            return cleaned
+
         produit_fini = cleaned.get("produit_fini")
+        intrant = cleaned.get("intrant")
         quantite = cleaned.get("quantite")
+
+        if bool(produit_fini) == bool(intrant):
+            raise ValidationError(
+                "BR-BLC-06 : اختر إمّا منتجاً نهائياً وإمّا مدخلاً (فائضاً) للبيع، وليس كليهما أو لا شيء."
+            )
 
         if produit_fini and quantite:
             if self._branche is not None:
@@ -199,6 +218,18 @@ class BLClientLigneForm(forms.ModelForm):
                     f"Disponible\u202f: {stock_dispo} {produit_fini.unite_mesure} — "
                     f"Demandé\u202f: {quantite} {produit_fini.unite_mesure}."
                 )
+
+        if intrant and quantite:
+            stock_dispo = intrant.quantite_en_stock(self._branche)
+            if self.instance and self.instance.pk:
+                stock_dispo += self.instance.quantite
+            if quantite > stock_dispo:
+                raise ValidationError(
+                    f"BR-BLC-02 : stock insuffisant pour «\u202f{intrant.designation}\u202f» "
+                    f"(مدخل). Disponible\u202f: {stock_dispo} {intrant.unite_mesure} — "
+                    f"Demandé\u202f: {quantite} {intrant.unite_mesure}."
+                )
+
         return cleaned
 
 

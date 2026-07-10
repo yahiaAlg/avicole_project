@@ -152,8 +152,8 @@
       {% for ligne in bl.lignes.all %}
       <tr>
         <td style="color:#aaa;">{{ forloop.counter }}</td>
-        <td><strong>{{ ligne.produit_fini.designation }}</strong></td>
-        <td class="text-right">{{ ligne.quantite|floatformat:2 }} {{ ligne.produit_fini.unite_mesure }}</td>
+        <td><strong>{{ ligne.designation }}</strong></td>
+        <td class="text-right">{{ ligne.quantite|floatformat:2 }} {{ ligne.unite_mesure }}</td>
         <td class="text-right">{{ ligne.prix_unitaire|floatformat:2 }}</td>
         <td class="text-right"><strong>{{ ligne.montant_total|floatformat:0 }}</strong></td>
       </tr>

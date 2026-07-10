@@ -82,6 +82,9 @@
           <a href="{% url 'achats:reglement_fournisseur_create' %}?fournisseur={{ fournisseur.pk }}" class="btn-ghost btn-sm">
             <i class="bx bxs-credit-card"></i> تسوية
           </a>
+          <a href="{% url 'achats:releve_compte_fournisseur' fournisseur.pk %}" class="btn-ghost btn-sm">
+            <i class="bx bxs-file-blank"></i> كشف حساب
+          </a>
         </div>
         {% endif %}
         <div class="card-body">

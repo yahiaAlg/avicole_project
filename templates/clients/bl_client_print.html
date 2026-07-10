@@ -156,10 +156,12 @@
       <tr>
         <td style="color:#aaa;">{{ forloop.counter }}</td>
         <td>
-          <strong>{{ ligne.produit_fini.designation }}</strong>
-          <span style="font-size:11px;color:#888;display:block;">{{ ligne.produit_fini.get_type_produit_display }}</span>
+          <strong>{{ ligne.designation }}</strong>
+          <span style="font-size:11px;color:#888;display:block;">
+            {% if ligne.produit_fini %}{{ ligne.produit_fini.get_type_produit_display }}{% else %}مدخل (فائض للبيع){% endif %}
+          </span>
         </td>
-        <td class="text-left">{{ ligne.quantite|floatformat:2 }} {{ ligne.produit_fini.unite_mesure }}</td>
+        <td class="text-left">{{ ligne.quantite|floatformat:2 }} {{ ligne.unite_mesure }}</td>
         <td class="text-left">{{ ligne.prix_unitaire|floatformat:2 }}</td>
         <td class="text-left"><strong>{{ ligne.montant_total|floatformat:0 }}</strong></td>
       </tr>

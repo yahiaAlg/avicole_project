@@ -142,6 +142,9 @@
           <a href="{% url 'clients:abonnement_create_for_client' client.pk %}" class="btn-ghost" style="font-size:12.5px;padding:7px 12px;">
             <i class="bx bx-repeat"></i> اشتراك جديد
           </a>
+          <a href="{% url 'clients:releve_compte_client' client.pk %}" class="btn-ghost" style="font-size:12.5px;padding:7px 12px;">
+            <i class="bx bxs-file-blank"></i> كشف حساب
+          </a>
         </div>
         {% endif %}
       </div>

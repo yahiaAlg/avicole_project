@@ -7,6 +7,9 @@ Function-based views for the full supplier procurement cycle:
   FactureFournisseur : list, create, detail, print
   ReglementFournisseur: list, create  (no edit — BR-REG-06)
   AcompteFournisseur : list, detail   (created automatically by FIFO engine)
+  releve_compte_fournisseur : printable running-balance statement of account
+                              (état des dettes) — factures (débit) +
+                              règlements (crédit), chronological, cumulative
 
 All write operations use Post-Redirect-Get.
 State-changing actions (delete brouillon BL) are POST-only.
@@ -1517,6 +1520,84 @@ def fournisseur_tableau_de_bord(request, pk):
             "autorisations_expirees": autorisations_expirees,
             "active_branche": branche,
             "title": f"لوحة تحكم — {fournisseur.nom}",
+        },
+    )
+
+
+# ===========================================================================
+# Relevé de compte fournisseur (printable "état des dettes")
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+def releve_compte_fournisseur(request, pk):
+    """
+    Printable, chronological running-balance statement of account (كشف حساب)
+    for one supplier — équivalent of an "état des dettes / fournisseur":
+    every FactureFournisseur (débit) and ReglementFournisseur (crédit) in
+    date order with a cumulative solde column.
+
+    BLs aren't débit rows on their own (invoicing creates the debt here, not
+    receipt — BR-FAF-01); each facture row lists the BL references it
+    includes, and goods received but not yet invoiced are shown in a
+    separate informational section that doesn't affect the balance.
+
+    v1.4 (§3.5.3 ¶4): scoped to the active branche like the rest of the
+    supplier views (Vue par Branche); Vue Globale (no active branche) sums
+    every branch the supplier has ever transacted with.
+
+    GET params:
+        date_debut, date_fin (YYYY-MM-DD) — optional reporting period.
+        Everything before date_debut is folded into the opening balance.
+    """
+    import datetime as dt_module
+
+    from achats.utils import get_releve_compte_fournisseur
+    from core.models import CompanyInfo
+
+    fournisseur = get_object_or_404(Fournisseur, pk=pk)
+    branche = get_active_branche(request)
+
+    date_debut = None
+    date_fin = None
+    date_debut_str = request.GET.get("date_debut", "").strip()
+    date_fin_str = request.GET.get("date_fin", "").strip()
+
+    if date_debut_str:
+        try:
+            date_debut = dt_module.datetime.strptime(date_debut_str, "%Y-%m-%d").date()
+        except ValueError:
+            messages.warning(request, "تاريخ البداية غير صالح — تم تجاهله.")
+
+    if date_fin_str:
+        try:
+            date_fin = dt_module.datetime.strptime(date_fin_str, "%Y-%m-%d").date()
+        except ValueError:
+            messages.warning(request, "تاريخ النهاية غير صالح — تم تجاهله.")
+
+    if date_debut and date_fin and date_debut > date_fin:
+        messages.warning(
+            request, "تاريخ البداية يجب أن يسبق تاريخ النهاية — تم تجاهل الفترة."
+        )
+        date_debut = None
+        date_fin = None
+
+    releve = get_releve_compte_fournisseur(
+        fournisseur, branche=branche, date_debut=date_debut, date_fin=date_fin
+    )
+    company = CompanyInfo.get_instance()
+
+    return render(
+        request,
+        "achats/releve_compte_fournisseur.html",
+        {
+            "fournisseur": fournisseur,
+            "releve": releve,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
+            "active_branche": branche,
+            "company": company,
+            "title": f"كشف حساب — {fournisseur.nom}",
         },
     )
 

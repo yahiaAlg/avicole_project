@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>كشف حساب — {{ fournisseur.nom }}</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    color: #1a1a1a;
+    margin: 0;
+    padding: 24px;
+    background: #f3f4f6;
+  }
+  .sheet {
+    max-width: 1000px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 32px 36px;
+    border: 1px solid #d1d5db;
+  }
+
+  /* ── Toolbar (screen only) ─────────────────────────────────────── */
+  .toolbar {
+    max-width: 1000px;
+    margin: 0 auto 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .toolbar form {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .toolbar label {
+    display: block;
+    font-size: 11px;
+    color: #6b7280;
+    margin-bottom: 4px;
+  }
+  .toolbar input[type="date"] {
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 7px 9px;
+    font-size: 13px;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    color: #1a1a1a;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .btn-primary { background: #0f766e; border-color: #0f766e; color: #fff; }
+  .btn:hover { opacity: .9; }
+
+  /* ── Letterhead ─────────────────────────────────────────────────── */
+  .letterhead {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 3px solid #111827;
+    padding-bottom: 14px;
+    margin-bottom: 18px;
+    gap: 20px;
+  }
+  .company-block { font-size: 12.5px; line-height: 1.55; color: #374151; }
+  .company-block .company-name { font-size: 16px; font-weight: 800; color: #111827; margin-bottom: 4px; }
+  .report-title-block { text-align: left; }
+  .report-title-block .report-title { font-size: 18px; font-weight: 800; color: #111827; }
+  .report-title-block .report-period { font-size: 12.5px; color: #4b5563; margin-top: 4px; }
+
+  /* ── Fournisseur info ───────────────────────────────────────────── */
+  .fournisseur-block {
+    display: flex;
+    justify-content: space-between;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    font-size: 13px;
+  }
+  .fournisseur-block .label { color: #6b7280; font-size: 11px; }
+  .fournisseur-block .value { font-weight: 700; color: #111827; }
+  .fournisseur-block .branche-tag {
+    font-size: 11px; color: #0f766e; font-weight: 600;
+  }
+
+  /* ── Table ──────────────────────────────────────────────────────── */
+  table.releve {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  table.releve thead th {
+    background: #111827;
+    color: #fff;
+    padding: 9px 10px;
+    text-align: center;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  table.releve tbody td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: center;
+    vertical-align: middle;
+  }
+  table.releve tbody tr.row-facture td.desc,
+  table.releve tbody tr.row-reglement td.desc { text-align: right; }
+  table.releve tbody tr:nth-child(even) { background: #fafafa; }
+  table.releve tbody tr.row-solde-initial { background: #f3f4f6; font-style: italic; color: #4b5563; }
+  table.releve tbody tr.row-reglement td.credit { color: #b91c1c; font-weight: 700; }
+  table.releve tbody tr.row-facture td.debit { color: #111827; font-weight: 700; }
+  table.releve tbody td.solde { font-weight: 800; }
+  table.releve tbody td.solde.negative { color: #0f766e; }
+  table.releve .num { font-variant-numeric: tabular-nums; direction: ltr; }
+  .pill {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 20px;
+    margin-inline-start: 6px;
+  }
+  .pill-litige { background: rgba(239,68,68,.12); color: #b91c1c; }
+  .pill-paye { background: rgba(34,197,94,.14); color: #15803d; }
+
+  tfoot td {
+    padding: 10px;
+    font-weight: 800;
+    border-top: 2px solid #111827;
+    text-align: center;
+  }
+  tfoot .label-final { text-align: right; }
+  tfoot .solde-final { font-size: 14px; }
+
+  .empty-note {
+    text-align: center;
+    padding: 24px;
+    color: #6b7280;
+    font-size: 13px;
+  }
+
+  /* ── Section: BLs non facturés ─────────────────────────────────── */
+  .section-title {
+    font-size: 13px;
+    font-weight: 800;
+    color: #111827;
+    margin: 26px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  table.non-factures {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  table.non-factures th {
+    background: #f3f4f6;
+    color: #4b5563;
+    padding: 7px 9px;
+    text-align: right;
+    font-weight: 700;
+  }
+  table.non-factures td {
+    padding: 7px 9px;
+    border-bottom: 1px solid #f0f0f0;
+    text-align: right;
+  }
+  table.non-factures .num { direction: ltr; }
+
+  .footer-note {
+    margin-top: 22px;
+    font-size: 10.5px;
+    color: #9ca3af;
+    text-align: center;
+  }
+
+  @media print {
+    body { background: #fff; padding: 0; }
+    .no-print { display: none !important; }
+    .sheet { border: none; padding: 0; max-width: none; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="toolbar no-print">
+    <form method="get">
+      <div>
+        <label for="date_debut">من تاريخ</label>
+        <input type="date" id="date_debut" name="date_debut" value="{{ date_debut|date:'Y-m-d'|default:'' }}">
+      </div>
+      <div>
+        <label for="date_fin">إلى تاريخ</label>
+        <input type="date" id="date_fin" name="date_fin" value="{{ date_fin|date:'Y-m-d'|default:'' }}">
+      </div>
+      <button type="submit" class="btn">تصفية</button>
+      {% if date_debut or date_fin %}
+      <a href="{% url 'achats:releve_compte_fournisseur' fournisseur.pk %}" class="btn">إلغاء التصفية</a>
+      {% endif %}
+    </form>
+    <div style="display:flex;gap:8px;">
+      <a href="{% url 'intrants:fournisseur_detail' fournisseur.pk %}" class="btn">
+        <i class="bx bx-arrow-back"></i> رجوع
+      </a>
+      <button type="button" class="btn btn-primary" onclick="window.print()">
+        <i class="bx bx-printer"></i> طباعة
+      </button>
+    </div>
+  </div>
+
+  <div class="sheet">
+
+    <div class="letterhead">
+      <div class="company-block">
+        {% if company %}
+          <div class="company-name">{{ company.nom|default:"" }}</div>
+          {% if company.adresse %}<div>{{ company.adresse }}</div>{% endif %}
+          {% if company.telephone %}<div>الهاتف: {{ company.telephone }}</div>{% endif %}
+          {% if company.rc %}<div>RC: {{ company.rc }}</div>{% endif %}
+          {% if company.nif %}<div>NIF: {{ company.nif }}</div>{% endif %}
+        {% endif %}
+        {% if active_branche %}
+          <div class="branche-tag">الفرع: {{ active_branche }}</div>
+        {% else %}
+          <div class="branche-tag">جميع الفروع (رؤية شاملة)</div>
+        {% endif %}
+      </div>
+      <div class="report-title-block">
+        <div class="report-title">كشف حساب المورد</div>
+        <div class="report-period">
+          {% if date_debut or date_fin %}
+            من {{ date_debut|date:"d/m/Y"|default:"البداية" }}
+            إلى {{ date_fin|date:"d/m/Y"|default:"اليوم" }}
+          {% else %}
+            كامل الفترة
+          {% endif %}
+        </div>
+        <div class="report-period">تاريخ الإصدار: {% now "d/m/Y" %}</div>
+      </div>
+    </div>
+
+    <div class="fournisseur-block">
+      <div>
+        <div class="label">المورد</div>
+        <div class="value">{{ fournisseur.nom }}</div>
+      </div>
+      {% if fournisseur.wilaya %}
+      <div>
+        <div class="label">الولاية</div>
+        <div class="value">{{ fournisseur.wilaya }}</div>
+      </div>
+      {% endif %}
+      {% if fournisseur.telephone %}
+      <div>
+        <div class="label">الهاتف</div>
+        <div class="value">{{ fournisseur.telephone }}</div>
+      </div>
+      {% endif %}
+      <div>
+        <div class="label">رقم المورد</div>
+        <div class="value">{{ fournisseur.pk }}</div>
+      </div>
+    </div>
+
+    <table class="releve">
+      <thead>
+        <tr>
+          <th>التاريخ</th>
+          <th>المرجع</th>
+          <th>البيان</th>
+          <th>دين (فاتورة)</th>
+          <th>دفع (تسوية)</th>
+          <th>الرصيد</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if date_debut %}
+        <tr class="row-solde-initial">
+          <td colspan="5" style="text-align:right;">الرصيد الافتتاحي قبل {{ date_debut|date:"d/m/Y" }}</td>
+          <td class="num solde {% if releve.solde_initial < 0 %}negative{% endif %}">
+            {{ releve.solde_initial|floatformat:2 }}
+          </td>
+        </tr>
+        {% endif %}
+
+        {% for ligne in releve.lignes %}
+        <tr class="{% if ligne.type == 'facture' %}row-facture{% else %}row-reglement{% endif %}">
+          <td class="num">{{ ligne.date|date:"d/m/Y" }}</td>
+          <td>
+            {{ ligne.reference }}
+            {% if ligne.type == 'facture' and ligne.statut == 'en_litige' %}
+              <span class="pill pill-litige">نزاع</span>
+            {% elif ligne.type == 'facture' and ligne.statut == 'paye' %}
+              <span class="pill pill-paye">مسدَّدة</span>
+            {% endif %}
+          </td>
+          <td class="desc">
+            {% if ligne.type == 'facture' %}
+              {% if ligne.bls %}
+                وصولات: {% for bl in ligne.bls %}{{ bl.reference }}{% if not forloop.last %}، {% endif %}{% endfor %}
+              {% else %}
+                فاتورة بدون وصولات مرتبطة
+              {% endif %}
+            {% else %}
+              تسوية — {{ ligne.mode_paiement }}
+            {% endif %}
+          </td>
+          <td class="num debit">{% if ligne.debit %}{{ ligne.debit|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td class="num credit">{% if ligne.credit %}{{ ligne.credit|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td class="num solde {% if ligne.solde < 0 %}negative{% endif %}">{{ ligne.solde|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="empty-note">لا توجد حركات ضمن هذه الفترة.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="3" class="label-final">الإجمالي</td>
+          <td class="num">{{ releve.total_debit|floatformat:2 }}</td>
+          <td class="num">{{ releve.total_credit|floatformat:2 }}</td>
+          <td class="num solde-final {% if releve.solde_final < 0 %}negative{% endif %}">
+            {{ releve.solde_final|floatformat:2 }}
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+
+    {% if releve.bls_non_factures %}
+    <div class="section-title">وصولات استلام مستلمة ولم تُفوتر بعد (لا تدخل في الرصيد)</div>
+    <table class="non-factures">
+      <thead>
+        <tr>
+          <th>المرجع</th>
+          <th>التاريخ</th>
+          <th>المبلغ التقديري</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for bl in releve.bls_non_factures %}
+        <tr>
+          <td>{{ bl.reference }}</td>
+          <td class="num">{{ bl.date_bl|date:"d/m/Y" }}</td>
+          <td class="num">{{ bl.montant_total|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    <div class="footer-note">
+      كشف حساب مُولَّد آلياً — دين (فاتورة) يزيد الرصيد المستحق للمورد، دفع (تسوية) يخفضه.
+    </div>
+
+  </div>
+
+</body>
+</html>
