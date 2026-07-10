@@ -213,4 +213,9 @@ urlpatterns = [
         views.retrait_oeufs_verifier_json,
         name="retrait_oeufs_verifier_json",
     ),
+    path(
+        "oeufs/prix-marche/creer.json",
+        views.prix_marche_quick_create_json,
+        name="prix_marche_quick_create_json",
+    ),
 ]

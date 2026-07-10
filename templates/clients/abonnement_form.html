@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block title %}{{ title }} — تربية الدواجن{% endblock %}
-{% block nav_clients %}active{% endblock %}
+{% block nav_abonnements %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
 {% block page_sub_text %}{% if abo %}تعديل الاشتراك{% else %}إنشاء اشتراك جديد{% endif %}{% endblock %}
@@ -76,7 +76,15 @@
               </div>
             </div>
 
-            <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label" for="{{ form.mode_facturation.id_for_label }}">نمط الفوترة <span class="form-required">*</span></label>
+              <div class="input-wrapper"><i class="bx bx-receipt input-icon"></i>{{ form.mode_facturation }}</div>
+              <div class="form-hint">جزافي: مبلغ ثابت يُفوتر كل شهر بغض النظر عن الاستلام الفعلي (مناسب لاشتراكات جمع/توصيل السماد).</div>
+              {% for err in form.mode_facturation.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
+
+            <!-- Quantité mode fields -->
+            <div id="bloc-quantite" class="form-row-2">
               <div class="form-group">
                 <label class="form-label" for="{{ form.quantite_totale_prevue.id_for_label }}">الكمية المتعاقد عليها</label>
                 <div class="input-wrapper"><i class="bx bx-package input-icon"></i>{{ form.quantite_totale_prevue }}</div>
@@ -87,6 +95,22 @@
                 <label class="form-label" for="{{ form.prix_unitaire.id_for_label }}">سعر الوحدة (دج)</label>
                 <div class="input-wrapper"><i class="bx bxs-coin input-icon"></i>{{ form.prix_unitaire }}</div>
                 {% for err in form.prix_unitaire.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              </div>
+            </div>
+
+            <!-- Forfait mode fields -->
+            <div id="bloc-forfait" class="form-row-2">
+              <div class="form-group">
+                <label class="form-label" for="{{ form.montant_forfait.id_for_label }}">المبلغ الجزافي الدوري (دج) <span class="form-required">*</span></label>
+                <div class="input-wrapper"><i class="bx bxs-coin input-icon"></i>{{ form.montant_forfait }}</div>
+                <div class="form-hint">يُستحق كل شهر تلقائياً — استخدم زر «توليد فاتورة» من صفحة الاشتراك.</div>
+                {% for err in form.montant_forfait.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="{{ form.mode_paiement.id_for_label }}">طريقة الدفع</label>
+                <div class="input-wrapper"><i class="bx bx-wallet input-icon"></i>{{ form.mode_paiement }}</div>
+                <div class="form-hint">مسبق: سجّل دفعة العميل أولاً (تُستهلك تلقائياً عند توليد كل فاتورة).</div>
+                {% for err in form.mode_paiement.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
               </div>
             </div>
 
@@ -155,4 +179,25 @@
   .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); font-family: 'Nunito',sans-serif; font-weight: 600; font-size: 13px; border-radius: var(--radius-md); padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .12s; text-decoration: none; }
   .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var modeSelect   = document.getElementById('{{ form.mode_facturation.id_for_label }}');
+  var blocQuantite = document.getElementById('bloc-quantite');
+  var blocForfait  = document.getElementById('bloc-forfait');
+
+  function toggleBlocs() {
+    var forfait = modeSelect.value === 'forfait';
+    blocQuantite.style.display = forfait ? 'none' : '';
+    blocForfait.style.display  = forfait ? '' : 'none';
+  }
+
+  if (modeSelect) {
+    toggleBlocs();
+    modeSelect.addEventListener('change', toggleBlocs);
+  }
+});
+</script>
 {% endblock %}

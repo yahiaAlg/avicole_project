@@ -458,6 +458,11 @@ def livraison_partielle_post_save(sender, instance, created, **kwargs):
     if not created:
         return
 
+    # v1.7 — quantite_livree is optional under mode_facturation=forfait
+    # (purely informational). No quantity means no stock movement to record.
+    if instance.quantite_livree is None:
+        return
+
     from stock.models import StockProduitFini, StockMouvement
 
     produit_fini = instance.abonnement.produit_fini
@@ -516,6 +521,9 @@ def livraison_partielle_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=LivraisonPartielle)
 def livraison_partielle_pre_delete(sender, instance, **kwargs):
     """Reverse the stock decrease when a LivraisonPartielle is deleted."""
+    if instance.quantite_livree is None:
+        return
+
     from stock.models import StockProduitFini, StockMouvement
 
     produit_fini = instance.abonnement.produit_fini

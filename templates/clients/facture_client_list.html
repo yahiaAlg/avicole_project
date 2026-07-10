@@ -127,6 +127,11 @@
               <div class="actions-cell">
                 <a href="{% url 'clients:facture_client_detail' facture.pk %}" class="action-btn" title="عرض"><i class="bx bx-show"></i></a>
                 <a href="{% url 'clients:facture_client_print' facture.pk %}" class="action-btn" title="طباعة" target="_blank"><i class="bx bxs-printer"></i></a>
+                {% if request.user.is_superuser or request.user.userprofile.role == 'admin' %}
+                <button type="button" class="action-btn action-btn--danger" title="حذف نهائي" data-delete-trigger data-facture-ref="{{ facture.reference }}" data-delete-url="{% url 'clients:facture_client_delete' facture.pk %}">
+                  <i class="bx bx-trash"></i>
+                </button>
+                {% endif %}
               </div>
             </td>
           </tr>
@@ -158,6 +163,27 @@
     </div>
     {% endif %}
   </div>
+
+  <!-- Delete confirmation overlay (admin-only quick action) -->
+  {% if request.user.is_superuser or request.user.userprofile.role == 'admin' %}
+  <div id="delete-facture-overlay" class="confirm-overlay" style="display:none;">
+    <div class="confirm-box">
+      <div class="confirm-box__icon"><i class="bx bxs-error" style="color:#dc2626;font-size:22px;"></i></div>
+      <div class="confirm-box__title">حذف الفاتورة <span id="delete-facture-ref"></span> نهائيًا؟</div>
+      <div class="confirm-box__text">
+        سيُحذف وصل التسليم المضمَّن وكل دفعة ساهمت في هذه الفاتورة. هذا الإجراء
+        <strong>نهائي ولا يمكن التراجع عنه</strong>.
+      </div>
+      <div class="confirm-box__actions">
+        <button type="button" id="delete-facture-cancel" class="btn-ghost">إلغاء</button>
+        <form method="post" id="delete-facture-form">
+          {% csrf_token %}
+          <button type="submit" class="btn-danger"><i class="bx bx-trash"></i> حذف نهائيًا</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
 
@@ -213,6 +239,16 @@
   .actions-cell { display: flex; gap: 4px; justify-content: flex-end; }
   .action-btn { width: 30px; height: 30px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: transparent; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--text-muted); cursor: pointer; transition: all .15s; text-decoration: none; }
   .action-btn:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+  .action-btn--danger:hover { background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.3); color: #dc2626; }
+
+  .confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 999; display: flex; align-items: center; justify-content: center; }
+  .confirm-box { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; width: 380px; max-width: 90vw; box-shadow: 0 8px 32px rgba(0,0,0,.15); text-align: center; direction: rtl; }
+  .confirm-box__icon { margin-bottom: 8px; }
+  .confirm-box__title { font-family: 'Nunito',sans-serif; font-weight: 800; font-size: 15px; color: var(--text-primary); margin-bottom: 8px; }
+  .confirm-box__text { font-size: 12.5px; color: var(--text-secondary); margin-bottom: 20px; line-height: 1.6; }
+  .confirm-box__actions { display: flex; gap: 10px; justify-content: center; }
+  .btn-danger { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.22); color: #dc2626; font-family: 'Nunito',sans-serif; font-weight: 700; font-size: 13px; border-radius: var(--radius-md); padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: opacity .18s; }
+  .btn-danger:hover { opacity: .85; }
 
   .pill-success,.pill-danger,.pill-warning,.pill-info,.pill-neutral { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;font-family:'Inter',sans-serif; }
   .pill-success { background:rgba(34,197,94,.14);color:#15803d; }
@@ -242,6 +278,23 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   var retardChk = document.getElementById('filter-retard');
   if (retardChk) { retardChk.addEventListener('change', function () { document.getElementById('filter-form').submit(); }); }
+
+  // Admin-only quick delete — confirmation overlay
+  var overlay = document.getElementById('delete-facture-overlay');
+  var form = document.getElementById('delete-facture-form');
+  var refLabel = document.getElementById('delete-facture-ref');
+  var cancelBtn = document.getElementById('delete-facture-cancel');
+
+  document.querySelectorAll('[data-delete-trigger]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (!overlay || !form) return;
+      form.setAttribute('action', btn.getAttribute('data-delete-url'));
+      if (refLabel) { refLabel.textContent = btn.getAttribute('data-facture-ref'); }
+      overlay.style.display = 'flex';
+    });
+  });
+  if (cancelBtn) { cancelBtn.addEventListener('click', function () { overlay.style.display = 'none'; }); }
+  if (overlay) { overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.style.display = 'none'; }); }
 });
 </script>
 {% endblock %}

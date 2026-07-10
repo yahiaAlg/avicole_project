@@ -56,6 +56,7 @@ from clients.forms import (
     AcompteClientPieceJointeFormSet,
     get_allocation_forms,
     AbonnementClientForm,
+    GenererEcheanceAbonnementForm,
     VoyageLivraisonForm,
     LivraisonPartielleForm,
     PrixMarcheForm,
@@ -79,6 +80,8 @@ from clients.utils import (
     appliquer_paiement_client_fifo,
     generer_reference_bl_client,
     generer_reference_facture_client,
+    generer_facture_abonnement,
+    generer_echeances_abonnements_forfait,
     get_client_aging_buckets,
     get_client_solde,
 )
@@ -248,6 +251,13 @@ def client_detail(request, pk):
         :10
     ]
 
+    abonnements_qs = AbonnementClient.objects.filter(client=client)
+    if branche is not None:
+        abonnements_qs = abonnements_qs.filter(branche=branche)
+    abonnements = abonnements_qs.select_related("produit_fini").order_by(
+        "-statut", "-date_debut"
+    )[:10]
+
     return render(
         request,
         "clients/client_detail.html",
@@ -257,6 +267,7 @@ def client_detail(request, pk):
             "bls_recents": bls_recents,
             "factures_ouvertes": factures_ouvertes,
             "paiements_recents": paiements_recents,
+            "abonnements": abonnements,
             "active_branche": branche,
             "title": f"العميل — {client.nom}",
         },
@@ -1959,7 +1970,14 @@ def abonnement_create(request, client_pk=None):
 
 @login_required(login_url=LOGIN_URL)
 def abonnement_detail(request, pk):
-    """Detail view for one subscription, with its partial deliveries."""
+    """
+    Detail view for one subscription, with its partial deliveries.
+
+    BR-ABO-03: when mode_facturation=forfait, also shows the billing
+    history (FactureClient rows generated from this abonnement) and
+    whether the current calendar-month period has already been billed —
+    LivraisonPartielle stays visible/optional but doesn't drive what's due.
+    """
     abo = branche_object_or_404(
         request,
         AbonnementClient.objects.select_related("client", "produit_fini", "branche"),
@@ -1967,12 +1985,23 @@ def abonnement_detail(request, pk):
     )
     livraisons = abo.livraisons.select_related("voyage").order_by("-date")
 
+    factures_abonnement = None
+    periode_courante = None
+    periode_deja_facturee = False
+    if abo.est_forfait:
+        factures_abonnement = abo.factures_abonnement.order_by("-periode_debut")
+        periode_courante = abo.periode_courante()
+        periode_deja_facturee = abo.echeance_deja_facturee(*periode_courante)
+
     return render(
         request,
         "clients/abonnement_detail.html",
         {
             "abo": abo,
             "livraisons": livraisons,
+            "factures_abonnement": factures_abonnement,
+            "periode_courante": periode_courante,
+            "periode_deja_facturee": periode_deja_facturee,
             "title": f"الاشتراك — {abo.client.nom}",
         },
     )
@@ -2031,6 +2060,115 @@ def abonnement_toggle_statut(request, pk):
     return redirect("clients:abonnement_detail", pk=pk)
 
 
+@login_required(login_url=LOGIN_URL)
+def generer_echeance_abonnement(request, pk):
+    """
+    Bill the current period of one forfait AbonnementClient (BR-ABO-03).
+
+    GET shows a small confirmation form (optional date_facture/date_echeance
+    override); POST creates the FactureClient via
+    clients.utils.generer_facture_abonnement — which also auto-settles it
+    from any AcompteClient the client already has (mode_paiement=prepaye).
+    """
+    abo = branche_object_or_404(request, AbonnementClient, pk=pk)
+
+    if not abo.est_forfait:
+        messages.error(
+            request, "هذا الاشتراك ليس جزافياً — لا حاجة لتوليد فاتورة يدوياً."
+        )
+        return redirect("clients:abonnement_detail", pk=abo.pk)
+
+    if request.method == "POST":
+        form = GenererEcheanceAbonnementForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    facture = generer_facture_abonnement(
+                        abo,
+                        periode_debut=form.cleaned_data.get("periode_debut"),
+                        periode_fin=form.cleaned_data.get("periode_fin"),
+                        date_facture=form.cleaned_data.get("date_facture"),
+                        date_echeance=form.cleaned_data.get("date_echeance"),
+                        created_by=request.user,
+                    )
+                messages.success(
+                    request,
+                    f"تم توليد الفاتورة {facture.reference} بمبلغ "
+                    f"{facture.montant_ttc} د.ج.",
+                )
+                logger.info(
+                    "FactureClient pk=%s generated from abonnement pk=%s by '%s'.",
+                    facture.pk,
+                    abo.pk,
+                    request.user,
+                )
+                return redirect("clients:facture_client_detail", pk=facture.pk)
+            except ValueError as exc:
+                messages.error(request, str(exc))
+            except Exception as exc:
+                logger.exception(
+                    "Error generating facture for abonnement pk=%s: %s", abo.pk, exc
+                )
+                messages.error(request, f"خطأ أثناء التوليد: {exc}")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
+    else:
+        periode_debut, periode_fin = abo.periode_courante()
+        form = GenererEcheanceAbonnementForm(
+            initial={"periode_debut": periode_debut, "periode_fin": periode_fin}
+        )
+
+    return render(
+        request,
+        "clients/generer_echeance_form.html",
+        {
+            "form": form,
+            "abo": abo,
+            "title": f"توليد فاتورة — {abo.client.nom}",
+        },
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+@require_branche_context
+@require_POST
+def abonnements_generer_echeances(request):
+    """
+    Bulk-bill the current period for every active forfait AbonnementClient
+    in the request's active branche (POST-only, idempotent — already-billed
+    subscriptions are silently skipped). Vue Globale cannot reach this
+    (@require_branche_context) since a chef-de-branche action shouldn't
+    silently touch every branch's books at once.
+    """
+    branche = get_active_branche(request)
+    resultat = generer_echeances_abonnements_forfait(
+        branche=branche, created_by=request.user
+    )
+
+    if resultat["crees"]:
+        messages.success(
+            request,
+            f"تم توليد {len(resultat['crees'])} فاتورة اشتراك "
+            f"({sum(f.montant_ttc for f in resultat['crees'])} د.ج إجمالاً).",
+        )
+    if resultat["erreurs"]:
+        for abo, err in resultat["erreurs"]:
+            messages.error(request, f"{abo.client.nom} — {abo.produit_fini.designation}: {err}")
+    if not resultat["crees"] and not resultat["erreurs"]:
+        messages.info(request, "لا توجد اشتراكات جزافية بحاجة إلى فاتورة جديدة هذا الشهر.")
+
+    logger.info(
+        "abonnements_generer_echeances: branche=%s — %d créée(s), %d ignorée(s), "
+        "%d erreur(s), by '%s'.",
+        branche.code if branche else "?",
+        len(resultat["crees"]),
+        len(resultat["ignores"]),
+        len(resultat["erreurs"]),
+        request.user,
+    )
+    return redirect("clients:abonnement_list")
+
+
 # ===========================================================================
 # VoyageLivraison — List / Create / Detail / Edit
 # ===========================================================================
@@ -2063,7 +2201,13 @@ def voyage_list(request):
 
 @login_required(login_url=LOGIN_URL)
 def voyage_create(request):
-    """Create a new truck-trip record."""
+    """
+    Create a new truck-trip record.
+
+    v1.7: on success, redirects straight to the dépense form (pre-linked to
+    this trip via ?voyage=<pk>) so the transport cost (fuel, driver fee...)
+    gets logged right away instead of being forgotten.
+    """
     if request.method == "POST":
         form = VoyageLivraisonForm(request.POST)
         if form.is_valid():
@@ -2071,12 +2215,17 @@ def voyage_create(request):
                 voyage = form.save()
                 messages.success(
                     request,
-                    f"تم إنشاء رحلة التوصيل بتاريخ {voyage.date_voyage}.",
+                    f"تم إنشاء رحلة التوصيل بتاريخ {voyage.date_voyage}. "
+                    "أضف الآن تكلفة النقل الخاصة بها.",
                 )
                 logger.info(
                     "VoyageLivraison pk=%s created by '%s'.", voyage.pk, request.user
                 )
-                return redirect("clients:voyage_detail", pk=voyage.pk)
+                from django.urls import reverse
+
+                return redirect(
+                    reverse("depenses:depense_create") + f"?voyage={voyage.pk}"
+                )
             except Exception as exc:
                 logger.exception("Error creating VoyageLivraison: %s", exc)
                 messages.error(request, f"خطأ أثناء الإنشاء: {exc}")
@@ -2096,11 +2245,14 @@ def voyage_create(request):
 
 @login_required(login_url=LOGIN_URL)
 def voyage_detail(request, pk):
-    """Detail: truck trip + all its partial deliveries."""
+    """Detail: truck trip + all its partial deliveries + linked expenses."""
     voyage = get_object_or_404(VoyageLivraison, pk=pk)
     livraisons = voyage.livraisons.select_related(
         "abonnement__client", "abonnement__produit_fini"
     ).order_by("abonnement__client__nom")
+    depenses_transport = voyage.depenses_transport.select_related("categorie").order_by(
+        "-date"
+    )
 
     return render(
         request,
@@ -2108,6 +2260,7 @@ def voyage_detail(request, pk):
         {
             "voyage": voyage,
             "livraisons": livraisons,
+            "depenses_transport": depenses_transport,
             "title": f"رحلة — {voyage.date_voyage}",
         },
     )

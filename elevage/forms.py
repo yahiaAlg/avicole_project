@@ -494,27 +494,61 @@ class PeseeEchantillonForm(forms.ModelForm):
             "type_pesee",
             "nombre_sujets",
             "poids_total_g",
+            "prix_marche",
+            "estimation_prix_plateau",
             "notes",
         ]
         widgets = {
             "date": forms.DateInput(attrs={"type": "date"}),
             "notes": forms.Textarea(attrs={"rows": 2}),
             "poids_total_g": forms.NumberInput(attrs={"step": "0.01", "min": "0.01"}),
+            "estimation_prix_plateau": forms.NumberInput(
+                attrs={
+                    "step": "0.01",
+                    "min": "0",
+                    "readonly": "readonly",
+                    "class": "form-control",
+                }
+            ),
         }
 
-    def __init__(self, *args, lot=None, branche=None, **kwargs):
+    def __init__(self, *args, lot=None, branche=None, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         lot_qs = LotElevage.objects.filter(statut=LotElevage.STATUT_OUVERT)
         if branche:
             lot_qs = lot_qs.filter(branche=branche)
         self.fields["lot"].queryset = lot_qs
         self.fields["notes"].required = False
+        self.fields["prix_marche"].required = False
+        self.fields["estimation_prix_plateau"].required = False
         if lot:
             self.fields["lot"].initial = lot
             self.fields["lot"].widget = forms.HiddenInput()
             self._lot = lot
         else:
             self._lot = None
+
+        # PrixMarche is only relevant for eggs — most recent quotes first.
+        from clients.models import PrixMarche
+
+        self.fields["prix_marche"].queryset = PrixMarche.objects.select_related(
+            "produit_fini"
+        ).order_by("-date")
+        self.fields["prix_marche"].empty_label = "— اختر سعر السوق —"
+
+        # BR-request: «for other user roles the field is not visible» — only
+        # an admin may see/edit the manual estimation; everyone else keeps
+        # the read-only market price and the auto-suggested value shown in
+        # the template (not persisted unless an admin confirms it).
+        self.is_admin_user = bool(
+            user
+            and (
+                user.is_superuser
+                or getattr(getattr(user, "profile", None), "role", None) == "admin"
+            )
+        )
+        if not self.is_admin_user:
+            del self.fields["estimation_prix_plateau"]
 
     def clean_date(self):
         date = self.cleaned_data["date"]
@@ -726,7 +760,9 @@ class ProductionAlimentForm(forms.ModelForm):
         if formule and quantite_produite_kg:
             insuffisants = []
             for ligne in formule.lignes.select_related("intrant").all():
-                qte_ingredient = (quantite_produite_kg / Decimal("100")) * ligne.proportion_kg
+                qte_ingredient = (
+                    quantite_produite_kg / Decimal("100")
+                ) * ligne.proportion_kg
                 if qte_ingredient <= 0:
                     continue
                 stock_dispo = ligne.intrant.quantite_en_stock(branche=branche)

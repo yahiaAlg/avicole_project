@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block title %}{{ title }} — تربية الدواجن{% endblock %}
-{% block nav_clients %}active{% endblock %}
+{% block nav_voyages %}active{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
 {% block page_sub_text %}{% if voyage %}{{ voyage.date_voyage|date:"d/m/Y" }}{% else %}رحلة جديدة{% endif %}{% endblock %}
@@ -105,6 +105,21 @@
             </div>
           </div>
         </div>
+
+        <div class="form-card">
+          <div class="form-card__header">
+            <div class="section-eyebrow"><i class="bx bxs-wallet"></i> تكلفة النقل</div>
+          </div>
+          <div class="form-card__body">
+            <div class="summary-row" style="border-bottom:none;">
+              <span class="summary-label">إجمالي المصاريف المسجَّلة</span>
+              <span class="summary-val">{{ voyage.cout_transport_total|floatformat:2 }} دج</span>
+            </div>
+            <a href="{% url 'depenses:depense_create' %}?voyage={{ voyage.pk }}" class="btn-ghost btn-full" style="margin-top:10px;">
+              <i class="bx bx-plus"></i> إضافة مصروف نقل
+            </a>
+          </div>
+        </div>
         {% endif %}
       </div>
 
@@ -131,6 +146,7 @@
   .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .form-label { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
   .form-required { color: #dc2626; }
+  .form-hint { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
 
   .input-wrapper { position: relative; }
   .input-icon { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; pointer-events: none; }
@@ -153,5 +169,6 @@
   .btn-primary:hover { opacity:.88;color:#fff; }
   .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
   .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+  .btn-full { width:100%;justify-content:center; }
 </style>
 {% endblock %}

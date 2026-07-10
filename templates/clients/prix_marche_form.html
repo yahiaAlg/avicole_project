@@ -56,15 +56,26 @@
             </div>
           </div>
 
-          <!-- Source -->
-          <div class="form-group">
-            <label class="form-label" for="{{ form.source.id_for_label }}">المصدر</label>
-            <div class="input-wrapper">
-              <i class="bx bx-link input-icon"></i>
-              {{ form.source }}
+          <!-- Reference weight + Source (2 columns) -->
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label" for="{{ form.poids_reference_kg.id_for_label }}">الوزن المرجعي للصينية (كغ)</label>
+              <div class="input-wrapper">
+                <i class="bx bxs-cylinder input-icon"></i>
+                {{ form.poids_reference_kg }}
+              </div>
+              <div class="form-hint">وزن صينية الـ30 بيضة الذي يقابل السعر أعلاه (افتراضياً 2 كغ) — يُستخدم لتقدير سعر الصواني الأثقل أو الأخف تناسبياً.</div>
+              {% for err in form.poids_reference_kg.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
             </div>
-            <div class="form-hint">مثال: ONAB، السوق المحلي، قائمة أسعار الولاية…</div>
-            {% for err in form.source.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            <div class="form-group">
+              <label class="form-label" for="{{ form.source.id_for_label }}">المصدر</label>
+              <div class="input-wrapper">
+                <i class="bx bx-link input-icon"></i>
+                {{ form.source }}
+              </div>
+              <div class="form-hint">مثال: ONAB، السوق المحلي، قائمة أسعار الولاية…</div>
+              {% for err in form.source.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
+            </div>
           </div>
 
           <!-- Notes -->

@@ -174,6 +174,20 @@ class Depense(models.Model):
         help_text="اختياري — لحساب الربحية لكل دفعة.",
     )
 
+    # v1.7 — optional attribution to a delivery trip (clients.VoyageLivraison),
+    # e.g. fuel/driver cost for that run. No same-branche guard needed here
+    # (unlike lot/facture_liee): VoyageLivraison intentionally has no branche
+    # FK of its own — a single trip can serve several branches.
+    voyage = models.ForeignKey(
+        "clients.VoyageLivraison",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="depenses_transport",
+        verbose_name="رحلة التوصيل المرتبطة",
+        help_text="اختياري — لتخصيص تكلفة النقل لرحلة توصيل محددة.",
+    )
+
     # Optional service-invoice link (BR-DEP-03) — NEVER auto-populated.
     facture_liee = models.ForeignKey(
         "achats.FactureFournisseur",

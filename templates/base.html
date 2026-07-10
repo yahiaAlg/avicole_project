@@ -1210,6 +1210,14 @@
         <i class="bx bx-trending-up"></i>
         <span class="nav-link-label">أسعار السوق</span>
       </a>
+      <a href="{% url 'clients:abonnement_list' %}" class="nav-link {% block nav_abonnements %}{% endblock %}">
+        <i class="bx bx-repeat"></i>
+        <span class="nav-link-label">اشتراكات العملاء</span>
+      </a>
+      <a href="{% url 'clients:voyage_list' %}" class="nav-link {% block nav_voyages %}{% endblock %}">
+        <i class="bx bxs-truck"></i>
+        <span class="nav-link-label">رحلات التوصيل</span>
+      </a>
 
       <!-- المصاريف -->
       <div class="nav-group-label">المصاريف</div>

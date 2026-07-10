@@ -25,6 +25,10 @@
 >   payroll cycle instead of a single lump-sum expense.
 > - **Customer Deposit** and **CustomerSubscription** (already present in v1.3 but never
 >   exercised): now activated in §8.5 and §8.6 respectively.
+> - **v1.6 — Subscription Forfait Billing & Prepayment** (`AbonnementClient.mode_facturation`
+>   / `mode_paiement`): a subscription can now bill a fixed recurring amount
+>   instead of metering actual deliveries, and can auto-settle from a client's
+>   prepayment — exercised in §8.7.
 
 ---
 
@@ -36,10 +40,10 @@
 4. [Phase 0bis — Multi-Branch Configuration (v1.4)](#phase-0bis--multi-branch-configuration-v14)
 5. [Phase 1 — Input Purchases (Delivery Note + Invoice + Payment + Attachments)](#3-phase-1--input-purchases)
 6. [Phase 2 — Opening the Rearing Batch (+ Layer Batch, Pullet House Building C)](#4-phase-2--opening-the-rearing-batch)
-7. [Phase 3 — Daily Tracking (Mortalities + Consumption + Feed Production + Fertilizer + Layer Rearing/Transfer/Laying/Egg Withdrawal)](#5-phase-3--daily-tracking)
+7. [Phase 3 — Daily Tracking (Mortalities + Consumption + Feed Production + Fertilizer + Layer Rearing/Transfer/Laying/Egg Valuation/Egg Withdrawal)](#5-phase-3--daily-tracking)
 8. [Phase 4 — Slaughter & Production](#6-phase-4--slaughter--production)
 9. [Phase 5 — Stock Adjustment](#7-phase-5--stock-adjustment)
-10. [Phase 6 — Customer Sale & Delivery (+ Deposit, Fertilizer Subscription)](#8-phase-6--customer-sale--delivery)
+10. [Phase 6 — Customer Sale & Delivery (+ Deposit, Fertilizer Subscription, Forfait Billing & Prepayment)](#8-phase-6--customer-sale--delivery)
 11. [Phase 7 — Operating Expenses & HR/Payroll](#9-phase-7--operating-expenses)
 12. [Batch Income Statement](#10-batch-income-statement)
 13. [Activated Business Rules](#11-activated-business-rules)
@@ -151,6 +155,9 @@ mindmap
       3 historical records — table eggs
       3 historical records — hatching eggs
 ```
+
+> 📌 3 more Market Price quotes (table eggs) are created live during
+> §5.6.7bis, one per egg sample weighing — not part of the minimal seed.
 
 > ⚠️ **Everything else is at zero.** No suppliers, no customers, no buildings,
 > no inputs, no delivery notes, no batches, no invoices, no stock movements.
@@ -1344,7 +1351,8 @@ Rule   : BR-BRA-01 (same origin/destination branch); batch must be
 Module: REARING → Layer Batch → [Record egg collection]
 Rule   : batch must be open; egg_count ≥ 1; quality optional
          (derived from a SampleWeighing weighing_type=eggs on the same day —
-         not used here, see Appendix B). Signal egg_collection_post_save
+         see §5.6.7bis below for the 3 dates where one was actually taken).
+         Signal egg_collection_post_save
          credits FinishedGoodStock (Egg tray) pro rata to trays
          of 30 eggs.
 
@@ -1382,6 +1390,45 @@ Ramp-up to lay (EggCollection):
   → Realistic lay curve: S-shaped ramp-up typical of an ISA
     Brown flock, peak plateau ≈ 91-92% reached around W26-28, then maintained
     for several months (beyond the timeframe of this document).
+```
+
+#### 5.6.7bis Egg Sample Weighings & Market-Price Valuation (`SampleWeighingForm`, weighing_type=eggs)
+
+```
+Module: REARING → Layer Batch → [New sample weighing] → type = eggs
+Rule   : unit toggle (tray of 30 / single egg) converts client-side into
+         the same subject_count/total_weight_g pair used for birds — the
+         model itself always stores raw eggs and grams. Selecting a
+         MarketPrice quote then exposes 3 fields: the read-only quoted
+         price, "my estimate" (auto-suggested proportionally to this
+         sample's actual tray weight vs. the quote's reference weight,
+         admin-editable only), and the resulting margin (value + %).
+
+Three weighings taken across the ramp-up, each against a MarketPrice quote
+created the same day (quick-add "+ new price" from the weighing form
+itself, rather than reusing an older quote):
+
+┌──────────────┬──────┬────────────┬──────────────┬───────────┬────────────┬──────────┬─────────────┐
+│ date         │ age  │ egg_count  │ total_weight │ g/egg     │ mkt. price │ my est.  │ margin      │
+├──────────────┼──────┼────────────┼──────────────┼───────────┼────────────┼──────────┼─────────────┤
+│ 2026-10-02   │ W20  │  30 (1 tray)│ 1,650.00 g  │  55.0 g   │  480 DZD   │ 396 DZD* │ −84 (−17.5%)│
+│ 2026-10-30   │ W24  │  30 (1 tray)│ 1,800.00 g  │  60.0 g   │  510 DZD   │ 459 DZD* │ −51 (−10.0%)│
+│ 2026-11-27   │ W28  │  30 (1 tray)│ 1,950.00 g  │  65.0 g   │  540 DZD   │ 560 DZD† │ +20 (+3.7%) │
+└──────────────┴──────┴────────────┴──────────────┴───────────┴────────────┴──────────┴─────────────┘
+  * auto-suggested = mkt. price × (actual tray weight ÷ MarketPrice.poids_reference_kg,
+    default 2.000 kg) — untouched by the admin on the first two rows.
+  † admin OVERRIDE: at W28 the flock is fully mature and the eggs are
+    judged calibre L on inspection, worth more than the weight-only
+    formula suggests — the admin edits "my estimate" to 560 DZD, which
+    flips the margin from negative to positive. Non-admin roles see the
+    same 396/459/560 figures read-only ("suggestion" label) and cannot
+    edit them.
+
+  → Each weighing's valuation (quoted price / my estimate / margin) is
+    reflected on the lot's daily journal (ÉLEVAGE → Lot → Suivi
+    journalier) on its own date, alongside that day's egg totals — see
+    §5.6.7's EggCollection table above for the same dates' collected
+    egg_count.
 ```
 
 #### 5.6.8 Egg Withdrawals (`EggWithdrawalForm`) — outflows outside formal delivery notes
@@ -1867,9 +1914,93 @@ DEL-2 — Second partial delivery
 ```
 
 > ℹ️ Unlike a `CustomerDeliveryNote` (one-off document), no `CustomerInvoice`
-> is generated automatically by a `PartialDelivery`: invoicing
-> of delivered fertilizer remains, in this cycle, out of scope (manual monthly
-> invoicing to be set up separately if needed).
+> is generated automatically by a `PartialDelivery` **under the `quantite`
+> billing mode used here**: invoicing of metered deliveries remains manual
+> (a monthly `CustomerInvoice` built from the accumulated deliveries, set up
+> separately if needed). A subscription billed under the `forfait` mode
+> instead generates its invoice directly from the subscription itself — see
+> §8.7.
+
+---
+
+### 8.7 CustomerSubscription — Forfait Billing & Prepayment (`GenererEcheanceForm`)
+
+```
+Module: SALES → Subscriptions → [New subscription] (billing_mode = forfait)
+                → subscription detail → [Generate due] / bulk [Generate this
+                month's invoices]
+Models: CustomerSubscription (billing_mode=forfait, payment_mode) →
+        CustomerInvoice (abonnement + billed_period_start/end set, no BLs)
+Rule   : BR-ABO-03 a forfait subscription bills a FIXED amount every period
+         regardless of whether anything was actually collected/delivered —
+         PartialDelivery stays fully optional/informational and consumes NO
+         stock check for billing purposes. Each (subscription, period) pair
+         can only be billed once (`uniq_facture_abonnement_periode`).
+         payment_mode=prepaid additionally makes each new due auto-settle
+         from any unused CustomerDeposit the client already holds on that
+         branch, oldest deposit first (same FIFO engine as every other
+         prepayment in the AR ledger).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SUB-2 — Monthly Manure-Collection Access, Amrane & Sons Butcher
+  customer            : Amrane & Sons Butcher
+  branch               : EST
+  finished_good        : Treated (dried) poultry fertilizer
+  start_date           : 2026-07-01
+  end_date              : (empty — open-ended)
+  frequency             : monthly
+  billing_mode          : forfait
+  flat_amount           : 6,000.00 DZD / month
+  payment_mode           : prepaid
+  status                  : active
+
+  ℹ️ No stock quota is set and no PartialDelivery is required — the
+     customer pays for pickup access whether or not a truck actually
+     comes by that month.
+
+PREPAY-1 — Advance paid before any due is generated
+  customer         : Amrane & Sons Butcher
+  date              : 2026-06-28
+  amount             : 10,000.00 DZD (cheque CHQ-AMRANE-SUB-77)
+  allocation         : none — no invoice exists yet, so the full amount is
+                        left unattributed
+  → CustomerDeposit created automatically (surplus rule, same as any other
+    unattributed customer payment): 10,000.00 DZD available
+
+ECH-1 — "Generate due" clicked for the July period
+  billed_period      : 2026-07-01 → 2026-07-31
+  amount_due          : 6,000.00 DZD
+  → drawn from the 10,000 DZD deposit (FIFO) → invoice fully settled
+  → CustomerDeposit remaining balance: 10,000 − 6,000 = 4,000.00 DZD
+
+ECH-2 — "Generate due" clicked for the August period
+  billed_period      : 2026-08-01 → 2026-08-31
+  amount_due          : 6,000.00 DZD
+  → only 4,000 DZD left on the deposit → PARTIAL auto-settlement
+  → invoice ends up "partially paid" (2,000.00 DZD still owed)
+  → CustomerDeposit exhausted (remaining balance 0, marked used)
+
+PAY-2 — Ordinary payment closing the August due
+  customer          : Amrane & Sons Butcher
+  date               : 2026-08-15
+  amount              : 2,000.00 DZD (cash), manually allocated to the
+                         August invoice (BR-FAC-03, same manual-allocation
+                         rule as any other customer payment)
+  → August invoice reste_a_payer = 0 → statut = payée
+```
+
+> ℹ️ **Bulk generation**: instead of opening each subscription individually,
+> the same monthly due can be generated for every active forfait
+> subscription on the current branch in one action — "Generate this
+> month's invoices" on the subscription list. Not exercised separately
+> here since SUB-2 is the only forfait subscription in this cycle.
+>
+> ℹ️ **Why `forfait` fits this use case better than `quantite`** (§8.6):
+> the client is billed for _access_ to a recurring pickup, not for a
+> metered quantity — exactly the "manure-collection subscription" pattern
+> the `forfait` mode was added for. Compare with SUB-1 (§8.6), where the
+> billed quantity is exactly what was delivered and no automatic invoice
+> is produced at all.
 
 ---
 
@@ -2099,38 +2230,42 @@ timeline
 
 ### 11.1 Business Rules Table by Phase
 
-| BR               | Module    | Description                                                  | Point of application                                  |
-| ---------------- | --------- | ------------------------------------------------------------ | ----------------------------------------------------- |
-| **BR-BLF-01**    | Purchases | Stock impacted only when the delivery note is validated      | `post_save` signal on SupplierDeliveryNoteLine        |
-| **BR-BLF-02**    | Purchases | Invoiced delivery note is locked — cannot be modified        | `SupplierDeliveryNoteForm.clean()` + `is_locked`      |
-| **BR-BLF-03**    | Purchases | Disputed delivery note excluded from invoice selection       | Queryset `SupplierInvoiceForm`                        |
-| **BR-BLF-05**    | Purchases | Expired access authorization blocked (Received)              | Form + signal (`authorization_expiration_date`)       |
-| **BR-FAF-01**    | Purchases | Invoice amount = auto-sum of delivery note lines             | post-save calculation signal                          |
-| **BR-FAF-02**    | Purchases | Only Received delivery notes from the same supplier          | `SupplierInvoiceForm.clean()`                         |
-| **BR-FAF-04**    | Purchases | Paid status not selectable                                   | `STATUS_USER_CHOICES` without Paid                    |
-| **BR-REG-03**    | Purchases | Automatic FIFO allocation                                    | `post_save` signal on SupplierPayment                 |
-| **BR-REG-06**    | Purchases | Payments immutable                                           | No edit form                                          |
-| **BR-LOT-01**    | Rearing   | Batch opens only in a Pullet House                           | `RearingBatchForm.clean()` + `building.building_type` |
-| **BR-LOT-02**    | Rearing   | Batch requires chick count + delivery note                   | `RearingBatchForm.clean()`                            |
-| **BR-LOT-03**    | Rearing   | Mortality/Consumption only on open batch                     | `MortalityForm.clean()` + `ConsumptionForm.clean()`   |
-| **BR-LOT-04**    | Rearing   | Batch closure requires ≥ 1 validated production              | Validated in the view before `BatchClosureForm`       |
-| **BR-LOT-05**    | Rearing   | Production blocked if batch < maturity_age_days              | `ProductionRecord` validate + view                    |
-| **BR-MOR-01**    | Rearing   | Mortality decrements chick input stock                       | `mortality_post_save` signal → InputStock             |
-| **BR-INT-03**    | Stock     | Consumption ≤ available stock                                | `ConsumptionForm.clean()`                             |
-| **BR-INT-04**    | Inputs    | Input stage filtered according to batch's building_type      | `ConsumptionForm` queryset                            |
-| **BR-INT-05**    | Inputs    | Unit of measure immutable if movements exist                 | `InputForm.clean_unite_mesure()`                      |
-| **BR-TRF-01**    | Rearing   | Transfer forbidden on closed batch / cross-branch            | `BatchTransfer.clean()` (BR-BRA-01)                   |
-| **BR-TRF-02**    | Rearing   | MODE_FULL: batch.building updated, baseline unchanged        | `transfer_batch_post_save` signal                     |
-| **BR-TRF-03**    | Rearing   | BatchTransfer immutable (no edit/delete)                     | No edit view                                          |
-| **BR-PES-01**    | Rearing   | Quality derived from average_weight_g (QualityCategory)      | `SampleWeighing.quality` (property)                   |
-| **BR-DEP-01/03** | Expenses  | linked_invoice = Service type only                           | `ExpenseForm.clean()`                                 |
-| **BR-DEP-04**    | Expenses  | Batch attribution optional                                   | Optional `batch` field                                |
-| **BR-BLC-01**    | Sales     | Finished goods stock decremented on delivery note validation | `post_save` signal on CustomerDeliveryNoteLine        |
-| **BR-BLC-02**    | Sales     | Quantity ≤ available stock                                   | View check before validation                          |
-| **BR-BLC-03**    | Sales     | Invoiced delivery note locked                                | `CustomerDeliveryNoteForm.is_locked`                  |
-| **BR-FAC-01**    | Sales     | Invoice amount = auto-sum of included delivery notes         | Calculation signal                                    |
-| **BR-FAC-02**    | Sales     | Only Delivered delivery notes from the same customer         | `CustomerInvoiceForm` queryset                        |
-| **BR-FAC-03**    | Sales     | Manual customer payment allocation                           | `CustomerPaymentAllocation` view                      |
+| BR               | Module    | Description                                                                                                                                                                            | Point of application                                                                                    |
+| ---------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| **BR-BLF-01**    | Purchases | Stock impacted only when the delivery note is validated                                                                                                                                | `post_save` signal on SupplierDeliveryNoteLine                                                          |
+| **BR-BLF-02**    | Purchases | Invoiced delivery note is locked — cannot be modified                                                                                                                                  | `SupplierDeliveryNoteForm.clean()` + `is_locked`                                                        |
+| **BR-BLF-03**    | Purchases | Disputed delivery note excluded from invoice selection                                                                                                                                 | Queryset `SupplierInvoiceForm`                                                                          |
+| **BR-BLF-05**    | Purchases | Expired access authorization blocked (Received)                                                                                                                                        | Form + signal (`authorization_expiration_date`)                                                         |
+| **BR-FAF-01**    | Purchases | Invoice amount = auto-sum of delivery note lines                                                                                                                                       | post-save calculation signal                                                                            |
+| **BR-FAF-02**    | Purchases | Only Received delivery notes from the same supplier                                                                                                                                    | `SupplierInvoiceForm.clean()`                                                                           |
+| **BR-FAF-04**    | Purchases | Paid status not selectable                                                                                                                                                             | `STATUS_USER_CHOICES` without Paid                                                                      |
+| **BR-REG-03**    | Purchases | Automatic FIFO allocation                                                                                                                                                              | `post_save` signal on SupplierPayment                                                                   |
+| **BR-REG-06**    | Purchases | Payments immutable                                                                                                                                                                     | No edit form                                                                                            |
+| **BR-LOT-01**    | Rearing   | Batch opens only in a Pullet House                                                                                                                                                     | `RearingBatchForm.clean()` + `building.building_type`                                                   |
+| **BR-LOT-02**    | Rearing   | Batch requires chick count + delivery note                                                                                                                                             | `RearingBatchForm.clean()`                                                                              |
+| **BR-LOT-03**    | Rearing   | Mortality/Consumption only on open batch                                                                                                                                               | `MortalityForm.clean()` + `ConsumptionForm.clean()`                                                     |
+| **BR-LOT-04**    | Rearing   | Batch closure requires ≥ 1 validated production                                                                                                                                        | Validated in the view before `BatchClosureForm`                                                         |
+| **BR-LOT-05**    | Rearing   | Production blocked if batch < maturity_age_days                                                                                                                                        | `ProductionRecord` validate + view                                                                      |
+| **BR-MOR-01**    | Rearing   | Mortality decrements chick input stock                                                                                                                                                 | `mortality_post_save` signal → InputStock                                                               |
+| **BR-INT-03**    | Stock     | Consumption ≤ available stock                                                                                                                                                          | `ConsumptionForm.clean()`                                                                               |
+| **BR-INT-04**    | Inputs    | Input stage filtered according to batch's building_type                                                                                                                                | `ConsumptionForm` queryset                                                                              |
+| **BR-INT-05**    | Inputs    | Unit of measure immutable if movements exist                                                                                                                                           | `InputForm.clean_unite_mesure()`                                                                        |
+| **BR-TRF-01**    | Rearing   | Transfer forbidden on closed batch / cross-branch                                                                                                                                      | `BatchTransfer.clean()` (BR-BRA-01)                                                                     |
+| **BR-TRF-02**    | Rearing   | MODE_FULL: batch.building updated, baseline unchanged                                                                                                                                  | `transfer_batch_post_save` signal                                                                       |
+| **BR-TRF-03**    | Rearing   | BatchTransfer immutable (no edit/delete)                                                                                                                                               | No edit view                                                                                            |
+| **BR-PES-01**    | Rearing   | Quality derived from average_weight_g (QualityCategory)                                                                                                                                | `SampleWeighing.quality` (property)                                                                     |
+| **BR-PES-02**    | Rearing   | "My estimate" (estimation_prix_plateau) editable by admin role only; other roles see the auto-suggestion read-only                                                                     | `PeseeEchantillonForm.__init__` (role check) + `SampleWeighing.estimation_auto_prix_plateau` (property) |
+| **BR-DEP-01/03** | Expenses  | linked_invoice = Service type only                                                                                                                                                     | `ExpenseForm.clean()`                                                                                   |
+| **BR-DEP-04**    | Expenses  | Batch attribution optional                                                                                                                                                             | Optional `batch` field                                                                                  |
+| **BR-BLC-01**    | Sales     | Finished goods stock decremented on delivery note validation                                                                                                                           | `post_save` signal on CustomerDeliveryNoteLine                                                          |
+| **BR-BLC-02**    | Sales     | Quantity ≤ available stock                                                                                                                                                             | View check before validation                                                                            |
+| **BR-BLC-03**    | Sales     | Invoiced delivery note locked                                                                                                                                                          | `CustomerDeliveryNoteForm.is_locked`                                                                    |
+| **BR-FAC-01**    | Sales     | Invoice amount = auto-sum of included delivery notes                                                                                                                                   | Calculation signal                                                                                      |
+| **BR-FAC-02**    | Sales     | Only Delivered delivery notes from the same customer                                                                                                                                   | `CustomerInvoiceForm` queryset                                                                          |
+| **BR-FAC-03**    | Sales     | Manual customer payment allocation                                                                                                                                                     | `CustomerPaymentAllocation` view                                                                        |
+| **BR-ABO-01**    | Sales     | A subscription's deliveries/dues are scoped to its own branch's stock/ledger                                                                                                           | `AbonnementClient.branche` (BR-BRA-01)                                                                  |
+| **BR-ABO-02**    | Sales     | A quota (`total_planned_quantity` ≠ 0) can never be exceeded cumulatively across deliveries                                                                                            | `PartialDelivery.clean()`                                                                               |
+| **BR-ABO-03**    | Sales     | `forfait` billing mode bills a fixed amount per period regardless of deliveries; each period billed at most once; `prepaid` payment mode auto-settles from the client's deposit (FIFO) | `GenererEcheanceForm` view → `generer_facture_abonnement()` + `consommer_acomptes_client_fifo()`        |
 
 ### 11.2 Status Transitions
 
@@ -2196,51 +2331,53 @@ flowchart LR
 > entered manually. References actually generated in the format
 > `<prefix>-<branch_code>-<YYYY>-<NNNN>` (BR-BRA-05); e.g. `BLF-EST-2026-0001`.
 
-| Phase | Entity                             | Reference / ID                                                              | Final Status            |
-| ----- | ---------------------------------- | --------------------------------------------------------------------------- | ----------------------- |
-| 0bis  | Branch                             | EST (Building A/Warehouse) / OUEST (Bldgs. B & C)                           | Active ✅               |
-| 0bis  | Branch users                       | chef_est, chef_ouest, operator1(EST), operator2(OUEST)                      | —                       |
-| 1     | Supplier Delivery Note             | BLF-EST-2026-0001 (Chicks CCA)                                              | Invoiced 🔒             |
-| 1     | Supplier Delivery Note             | BLF-EST-2026-0002 (Feed ONAB batch 1)                                       | Invoiced 🔒             |
-| 1     | Supplier Delivery Note             | BLF-EST-2026-0003 (Feed ONAB finisher)                                      | Invoiced 🔒             |
-| 1     | Supplier Delivery Note             | BLF-EST-2026-0004 (Medicines Sanofi)                                        | Invoiced 🔒             |
-| 1     | Supplier Delivery Note             | BLF-EST-2026-0005 (Raw ingredients, §5.3bis)                                | Invoiced 🔒             |
-| 1     | Supplier Invoice                   | FRN-EST-2026-0001 (CCA 64,000 DZD)                                          | Paid ✅                 |
-| 1     | Supplier Invoice                   | FRN-EST-2026-0002 (ONAB 721,000 DZD)                                        | Paid ✅                 |
-| 1     | Supplier Invoice                   | FRN-EST-2026-0003 (ONAB 307,500 DZD)                                        | Unpaid ⏳               |
-| 1     | Supplier Invoice                   | FRN-EST-2026-0004 (Sanofi 51,700 DZD)                                       | Paid ✅                 |
-| 1     | Supplier Invoice                   | FRN-EST-2026-0005 (ONAB ingredients 42,000)                                 | Paid ✅                 |
-| 1     | Supplier Payment                   | REG-EST-2026-0001…0005                                                      | Immutable               |
-| 1     | Attachment (v1.5)                  | ATT-1/2/3 (invoice, check, transfer)                                        | —                       |
-| 2     | Rearing Batch                      | May 2026 Batch — Building A (EST branch)                                    | Closed 🔒               |
-| 3     | Mortalities                        | 5 events, 40 birds                                                          | —                       |
-| 3     | Consumptions                       | 11 feed entries + 7 medicine                                                | —                       |
-| 3     | Feed Formula                       | In-House Grower Formula (§5.3bis)                                           | Active                  |
-| 3     | Feed Production                    | FEED-PROD-1 (+300 kg, formula) / FEED-PROD-2 (+100 kg, direct)              | Credited ✅             |
-| 3     | Fertilizer Collection              | 4 collections, 840 kg raw (Building A)                                      | Assigned to treatment   |
-| 3     | Fertilizer Treatment               | Treatment 2026-06-24 (720 kg)                                               | Validated ✅            |
-| 2bis  | Rearing Batch                      | Layer Batch 2026 (OUEST branch)                                             | Open (Building B)       |
-| 3bis  | Mortalities (rearing)              | 6 events, 105 birds (≈3.5%)                                                 | —                       |
-| 3bis  | Consumptions (rearing)             | 11 feed + 7 medicine                                                        | —                       |
-| 3bis  | Sample Weighings                   | 4 weighings (D0/D42/D84/D126)                                               | —                       |
-| 3bis  | Batch Transfer                     | Pullet House C → Laying House B (D+126)                                     | Immutable               |
-| 3bis  | Consumptions (laying)              | 4 entries Layer Feed (post-transfer)                                        | —                       |
-| 3bis  | Egg Collections                    | 8 collections, 14,130 eggs (≈471 trays)                                     | —                       |
-| 3bis  | Egg Withdrawals (v1.4+)            | EGG-WD-1 (donation, 1 tray), EGG-WD-2 (truck sale, 2 trays → BLC-2026-0005) | —                       |
-| 4     | Production Record                  | Production 2026-06-19                                                       | Validated ✅            |
-| 5     | Stock Adjustment                   | ADJ-2026-0001 (−3 carcasses)                                                | —                       |
-| 6     | Customer Delivery Note             | BLC-2026-0001/0002/0003                                                     | Invoiced 🔒             |
-| 6     | Customer Invoice                   | FAC-2026-0001/0002/0003                                                     | Paid / Partial / Paid   |
-| 6     | Customer Payment                   | PAY-0001/0002/0003                                                          | Immutable               |
-| 6     | Customer Deposit                   | DEPOSIT-CLI-1 (Le Palmier Restaurant, 50,000)                               | Used ✅ (§8.5)          |
-| 6     | Customer Subscription + Deliveries | SUB-1 (Fertilizer, Wholesale Market) + DEL-1/DEL-2                          | Quota reached ✅ (§8.6) |
-| 6bis  | Customer Delivery Note (eggs)      | BLC-2026-0004 (Wholesale Market, §8.4), BLC-2026-0005 (Grocery, §5.6.8)     | Invoiced 🔒             |
-| 6bis  | Customer Invoice (eggs)            | FAC-2026-0004 (163,800 DZD)                                                 | Paid ✅                 |
-| 6bis  | Customer Payment (eggs)            | PAY-0004                                                                    | Immutable               |
-| 7     | Expenses                           | DEP-002/003/004                                                             | —                       |
-| 7     | Employee / Timesheet               | EMP-001/002/003 (Building A) — June 2026                                    | —                       |
-| 7     | Leave / Employee Advance           | ADVANCE-EMP-1 (3,000 DZD, EMP-001)                                          | Deducted from payslip   |
-| 7     | Payslip                            | Payslip ×3 — June 2026 (48,540 → net 45,540)                                | Paid ✅                 |
+| Phase | Entity                             | Reference / ID                                                              | Final Status                              |
+| ----- | ---------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------- |
+| 0bis  | Branch                             | EST (Building A/Warehouse) / OUEST (Bldgs. B & C)                           | Active ✅                                 |
+| 0bis  | Branch users                       | chef_est, chef_ouest, operator1(EST), operator2(OUEST)                      | —                                         |
+| 1     | Supplier Delivery Note             | BLF-EST-2026-0001 (Chicks CCA)                                              | Invoiced 🔒                               |
+| 1     | Supplier Delivery Note             | BLF-EST-2026-0002 (Feed ONAB batch 1)                                       | Invoiced 🔒                               |
+| 1     | Supplier Delivery Note             | BLF-EST-2026-0003 (Feed ONAB finisher)                                      | Invoiced 🔒                               |
+| 1     | Supplier Delivery Note             | BLF-EST-2026-0004 (Medicines Sanofi)                                        | Invoiced 🔒                               |
+| 1     | Supplier Delivery Note             | BLF-EST-2026-0005 (Raw ingredients, §5.3bis)                                | Invoiced 🔒                               |
+| 1     | Supplier Invoice                   | FRN-EST-2026-0001 (CCA 64,000 DZD)                                          | Paid ✅                                   |
+| 1     | Supplier Invoice                   | FRN-EST-2026-0002 (ONAB 721,000 DZD)                                        | Paid ✅                                   |
+| 1     | Supplier Invoice                   | FRN-EST-2026-0003 (ONAB 307,500 DZD)                                        | Unpaid ⏳                                 |
+| 1     | Supplier Invoice                   | FRN-EST-2026-0004 (Sanofi 51,700 DZD)                                       | Paid ✅                                   |
+| 1     | Supplier Invoice                   | FRN-EST-2026-0005 (ONAB ingredients 42,000)                                 | Paid ✅                                   |
+| 1     | Supplier Payment                   | REG-EST-2026-0001…0005                                                      | Immutable                                 |
+| 1     | Attachment (v1.5)                  | ATT-1/2/3 (invoice, check, transfer)                                        | —                                         |
+| 2     | Rearing Batch                      | May 2026 Batch — Building A (EST branch)                                    | Closed 🔒                                 |
+| 3     | Mortalities                        | 5 events, 40 birds                                                          | —                                         |
+| 3     | Consumptions                       | 11 feed entries + 7 medicine                                                | —                                         |
+| 3     | Feed Formula                       | In-House Grower Formula (§5.3bis)                                           | Active                                    |
+| 3     | Feed Production                    | FEED-PROD-1 (+300 kg, formula) / FEED-PROD-2 (+100 kg, direct)              | Credited ✅                               |
+| 3     | Fertilizer Collection              | 4 collections, 840 kg raw (Building A)                                      | Assigned to treatment                     |
+| 3     | Fertilizer Treatment               | Treatment 2026-06-24 (720 kg)                                               | Validated ✅                              |
+| 2bis  | Rearing Batch                      | Layer Batch 2026 (OUEST branch)                                             | Open (Building B)                         |
+| 3bis  | Mortalities (rearing)              | 6 events, 105 birds (≈3.5%)                                                 | —                                         |
+| 3bis  | Consumptions (rearing)             | 11 feed + 7 medicine                                                        | —                                         |
+| 3bis  | Sample Weighings                   | 4 weighings (D0/D42/D84/D126)                                               | —                                         |
+| 3bis  | Batch Transfer                     | Pullet House C → Laying House B (D+126)                                     | Immutable                                 |
+| 3bis  | Consumptions (laying)              | 4 entries Layer Feed (post-transfer)                                        | —                                         |
+| 3bis  | Egg Collections                    | 8 collections, 14,130 eggs (≈471 trays)                                     | —                                         |
+| 3bis  | Sample Weighings (eggs)            | 3 weighings (J140/J168/J196) + 3 MarketPrice quotes (§5.6.7bis)             | —                                         |
+| 3bis  | Egg Withdrawals (v1.4+)            | EGG-WD-1 (donation, 1 tray), EGG-WD-2 (truck sale, 2 trays → BLC-2026-0005) | —                                         |
+| 4     | Production Record                  | Production 2026-06-19                                                       | Validated ✅                              |
+| 5     | Stock Adjustment                   | ADJ-2026-0001 (−3 carcasses)                                                | —                                         |
+| 6     | Customer Delivery Note             | BLC-2026-0001/0002/0003                                                     | Invoiced 🔒                               |
+| 6     | Customer Invoice                   | FAC-2026-0001/0002/0003                                                     | Paid / Partial / Paid                     |
+| 6     | Customer Payment                   | PAY-0001/0002/0003                                                          | Immutable                                 |
+| 6     | Customer Deposit                   | DEPOSIT-CLI-1 (Le Palmier Restaurant, 50,000)                               | Used ✅ (§8.5)                            |
+| 6     | Customer Subscription + Deliveries | SUB-1 (Fertilizer, Wholesale Market) + DEL-1/DEL-2                          | Quota reached ✅ (§8.6)                   |
+| 6     | Subscription Forfait + Prepayment  | SUB-2 (Amrane & Sons Butcher, 6,000/mo) + PREPAY-1 + ECH-1/ECH-2 + PAY-2    | Auto-settled → partial → closed ✅ (§8.7) |
+| 6bis  | Customer Delivery Note (eggs)      | BLC-2026-0004 (Wholesale Market, §8.4), BLC-2026-0005 (Grocery, §5.6.8)     | Invoiced 🔒                               |
+| 6bis  | Customer Invoice (eggs)            | FAC-2026-0004 (163,800 DZD)                                                 | Paid ✅                                   |
+| 6bis  | Customer Payment (eggs)            | PAY-0004                                                                    | Immutable                                 |
+| 7     | Expenses                           | DEP-002/003/004                                                             | —                                         |
+| 7     | Employee / Timesheet               | EMP-001/002/003 (Building A) — June 2026                                    | —                                         |
+| 7     | Leave / Employee Advance           | ADVANCE-EMP-1 (3,000 DZD, EMP-001)                                          | Deducted from payslip                     |
+| 7     | Payslip                            | Payslip ×3 — June 2026 (48,540 → net 45,540)                                | Paid ✅                                   |
 
 ---
 
@@ -2255,21 +2392,25 @@ activated by this 40-day cycle on a standard Ross 308 batch:
 
 | Domain / Feature                                  | Why absent here                                                                                                                         |
 | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| **CustomerSubscription / PartialDelivery**        | One-off sales via Customer Delivery Note; no recurring subscription                                                                     |
 | **Access Authorization (Supplier Delivery Note)** | ONAB may issue this type; the cycle uses standard_note to keep it simple                                                                |
 | **Partners / PartnerWithdrawal**                  | No withdrawal recorded in this cycle                                                                                                    |
 | **HR (Employee / TimeSheet / Payslip)**           | DEP-001 covered salary as a lump-sum expense                                                                                            |
-| **MarketPrice / Customer Debt Sheet**             | Not used in this cycle; an analytical tool                                                                                              |
+| **MarketPrice / Customer Debt Sheet**             | The Debt Sheet comparison tool itself is not run in this cycle; MarketPrice IS now exercised via egg sample weighings (§5.6.7bis)       |
 | **CompanyInfo (multi-rate VAT)**                  | VAT-exempt invoices → vat_rate = 0% uniform                                                                                             |
 | **BatchTransfer MODE_SPLIT_NEW/MERGE**            | Only MODE_FULL is exercised (§5.6.6); splitting a broiler flock for density reasons remains a possible scenario but is not covered here |
-| **SampleWeighing weighing_type=eggs**             | Only bird weighings (growth, §5.6.3) are exercised; egg weighing (EggCollection quality) is not                                         |
 
-> ℹ️ **BatchTransfer** (MODE_FULL) and **SampleWeighing** (weighing_type=birds)
-> no longer appear in this table as "not exercised": they are now
-> exercised in §5.6, on the Layer Batch 2026 (Pullet House → Laying House at
-> point of lay, 18 weeks), a biologically realistic path that a Ross
-> 308 broiler batch — slaughtered at 40 days, well before laying age —
-> never goes through.
+> ℹ️ **CustomerSubscription / PartialDelivery** no longer appears in this
+> table as "not exercised": both billing modes are now exercised — metered
+> `quantite` billing in §8.6 (SUB-1, quota reached via DEL-1/DEL-2) and
+> `forfait` billing with prepayment in §8.7 (SUB-2).
+>
+> ℹ️ **BatchTransfer** (MODE_FULL) and **SampleWeighing** (both
+> weighing_type=birds and weighing_type=eggs) no longer appear in this
+> table as "not exercised": they are now exercised in §5.6, on the Layer
+> Batch 2026 (Pullet House → Laying House at point of lay, 18 weeks; then
+> 3 egg weighings + market-price valuation in §5.6.7bis), a biologically
+> realistic path that a Ross 308 broiler batch — slaughtered at 40 days,
+> well before laying age — never goes through.
 >
 > ⚠️ **Documented trap (§5.6.6/§0.4, INT-11)**: `RearingBatch.expected_input_stage`
 > never maps a Laying House to `Input.STAGE_LAYING`, only to

@@ -365,6 +365,153 @@ def consommer_acomptes_client_fifo(facture):
 # ---------------------------------------------------------------------------
 
 
+def generer_facture_abonnement(
+    abonnement, periode_debut=None, periode_fin=None, date_facture=None,
+    date_echeance=None, created_by=None,
+):
+    """
+    Bill one period of a forfait AbonnementClient (BR-ABO-03) — a fixed
+    amount due regardless of whether anything was actually collected/
+    delivered that period (LivraisonPartielle stays optional/informational
+    under forfait).
+
+    Creates a FactureClient directly (abonnement + periode_debut/periode_fin
+    set, bls left empty) with montant_ht/tva/ttc computed here instead of in
+    the m2m_changed signal, then immediately calls
+    consommer_acomptes_client_fifo so a client who prepaid (AcompteClient)
+    has this due auto-settled — this is what makes `mode_paiement=prepaye`
+    work: record the client's advance payment whenever it suits them, and
+    it quietly covers each new échéance as it's generated.
+
+    Args:
+        abonnement (AbonnementClient): must have mode_facturation=forfait
+            and statut=actif.
+        periode_debut/periode_fin (date | None): billed period; defaults to
+            abonnement.periode_courante() (current calendar month).
+        date_facture (date | None): defaults to today.
+        date_echeance (date | None): optional due date.
+        created_by (User | None).
+
+    Returns:
+        FactureClient: the newly created invoice.
+
+    Raises:
+        ValueError: subscription is not an active forfait, montant_forfait
+            is not configured, or this exact period was already billed.
+    """
+    from clients.models import AbonnementClient, FactureClient
+
+    if abonnement.mode_facturation != AbonnementClient.MODE_FACTURATION_FORFAIT:
+        raise ValueError(
+            "BR-ABO-03 : لا يمكن توليد فاتورة جزافية لاشتراك «بحسب الكمية»."
+        )
+    if abonnement.statut != AbonnementClient.STATUT_ACTIF:
+        raise ValueError("لا يمكن توليد فاتورة لاشتراك غير نشط.")
+    if not abonnement.montant_forfait or abonnement.montant_forfait <= 0:
+        raise ValueError("المبلغ الجزافي الدوري غير محدَّد لهذا الاشتراك.")
+
+    if periode_debut is None or periode_fin is None:
+        periode_debut, periode_fin = abonnement.periode_courante(date_facture)
+
+    if abonnement.echeance_deja_facturee(periode_debut, periode_fin):
+        raise ValueError(
+            f"تم توليد فاتورة لهذه الفترة مسبقاً ({periode_debut} → {periode_fin})."
+        )
+
+    date_facture = date_facture or datetime.date.today()
+    montant_ht = Decimal(str(abonnement.montant_forfait))
+
+    facture = FactureClient.objects.create(
+        reference=generer_reference_facture_client(abonnement.branche),
+        branche=abonnement.branche,
+        client=abonnement.client,
+        abonnement=abonnement,
+        periode_debut=periode_debut,
+        periode_fin=periode_fin,
+        date_facture=date_facture,
+        date_echeance=date_echeance,
+        montant_ht=montant_ht,
+        taux_tva=Decimal("0"),
+        montant_tva=Decimal("0"),
+        montant_ttc=montant_ht,
+        montant_regle=Decimal("0"),
+        reste_a_payer=montant_ht,
+        statut=FactureClient.STATUT_NON_PAYEE,
+        notes=(
+            f"اشتراك جزافي — {abonnement.produit_fini.designation} — "
+            f"الفترة {periode_debut} → {periode_fin}."
+        ),
+        created_by=created_by,
+    )
+
+    # Auto-settle from any prepayment (AcompteClient) the client already has
+    # on this branche — this is the whole point of mode_paiement=prepaye.
+    consommer_acomptes_client_fifo(facture)
+
+    logger.info(
+        "generer_facture_abonnement: abonnement pk=%s → facture %s "
+        "(%s DZD, période %s → %s).",
+        abonnement.pk,
+        facture.reference,
+        montant_ht,
+        periode_debut,
+        periode_fin,
+    )
+    return facture
+
+
+def generer_echeances_abonnements_forfait(branche=None, date_facture=None, created_by=None):
+    """
+    Bulk-generate this period's due for every active forfait
+    AbonnementClient (scoped to *branche*, or every branche when omitted),
+    skipping any subscription whose current period was already billed.
+
+    Meant to be triggered manually (a "توليد فواتير هذا الشهر" button) —
+    idempotent, so re-running it mid-month is harmless.
+
+    Returns:
+        dict: {"crees": [FactureClient, ...], "ignores": [AbonnementClient, ...],
+               "erreurs": [(AbonnementClient, str), ...]}
+    """
+    from clients.models import AbonnementClient
+
+    qs = AbonnementClient.objects.filter(
+        statut=AbonnementClient.STATUT_ACTIF,
+        mode_facturation=AbonnementClient.MODE_FACTURATION_FORFAIT,
+    ).select_related("client", "branche", "produit_fini")
+    if branche is not None:
+        qs = qs.filter(branche=branche)
+
+    crees, ignores, erreurs = [], [], []
+    for abonnement in qs:
+        try:
+            facture = generer_facture_abonnement(
+                abonnement, date_facture=date_facture, created_by=created_by
+            )
+            crees.append(facture)
+        except ValueError as exc:
+            if "مسبقاً" in str(exc):
+                ignores.append(abonnement)
+            else:
+                erreurs.append((abonnement, str(exc)))
+        except Exception as exc:
+            logger.exception(
+                "generer_echeances_abonnements_forfait: abonnement pk=%s: %s",
+                abonnement.pk,
+                exc,
+            )
+            erreurs.append((abonnement, str(exc)))
+
+    logger.info(
+        "generer_echeances_abonnements_forfait: %d créée(s), %d ignorée(s) "
+        "(déjà facturée), %d erreur(s).",
+        len(crees),
+        len(ignores),
+        len(erreurs),
+    )
+    return {"crees": crees, "ignores": ignores, "erreurs": erreurs}
+
+
 def supprimer_paiement_client_cascade(paiement):
     """
     ADMIN-ONLY hard delete: remove a PaiementClient and reverse every side

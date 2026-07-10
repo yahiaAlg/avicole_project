@@ -2,12 +2,18 @@
 {% load static %}
 
 {% block title %}اشتراكات العملاء — تربية الدواجن{% endblock %}
-{% block nav_clients %}active{% endblock %}
+{% block nav_abonnements %}active{% endblock %}
 
 {% block page_title %}اشتراكات العملاء{% endblock %}
 {% block page_sub_text %}{{ page.paginator.count }} اشتراك{% endblock %}
 
 {% block topbar_actions %}
+  {% if not request.user.userprofile.role == 'viewer' and active_branche %}
+  <form method="post" action="{% url 'clients:abonnements_generer_echeances' %}" onsubmit="return confirm('توليد فواتير هذا الشهر لكل الاشتراكات الجزافية النشطة في {{ active_branche.nom }}؟');">
+    {% csrf_token %}
+    <button type="submit" class="btn-ghost"><i class="bx bx-receipt"></i> توليد فواتير هذا الشهر</button>
+  </form>
+  {% endif %}
   {% if not request.user.userprofile.role == 'viewer' %}
   <a href="{% url 'clients:abonnement_create' %}" class="btn-primary">
     <i class="bx bx-plus"></i> اشتراك جديد
@@ -54,6 +60,7 @@
             <th>العميل</th>
             {% if not active_branche %}<th>الفرع</th>{% endif %}
             <th>المنتج</th>
+            <th>نمط الفوترة</th>
             <th>التواتر</th>
             <th>من</th>
             <th>إلى</th>
@@ -73,6 +80,10 @@
             <td style="font-size:12px;color:var(--text-muted);">{{ abo.branche.nom }}</td>
             {% endif %}
             <td style="font-size:12.5px;color:var(--text-secondary);">{{ abo.produit_fini.designation }}</td>
+            <td>
+              {% if abo.est_forfait %}<span class="pill-info">جزافي — {{ abo.montant_forfait|floatformat:0 }} دج</span>
+              {% else %}<span style="font-size:12px;color:var(--text-muted);">بالكمية</span>{% endif %}
+            </td>
             <td style="font-size:12px;color:var(--text-muted);">{{ abo.get_frequence_display }}</td>
             <td style="font-size:12px;color:var(--text-muted);">{{ abo.date_debut|date:"d/m/Y" }}</td>
             <td style="font-size:12px;color:var(--text-muted);">{{ abo.date_fin|date:"d/m/Y"|default:"—" }}</td>
@@ -158,6 +169,7 @@
   .pill-danger  { background:rgba(239,68,68,.10);color:#dc2626; }
   .pill-warning { background:rgba(245,158,11,.14);color:#b45309; }
   .pill-neutral { background:rgba(0,0,0,.06);color:var(--text-secondary); }
+  .pill-info    { background:rgba(59,130,246,.12);color:#1d4ed8; }
 
   .pagination-bar { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px; border-top: 1px solid var(--border); }
   .page-btn { width: 32px; height: 32px; border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--text-secondary); text-decoration: none; transition: all .15s; }

@@ -353,6 +353,27 @@ class FactureClient(models.Model):
         related_name="factures",
         verbose_name="وصولات التسليم المضمنة",
     )
+    # v1.6 — BR-ABO-03: alternate invoice source. A forfait AbonnementClient
+    # due is billed straight into a FactureClient (bypassing the BL-driven
+    # montant_ht computation in the m2m_changed signal — see
+    # clients.utils.generer_facture_abonnement) so it flows through the
+    # exact same debt ledger (get_client_solde, aging, fiche_dettes_client)
+    # as every other invoice, with zero changes to those functions. A
+    # facture has EITHER bls OR abonnement — never both.
+    abonnement = models.ForeignKey(
+        "AbonnementClient",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="factures_abonnement",
+        verbose_name="الاشتراك (فوترة جزافية)",
+    )
+    periode_debut = models.DateField(
+        null=True, blank=True, verbose_name="بداية فترة الاشتراك المفوترة"
+    )
+    periode_fin = models.DateField(
+        null=True, blank=True, verbose_name="نهاية فترة الاشتراك المفوترة"
+    )
     date_facture = models.DateField(verbose_name="تاريخ الفاتورة")
     date_echeance = models.DateField(
         null=True, blank=True, verbose_name="تاريخ الاستحقاق"
@@ -412,17 +433,28 @@ class FactureClient(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     # v1.5 — proof documents (signed invoice copy, etc.).
-    pieces_jointes = GenericRelation(
-        PieceJointe, related_query_name="facture_client"
-    )
+    pieces_jointes = GenericRelation(PieceJointe, related_query_name="facture_client")
 
     class Meta:
         verbose_name = "فاتورة العميل"
         verbose_name_plural = "فواتير العملاء"
         ordering = ["-date_facture"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["abonnement", "periode_debut", "periode_fin"],
+                condition=models.Q(abonnement__isnull=False),
+                name="uniq_facture_abonnement_periode",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.reference} — {self.client.nom} — " f"{self.montant_ttc} DZD"
+
+    @property
+    def est_facture_abonnement(self):
+        """True when this invoice was generated from a forfait subscription
+        due (clients.utils.generer_facture_abonnement) rather than from BLs."""
+        return self.abonnement_id is not None
 
     def recalculer_solde(self):
         """
@@ -525,9 +557,7 @@ class PaiementClient(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     # v1.5 — proof of payment (cheque scan, transfer confirmation, ...).
-    pieces_jointes = GenericRelation(
-        PieceJointe, related_query_name="paiement_client"
-    )
+    pieces_jointes = GenericRelation(PieceJointe, related_query_name="paiement_client")
 
     class Meta:
         verbose_name = "دفع العميل"
@@ -729,8 +759,7 @@ class AllocationAcompteClient(models.Model):
 
     def __str__(self):
         return (
-            f"{self.acompte} → {self.facture.reference} : "
-            f"{self.montant_alloue} DZD"
+            f"{self.acompte} → {self.facture.reference} : " f"{self.montant_alloue} DZD"
         )
 
 
@@ -762,6 +791,27 @@ class AbonnementClient(models.Model):
         (STATUT_ACTIF, "نشط"),
         (STATUT_TERMINE, "منتهٍ"),
         (STATUT_SUSPENDU, "معلّق"),
+    ]
+
+    # v1.6 — BR-ABO-03: billing mode. `par_quantite` is the original
+    # metered behaviour (prix_unitaire × quantite_livree via LivraisonPartielle
+    # / BLClient). `forfait` bills a fixed amount every period regardless of
+    # whether the client actually collected/received anything that period —
+    # e.g. a manure-collection access subscription. LivraisonPartielle stays
+    # fully optional/informational under forfait (still useful to log actual
+    # pickups) but no longer drives what's owed.
+    MODE_FACTURATION_QUANTITE = "quantite"
+    MODE_FACTURATION_FORFAIT = "forfait"
+    MODE_FACTURATION_CHOICES = [
+        (MODE_FACTURATION_QUANTITE, "بحسب الكمية المسلَّمة"),
+        (MODE_FACTURATION_FORFAIT, "اشتراك جزافي (مبلغ ثابت دوري)"),
+    ]
+
+    MODE_PAIEMENT_POSTPAYE = "postpaye"
+    MODE_PAIEMENT_PREPAYE = "prepaye"
+    MODE_PAIEMENT_CHOICES = [
+        (MODE_PAIEMENT_POSTPAYE, "بعدي — فاتورة تُصدر ثم تُسدَّد"),
+        (MODE_PAIEMENT_PREPAYE, "مسبق — دفعة مقدمة تُستهلك تلقائياً عند الإصدار"),
     ]
 
     client = models.ForeignKey(
@@ -810,6 +860,28 @@ class AbonnementClient(models.Model):
         default=0,
         verbose_name="سعر الوحدة (د.ج)",
         validators=[MinValueValidator(0)],
+        help_text="يُستخدم فقط عندما تكون الفوترة «بحسب الكمية المسلَّمة».",
+    )
+    mode_facturation = models.CharField(
+        max_length=20,
+        choices=MODE_FACTURATION_CHOICES,
+        default=MODE_FACTURATION_QUANTITE,
+        verbose_name="نمط الفوترة",
+    )
+    montant_forfait = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name="المبلغ الجزافي الدوري (د.ج)",
+        validators=[MinValueValidator(0)],
+        help_text="يُستخدم فقط عندما تكون الفوترة «جزافية» — يُفوتر كل فترة بغض النظر عن الاستلام الفعلي.",
+    )
+    mode_paiement = models.CharField(
+        max_length=20,
+        choices=MODE_PAIEMENT_CHOICES,
+        default=MODE_PAIEMENT_POSTPAYE,
+        verbose_name="طريقة الدفع",
+        help_text="مسبق: سجّل دفعة العميل قبل الإصدار فتُستهلك تلقائياً. بعدي: تُصدر الفاتورة أولاً.",
     )
     statut = models.CharField(
         max_length=20,
@@ -843,6 +915,16 @@ class AbonnementClient(models.Model):
             raise ValidationError(
                 {"date_fin": "تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء."}
             )
+        if (
+            self.mode_facturation == self.MODE_FACTURATION_FORFAIT
+            and not self.montant_forfait
+        ):
+            raise ValidationError(
+                {
+                    "montant_forfait": "أدخل المبلغ الجزافي الدوري — إلزامي عندما تكون "
+                    "الفوترة «جزافية»."
+                }
+            )
 
     @property
     def quantite_livree_cumulee(self):
@@ -859,6 +941,32 @@ class AbonnementClient(models.Model):
     @property
     def est_actif(self):
         return self.statut == self.STATUT_ACTIF
+
+    @property
+    def est_forfait(self):
+        return self.mode_facturation == self.MODE_FACTURATION_FORFAIT
+
+    def periode_courante(self, reference_date=None):
+        """
+        Calendar-month period [first day, last day] containing
+        *reference_date* (defaults to today) — the billing period a forfait
+        "générer l'échéance" action will invoice.
+        """
+        import calendar
+
+        ref = reference_date or datetime.date.today()
+        debut = ref.replace(day=1)
+        fin = ref.replace(day=calendar.monthrange(ref.year, ref.month)[1])
+        return debut, fin
+
+    @property
+    def derniere_facture_abonnement(self):
+        return self.factures_abonnement.order_by("-periode_fin", "-pk").first()
+
+    def echeance_deja_facturee(self, periode_debut, periode_fin):
+        return self.factures_abonnement.filter(
+            periode_debut=periode_debut, periode_fin=periode_fin
+        ).exists()
 
 
 class VoyageLivraison(models.Model):
@@ -900,6 +1008,14 @@ class VoyageLivraison(models.Model):
         result = self.livraisons.aggregate(total=models.Sum("quantite_livree"))["total"]
         return result or Decimal("0")
 
+    # v1.7 — the trip's transport cost is a real depenses.Depense record
+    # (categorie, mode_paiement, pieces_jointes, reporting...) linked via
+    # Depense.voyage, not a bare field here. See depenses/models.py.
+    @property
+    def cout_transport_total(self):
+        result = self.depenses_transport.aggregate(total=models.Sum("montant"))["total"]
+        return result or Decimal("0")
+
 
 class LivraisonPartielle(models.Model):
     """
@@ -927,9 +1043,15 @@ class LivraisonPartielle(models.Model):
         verbose_name="رحلة التوصيل",
     )
     date = models.DateField(verbose_name="تاريخ التسليم")
+    # v1.7 — nullable: mandatory under mode_facturation=quantite (drives
+    # billing + stock sortie), but purely informational/optional under
+    # mode_facturation=forfait, where the fixed amount is owed regardless of
+    # what was actually collected/delivered that period.
     quantite_livree = models.DecimalField(
         max_digits=12,
         decimal_places=3,
+        null=True,
+        blank=True,
         verbose_name="الكمية المسلَّمة",
         validators=[MinValueValidator(0.001)],
     )
@@ -1028,6 +1150,18 @@ class PrixMarche(models.Model):
         verbose_name="سعر السوق (د.ج/وحدة)",
         validators=[MinValueValidator(0)],
     )
+    poids_reference_kg = models.DecimalField(
+        max_digits=6,
+        decimal_places=3,
+        default=Decimal("2.000"),
+        verbose_name="الوزن المرجعي للصينية (كغ)",
+        validators=[MinValueValidator(0.001)],
+        help_text=(
+            "وزن الصينية المرجعي (30 بيضة) الذي يقابل سعر السوق أعلاه — "
+            "يُستخدم لتقدير السعر تناسبياً حسب الوزن الفعلي لعينة الدفعة "
+            "(افتراضياً 2 كغ)."
+        ),
+    )
     source = models.CharField(
         max_length=100,
         blank=True,
@@ -1067,5 +1201,27 @@ class PrixMarche(models.Model):
             cls.objects.filter(produit_fini=produit_fini, date__lte=date)
             .order_by("-date")
             .values_list("prix_marche", flat=True)
+            .first()
+        )
+
+    @classmethod
+    def get_closest_to(cls, produit_fini, date):
+        """
+        Return the PrixMarche instance *closest* to `date` for `produit_fini`
+        — preferring the latest one on/before `date`, falling back to the
+        earliest one after `date` if none exists yet before it. Used to
+        pre-populate the pesée form's market-price selector with the price
+        nearest the lot's own date, while still letting the user pick another.
+        """
+        avant = (
+            cls.objects.filter(produit_fini=produit_fini, date__lte=date)
+            .order_by("-date")
+            .first()
+        )
+        if avant:
+            return avant
+        return (
+            cls.objects.filter(produit_fini=produit_fini, date__gt=date)
+            .order_by("date")
             .first()
         )

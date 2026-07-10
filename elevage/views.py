@@ -1810,7 +1810,7 @@ def pesee_create(request, lot_pk):
         return redirect("elevage:lot_detail", pk=lot.pk)
 
     if request.method == "POST":
-        form = PeseeEchantillonForm(request.POST, lot=lot)
+        form = PeseeEchantillonForm(request.POST, lot=lot, user=request.user)
         if form.is_valid():
             try:
                 pesee = form.save(commit=False)
@@ -1843,7 +1843,37 @@ def pesee_create(request, lot_pk):
     else:
         import datetime
 
-        form = PeseeEchantillonForm(lot=lot, initial={"date": datetime.date.today()})
+        from elevage.signals import _get_produit_oeufs
+        from clients.models import PrixMarche
+
+        initial = {"date": datetime.date.today()}
+        produit_oeufs = _get_produit_oeufs()
+        prix_proche = None
+        if produit_oeufs:
+            # Pre-populate with the market price closest to the lot's own
+            # latest date (falls back to today if the lot has no history yet).
+            date_ref = (
+                lot.pesees.filter(type_pesee=PeseeEchantillon.TYPE_OEUFS)
+                .order_by("-date")
+                .values_list("date", flat=True)
+                .first()
+                or datetime.date.today()
+            )
+            prix_proche = PrixMarche.get_closest_to(produit_oeufs, date_ref)
+            if prix_proche:
+                initial["prix_marche"] = prix_proche.pk
+
+        form = PeseeEchantillonForm(lot=lot, user=request.user, initial=initial)
+
+    from clients.models import PrixMarche
+
+    prix_marche_data = {
+        pm.pk: {
+            "prix_marche": str(pm.prix_marche),
+            "poids_reference_kg": str(pm.poids_reference_kg),
+        }
+        for pm in PrixMarche.objects.all()
+    }
 
     return render(
         request,
@@ -1853,6 +1883,11 @@ def pesee_create(request, lot_pk):
             "lot": lot,
             "title": f"وزن عينة — {lot.designation}",
             "action_label": "حفظ",
+            "is_admin_user": getattr(form, "is_admin_user", False),
+            "prix_marche_data_json": json.dumps(prix_marche_data),
+            "prix_marche_create_url": reverse(
+                "elevage:prix_marche_quick_create_json"
+            ),
         },
     )
 
@@ -3126,3 +3161,83 @@ def bl_fournisseur_poussins_json(request):
         for bl in qs.order_by("-date_bl")
     ]
     return JsonResponse({"results": results})
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def prix_marche_quick_create_json(request):
+    """
+    Quick-add a PrixMarche entry from the pesée form's «+ سعر سوق جديد» modal
+    (AJAX, POST), so the user never has to leave the weighing form to record
+    today's market quote before picking it.
+
+    Body params (form-encoded or JSON):
+        date            — ISO date (required)
+        prix_marche     — د.ج per plateau (required)
+        poids_reference_kg — optional, defaults to the model default (2 kg)
+        source          — optional
+        notes           — optional
+
+    Returns 201 with {"id", "label", "prix_marche", "poids_reference_kg",
+    "date"} on success, or 400 with {"errors": {...}} on validation failure.
+    Always targets the farm's single egg ProduitFini (elevage.signals._get_produit_oeufs).
+    """
+    from clients.models import PrixMarche
+    from elevage.signals import _get_produit_oeufs
+
+    produit_oeufs = _get_produit_oeufs()
+    if not produit_oeufs:
+        return JsonResponse(
+            {"errors": {"__all__": ["لا يوجد منتج نهائي نشط من نوع «بيض» في الكتالوج."]}},
+            status=400,
+        )
+
+    payload = request.POST or json.loads(request.body or "{}")
+    data = {
+        "produit_fini": produit_oeufs.pk,
+        "date": payload.get("date"),
+        "prix_marche": payload.get("prix_marche"),
+        "poids_reference_kg": payload.get("poids_reference_kg") or "2.000",
+        "source": payload.get("source", ""),
+        "notes": payload.get("notes", ""),
+    }
+
+    instance = PrixMarche(
+        produit_fini_id=data["produit_fini"],
+        date=data["date"] or None,
+        prix_marche=data["prix_marche"] or None,
+        poids_reference_kg=data["poids_reference_kg"],
+        source=data["source"],
+        notes=data["notes"],
+        created_by=request.user,
+    )
+    try:
+        instance.full_clean()
+        instance.save()
+    except Exception as exc:
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        if isinstance(exc, DjangoValidationError):
+            errors = {
+                field: [str(e) for e in errs]
+                for field, errs in exc.message_dict.items()
+            }
+        else:
+            errors = {"__all__": [str(exc)]}
+        return JsonResponse({"errors": errors}, status=400)
+
+    logger.info(
+        "PrixMarche pk=%s created via quick-add modal by '%s'.",
+        instance.pk,
+        request.user,
+    )
+    return JsonResponse(
+        {
+            "id": instance.pk,
+            "label": f"{instance.date:%d/%m/%Y} — {instance.prix_marche} د.ج",
+            "prix_marche": str(instance.prix_marche),
+            "poids_reference_kg": str(instance.poids_reference_kg),
+            "date": instance.date.isoformat(),
+        },
+        status=201,
+    )

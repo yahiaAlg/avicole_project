@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block title %}الاشتراك — {{ abo.client.nom }} — تربية الدواجن{% endblock %}
-{% block nav_clients %}active{% endblock %}
+{% block nav_abonnements %}active{% endblock %}
 
 {% block page_title %}اشتراك — {{ abo.client.nom }}{% endblock %}
 {% block page_sub_text %}{{ abo.produit_fini.designation }} · {{ abo.get_frequence_display }}{% endblock %}
@@ -60,9 +60,23 @@
             <span class="info-value">{{ abo.get_frequence_display }}</span>
           </div>
           <div class="info-row">
+            <span class="info-label">نمط الفوترة</span>
+            <span class="info-value">
+              {% if abo.est_forfait %}<span class="pill-info"><i class="bx bxs-badge-dollar"></i> جزافي — {{ abo.montant_forfait|floatformat:2 }} دج/شهرياً</span>
+              {% else %}بحسب الكمية المسلَّمة{% endif %}
+            </span>
+          </div>
+          {% if not abo.est_forfait %}
+          <div class="info-row">
             <span class="info-label">سعر الوحدة</span>
             <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ abo.prix_unitaire|floatformat:2 }} دج</span>
           </div>
+          {% else %}
+          <div class="info-row">
+            <span class="info-label">طريقة الدفع</span>
+            <span class="info-value">{{ abo.get_mode_paiement_display }}</span>
+          </div>
+          {% endif %}
           <div class="info-row">
             <span class="info-label">تاريخ البدء</span>
             <span class="info-value">{{ abo.date_debut|date:"d/m/Y" }}</span>
@@ -99,10 +113,61 @@
         </div>
       </div>
 
+      {% if abo.est_forfait %}
+      <!-- Forfait billing history -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bx-receipt"></i> فواتير الاشتراك</div>
+          {% if not request.user.userprofile.role == 'viewer' and abo.statut == 'actif' %}
+          <a href="{% url 'clients:generer_echeance_abonnement' abo.pk %}" class="btn-primary" style="font-size:12px;padding:7px 12px;">
+            <i class="bx bx-plus"></i> توليد فاتورة
+          </a>
+          {% endif %}
+        </div>
+        {% if periode_deja_facturee %}
+        <div style="padding:10px 18px;font-size:12px;color:var(--text-muted);background:var(--bg-raised);border-bottom:1px solid var(--border);">
+          <i class="bx bx-check-circle" style="color:var(--accent-text);"></i>
+          الفترة الحالية ({{ periode_courante.0|date:"d/m" }} — {{ periode_courante.1|date:"d/m/Y" }}) مفوترة بالفعل.
+        </div>
+        {% endif %}
+        {% if factures_abonnement %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>الفترة</th>
+                <th>المرجع</th>
+                <th style="text-align:left;">المبلغ</th>
+                <th>الحالة</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for f in factures_abonnement %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td style="font-size:12.5px;color:var(--text-muted);">{{ f.periode_debut|date:"d/m/Y" }} — {{ f.periode_fin|date:"d/m/Y" }}</td>
+                <td><a href="{% url 'clients:facture_client_detail' f.pk %}" style="color:var(--accent-text);text-decoration:none;font-weight:600;">{{ f.reference }}</a></td>
+                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ f.montant_ttc|floatformat:2 }} دج</td>
+                <td>
+                  {% if f.statut == 'payee' %}<span class="pill-success">مدفوعة</span>
+                  {% elif f.statut == 'partiellement_payee' %}<span class="pill-warning">جزئياً</span>
+                  {% elif f.statut == 'en_litige' %}<span class="pill-danger">نزاع</span>
+                  {% else %}<span class="pill-neutral">غير مدفوعة</span>{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:28px 20px;color:var(--text-muted);font-size:13px;">لم تُولَّد أي فاتورة بعد.</div>
+        {% endif %}
+      </div>
+      {% endif %}
+
       <!-- Deliveries table -->
       <div class="card">
         <div class="card-header-row">
-          <div class="section-eyebrow"><i class="bx bx-list-ul"></i> التسليمات المسجلة</div>
+          <div class="section-eyebrow"><i class="bx bx-list-ul"></i> التسليمات المسجلة{% if abo.est_forfait %} (اختياري — لا تؤثر على الفوترة){% endif %}</div>
           {% if not request.user.userprofile.role == 'viewer' and abo.statut == 'actif' %}
           <a href="{% url 'clients:livraison_partielle_create' abo.pk %}" class="btn-primary" style="font-size:12px;padding:7px 12px;">
             <i class="bx bx-plus"></i> تسجيل تسليم
@@ -161,7 +226,11 @@
       <div class="card">
         <div class="card-header-row"><div class="section-eyebrow"><i class="bx bx-cog"></i> إجراءات</div></div>
         <div style="padding:16px;display:flex;flex-direction:column;gap:8px;">
-          {% if abo.statut == 'actif' %}
+          {% if abo.statut == 'actif' and abo.est_forfait %}
+          <a href="{% url 'clients:generer_echeance_abonnement' abo.pk %}" class="btn-primary btn-full">
+            <i class="bx bx-receipt"></i> توليد فاتورة الفترة
+          </a>
+          {% elif abo.statut == 'actif' %}
           <a href="{% url 'clients:livraison_partielle_create' abo.pk %}" class="btn-primary btn-full">
             <i class="bx bx-plus"></i> تسجيل تسليم جديد
           </a>
@@ -247,10 +316,12 @@
   .action-btn:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
   .action-btn--danger:hover { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.3); color: #dc2626; }
 
-  .pill-success,.pill-danger,.pill-warning,.pill-neutral { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;font-family:'Inter',sans-serif; }
+  .pill-success,.pill-danger,.pill-warning,.pill-neutral,.pill-info { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;font-family:'Inter',sans-serif; }
   .pill-success { background:rgba(34,197,94,.14);color:#15803d; }
   .pill-warning { background:rgba(245,158,11,.14);color:#b45309; }
   .pill-neutral { background:rgba(0,0,0,.06);color:var(--text-secondary); }
+  .pill-info { background:rgba(59,130,246,.12);color:#1d4ed8; }
+  .pill-danger { background:rgba(239,68,68,.10);color:#dc2626; }
 
   .btn-primary { background:var(--accent);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .18s;text-decoration:none; }
   .btn-primary:hover { opacity:.88;color:#fff; }

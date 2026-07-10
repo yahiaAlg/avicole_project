@@ -1170,6 +1170,35 @@ class PeseeEchantillon(models.Model):
         verbose_name="الوزن الإجمالي للعينة (غ)",
         validators=[MinValueValidator(0.01)],
     )
+    # --- Market-price valuation (type_pesee = oeufs only) -----------------
+    # Lets a laying-phase weighing record what the egg plateau (30 œufs) is
+    # currently worth: `prix_marche` pins the reference market quote used,
+    # and `estimation_prix_plateau` is the farm's own admin-editable estimate
+    # for THIS sample's actual average weight (see `estimation_auto_prix_plateau`
+    # for the proportional auto-computed suggestion). Both stay null for
+    # type_pesee = oiseaux.
+    prix_marche = models.ForeignKey(
+        "clients.PrixMarche",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pesees_oeufs",
+        verbose_name="سعر السوق المرجعي (صينية)",
+        help_text="سعر السوق المعتمد كمرجع لتقدير قيمة صينية هذه العينة.",
+    )
+    estimation_prix_plateau = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="تقديري لسعر الصينية (د.ج)",
+        validators=[MinValueValidator(0)],
+        help_text=(
+            "تقدير المدير لسعر الصينية بناءً على الوزن الفعلي — يُقترح "
+            "تلقائياً تناسبياً مع سعر السوق المرجعي، وقابل للتعديل من طرف "
+            "المدير فقط."
+        ),
+    )
     notes = models.TextField(blank=True, verbose_name="ملاحظات")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -1205,6 +1234,58 @@ class PeseeEchantillon(models.Model):
         from intrants.utils import determiner_qualite
 
         return determiner_qualite(self.poids_moyen_g, self.type_pesee)
+
+    # --- Market-price valuation helpers (type_pesee = oeufs) --------------
+
+    @property
+    def poids_moyen_plateau_kg(self):
+        """
+        This sample's average egg weight, scaled up to a full plateau
+        (30 œufs) and expressed in kg — the unit PrixMarche.prix_marche and
+        PrixMarche.poids_reference_kg are both quoted in. None for
+        type_pesee = oiseaux.
+        """
+        if self.type_pesee != self.TYPE_OEUFS:
+            return None
+        from .models import RecolteOeufs  # local import to avoid reorder issues
+
+        return round(
+            self.poids_moyen_g * RecolteOeufs.PLATEAU_SIZE / Decimal("1000"), 3
+        )
+
+    @property
+    def estimation_auto_prix_plateau(self):
+        """
+        Proportional auto-suggestion for `estimation_prix_plateau`:
+            prix_marche.prix_marche × (poids réel du plateau / poids_reference_kg)
+        Returns None when no `prix_marche` is set (or for bird weighings).
+        """
+        poids_plateau = self.poids_moyen_plateau_kg
+        if poids_plateau is None or not self.prix_marche_id:
+            return None
+        reference = self.prix_marche.poids_reference_kg
+        if not reference:
+            return None
+        return round(
+            self.prix_marche.prix_marche * (poids_plateau / reference), 2
+        )
+
+    @property
+    def marge_valeur(self):
+        """My estimation minus the reference market price, in د.ج. None if either is missing."""
+        if self.estimation_prix_plateau is None or not self.prix_marche_id:
+            return None
+        return round(
+            self.estimation_prix_plateau - self.prix_marche.prix_marche, 2
+        )
+
+    @property
+    def marge_pourcentage(self):
+        """Same margin, expressed as a % of the reference market price."""
+        marge = self.marge_valeur
+        if marge is None or not self.prix_marche.prix_marche:
+            return None
+        return round(marge / self.prix_marche.prix_marche * 100, 2)
 
 
 class RecolteOeufs(models.Model):

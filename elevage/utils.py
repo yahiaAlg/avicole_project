@@ -606,10 +606,13 @@ def get_lot_suivi_journalier(lot) -> list:
         aliment_jour_kg, aliment_cumul_kg,
         medicament_jour (list of {libelle, total} per unité, non-zero only),
         medicament_cumul (list of {libelle, total} per unité, all units seen),
-        oeufs_jour, oeufs_cumul, oeufs_retraits_jour, oeufs_stock
+        oeufs_jour, oeufs_cumul, oeufs_retraits_jour, oeufs_stock,
+        pesee_valuation (dict {prix_marche, estimation, marge_valeur,
+        marge_pourcentage} or None — only set on days with an egg
+        PeseeEchantillon carrying a `prix_marche`)
     """
     from django.db.models import Sum
-    from elevage.models import RetraitOeufs, RecolteOeufs
+    from elevage.models import RetraitOeufs, RecolteOeufs, PeseeEchantillon
 
     date_debut = lot.date_ouverture
 
@@ -657,6 +660,18 @@ def get_lot_suivi_journalier(lot) -> list:
         .values("date")
         .annotate(total=Sum("quantite_oeufs"))
     }
+    # Market-price valuation of egg pesées, keyed by date — one entry per
+    # day a PeseeEchantillon(type_pesee=oeufs, prix_marche set) was recorded,
+    # so it can be threaded through the daily journal («keep track of it»).
+    # select_related avoids one query per row when building the dicts below.
+    pesee_oeufs_par_jour = {
+        p.date: p
+        for p in lot.pesees.filter(
+            type_pesee=PeseeEchantillon.TYPE_OEUFS, prix_marche__isnull=False
+        )
+        .select_related("prix_marche")
+        .order_by("date")
+    }
 
     if lot.date_fermeture:
         date_fin = lot.date_fermeture
@@ -698,6 +713,28 @@ def get_lot_suivi_journalier(lot) -> list:
         oeufs_retraits_cumul += r
         oeufs_stock = oeufs_cumul - oeufs_retraits_cumul
 
+        pesee_jour = pesee_oeufs_par_jour.get(jour)
+        if pesee_jour:
+            prix_ref = pesee_jour.prix_marche.prix_marche
+            estimation = (
+                pesee_jour.estimation_prix_plateau
+                if pesee_jour.estimation_prix_plateau is not None
+                else pesee_jour.estimation_auto_prix_plateau
+            )
+            if estimation is not None and prix_ref:
+                marge_valeur = round(estimation - prix_ref, 2)
+                marge_pourcentage = round(marge_valeur / prix_ref * 100, 2)
+            else:
+                marge_valeur = marge_pourcentage = None
+            pesee_valuation = {
+                "prix_marche": prix_ref,
+                "estimation": estimation,
+                "marge_valeur": marge_valeur,
+                "marge_pourcentage": marge_pourcentage,
+            }
+        else:
+            pesee_valuation = None
+
         rows.append(
             {
                 "date": jour,
@@ -724,6 +761,7 @@ def get_lot_suivi_journalier(lot) -> list:
                 "oeufs_stock": oeufs_stock,
                 "oeufs_stock_plateaux": oeufs_stock // RecolteOeufs.PLATEAU_SIZE,
                 "oeufs_stock_hors_plateau": oeufs_stock % RecolteOeufs.PLATEAU_SIZE,
+                "pesee_valuation": pesee_valuation,
             }
         )
 

@@ -32,7 +32,7 @@ Utilisation :
     python manage.py seed_elevage_lot --what pondeuse-elevage
     #   2) TransfertLot Poussinière (Bât. C) → Poulailler (Bât. B) à J+126
     python manage.py seed_elevage_lot --what pondeuse-transfert
-    #   3) Aliment Ponte + récolte d'œufs (post-transfert uniquement)
+    #   3) Aliment Ponte + récolte d'œufs + pesées œufs/PrixMarche (post-transfert)
     python manage.py seed_elevage_lot --what oeufs
     python manage.py seed_elevage_lot --what oeufs --lot-pondeuses "Lot Pondeuses 2025"
 
@@ -89,9 +89,12 @@ Données incluses (scénario Lot Pondeuses 2025, cycle biologique complet §5.6)
     Mortalités   : 6 événements phase élevage, 105 oiseaux (≈3,5 %)
     Aliments     : 11 saisies démarrage/croissance/pré-ponte + 4 aliment Ponte
     Médicaments  : 7 saisies (vaccins + amoxicilline + vitamines)
-    Pesées       : 4 PeseeEchantillon (J0/J42/J84/J126 — courbe de croissance)
+    Pesées (oiseaux) : 4 PeseeEchantillon (J0/J42/J84/J126 — courbe de croissance)
     Transfert    : 1 TransfertLot MODE_FULL à J+126 (Poussinière → Poulailler)
     Œufs         : 8 récoltes (montée en ponte réaliste post-transfert)
+    Pesées (œufs) : 3 PeseeEchantillon (J140/J168/J196 — valorisation marché,
+                    chacune couplée à un PrixMarche créé à la même date ;
+                    la 3e démontre l'estimation_prix_plateau admin-only)
 """
 
 from __future__ import annotations
@@ -354,6 +357,28 @@ RECOLTE_OEUFS_DATA = [
     (196, 2664),  # 28 sem. — 92 % (plateau de pic)
 ]
 
+# Format : (jour_depuis_ouverture, nombre_oeufs_echantillon, poids_total_g,
+#           prix_marche_dzd, estimation_manuelle_ou_None)
+# Pesées d'échantillon de BIDE (type_pesee=oeufs) — une "plateau" de 30 œufs
+# pesée à 3 étapes de la montée en ponte, chacune couplée à un PrixMarche
+# créé POUR L'OCCASION à la même date (simule le bouton « + سعر جديد » du
+# formulaire de pesée : à défaut de sélectionner un prix récent, l'utilisateur
+# saisirait le sien). Poids moyen/œuf croît avec l'âge du troupeau (45→65 g),
+# reflétant la calibration classique jeune pondeuse → pondeuse mature.
+#   J140 (20 sem., 637 œufs)  : 55 g/œuf — sous le poids référence (2 kg/
+#                               plateau) → marge négative, calibre encore léger.
+#   J168 (24 sem., 2 548 œufs): 60 g/œuf — se rapproche du poids référence.
+#   J196 (28 sem., pic 92 %)  : 65 g/œuf — dépasse le poids référence ; le
+#                               gérant (admin) SURCLASSE manuellement
+#                               l'estimation automatique (calibre L confirmé)
+#                               → démonstration de l'estimation_prix_plateau
+#                               modifiable, réservée au rôle admin.
+PESEE_OEUFS_DATA = [
+    (140, 30, Decimal("1650.00"), Decimal("480.0000"), None),
+    (168, 30, Decimal("1800.00"), Decimal("510.0000"), None),
+    (196, 30, Decimal("1950.00"), Decimal("540.0000"), Decimal("560.00")),
+]
+
 
 # ---------------------------------------------------------------------------
 # Command
@@ -410,7 +435,8 @@ class Command(BaseCommand):
                 "'mortalites' / 'aliments' / 'formule-interne' (FormuleAliment + "
                 "ProductionAliment «Grower Feed» in-house, §5.3bis — batch costing) / "
                 "'medics' / 'fertilisant' / "
-                "'oeufs' (post-transfert) / 'pondeuse-elevage' (mortalités+aliments+"
+                "'oeufs' (post-transfert — récolte + 3 pesées œufs/PrixMarche) / "
+                "'pondeuse-elevage' (mortalités+aliments+"
                 "médics+pesées, phase Poussinière) / 'pondeuse-transfert' "
                 "(TransfertLot Poussinière → Poulailler, J+126) / 'none' "
                 "(résout/crée le lot sans peupler de données — utilisé par "
@@ -1245,6 +1271,86 @@ class Command(BaseCommand):
                 )
 
         self._log_summary("Œufs", created_count, len(RECOLTE_OEUFS_DATA))
+
+        self._seed_pesees_oeufs(lot_pondeuses, admin, offset)
+
+    # ------------------------------------------------------------------
+    # Pesées d'échantillon (œufs) + PrixMarche associés — valorisation
+    # marché de la plateau (§5.6.7bis du scénario)
+    # ------------------------------------------------------------------
+
+    def _seed_pesees_oeufs(self, lot_pondeuses, admin, offset: timedelta):
+        """
+        Seed 3 PeseeEchantillon(type_pesee=oeufs) for the laying lot, each
+        linked to a freshly created clients.PrixMarche at the SAME date
+        (mirrors the pesée form's «+ سعر جديد» quick-add — a user without a
+        recent-enough quote would create one on the spot rather than picking
+        an old one). The last entry sets `estimation_prix_plateau` manually
+        to demonstrate the admin-only override of the auto-suggested value.
+        """
+        from elevage.models import PeseeEchantillon
+        from elevage.signals import _get_produit_oeufs
+
+        try:
+            from clients.models import PrixMarche
+        except ImportError as exc:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"  ~ Pesées œufs ignorées : impossible d'importer "
+                    f"clients.models.PrixMarche ({exc})."
+                )
+            )
+            return
+
+        produit_oeufs = _get_produit_oeufs()
+        if not produit_oeufs:
+            self.stdout.write(
+                self.style.WARNING(
+                    "  ~ Pesées œufs ignorées : aucun ProduitFini actif de "
+                    "type OEUFS trouvé (exécutez seed_db_minimal)."
+                )
+            )
+            return
+
+        created_count = 0
+        for jour, nombre_oeufs, poids_total_g, prix_dzd, estimation in PESEE_OEUFS_DATA:
+            dt = lot_pondeuses.date_ouverture + timedelta(days=jour) + offset
+
+            prix_marche, _ = PrixMarche.objects.get_or_create(
+                produit_fini=produit_oeufs,
+                date=dt,
+                defaults={
+                    "prix_marche": prix_dzd,
+                    "source": "السوق المحلي (تحديث الموسم)",
+                    "created_by": admin,
+                },
+            )
+
+            _, created = PeseeEchantillon.objects.get_or_create(
+                lot=lot_pondeuses,
+                date=dt,
+                type_pesee=PeseeEchantillon.TYPE_OEUFS,
+                defaults={
+                    "nombre_sujets": nombre_oeufs,
+                    "poids_total_g": poids_total_g,
+                    "prix_marche": prix_marche,
+                    "estimation_prix_plateau": estimation,
+                    "created_by": admin,
+                },
+            )
+            if created:
+                created_count += 1
+                poids_moyen = poids_total_g / nombre_oeufs
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"  ✓ Pesée œufs {dt}  {poids_moyen:.1f} g/œuf  "
+                        f"(prix marché {prix_dzd} د.ج)"
+                    )
+                )
+
+        self._log_summary(
+            "Œufs — Pesées (valorisation marché)", created_count, len(PESEE_OEUFS_DATA)
+        )
 
     # ------------------------------------------------------------------
 

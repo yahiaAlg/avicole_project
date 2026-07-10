@@ -253,6 +253,19 @@ urlpatterns = [
         views.abonnement_toggle_statut,
         name="abonnement_toggle_statut",
     ),
+    # POST (GET shows a confirmation form): bill the current period of one
+    # forfait subscription (BR-ABO-03)
+    path(
+        "abonnements/<int:pk>/generer-echeance/",
+        views.generer_echeance_abonnement,
+        name="generer_echeance_abonnement",
+    ),
+    # POST-only: bulk-bill every active forfait subscription in the active branche
+    path(
+        "abonnements/generer-echeances/",
+        views.abonnements_generer_echeances,
+        name="abonnements_generer_echeances",
+    ),
     # ── LivraisonPartielle ───────────────────────────────────────────────
     path(
         "abonnements/<int:abonnement_pk>/livraisons/creer/",

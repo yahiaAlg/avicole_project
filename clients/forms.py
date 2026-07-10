@@ -571,6 +571,9 @@ class AbonnementClientForm(forms.ModelForm):
             "frequence",
             "quantite_totale_prevue",
             "prix_unitaire",
+            "mode_facturation",
+            "montant_forfait",
+            "mode_paiement",
             "statut",
             "notes",
         ]
@@ -582,6 +585,7 @@ class AbonnementClientForm(forms.ModelForm):
                 attrs={"step": "0.001", "min": "0"}
             ),
             "prix_unitaire": forms.NumberInput(attrs={"step": "0.0001", "min": "0"}),
+            "montant_forfait": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
         }
 
     def __init__(self, *args, client=None, branche=None, **kwargs):
@@ -597,6 +601,11 @@ class AbonnementClientForm(forms.ModelForm):
         )
         self.fields["date_fin"].required = False
         self.fields["notes"].required = False
+        # montant_forfait is only mandatory when mode_facturation=forfait —
+        # enforced in clean() below (mirrors AbonnementClient.clean()), so
+        # don't block submission at the widget level when quantite mode is
+        # selected and the field is left at its default 0.
+        self.fields["montant_forfait"].required = False
         if client:
             self.fields["client"].initial = client
             self.fields["client"].widget = forms.HiddenInput()
@@ -611,6 +620,74 @@ class AbonnementClientForm(forms.ModelForm):
         if date_debut and date_fin and date_fin < date_debut:
             raise ValidationError(
                 {"date_fin": "تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء."}
+            )
+
+        mode_facturation = cleaned.get("mode_facturation")
+        montant_forfait = cleaned.get("montant_forfait")
+        if (
+            mode_facturation == AbonnementClient.MODE_FACTURATION_FORFAIT
+            and not montant_forfait
+        ):
+            raise ValidationError(
+                {
+                    "montant_forfait": "أدخل المبلغ الجزافي الدوري — إلزامي عندما "
+                    "تكون الفوترة «جزافية»."
+                }
+            )
+        return cleaned
+
+
+class GenererEcheanceAbonnementForm(forms.Form):
+    """
+    Bill one period of a forfait AbonnementClient (BR-ABO-03).
+
+    v1.7 — periode_debut/periode_fin are now editable: they default to the
+    current calendar month (AbonnementClient.periode_courante) but the user
+    can pick any period (e.g. to catch up a missed month, or bill a custom
+    range), instead of always being forced onto "today's" month.
+    """
+
+    periode_debut = forms.DateField(
+        label="بداية الفترة",
+        widget=forms.DateInput(attrs={"type": "date"}),
+        required=True,
+    )
+    periode_fin = forms.DateField(
+        label="نهاية الفترة",
+        widget=forms.DateInput(attrs={"type": "date"}),
+        required=True,
+    )
+    date_facture = forms.DateField(
+        label="تاريخ الفاتورة",
+        widget=forms.DateInput(attrs={"type": "date"}),
+        required=False,
+        help_text="اتركه فارغاً لاستخدام تاريخ اليوم.",
+    )
+    date_echeance = forms.DateField(
+        label="تاريخ الاستحقاق",
+        widget=forms.DateInput(attrs={"type": "date"}),
+        required=False,
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        date_facture = cleaned.get("date_facture")
+        date_echeance = cleaned.get("date_echeance")
+        periode_debut = cleaned.get("periode_debut")
+        periode_fin = cleaned.get("periode_fin")
+
+        if periode_debut and periode_fin and periode_fin < periode_debut:
+            raise ValidationError(
+                {
+                    "periode_fin": "نهاية الفترة يجب أن تكون بعد بدايتها."
+                }
+            )
+        if date_facture and date_echeance and date_echeance < date_facture:
+            raise ValidationError(
+                {
+                    "date_echeance": "تاريخ الاستحقاق يجب أن يكون بعد تاريخ "
+                    "الفاتورة."
+                }
             )
         return cleaned
 
@@ -688,6 +765,14 @@ class LivraisonPartielleForm(forms.ModelForm):
         else:
             self._abonnement = None
 
+        # v1.7 — under mode_facturation=forfait the amount owed doesn't
+        # depend on quantite_livree (fixed periodic amount regardless of
+        # what was actually collected/delivered), so don't force it here.
+        # Under mode_facturation=quantite it still drives billing + stock,
+        # so it stays required.
+        if abonnement and abonnement.est_forfait:
+            self.fields["quantite_livree"].required = False
+
     def clean_date(self):
         date = self.cleaned_data["date"]
         if date > datetime.date.today():
@@ -730,7 +815,14 @@ class PrixMarcheForm(forms.ModelForm):
         from clients.models import PrixMarche
 
         model = PrixMarche
-        fields = ["produit_fini", "date", "prix_marche", "source", "notes"]
+        fields = [
+            "produit_fini",
+            "date",
+            "prix_marche",
+            "poids_reference_kg",
+            "source",
+            "notes",
+        ]
         widgets = {
             "produit_fini": forms.Select(attrs={"class": "form-control"}),
             "date": forms.DateInput(
@@ -738,6 +830,9 @@ class PrixMarcheForm(forms.ModelForm):
             ),
             "prix_marche": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01", "min": "0"}
+            ),
+            "poids_reference_kg": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.001", "min": "0.001"}
             ),
             "source": forms.TextInput(attrs={"class": "form-control"}),
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),

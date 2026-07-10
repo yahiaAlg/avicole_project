@@ -139,7 +139,54 @@
           <a href="{% url 'clients:paiement_client_create_for_client' client.pk %}" class="btn-ghost" style="font-size:12.5px;padding:7px 12px;">
             <i class="bx bxs-credit-card"></i> دفع
           </a>
+          <a href="{% url 'clients:abonnement_create_for_client' client.pk %}" class="btn-ghost" style="font-size:12.5px;padding:7px 12px;">
+            <i class="bx bx-repeat"></i> اشتراك جديد
+          </a>
         </div>
+        {% endif %}
+      </div>
+
+      <!-- الاشتراكات -->
+      <div class="detail-card">
+        <div class="detail-card__header">
+          <span class="section-eyebrow"><i class="bx bx-repeat"></i> الاشتراكات</span>
+          <a href="{% url 'clients:abonnement_list' %}?client={{ client.pk }}" class="link-see-all">عرض الكل <i class="bx bx-left-arrow-alt"></i></a>
+        </div>
+        {% if abonnements %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>المنتج</th>
+                <th>نمط الفوترة</th>
+                <th>التواتر</th>
+                <th>الحالة</th>
+                <th style="text-align:left;">إجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for abo in abonnements %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td><a href="{% url 'clients:abonnement_detail' abo.pk %}" class="row-link" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ abo.produit_fini.designation }}</a></td>
+                <td>
+                  {% if abo.est_forfait %}<span class="pill-info">جزافي — {{ abo.montant_forfait|floatformat:0 }} دج</span>
+                  {% else %}<span style="font-size:12px;color:var(--text-muted);">بالكمية</span>{% endif %}
+                </td>
+                <td style="font-size:12px;color:var(--text-muted);">{{ abo.get_frequence_display }}</td>
+                <td>
+                  {% if abo.statut == 'actif' %}<span class="pill-success">نشط</span>
+                  {% elif abo.statut == 'suspendu' %}<span class="pill-warning">معلّق</span>
+                  {% elif abo.statut == 'termine' %}<span class="pill-neutral">منتهٍ</span>
+                  {% endif %}
+                </td>
+                <td style="text-align:left;"><a href="{% url 'clients:abonnement_detail' abo.pk %}" class="link-see-all" style="justify-content:flex-end;">التفاصيل <i class="bx bx-left-arrow-alt"></i></a></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:28px;color:var(--text-muted);font-size:13px;">لا توجد اشتراكات لهذا العميل.</div>
         {% endif %}
       </div>
 

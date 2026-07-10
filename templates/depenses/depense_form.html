@@ -107,6 +107,34 @@
           </div>
         </div>
 
+        <!-- Attribution à une rحلة توصيل -->
+        <div class="form-card">
+          <div class="form-card__header">
+            <div class="section-eyebrow"><i class="bx bxs-truck"></i> رحلة التوصيل (اختياري)</div>
+          </div>
+          <div class="form-card__body">
+            {% if form.voyage.field.widget.input_type == "hidden" %}
+            {{ form.voyage }}
+            <div class="branche-indicator">
+              <i class="bx bxs-truck"></i>
+              <span>مصروف نقل مرتبط برحلة <strong>{{ form.voyage.initial.date_voyage|date:"d/m/Y" }}</strong></span>
+            </div>
+            {% else %}
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" for="{{ form.voyage.id_for_label }}">رحلة التوصيل</label>
+              <div class="input-wrapper">
+                <i class="bx bxs-truck input-icon"></i>
+                {{ form.voyage }}
+              </div>
+              <div class="form-hint">اختياري — لتخصيص تكلفة النقل (وقود، أجرة سائق...) لرحلة توصيل محددة.</div>
+              {% for err in form.voyage.errors %}
+              <div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
         <!-- Notes -->
         <div class="form-card">
           <div class="form-card__header">

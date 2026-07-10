@@ -93,6 +93,7 @@ class DepenseForm(forms.ModelForm):
             "mode_paiement",
             "reference_document",
             "lot",
+            "voyage",
             "facture_liee",
             "notes",
         ]
@@ -105,7 +106,7 @@ class DepenseForm(forms.ModelForm):
             ),
         }
 
-    def __init__(self, *args, branche=None, **kwargs):
+    def __init__(self, *args, branche=None, voyage=None, **kwargs):
         super().__init__(*args, **kwargs)
         from core.models import Branche
 
@@ -121,6 +122,21 @@ class DepenseForm(forms.ModelForm):
         if branche:
             self.fields["branche"].initial = branche
             self.fields["branche"].widget = forms.HiddenInput()
+
+        # v1.7 — optional attribution to a delivery trip (BR-DEP-05-ish,
+        # informational only, no branche guard needed — see model). Pass
+        # `voyage=<VoyageLivraison instance>` from the view to pre-select and
+        # lock the field, same pattern as `branche` above, when this form was
+        # reached from "أنشئ رحلة" → "سجّل مصروف النقل".
+        from clients.models import VoyageLivraison
+
+        self.fields["voyage"].queryset = VoyageLivraison.objects.order_by(
+            "-date_voyage"
+        )
+        self.fields["voyage"].required = False
+        if voyage:
+            self.fields["voyage"].initial = voyage
+            self.fields["voyage"].widget = forms.HiddenInput()
 
         # BR-DEP-04 / BR-BRA-01: lot attribution is informational, but must
         # stay within the dépense's own branche — scope the choices when

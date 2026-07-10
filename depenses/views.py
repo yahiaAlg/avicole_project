@@ -615,11 +615,24 @@ def depense_create(request):
     BR-DEP-04: lot attribution is optional and purely informational here.
     BR-BRA-01/04: branche is a required, explicit field — pre-selected and
     locked to the request's active branche.
+
+    v1.7: `?voyage=<pk>` pre-selects and locks the trip attribution — used
+    by clients:voyage_create, which redirects here right after a new trip is
+    saved so its transport cost gets logged immediately. On success, if the
+    dépense is tied to a trip, redirect back to that trip's page instead of
+    the dépense's own detail page.
     """
     branche = get_active_branche(request)
 
+    voyage = None
+    voyage_pk = request.POST.get("voyage") or request.GET.get("voyage")
+    if voyage_pk:
+        from clients.models import VoyageLivraison
+
+        voyage = get_object_or_404(VoyageLivraison, pk=voyage_pk)
+
     if request.method == "POST":
-        form = DepenseForm(request.POST, request.FILES, branche=branche)
+        form = DepenseForm(request.POST, request.FILES, branche=branche, voyage=voyage)
         pj_formset = build_piece_jointe_formset(
             DepensePieceJointeFormSet, request, prefix="pj"
         )
@@ -647,6 +660,8 @@ def depense_create(request):
                     depense.montant,
                     depense.date,
                 )
+                if depense.voyage_id:
+                    return redirect("clients:voyage_detail", pk=depense.voyage_id)
                 return redirect("depenses:depense_detail", pk=depense.pk)
 
             except Exception as exc:
@@ -657,7 +672,19 @@ def depense_create(request):
     else:
         import datetime
 
-        form = DepenseForm(initial={"date": datetime.date.today()}, branche=branche)
+        initial = {"date": datetime.date.today()}
+        if voyage:
+            initial["date"] = voyage.date_voyage
+            initial["description"] = f"مصاريف رحلة توصيل {voyage.date_voyage}"
+            # Best-effort: the "TRANSPORT" category is seeded by
+            # seed_db_minimal (_seed_categories_depense) but may not exist
+            # on every install — fall back silently if it's missing/renamed.
+            transport_cat = CategorieDepense.objects.filter(
+                code="TRANSPORT", actif=True
+            ).first()
+            if transport_cat:
+                initial["categorie"] = transport_cat.pk
+        form = DepenseForm(initial=initial, branche=branche, voyage=voyage)
         pj_formset = build_piece_jointe_formset(
             DepensePieceJointeFormSet, request, prefix="pj"
         )
@@ -722,7 +749,11 @@ def depense_edit(request, pk):
 
     if request.method == "POST":
         form = DepenseForm(
-            request.POST, request.FILES, instance=depense, branche=depense.branche
+            request.POST,
+            request.FILES,
+            instance=depense,
+            branche=depense.branche,
+            voyage=depense.voyage,
         )
         pj_formset = build_piece_jointe_formset(
             DepensePieceJointeFormSet, request, instance=depense, prefix="pj"
@@ -741,6 +772,8 @@ def depense_edit(request, pk):
                     f"تم تحديث المصروف « {depense.description[:60]} ».",
                 )
                 logger.info("Depense pk=%s updated by '%s'.", depense.pk, request.user)
+                if updated.voyage_id:
+                    return redirect("clients:voyage_detail", pk=updated.voyage_id)
                 return redirect("depenses:depense_detail", pk=depense.pk)
 
             except Exception as exc:
@@ -749,7 +782,7 @@ def depense_edit(request, pk):
         else:
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
-        form = DepenseForm(instance=depense, branche=depense.branche)
+        form = DepenseForm(instance=depense, branche=depense.branche, voyage=depense.voyage)
         pj_formset = build_piece_jointe_formset(
             DepensePieceJointeFormSet, request, instance=depense, prefix="pj"
         )

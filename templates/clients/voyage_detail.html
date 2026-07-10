@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block title %}رحلة {{ voyage.date_voyage|date:"d/m/Y" }} — تربية الدواجن{% endblock %}
-{% block nav_clients %}active{% endblock %}
+{% block nav_voyages %}active{% endblock %}
 
 {% block page_title %}رحلة التوصيل — {{ voyage.date_voyage|date:"d/m/Y" }}{% endblock %}
 {% block page_sub_text %}{% if voyage.chauffeur %}{{ voyage.chauffeur }}{% endif %}{% if voyage.vehicule %} · {{ voyage.vehicule }}{% endif %}{% endblock %}
@@ -42,6 +42,10 @@
           <div class="info-row">
             <span class="info-label">إجمالي المُسلَّم</span>
             <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">{{ voyage.quantite_totale_livree|floatformat:3 }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">تكلفة النقل</span>
+            <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ voyage.cout_transport_total|floatformat:2 }} دج</span>
           </div>
           {% if voyage.notes %}
           <div class="info-row info-row--full">
@@ -96,6 +100,49 @@
         <div style="text-align:center;padding:36px 20px;color:var(--text-muted);">
           <i class="bx bx-list-ul" style="font-size:28px;display:block;margin-bottom:10px;color:var(--border-strong);"></i>
           <div style="font-size:13px;">لا توجد تسليمات مرتبطة بهذه الرحلة.</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Transport expenses -->
+      <div class="card" style="margin-top:16px;">
+        <div class="card-header-row">
+          <div class="section-eyebrow"><i class="bx bxs-wallet"></i> مصاريف النقل ({{ depenses_transport.count }})</div>
+          {% if not request.user.userprofile.role == 'viewer' %}
+          <a href="{% url 'depenses:depense_create' %}?voyage={{ voyage.pk }}" class="btn-ghost">
+            <i class="bx bx-plus"></i> إضافة مصروف
+          </a>
+          {% endif %}
+        </div>
+        {% if depenses_transport %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>الفئة</th>
+                <th>الوصف</th>
+                <th style="text-align:left;">المبلغ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for dep in depenses_transport %}
+              <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
+                <td>{{ dep.date|date:"d/m/Y" }}</td>
+                <td style="font-size:12.5px;color:var(--text-secondary);">{{ dep.categorie.libelle }}</td>
+                <td>
+                  <a href="{% url 'depenses:depense_edit' dep.pk %}" style="color:var(--text-primary);text-decoration:none;">{{ dep.description }}</a>
+                </td>
+                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">{{ dep.montant|floatformat:2 }} دج</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:36px 20px;color:var(--text-muted);">
+          <i class="bx bxs-wallet" style="font-size:28px;display:block;margin-bottom:10px;color:var(--border-strong);"></i>
+          <div style="font-size:13px;">لا توجد مصاريف نقل مسجَّلة لهذه الرحلة بعد.</div>
         </div>
         {% endif %}
       </div>

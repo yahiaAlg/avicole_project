@@ -64,29 +64,90 @@
             </div>
           </div>
 
+          <!-- Unité de saisie (œufs seulement) : صينية (30 بيضة) أو بيضة مفردة.
+               Pure UI convenience — converts to nombre_sujets/poids_total_g
+               (always in eggs/grams) right before submit; the model itself
+               is never changed. -->
+          <div class="form-group" id="unite-saisie-group" style="display:none;">
+            <label class="form-label">وحدة إدخال العينة</label>
+            <div style="display:flex;gap:16px;">
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                <input type="radio" name="unite_saisie" value="plateau" checked> صينية (30 بيضة)
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                <input type="radio" name="unite_saisie" value="oeuf"> بيضة مفردة
+              </label>
+            </div>
+          </div>
+
           <div class="row g-3">
             <!-- Nombre sujets -->
             <div class="col-md-6">
               <div class="form-group">
-                <label class="form-label" for="{{ form.nombre_sujets.id_for_label }}">عدد العينات <span class="required-star">*</span></label>
+                <label class="form-label" for="id_nombre_saisie">
+                  <span id="label-nombre-sujets">عدد العينات</span> <span class="required-star">*</span>
+                </label>
                 <div class="input-wrap">
                   <i class="bx bxs-user-voice input-icon"></i>
-                  {{ form.nombre_sujets }}
+                  <input type="number" id="id_nombre_saisie" min="1" step="1" class="form-control" placeholder="مثال : 3">
                 </div>
+                <div id="nombre-sujets-hint" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
+                {{ form.nombre_sujets.as_hidden }}
                 {% if form.nombre_sujets.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.nombre_sujets.errors|join:", " }}</div>{% endif %}
               </div>
             </div>
             <!-- Poids total -->
             <div class="col-md-6">
               <div class="form-group">
-                <label class="form-label" for="{{ form.poids_total_g.id_for_label }}">الوزن الإجمالي (غرام) <span class="required-star">*</span></label>
+                <label class="form-label" for="id_poids_saisie">
+                  <span id="label-poids-total">الوزن الإجمالي (غرام)</span> <span class="required-star">*</span>
+                </label>
                 <div class="input-wrap">
                   <i class="bx bxs-cylinder input-icon"></i>
-                  {{ form.poids_total_g }}
+                  <input type="number" id="id_poids_saisie" step="0.01" min="0.01" class="form-control">
                 </div>
-                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">أدخل الوزن بالغرام — يُحسب المتوسط تلقائياً.</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;" id="poids-total-hint">أدخل الوزن بالغرام — يُحسب المتوسط تلقائياً.</div>
+                {{ form.poids_total_g.as_hidden }}
                 {% if form.poids_total_g.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.poids_total_g.errors|join:", " }}</div>{% endif %}
               </div>
+            </div>
+          </div>
+
+          <!-- Market-price valuation (œufs seulement) -->
+          <div class="form-group" id="prix-marche-group" style="display:none;">
+            <label class="form-label">سعر السوق المرجعي (صينية)</label>
+            <div style="display:flex;gap:8px;align-items:flex-start;">
+              <div class="input-wrap" style="flex:1;">
+                <i class="bx bxs-purchase-tag input-icon"></i>
+                {{ form.prix_marche }}
+              </div>
+              <button type="button" id="btn-new-prix-marche" class="btn-ghost" style="font-size:12px;padding:9px 12px;white-space:nowrap;">
+                <i class="bx bx-plus"></i> سعر جديد
+              </button>
+            </div>
+            {% if form.prix_marche.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.prix_marche.errors|join:", " }}</div>{% endif %}
+
+            <div class="row g-3" style="margin-top:12px;">
+              <div class="col-md-4">
+                <label class="form-label">سعر السوق (د.ج/صينية)</label>
+                <input type="text" id="display-prix-marche" class="form-control" readonly style="background:var(--bg-hover);">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">تقديري (د.ج/صينية){% if not is_admin_user %} <span style="font-weight:400;color:var(--text-muted);">(اقتراح تلقائي)</span>{% endif %}</label>
+                {% if is_admin_user %}
+                  {{ form.estimation_prix_plateau }}
+                {% else %}
+                  <input type="text" id="display-estimation-readonly" class="form-control" readonly style="background:var(--bg-hover);">
+                {% endif %}
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">الهامش</label>
+                <input type="text" id="display-marge" class="form-control" readonly style="background:var(--bg-hover);">
+              </div>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+              يُقترح «تقديري» تناسبياً مع الوزن الفعلي للعينة مقابل الوزن المرجعي لسعر السوق المختار
+              {% if is_admin_user %}— يمكن تعديله يدوياً{% endif %}.
             </div>
           </div>
 
@@ -111,6 +172,37 @@
         </form>
       </div>
 
+    </div>
+  </div>
+
+  <!-- Quick-add market price modal -->
+  <div id="prix-marche-modal-backdrop" class="pm-modal-backdrop" style="display:none;">
+    <div class="pm-modal">
+      <div class="pm-modal__header">
+        <div class="form-card__title">سعر سوق جديد — صينية بيض (30 بيضة)</div>
+        <button type="button" id="pm-modal-close" class="btn-ghost" style="padding:6px 10px;"><i class="bx bx-x"></i></button>
+      </div>
+      <div id="pm-modal-errors" class="form-errors-global" style="display:none;"></div>
+      <div class="form-group">
+        <label class="form-label">التاريخ <span class="required-star">*</span></label>
+        <input type="date" id="pm-date" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">سعر السوق (د.ج/صينية) <span class="required-star">*</span></label>
+        <input type="number" step="0.01" min="0" id="pm-prix" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">الوزن المرجعي للصينية (كغ)</label>
+        <input type="number" step="0.001" min="0.001" id="pm-poids-ref" class="form-control" value="2.000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">المصدر</label>
+        <input type="text" id="pm-source" class="form-control" placeholder="مثال : السوق المحلي">
+      </div>
+      <div class="form-actions">
+        <button type="button" id="pm-modal-cancel" class="btn-ghost">إلغاء</button>
+        <button type="button" id="pm-modal-save" class="btn-primary"><i class="bx bxs-save"></i> حفظ واستخدام</button>
+      </div>
     </div>
   </div>
 </div>
@@ -139,5 +231,226 @@
   .btn-primary:hover { opacity:.88;color:#fff; }
   .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
   .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+  .form-control { width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13.5px;padding:11px 13px; }
+  .form-control:focus { border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.15);outline:none; }
+
+  .pm-modal-backdrop { position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000; }
+  .pm-modal { background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px 26px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto; }
+  .pm-modal__header { display:flex;align-items:center;justify-content:space-between;margin-bottom:16px; }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var typePeseeEl = document.getElementById('{{ form.type_pesee.id_for_label }}');
+  var uniteGroup = document.getElementById('unite-saisie-group');
+  var prixMarcheGroup = document.getElementById('prix-marche-group');
+  var labelNombreSujets = document.getElementById('label-nombre-sujets');
+  var poidsTotalHint = document.getElementById('poids-total-hint');
+  var nombreSujetsHint = document.getElementById('nombre-sujets-hint');
+
+  var idNombreSaisie = document.getElementById('id_nombre_saisie');
+  var idPoidsSaisie = document.getElementById('id_poids_saisie');
+  var hiddenNombreSujets = document.getElementById('{{ form.nombre_sujets.id_for_label }}');
+  var hiddenPoidsTotal = document.getElementById('{{ form.poids_total_g.id_for_label }}');
+
+  var PLATEAU_SIZE = 30;
+  var TYPE_OEUFS = 'oeufs';
+
+  var prixMarcheSelect = document.getElementById('{{ form.prix_marche.id_for_label }}');
+  var displayPrixMarche = document.getElementById('display-prix-marche');
+  var displayEstimationReadonly = document.getElementById('display-estimation-readonly');
+  var estimationInput = document.getElementById('{{ form.estimation_prix_plateau.id_for_label|default:"" }}');
+  var displayMarge = document.getElementById('display-marge');
+  var isAdmin = {{ is_admin_user|yesno:"true,false" }};
+  var prixMarcheData = {{ prix_marche_data_json|default:"{}"|safe }};
+
+  function isOeufsMode() {
+    return typePeseeEl && typePeseeEl.value === TYPE_OEUFS;
+  }
+
+  function getUniteSaisie() {
+    var checked = document.querySelector('input[name="unite_saisie"]:checked');
+    return checked ? checked.value : 'plateau';
+  }
+
+  // --- Toggle visibility of œufs-only groups & labels -------------------
+  function refreshVisibility() {
+    var oeufs = isOeufsMode();
+    uniteGroup.style.display = oeufs ? '' : 'none';
+    prixMarcheGroup.style.display = oeufs ? '' : 'none';
+    if (oeufs && getUniteSaisie() === 'plateau') {
+      labelNombreSujets.textContent = 'عدد الصواني';
+      nombreSujetsHint.textContent = 'كل صينية = 30 بيضة.';
+      idPoidsSaisie.setAttribute('placeholder', 'وزن الصينية الواحدة (غ)');
+    } else {
+      labelNombreSujets.textContent = 'عدد العينات';
+      nombreSujetsHint.textContent = '';
+      idPoidsSaisie.removeAttribute('placeholder');
+    }
+    syncHiddenFields();
+  }
+
+  // --- Convert visible plateau/oeuf inputs into the real model fields ---
+  function syncHiddenFields() {
+    var n = parseFloat(idNombreSaisie.value) || 0;
+    var p = parseFloat(idPoidsSaisie.value) || 0;
+    if (isOeufsMode() && getUniteSaisie() === 'plateau') {
+      // n plateaux of p grams each -> n*30 eggs, total weight n*p grams
+      hiddenNombreSujets.value = n ? Math.round(n * PLATEAU_SIZE) : '';
+      hiddenPoidsTotal.value = (n && p) ? (n * p).toFixed(2) : '';
+    } else {
+      hiddenNombreSujets.value = n || '';
+      hiddenPoidsTotal.value = p || '';
+    }
+    refreshValuation();
+  }
+
+  // --- Market-price valuation (read-only price, estimation, margin) -----
+  function refreshValuation() {
+    if (!isOeufsMode() || !prixMarcheSelect) return;
+    var pmId = prixMarcheSelect.value;
+    var pm = prixMarcheData[pmId];
+    if (!pm) {
+      displayPrixMarche.value = '';
+      if (displayEstimationReadonly) displayEstimationReadonly.value = '';
+      displayMarge.value = '';
+      return;
+    }
+    var prixRef = parseFloat(pm.prix_marche);
+    var poidsRef = parseFloat(pm.poids_reference_kg);
+    displayPrixMarche.value = prixRef.toFixed(2) + ' د.ج';
+
+    var n = parseFloat(idNombreSaisie.value) || 0;
+    var p = parseFloat(idPoidsSaisie.value) || 0;
+    var poidsMoyenG, poidsPlateauKg;
+    if (getUniteSaisie() === 'plateau') {
+      poidsMoyenG = n ? p : 0; // weight per plateau, already in grams
+      poidsPlateauKg = poidsMoyenG / 1000;
+    } else {
+      poidsMoyenG = (n && p) ? (p / n) : 0; // per-egg average
+      poidsPlateauKg = (poidsMoyenG * PLATEAU_SIZE) / 1000;
+    }
+
+    var autoEstimation = (poidsPlateauKg && poidsRef) ? (prixRef * (poidsPlateauKg / poidsRef)) : null;
+
+    if (isAdmin && estimationInput) {
+      if (!estimationInput.dataset.userEdited && autoEstimation !== null) {
+        estimationInput.value = autoEstimation.toFixed(2);
+      }
+    } else if (displayEstimationReadonly && autoEstimation !== null) {
+      displayEstimationReadonly.value = autoEstimation.toFixed(2) + ' د.ج';
+    }
+
+    var estimationVal = isAdmin && estimationInput
+      ? parseFloat(estimationInput.value)
+      : autoEstimation;
+
+    if (estimationVal !== null && !isNaN(estimationVal) && prixRef) {
+      var margeValeur = estimationVal - prixRef;
+      var margePct = (margeValeur / prixRef) * 100;
+      displayMarge.value = margeValeur.toFixed(2) + ' د.ج (' + margePct.toFixed(1) + '%)';
+      displayMarge.style.color = margeValeur >= 0 ? 'var(--accent-text)' : '#dc2626';
+    } else {
+      displayMarge.value = '';
+    }
+  }
+
+  if (typePeseeEl) typePeseeEl.addEventListener('change', refreshVisibility);
+  document.querySelectorAll('input[name="unite_saisie"]').forEach(function (r) {
+    r.addEventListener('change', refreshVisibility);
+  });
+  idNombreSaisie.addEventListener('input', syncHiddenFields);
+  idPoidsSaisie.addEventListener('input', syncHiddenFields);
+  if (prixMarcheSelect) prixMarcheSelect.addEventListener('change', refreshValuation);
+  if (isAdmin && estimationInput) {
+    estimationInput.removeAttribute('readonly');
+    estimationInput.addEventListener('input', function () {
+      estimationInput.dataset.userEdited = '1';
+      refreshValuation();
+    });
+  }
+
+  // Pre-fill the visible inputs from any existing hidden values (redisplay
+  // after a validation error) — hidden values are always raw eggs/grams, so
+  // force «بيضة مفردة» mode to avoid re-converting them as a plateau.
+  if (hiddenNombreSujets.value || hiddenPoidsTotal.value) {
+    var oeufRadio = document.querySelector('input[name="unite_saisie"][value="oeuf"]');
+    if (oeufRadio) oeufRadio.checked = true;
+    if (hiddenNombreSujets.value) idNombreSaisie.value = hiddenNombreSujets.value;
+    if (hiddenPoidsTotal.value) idPoidsSaisie.value = hiddenPoidsTotal.value;
+  }
+
+  refreshVisibility();
+
+  // --- Quick-add market price modal (AJAX) -------------------------------
+  var modalBackdrop = document.getElementById('prix-marche-modal-backdrop');
+  var btnNew = document.getElementById('btn-new-prix-marche');
+  var btnClose = document.getElementById('pm-modal-close');
+  var btnCancel = document.getElementById('pm-modal-cancel');
+  var btnSave = document.getElementById('pm-modal-save');
+  var pmErrors = document.getElementById('pm-modal-errors');
+
+  function openModal() {
+    document.getElementById('pm-date').value = new Date().toISOString().slice(0, 10);
+    pmErrors.style.display = 'none';
+    modalBackdrop.style.display = 'flex';
+  }
+  function closeModal() { modalBackdrop.style.display = 'none'; }
+
+  if (btnNew) btnNew.addEventListener('click', openModal);
+  if (btnClose) btnClose.addEventListener('click', closeModal);
+  if (btnCancel) btnCancel.addEventListener('click', closeModal);
+
+  function getCookie(name) {
+    var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return match ? match.pop() : '';
+  }
+
+  if (btnSave) btnSave.addEventListener('click', function () {
+    var body = new URLSearchParams({
+      date: document.getElementById('pm-date').value,
+      prix_marche: document.getElementById('pm-prix').value,
+      poids_reference_kg: document.getElementById('pm-poids-ref').value,
+      source: document.getElementById('pm-source').value,
+    });
+    fetch('{{ prix_marche_create_url }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRFToken': getCookie('csrftoken'),
+      },
+      body: body,
+    })
+      .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+      .then(function (res) {
+        if (!res.ok) {
+          var msgs = [];
+          Object.keys(res.data.errors || {}).forEach(function (k) {
+            msgs = msgs.concat(res.data.errors[k]);
+          });
+          pmErrors.textContent = msgs.join(' — ') || 'خطأ غير متوقع.';
+          pmErrors.style.display = 'flex';
+          return;
+        }
+        prixMarcheData[res.data.id] = {
+          prix_marche: res.data.prix_marche,
+          poids_reference_kg: res.data.poids_reference_kg,
+        };
+        var opt = document.createElement('option');
+        opt.value = res.data.id;
+        opt.textContent = res.data.label;
+        prixMarcheSelect.insertBefore(opt, prixMarcheSelect.firstChild.nextSibling);
+        prixMarcheSelect.value = res.data.id;
+        refreshValuation();
+        closeModal();
+      })
+      .catch(function () {
+        pmErrors.textContent = 'تعذّر الاتصال بالخادم.';
+        pmErrors.style.display = 'flex';
+      });
+  });
+})();
+</script>
 {% endblock %}

@@ -15,6 +15,11 @@
   <a href="{% url 'clients:facture_client_print' facture.pk %}" class="btn-ghost" target="_blank">
     <i class="bx bxs-printer"></i> طباعة
   </a>
+  {% if request.user.is_superuser or request.user.userprofile.role == 'admin' %}
+  <button type="button" class="btn-ghost btn-ghost--danger" id="facture-delete-quick-btn" title="حذف الفاتورة نهائيًا">
+    <i class="bx bx-trash"></i> حذف
+  </button>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
@@ -203,25 +208,35 @@
         </div>
         {% endif %}
 
-        <form method="post" action="{% url 'clients:facture_client_ajouter_piece_jointe' facture.pk %}" enctype="multipart/form-data" style="padding:16px 18px;border-top:1px solid var(--border);">
+        <form method="post" action="{% url 'clients:facture_client_ajouter_piece_jointe' facture.pk %}" enctype="multipart/form-data" class="pj-upload-form">
           {% csrf_token %}
           {{ pj_formset.management_form }}
           {% for pj_form in pj_formset %}
-          <div class="pj-row" style="display:grid;grid-template-columns:2fr 1fr 1.4fr;gap:10px;margin-bottom:{% if not forloop.last %}10px{% else %}0{% endif %};">
+          <div class="pj-row">
             {% for hfield in pj_form.hidden_fields %}{{ hfield }}{% endfor %}
-            {{ pj_form.fichier }}
-            {{ pj_form.type_document }}
-            {{ pj_form.description }}
+            <div class="pj-field">
+              <label class="pj-field__label">نوع الوثيقة</label>
+              {{ pj_form.type_document }}
+            </div>
+            <div class="pj-field">
+              <label class="pj-field__label">وصف مختصر</label>
+              {{ pj_form.description }}
+            </div>
+            <div class="pj-field pj-field--file">
+              <label class="pj-field__label">الملف</label>
+              {{ pj_form.fichier }}
+            </div>
           </div>
           {% for err in pj_form.fichier.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
           {% endfor %}
-          <button type="submit" class="btn-ghost btn-sm" style="margin-top:10px;">
+          <button type="submit" class="btn-ghost btn-sm pj-submit-btn">
             <i class="bx bx-upload"></i> رفع المرفق
           </button>
         </form>
       </div>
 
     </div>
+
 
     <!-- Right: financial summary -->
     <div class="detail-side">
@@ -368,6 +383,8 @@
   .btn-primary:hover { opacity:.88;color:#fff; }
   .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
   .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+  .btn-ghost--danger { color: #dc2626; border-color: rgba(239,68,68,.25); }
+  .btn-ghost--danger:hover { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.35); color: #dc2626; }
   .btn-sm { padding: 7px 13px; font-size: 12.5px; }
   .btn-full { width:100%;justify-content:center; }
 
@@ -395,6 +412,37 @@
   }
   .confirm-panel__text { font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; }
   .confirm-panel__actions { display: flex; gap: 8px; justify-content: flex-start; }
+
+  /* Pièce jointe — upload form */
+  .pj-upload-form { padding: 16px 18px; border-top: 1px solid var(--border); }
+  .pj-row { display: grid; grid-template-columns: 1fr 1.5fr 1.5fr; gap: 12px; margin-bottom: 12px; }
+  .pj-row:last-of-type { margin-bottom: 14px; }
+  @media (max-width: 640px) { .pj-row { grid-template-columns: 1fr; } }
+  .pj-field { display: flex; flex-direction: column; gap: 5px; }
+  .pj-field__label { font-size: 11px; font-weight: 500; color: var(--text-muted); }
+  .pj-field select,
+  .pj-field input[type="text"] {
+    width: 100%; background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); color: var(--text-primary); font-family: 'Inter', sans-serif;
+    font-size: 13px; padding: 9px 12px; direction: rtl; text-align: right;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .pj-field select:focus,
+  .pj-field input[type="text"]:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim, rgba(34,197,94,.15)); outline: none;
+  }
+  .pj-field--file input[type="file"] {
+    width: 100%; background: var(--bg-surface); border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-md); color: var(--text-muted); font-size: 12px;
+    padding: 7px 10px; cursor: pointer; direction: rtl; text-align: right;
+  }
+  .pj-field--file input[type="file"]::file-selector-button {
+    background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    color: var(--text-secondary); font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 12px;
+    padding: 6px 10px; margin-inline-end: 8px; cursor: pointer; transition: background .12s;
+  }
+  .pj-field--file input[type="file"]::file-selector-button:hover { background: var(--bg-surface); }
+  .pj-submit-btn { margin-top: 2px; }
 </style>
 {% endblock %}
 
@@ -419,6 +467,17 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   wireConfirmToggle('facture-delete-toggle-btn', 'facture-delete-confirm', 'facture-delete-cancel');
+
+  // Topbar quick action — scrolls to the danger zone and opens its confirm panel
+  var quickDeleteBtn = document.getElementById('facture-delete-quick-btn');
+  var dangerZoneToggleBtn = document.getElementById('facture-delete-toggle-btn');
+  var dangerZonePanel = document.getElementById('facture-delete-confirm');
+  if (quickDeleteBtn && dangerZoneToggleBtn) {
+    quickDeleteBtn.addEventListener('click', function () {
+      dangerZoneToggleBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (dangerZonePanel) { dangerZonePanel.style.display = 'block'; }
+    });
+  }
 });
 </script>
 {% endblock %}
