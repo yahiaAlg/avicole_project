@@ -484,14 +484,14 @@ class Command(BaseCommand):
         if what in ("all", "fertilisant"):
             self._seed_fertilisant(lot, admin, offset)
 
-        if what in ("all", "oeufs"):
-            self._seed_oeufs(options["lot_pondeuses"], offset, strict=(what == "oeufs"))
-
-        if what == "pondeuse-elevage":
+        if what in ("all", "pondeuse-elevage"):
             self._seed_pondeuse_elevage(options["lot_pondeuses"], offset)
 
-        if what == "pondeuse-transfert":
+        if what in ("all", "pondeuse-transfert"):
             self._seed_transfert(options["lot_pondeuses"], admin, offset)
+
+        if what in ("all", "oeufs"):
+            self._seed_oeufs(options["lot_pondeuses"], offset, strict=(what == "oeufs"))
 
         self.stdout.write(self.style.SUCCESS("\n✓ seed_elevage_lot terminé.\n"))
 
