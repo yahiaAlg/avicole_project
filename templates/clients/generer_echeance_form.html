@@ -25,10 +25,26 @@
             <span class="summary-label">العميل</span>
             <span class="summary-val">{{ abo.client.nom }}</span>
           </div>
+          <div class="summary-row">
+            <span class="summary-label">فترة الاشتراك</span>
+            <span class="summary-val" style="font-size:12.5px;">
+              {{ abo.date_debut|date:"d/m/Y" }} → {% if abo.date_fin %}{{ abo.date_fin|date:"d/m/Y" }}{% else %}مستمر (بدون تاريخ نهاية){% endif %}
+            </span>
+          </div>
           <div class="summary-row" style="border-bottom:none;">
-            <span class="summary-label">المبلغ المستحق (لكل فترة)</span>
+            <span class="summary-label">المبلغ المستحق (لكل شهر)</span>
             <span class="summary-val" style="color:var(--accent-text);font-size:16px;">{{ abo.montant_forfait|floatformat:2 }} دج</span>
           </div>
+        </div>
+
+        <div class="hint-box">
+          <i class="bx bx-info-circle"></i>
+          يجب أن تقع الفترة المفوترة بالكامل ضمن فترة الاشتراك أعلاه — لا يمكن الفوترة قبل {{ abo.date_debut|date:"d/m/Y" }}{% if abo.date_fin %} أو بعد {{ abo.date_fin|date:"d/m/Y" }}{% endif %}.
+        </div>
+
+        <div class="hint-box">
+          <i class="bx bx-info-circle"></i>
+          يُحسب المبلغ يومياً بالتناسب: كل شهر كامل داخل الفترة يُحتسب بكامل المبلغ الشهري، وأي جزء من شهر يُحتسب حسب عدد أيامه الفعلية (مثال: 15 يوماً من شهر 30 يوماً = نصف المبلغ). يُخصم من الناتج أي مبلغ سبق فوترته لأيام ضمن نفس الفترة — فتحصل دائماً على المتبقي الحقيقي فقط.
         </div>
 
         {% if abo.mode_paiement == 'prepaye' %}
@@ -58,6 +74,7 @@
           <div class="form-group">
             <label class="form-label" for="{{ form.date_facture.id_for_label }}">تاريخ الفاتورة</label>
             {{ form.date_facture }}
+            <div class="form-hint">مضبوط افتراضياً على تاريخ اليوم — يجب أن يكون في تاريخ نهاية الفترة المفوترة أو بعده.</div>
             {% for err in form.date_facture.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
           </div>
           <div class="form-group" style="margin-bottom:0;">
@@ -114,4 +131,69 @@
   .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); font-family: 'Nunito',sans-serif; font-weight: 600; font-size: 13px; border-radius: var(--radius-md); padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .12s; text-decoration: none; }
   .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var periodeDebutInput = document.getElementById('{{ form.periode_debut.id_for_label }}');
+  var periodeFinInput   = document.getElementById('{{ form.periode_fin.id_for_label }}');
+  var dateFactureInput  = document.getElementById('{{ form.date_facture.id_for_label }}');
+  var formEl            = periodeFinInput.closest('form');
+
+  var abonnementDebut = "{{ abo.date_debut|date:'Y-m-d' }}";
+  {% if abo.date_fin %}var abonnementFin = "{{ abo.date_fin|date:'Y-m-d' }}";{% else %}var abonnementFin = null;{% endif %}
+
+  // Constrain the period pickers to the subscription's own lifetime —
+  // matches the server-side guardrail in generer_facture_abonnement.
+  if (abonnementDebut) {
+    periodeDebutInput.min = abonnementDebut;
+    periodeFinInput.min = abonnementDebut;
+  }
+  if (abonnementFin) {
+    periodeDebutInput.max = abonnementFin;
+    periodeFinInput.max = abonnementFin;
+  }
+
+  function todayISO() {
+    var d = new Date();
+    var mm = String(d.getMonth() + 1).padStart(2, '0');
+    var dd = String(d.getDate()).padStart(2, '0');
+    return d.getFullYear() + '-' + mm + '-' + dd;
+  }
+
+  function clearCustomError() {
+    dateFactureInput.setCustomValidity('');
+  }
+
+  function syncDateFactureConstraints() {
+    if (!periodeFinInput.value) return;
+    // Invoice date can never be before the end of the billed period.
+    dateFactureInput.min = periodeFinInput.value;
+    if (dateFactureInput.value && dateFactureInput.value < periodeFinInput.value) {
+      dateFactureInput.value = periodeFinInput.value;
+    }
+    clearCustomError();
+  }
+
+  // Prepopulate with today's date if left empty.
+  if (!dateFactureInput.value) {
+    dateFactureInput.value = todayISO();
+  }
+
+  syncDateFactureConstraints();
+  periodeFinInput.addEventListener('change', syncDateFactureConstraints);
+  dateFactureInput.addEventListener('input', clearCustomError);
+
+  formEl.addEventListener('submit', function (e) {
+    if (periodeFinInput.value && dateFactureInput.value && dateFactureInput.value < periodeFinInput.value) {
+      dateFactureInput.setCustomValidity('تاريخ الفاتورة يجب أن يكون في تاريخ نهاية الفترة المفوترة أو بعده.');
+      dateFactureInput.reportValidity();
+      e.preventDefault();
+    } else {
+      clearCustomError();
+    }
+  });
+});
+</script>
 {% endblock %}

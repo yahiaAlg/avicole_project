@@ -604,7 +604,11 @@ def bl_client_edit(request, pk):
 
     if request.method == "POST":
         form = BLClientForm(
-            request.POST, request.FILES, instance=bl, client=bl.client, branche=bl.branche
+            request.POST,
+            request.FILES,
+            instance=bl,
+            client=bl.client,
+            branche=bl.branche,
         )
         formset = BLClientLigneFormSet(
             request.POST, instance=bl, form_kwargs={"branche": bl.branche}
@@ -1993,6 +1997,11 @@ def abonnement_detail(request, pk):
         periode_courante = abo.periode_courante()
         periode_deja_facturee = abo.echeance_deja_facturee(*periode_courante)
 
+    is_admin = request.user.is_superuser or (
+        hasattr(request.user, "userprofile")
+        and request.user.userprofile.role == "admin"
+    )
+
     return render(
         request,
         "clients/abonnement_detail.html",
@@ -2002,6 +2011,7 @@ def abonnement_detail(request, pk):
             "factures_abonnement": factures_abonnement,
             "periode_courante": periode_courante,
             "periode_deja_facturee": periode_deja_facturee,
+            "is_admin": is_admin,
             "title": f"الاشتراك — {abo.client.nom}",
         },
     )
@@ -2060,6 +2070,52 @@ def abonnement_toggle_statut(request, pk):
     return redirect("clients:abonnement_detail", pk=pk)
 
 
+# ===========================================================================
+# AbonnementClient — Delete (admin-only, POST-only)
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def abonnement_delete(request, pk):
+    """
+    ADMIN-ONLY hard delete of a subscription. Blocked if it already has
+    LivraisonPartielle or FactureClient rows against it (both are
+    on_delete=PROTECT) — those must be dealt with first.
+    """
+    is_admin = request.user.is_superuser or (
+        hasattr(request.user, "userprofile")
+        and request.user.userprofile.role == "admin"
+    )
+    if not is_admin:
+        messages.error(request, "غير مسموح: هذا الإجراء متاح للمدراء فقط.")
+        return redirect("clients:abonnement_detail", pk=pk)
+
+    abo = branche_object_or_404(request, AbonnementClient, pk=pk)
+
+    if abo.livraisons.exists() or abo.factures_abonnement.exists():
+        messages.error(
+            request,
+            "لا يمكن حذف هذا الاشتراك لوجود تسليمات أو فواتير مرتبطة به.",
+        )
+        return redirect("clients:abonnement_detail", pk=pk)
+
+    client_pk = abo.client_id
+    label = str(abo)
+    try:
+        abo.delete()
+        messages.success(request, f"تم حذف الاشتراك « {label} ».")
+        logger.info(
+            "AbonnementClient pk=%s (%s) deleted by '%s'.", pk, label, request.user
+        )
+    except Exception as exc:
+        logger.exception("Error deleting AbonnementClient pk=%s: %s", pk, exc)
+        messages.error(request, f"خطأ أثناء الحذف: {exc}")
+        return redirect("clients:abonnement_detail", pk=pk)
+
+    return redirect("clients:client_detail", pk=client_pk)
+
+
 @login_required(login_url=LOGIN_URL)
 def generer_echeance_abonnement(request, pk):
     """
@@ -2113,9 +2169,15 @@ def generer_echeance_abonnement(request, pk):
         else:
             messages.error(request, "يرجى تصحيح الأخطاء أدناه.")
     else:
+        import datetime
+
         periode_debut, periode_fin = abo.periode_courante()
         form = GenererEcheanceAbonnementForm(
-            initial={"periode_debut": periode_debut, "periode_fin": periode_fin}
+            initial={
+                "periode_debut": periode_debut,
+                "periode_fin": periode_fin,
+                "date_facture": datetime.date.today(),
+            }
         )
 
     return render(
@@ -2153,9 +2215,13 @@ def abonnements_generer_echeances(request):
         )
     if resultat["erreurs"]:
         for abo, err in resultat["erreurs"]:
-            messages.error(request, f"{abo.client.nom} — {abo.produit_fini.designation}: {err}")
+            messages.error(
+                request, f"{abo.client.nom} — {abo.produit_fini.designation}: {err}"
+            )
     if not resultat["crees"] and not resultat["erreurs"]:
-        messages.info(request, "لا توجد اشتراكات جزافية بحاجة إلى فاتورة جديدة هذا الشهر.")
+        messages.info(
+            request, "لا توجد اشتراكات جزافية بحاجة إلى فاتورة جديدة هذا الشهر."
+        )
 
     logger.info(
         "abonnements_generer_echeances: branche=%s — %d créée(s), %d ignorée(s), "
@@ -2187,6 +2253,12 @@ def voyage_list(request):
         qs = qs.filter(date_voyage__lte=date_fin)
 
     page = _paginate(qs, request.GET.get("page"))
+
+    is_admin = request.user.is_superuser or (
+        hasattr(request.user, "userprofile")
+        and request.user.userprofile.role == "admin"
+    )
+
     return render(
         request,
         "clients/voyage_list.html",
@@ -2194,6 +2266,7 @@ def voyage_list(request):
             "page": page,
             "date_debut": date_debut,
             "date_fin": date_fin,
+            "is_admin": is_admin,
             "title": "رحلات التوصيل",
         },
     )
@@ -2254,6 +2327,11 @@ def voyage_detail(request, pk):
         "-date"
     )
 
+    is_admin = request.user.is_superuser or (
+        hasattr(request.user, "userprofile")
+        and request.user.userprofile.role == "admin"
+    )
+
     return render(
         request,
         "clients/voyage_detail.html",
@@ -2261,9 +2339,57 @@ def voyage_detail(request, pk):
             "voyage": voyage,
             "livraisons": livraisons,
             "depenses_transport": depenses_transport,
+            "is_admin": is_admin,
             "title": f"رحلة — {voyage.date_voyage}",
         },
     )
+
+
+# ===========================================================================
+# VoyageLivraison — Delete (admin-only, POST-only)
+# ===========================================================================
+
+
+@login_required(login_url=LOGIN_URL)
+@require_POST
+def voyage_delete(request, pk):
+    """
+    ADMIN-ONLY hard delete of a truck trip. Any LivraisonPartielle records
+    that pointed to it simply fall back to voyage=None (SET_NULL) — their
+    stock effect is untouched. Blocked if it still has linked transport
+    dépenses, so those aren't silently orphaned.
+    """
+    is_admin = request.user.is_superuser or (
+        hasattr(request.user, "userprofile")
+        and request.user.userprofile.role == "admin"
+    )
+    if not is_admin:
+        messages.error(request, "غير مسموح: هذا الإجراء متاح للمدراء فقط.")
+        return redirect("clients:voyage_detail", pk=pk)
+
+    voyage = get_object_or_404(VoyageLivraison, pk=pk)
+
+    if voyage.depenses_transport.exists():
+        messages.error(
+            request,
+            "لا يمكن حذف هذه الرحلة لوجود مصاريف نقل مرتبطة بها. "
+            "احذف المصاريف أولاً.",
+        )
+        return redirect("clients:voyage_detail", pk=pk)
+
+    date_voyage = voyage.date_voyage
+    try:
+        voyage.delete()
+        messages.success(request, f"تم حذف رحلة التوصيل بتاريخ {date_voyage}.")
+        logger.info(
+            "VoyageLivraison pk=%s (%s) deleted by '%s'.", pk, date_voyage, request.user
+        )
+    except Exception as exc:
+        logger.exception("Error deleting VoyageLivraison pk=%s: %s", pk, exc)
+        messages.error(request, f"خطأ أثناء الحذف: {exc}")
+        return redirect("clients:voyage_detail", pk=pk)
+
+    return redirect("clients:voyage_list")
 
 
 @login_required(login_url=LOGIN_URL)
@@ -2552,9 +2678,9 @@ def prix_marche_list(request):
         qs = qs.filter(date__lte=date_fin_str)
 
     # Product list for filter — egg products only where possible
-    produits = ProduitFini.objects.filter(
-        type_produit__code="OEUFS"
-    ).order_by("designation")
+    produits = ProduitFini.objects.filter(type_produit__code="OEUFS").order_by(
+        "designation"
+    )
 
     page = _paginate(qs, request.GET.get("page"))
 

@@ -253,6 +253,12 @@ urlpatterns = [
         views.abonnement_toggle_statut,
         name="abonnement_toggle_statut",
     ),
+    # POST-only: admin-only hard delete
+    path(
+        "abonnements/<int:pk>/supprimer/",
+        views.abonnement_delete,
+        name="abonnement_delete",
+    ),
     # POST (GET shows a confirmation form): bill the current period of one
     # forfait subscription (BR-ABO-03)
     path(
@@ -297,5 +303,11 @@ urlpatterns = [
         "voyages/<int:pk>/modifier/",
         views.voyage_edit,
         name="voyage_edit",
+    ),
+    # POST-only: admin-only hard delete
+    path(
+        "voyages/<int:pk>/supprimer/",
+        views.voyage_delete,
+        name="voyage_delete",
     ),
 ]

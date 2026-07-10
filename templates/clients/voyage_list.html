@@ -67,6 +67,12 @@
                 {% if not request.user.userprofile.role == 'viewer' %}
                 <a href="{% url 'clients:voyage_edit' voyage.pk %}" class="action-btn" title="تعديل"><i class="bx bxs-pencil"></i></a>
                 {% endif %}
+                {% if is_admin %}
+                <form method="post" action="{% url 'clients:voyage_delete' voyage.pk %}" onsubmit="return confirm('حذف رحلة {{ voyage.date_voyage|date:"d/m/Y" }} نهائيًا؟');" style="display:inline;">
+                  {% csrf_token %}
+                  <button type="submit" class="action-btn action-btn--danger" title="حذف"><i class="bx bx-trash"></i></button>
+                </form>
+                {% endif %}
               </div>
             </td>
           </tr>
@@ -125,6 +131,8 @@
   .actions-cell { display: flex; gap: 4px; justify-content: flex-start; }
   .action-btn { width: 30px; height: 30px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: transparent; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--text-muted); cursor: pointer; transition: all .15s; text-decoration: none; }
   .action-btn:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+  .action-btn--danger { color: #dc2626; }
+  .action-btn--danger:hover { background: rgba(239,68,68,.10); border-color: #dc2626; color: #dc2626; }
 
   .pagination-bar { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px; border-top: 1px solid var(--border); }
   .page-btn { width: 32px; height: 32px; border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--text-secondary); text-decoration: none; transition: all .15s; }

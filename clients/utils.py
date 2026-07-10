@@ -20,8 +20,11 @@ branches — when omitted, per §3.5.5).
 """
 
 from decimal import Decimal
+import calendar
 import datetime
 import logging
+
+from django.db import models
 
 logger = logging.getLogger(__name__)
 
@@ -365,15 +368,69 @@ def consommer_acomptes_client_fifo(facture):
 # ---------------------------------------------------------------------------
 
 
+def _montant_prorata_periode(montant_mensuel, periode_debut, periode_fin):
+    """
+    Prorated forfait amount due for [periode_debut, periode_fin], inclusive,
+    counted in actual days rather than whole months.
+
+    Walks the range one calendar month at a time; for each month touched,
+    only the days that actually fall inside [periode_debut, periode_fin]
+    are counted, as a fraction of that month's real length (28-31 days) —
+    so a full calendar month always comes out to exactly `montant_mensuel`,
+    while a partial month is billed proportionally to the days left in it.
+    """
+    total = Decimal("0")
+    curseur = periode_debut.replace(day=1)
+    while curseur <= periode_fin:
+        annee, mois = curseur.year, curseur.month
+        jours_du_mois = calendar.monthrange(annee, mois)[1]
+        debut_mois = curseur
+        fin_mois = curseur.replace(day=jours_du_mois)
+
+        chevauchement_debut = max(periode_debut, debut_mois)
+        chevauchement_fin = min(periode_fin, fin_mois)
+        jours_couverts = (chevauchement_fin - chevauchement_debut).days + 1
+
+        fraction = Decimal(jours_couverts) / Decimal(jours_du_mois)
+        total += montant_mensuel * fraction
+
+        curseur = (
+            curseur.replace(year=annee + 1, month=1, day=1)
+            if mois == 12
+            else curseur.replace(month=mois + 1, day=1)
+        )
+    return total.quantize(Decimal("0.01"))
+
+
 def generer_facture_abonnement(
-    abonnement, periode_debut=None, periode_fin=None, date_facture=None,
-    date_echeance=None, created_by=None,
+    abonnement,
+    periode_debut=None,
+    periode_fin=None,
+    date_facture=None,
+    date_echeance=None,
+    created_by=None,
 ):
     """
-    Bill one period of a forfait AbonnementClient (BR-ABO-03) — a fixed
-    amount due regardless of whether anything was actually collected/
+    Bill a forfait AbonnementClient (BR-ABO-03) for the given period — a
+    fixed amount due per calendar month, prorated by actual days for any
+    partial month, regardless of whether anything was actually collected/
     delivered that period (LivraisonPartielle stays optional/informational
     under forfait).
+
+    Amount logic (day-prorated): the period can span several calendar
+    months (e.g. 01/2025 → 05/2025), so the due amount is computed
+    month-by-month as `montant_forfait × (jours couverts / jours du mois)`
+    and summed — a full month bills the full monthly amount, a partial
+    month (e.g. 15 days of a 30-day month) bills half. Any FactureClient
+    already issued against this same abonnement for a period overlapping
+    the requested range is then deducted from that total, so re-running
+    this for a wider or shifted range only ever bills the real remainder —
+    never double-bills days that were already invoiced.
+
+    Guardrail: the requested [periode_debut, periode_fin] must fall
+    entirely within the subscription's own lifetime (date_debut → date_fin,
+    when date_fin is set) — you can't bill for a period before the
+    subscription started or after it ended.
 
     Creates a FactureClient directly (abonnement + periode_debut/periode_fin
     set, bls left empty) with montant_ht/tva/ttc computed here instead of in
@@ -393,11 +450,13 @@ def generer_facture_abonnement(
         created_by (User | None).
 
     Returns:
-        FactureClient: the newly created invoice.
+        FactureClient: the newly created invoice (for the net remainder).
 
     Raises:
         ValueError: subscription is not an active forfait, montant_forfait
-            is not configured, or this exact period was already billed.
+            is not configured, the requested period falls outside the
+            subscription's date_debut/date_fin, or the requested period is
+            already fully covered by prior invoices (net remainder <= 0).
     """
     from clients.models import AbonnementClient, FactureClient
 
@@ -413,13 +472,48 @@ def generer_facture_abonnement(
     if periode_debut is None or periode_fin is None:
         periode_debut, periode_fin = abonnement.periode_courante(date_facture)
 
-    if abonnement.echeance_deja_facturee(periode_debut, periode_fin):
+    if periode_fin < periode_debut:
+        raise ValueError("نهاية الفترة يجب أن تكون بعد بدايتها.")
+
+    # Guardrail: period must sit entirely within the subscription's own
+    # lifetime — no billing before it started or after it ended.
+    if periode_debut < abonnement.date_debut:
         raise ValueError(
-            f"تم توليد فاتورة لهذه الفترة مسبقاً ({periode_debut} → {periode_fin})."
+            f"بداية الفترة ({periode_debut}) قبل تاريخ بدء الاشتراك "
+            f"({abonnement.date_debut}) — لا يمكن الفوترة قبل بدء الاشتراك."
+        )
+    if abonnement.date_fin and periode_fin > abonnement.date_fin:
+        raise ValueError(
+            f"نهاية الفترة ({periode_fin}) بعد تاريخ انتهاء الاشتراك "
+            f"({abonnement.date_fin}) — لا يمكن الفوترة بعد انتهاء الاشتراك."
+        )
+
+    montant_mensuel = Decimal(str(abonnement.montant_forfait))
+    montant_du_periode = _montant_prorata_periode(
+        montant_mensuel, periode_debut, periode_fin
+    )
+
+    # Deduct any invoice already issued for this abonnement whose billed
+    # period overlaps the requested range — this is what makes generating
+    # a wider/shifted range idempotent instead of double-billing days
+    # that were already covered.
+    factures_chevauchantes = abonnement.factures_abonnement.filter(
+        periode_debut__lte=periode_fin, periode_fin__gte=periode_debut
+    )
+    deja_facture = factures_chevauchantes.aggregate(total=models.Sum("montant_ttc"))[
+        "total"
+    ] or Decimal("0")
+
+    montant_ht = montant_du_periode - deja_facture
+
+    if montant_ht <= 0:
+        raise ValueError(
+            f"تم توليد فاتورة (فواتير) تغطي هذه الفترة بالكامل مسبقاً "
+            f"({periode_debut} → {periode_fin}) — المبلغ المستحق للفترة "
+            f"{montant_du_periode} د.ج، وقد فُوتر منه {deja_facture} د.ج بالفعل."
         )
 
     date_facture = date_facture or datetime.date.today()
-    montant_ht = Decimal(str(abonnement.montant_forfait))
 
     facture = FactureClient.objects.create(
         reference=generer_reference_facture_client(abonnement.branche),
@@ -439,7 +533,10 @@ def generer_facture_abonnement(
         statut=FactureClient.STATUT_NON_PAYEE,
         notes=(
             f"اشتراك جزافي — {abonnement.produit_fini.designation} — "
-            f"الفترة {periode_debut} → {periode_fin}."
+            f"الفترة {periode_debut} → {periode_fin} (بالتناسب اليومي = "
+            f"{montant_du_periode} د.ج على أساس {montant_mensuel} د.ج/شهر"
+            + (f"، مخصوم منه {deja_facture} د.ج مفوتر سابقاً" if deja_facture else "")
+            + ")."
         ),
         created_by=created_by,
     )
@@ -450,17 +547,22 @@ def generer_facture_abonnement(
 
     logger.info(
         "generer_facture_abonnement: abonnement pk=%s → facture %s "
-        "(%s DZD, période %s → %s).",
+        "(%s DZD net / %s DZD période brute au prorata, déjà facturé %s DZD, "
+        "période %s → %s).",
         abonnement.pk,
         facture.reference,
         montant_ht,
+        montant_du_periode,
+        deja_facture,
         periode_debut,
         periode_fin,
     )
     return facture
 
 
-def generer_echeances_abonnements_forfait(branche=None, date_facture=None, created_by=None):
+def generer_echeances_abonnements_forfait(
+    branche=None, date_facture=None, created_by=None
+):
     """
     Bulk-generate this period's due for every active forfait
     AbonnementClient (scoped to *branche*, or every branche when omitted),
@@ -584,9 +686,7 @@ def supprimer_paiement_client_cascade(paiement):
             acompte = None
 
         if acompte is not None:
-            for alloc in list(
-                acompte.allocations.select_related("facture")
-            ):
+            for alloc in list(acompte.allocations.select_related("facture")):
                 autre_facture = alloc.facture
                 autre_facture.montant_regle = max(
                     Decimal("0"), autre_facture.montant_regle - alloc.montant_alloue
@@ -698,9 +798,7 @@ def supprimer_facture_client_cascade(facture):
             # 1a. Allocations of this paiement to OTHER factures also
             #     vanish with it — recompute those factures' soldes.
             autres_allocations = list(
-                paiement.allocations.exclude(facture=facture).select_related(
-                    "facture"
-                )
+                paiement.allocations.exclude(facture=facture).select_related("facture")
             )
             for alloc in autres_allocations:
                 autre_facture = alloc.facture
@@ -741,8 +839,7 @@ def supprimer_facture_client_cascade(facture):
             source_acompte.save(update_fields=["montant_restant", "utilise"])
             alloc.delete()
             logger.info(
-                "Suppression de la facture %s : %s DZD restitués à "
-                "l'acompte pk=%s.",
+                "Suppression de la facture %s : %s DZD restitués à " "l'acompte pk=%s.",
                 facture.reference,
                 alloc.montant_alloue,
                 source_acompte.pk,

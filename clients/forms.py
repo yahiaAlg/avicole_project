@@ -678,16 +678,24 @@ class GenererEcheanceAbonnementForm(forms.Form):
 
         if periode_debut and periode_fin and periode_fin < periode_debut:
             raise ValidationError(
-                {
-                    "periode_fin": "نهاية الفترة يجب أن تكون بعد بدايتها."
-                }
+                {"periode_fin": "نهاية الفترة يجب أن تكون بعد بدايتها."}
             )
+        # Guardrail: the invoice can't be dated before the billed period
+        # ends — you can't invoice a period that hasn't finished yet.
+        # date_facture defaults to today() downstream when left blank, so
+        # that's what we validate against here too.
+        if periode_fin:
+            effective_date_facture = date_facture or datetime.date.today()
+            if effective_date_facture < periode_fin:
+                raise ValidationError(
+                    {
+                        "date_facture": "تاريخ الفاتورة يجب أن يكون في تاريخ "
+                        "نهاية الفترة المفوترة أو بعده."
+                    }
+                )
         if date_facture and date_echeance and date_echeance < date_facture:
             raise ValidationError(
-                {
-                    "date_echeance": "تاريخ الاستحقاق يجب أن يكون بعد تاريخ "
-                    "الفاتورة."
-                }
+                {"date_echeance": "تاريخ الاستحقاق يجب أن يكون بعد تاريخ " "الفاتورة."}
             )
         return cleaned
 

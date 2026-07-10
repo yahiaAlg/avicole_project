@@ -123,6 +123,7 @@
                 <th>الفئة</th>
                 <th>الوصف</th>
                 <th style="text-align:left;">المبلغ</th>
+                {% if is_admin %}<th style="text-align:left;">إجراءات</th>{% endif %}
               </tr>
             </thead>
             <tbody>
@@ -134,6 +135,14 @@
                   <a href="{% url 'depenses:depense_edit' dep.pk %}" style="color:var(--text-primary);text-decoration:none;">{{ dep.description }}</a>
                 </td>
                 <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">{{ dep.montant|floatformat:2 }} دج</td>
+                {% if is_admin %}
+                <td style="text-align:left;">
+                  <form method="post" action="{% url 'depenses:depense_delete' dep.pk %}" onsubmit="return confirm('حذف هذا المصروف نهائيًا؟');" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="action-btn action-btn--danger" title="حذف"><i class="bx bx-trash"></i></button>
+                  </form>
+                </td>
+                {% endif %}
               </tr>
               {% endfor %}
             </tbody>
@@ -161,6 +170,12 @@
           <a href="{% url 'clients:abonnement_list' %}" class="btn-ghost btn-full">
             <i class="bx bx-repeat"></i> الاشتراكات
           </a>
+          {% if is_admin %}
+          <form method="post" action="{% url 'clients:voyage_delete' voyage.pk %}" onsubmit="return confirm('حذف هذه الرحلة نهائيًا؟ لا يمكن التراجع عن هذا الإجراء.');">
+            {% csrf_token %}
+            <button type="submit" class="btn-ghost btn-full btn-danger"><i class="bx bx-trash"></i> حذف الرحلة</button>
+          </form>
+          {% endif %}
         </div>
       </div>
       {% endif %}
@@ -200,6 +215,11 @@
   .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
   .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
   .btn-full { width:100%;justify-content:center; }
+  .btn-danger { color:#dc2626;border-color:rgba(239,68,68,.3); }
+  .btn-danger:hover { background:rgba(239,68,68,.10);border-color:#dc2626;color:#dc2626; }
+  .action-btn { width: 30px; height: 30px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: transparent; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; color: var(--text-muted); cursor: pointer; transition: all .15s; }
+  .action-btn--danger { color: #dc2626; }
+  .action-btn--danger:hover { background: rgba(239,68,68,.10); border-color: #dc2626; color: #dc2626; }
 
   @keyframes fadeIn { from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);} }
 </style>
