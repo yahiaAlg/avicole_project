@@ -227,6 +227,23 @@ class LotElevage(models.Model):
         return self.nombre_poussins_initial + transferts_out
 
     @property
+    def nombre_survivants(self):
+        """
+        Denominator for per-bird COST figures (cout_par_poulet) — every bird
+        that ever passed through this lot's phase (nombre_poussins_reference)
+        minus those that actually died here (total_mortalite).
+
+        Unlike effectif_vivant, this deliberately KEEPS birds that were later
+        transferred out, slaughtered/sold, or otherwise left the lot alive —
+        they consumed their share of the feed/médicament/expense cost while
+        they were here, so removing them from the denominator would inflate
+        the remaining birds' cost artificially. Only real mortality (a bird
+        the farm paid to raise and got nothing back for) should shrink the
+        base — hence "survivants", not "encore présents".
+        """
+        return self.nombre_poussins_reference - self.total_mortalite
+
+    @property
     def taux_mortalite(self):
         """
         Mortality rate as a percentage of the true initial cohort.
@@ -431,11 +448,12 @@ class LotElevage(models.Model):
         from django.db.models import Sum
 
         base = self._cout_consommations(only_aliment=True)
-        facon = self.consommations.filter(
-            intrant__categorie__code="ALIMENT"
-        ).aggregate(total=Sum("allocations_batch__cout_facon_alloue"))[
-            "total"
-        ] or 0
+        facon = (
+            self.consommations.filter(intrant__categorie__code="ALIMENT").aggregate(
+                total=Sum("allocations_batch__cout_facon_alloue")
+            )["total"]
+            or 0
+        )
         return round(float(base) + float(facon), 2)
 
     @property
@@ -490,6 +508,220 @@ class LotElevage(models.Model):
             self.cout_aliments + self.cout_medicaments + self.cout_mortalite_poussins,
             2,
         )
+
+    @property
+    def cout_total_depenses(self):
+        """
+        Sum of every Depense attributed directly to this lot (BR-DEP-04 —
+        opt-in tagging: transport, cageots, plateaux, labor, etc.). Mirrors
+        the aggregate used in utils.get_lot_summary; exposed as a model
+        property so signals (transfert cost-continuity snapshot) can reach
+        it without importing utils.
+        """
+        from django.db.models import Sum
+
+        return self.depenses.aggregate(total=Sum("montant"))["total"] or Decimal("0")
+
+    @property
+    def cout_main_oeuvre_salariale(self):
+        """
+        This lot's share of the SALARY cost (BulletinPaie, not the ad-hoc
+        vet/team labor Depense already covered by cout_main_oeuvre_medicament)
+        of every Employe permanently assigned to this lot's bâtiment.
+
+        Two proration steps, because a building's staff and its payroll
+        periods rarely line up neatly with one lot's stay in it:
+
+        1. TIME — an employee's salary is booked monthly (BulletinPaie,
+           one row per (employe, année, mois)). Only the slice of each
+           payslip's calendar month that overlaps this lot's own lifetime
+           ([date_ouverture, date_fermeture or today]) is charged here —
+           a payslip for a month that started before this lot opened or
+           ends after it closed is prorated down accordingly. Only
+           VALIDE/PAYE payslips count; a BROUILLON is not yet a confirmed
+           cost.
+        2. HEADCOUNT — the same building can simultaneously house more
+           than one open lot (no 1-lot-per-bâtiment constraint), so the
+           employee's prorated cost for that overlap is split among every
+           lot that occupied the building during it, weighted by each
+           lot's nombre_poussins_reference — a lot with 5,000 birds should
+           absorb more of the caretaker's wage than one with 500 sharing
+           the same shift, not an equal split by lot count.
+
+        Snapshotted into cout_herite like every other cost component (via
+        cout_total_lot) when this lot's birds are transferred onward, so
+        the labor cost of raising them follows them like feed/médicament
+        cost does — it isn't left behind with the now-closed source lot.
+        """
+        from calendar import monthrange
+        from datetime import date as _date
+        from django.db.models import Q
+
+        from depenses.models import Employe, BulletinPaie
+
+        fin_lot = self.date_fermeture or _date.today()
+        employes = Employe.objects.filter(batiment_id=self.batiment_id)
+        if not employes:
+            return Decimal("0")
+
+        total = Decimal("0")
+        for employe in employes:
+            bulletins = employe.bulletins_paie.exclude(
+                statut=BulletinPaie.STATUT_BROUILLON
+            )
+            for bulletin in bulletins:
+                mois_debut = _date(bulletin.annee, bulletin.mois, 1)
+                mois_fin = _date(
+                    bulletin.annee,
+                    bulletin.mois,
+                    monthrange(bulletin.annee, bulletin.mois)[1],
+                )
+                overlap_debut = max(mois_debut, self.date_ouverture)
+                overlap_fin = min(mois_fin, fin_lot)
+                if overlap_debut > overlap_fin:
+                    continue
+
+                jours_chevauchement = (overlap_fin - overlap_debut).days + 1
+                jours_mois = (mois_fin - mois_debut).days + 1
+                part_periode = Decimal(jours_chevauchement) / Decimal(jours_mois)
+                cout_periode = bulletin.montant_brut * part_periode
+
+                # Split this period's cost among every lot that shared the
+                # bâtiment during the overlap, weighted by headcount.
+                lots_concurrents = LotElevage.objects.filter(
+                    batiment_id=self.batiment_id, date_ouverture__lte=overlap_fin
+                ).filter(
+                    Q(date_fermeture__isnull=True)
+                    | Q(date_fermeture__gte=overlap_debut)
+                )
+                poids_total = (
+                    sum(l.nombre_poussins_reference for l in lots_concurrents)
+                    or self.nombre_poussins_reference
+                )
+                part_lot = Decimal(self.nombre_poussins_reference) / Decimal(
+                    poids_total
+                )
+
+                total += cout_periode * part_lot
+
+        return round(total, 2)
+
+    @property
+    def cout_main_oeuvre_salariale_herite(self):
+        """
+        Share of a PREVIOUS phase's salary cost that follows these birds
+        through a transfer — recomputed LIVE on every read, unlike
+        cout_herite (feed/médicament/depenses), which is frozen at the
+        transfer instant.
+
+        Why the asymmetry: feed and médicament costs are booked once, at
+        consumption, against a stock PMP that doesn't change afterwards —
+        freezing them at transfer time is safe. Salary is different: a
+        BulletinPaie can legitimately be corrected (a raise applied
+        retroactively, a computation error fixed, an advance reconciled)
+        AFTER the birds it was partly costing have already moved on. If we
+        froze the salary snapshot too, that correction would silently never
+        reach the birds it was actually for. So instead of reading a stored
+        amount, this walks the transfer lineage every time and re-derives
+        the number from whatever the source lot's payroll looks like today.
+
+        Uses TransfertLot.part_effectif_snapshot — a birds-count RATIO
+        (n / survivants_avant), fixed at transfer time — multiplied by the
+        source lot's CURRENT total salary cost (its own phase +, recursively,
+        whatever IT inherited). The ratio never goes stale because headcount
+        doesn't get corrected after the fact the way a payslip does.
+
+        Sums every incoming transfer this lot ever received, same two paths
+        as cout_herite (transfert_origine O2O for FULL/SPLIT_NEW,
+        transferts_recus_fusion for SPLIT_MERGE, possibly several).
+        """
+        total = Decimal("0")
+
+        origine = getattr(self, "transfert_origine", None)
+        if origine is not None and origine.part_effectif_snapshot:
+            total += (
+                origine.lot.cout_main_oeuvre_salariale_total
+                * origine.part_effectif_snapshot
+            )
+
+        for t in self.transferts_recus_fusion.select_related("lot").all():
+            if t.part_effectif_snapshot:
+                total += t.lot.cout_main_oeuvre_salariale_total * t.part_effectif_snapshot
+
+        return round(total, 2)
+
+    @property
+    def cout_main_oeuvre_salariale_total(self):
+        """
+        This lot's full, current salary cost — its own phase
+        (cout_main_oeuvre_salariale) plus whatever it inherited from earlier
+        phases via transfer (cout_main_oeuvre_salariale_herite, itself
+        recursive up the whole lineage). This is the figure cout_total_lot
+        actually uses, so a payroll correction on an ancestor lot reaches
+        cout_par_poulet on every descendant automatically, on every read —
+        no signal, no re-snapshot needed.
+        """
+        return round(
+            self.cout_main_oeuvre_salariale + self.cout_main_oeuvre_salariale_herite,
+            2,
+        )
+
+    @property
+    def cout_total_lot(self):
+        """
+        Every cost attributable to this lot's own phase — inputs (feed,
+        médicaments, dead-chick value), attributed Depenses — PLUS this
+        lot's full salary cost across its whole lineage
+        (cout_main_oeuvre_salariale_total — own phase + live-recomputed
+        inherited share, see that property) PLUS whatever non-salary cost
+        it inherited from a previous phase via a transfer, frozen at that
+        instant (cout_herite). This is the correct numerator for
+        cout_par_poulet.
+        """
+        return (
+            self.cout_total_intrants
+            + self.cout_total_depenses
+            + self.cout_main_oeuvre_salariale_total
+            + self.cout_herite
+        )
+
+    @property
+    def cout_herite(self):
+        """
+        Cost carried forward from a previous phase, for birds that arrived
+        in this lot via a TransfertLot (fixes the "transfer fragments the
+        lifecycle cost" issue: a lot created by a split/merge/full transfer
+        otherwise starts its cost history at zero, so cout_par_poulet only
+        reflects this phase and understates the bird's true cost since day
+        one).
+
+        Snapshotted ONCE, at the instant of the transfer, into
+        TransfertLot.cout_herite_alloue (see
+        signals.transfert_lot_post_save) — using the source lot's
+        cost-per-survivant at that moment. It is never recomputed
+        afterwards: costs the source lot books AFTER the transfer (e.g. a
+        médicament Depense paid later) correctly stay with the source lot
+        and are not retroactively pushed onto birds that had already left.
+
+        Sums every incoming transfer this lot ever received:
+          - as a MODE_FULL / MODE_SPLIT_NEW child  -> self.transfert_origine (O2O)
+          - as a MODE_SPLIT_MERGE destination       -> self.transferts_recus_fusion
+            (can be more than one merge over the lot's life)
+        """
+        from django.db.models import Sum
+
+        total = Decimal("0")
+
+        origine = getattr(self, "transfert_origine", None)
+        if origine is not None:
+            total += origine.cout_herite_alloue or Decimal("0")
+
+        fusion_total = self.transferts_recus_fusion.aggregate(
+            total=Sum("cout_herite_alloue")
+        )["total"]
+        total += fusion_total or Decimal("0")
+
+        return total
 
 
 class Mortalite(models.Model):
@@ -778,6 +1010,40 @@ class TransfertLot(models.Model):
         max_length=255,
         blank=True,
         verbose_name="تسمية الدفعة الفرعية",
+    )
+
+    # Cost continuity (fixes "transfer fragments the lifecycle cost"):
+    # snapshotted once at creation by transfert_lot_post_save as
+    # (source lot's cout_total_lot / nombre_survivants at that instant) x
+    # effectif_transfere. Read back by LotElevage.cout_herite on whichever
+    # lot received these birds (lot_enfant for FULL/SPLIT_NEW, lot_destination
+    # for SPLIT_MERGE). Immutable like the rest of this record.
+    # cout_herite_alloue now covers ONLY the frozen part of the source lot's
+    # cost — cout_total_intrants + cout_total_depenses + whatever it had
+    # already inherited (cout_herite) — evaluated at transfer instant, same
+    # "never recomputed" contract as before. Salary (cout_main_oeuvre_salariale)
+    # is deliberately excluded from this snapshot: see
+    # LotElevage.cout_main_oeuvre_salariale_herite for why it is recomputed
+    # live instead.
+    cout_herite_alloue = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0"),
+        verbose_name="التكلفة الموروثة المخصصة لهذه الطيور (د.ج) — بدون الرواتب",
+    )
+    # Birds-based ratio (n / survivants_avant at transfer instant), NOT a
+    # cost figure — so, unlike cout_herite_alloue, it never goes stale.
+    # Used by LotElevage.cout_main_oeuvre_salariale_herite to work out, on
+    # every read, what share of the source lot's *current* (possibly since-
+    # corrected) salary cost these transferred birds should carry — because
+    # a payroll fix booked after the transfer is a real cost correction that
+    # should follow the birds, not something we can freeze in place like an
+    # already-paid feed/médicament expense.
+    part_effectif_snapshot = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        default=Decimal("0"),
+        verbose_name="نسبة الطيور المنقولة من مجموع الناجين وقت النقل",
     )
 
     created_by = models.ForeignKey(
@@ -1388,7 +1654,9 @@ class ConsommationAlimentAllocation(models.Model):
         ordering = ["consommation", "production__date"]
 
     def __str__(self):
-        return f"{self.consommation} ← دفعة {self.production_id} ({self.quantite_kg} كغ)"
+        return (
+            f"{self.consommation} ← دفعة {self.production_id} ({self.quantite_kg} كغ)"
+        )
 
 
 # ---------------------------------------------------------------------------

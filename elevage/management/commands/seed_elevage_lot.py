@@ -64,9 +64,14 @@ Notes :
       ponte. `--what oeufs` (comme `--what pondeuse-elevage`) échoue si le
       lot pondeuses n'existe pas encore quand demandé explicitement, et
       est simplement ignoré avec un avertissement dans `--what all`.
-    - `--what pondeuse-transfert` crée le TransfertLot (MODE_FULL) qui met
-      à jour lot.batiment vers le Poulailler — il ne peut être exécuté
-      qu'une fois (immuable) et seulement après `pondeuse-elevage`.
+    - `--what pondeuse-transfert` crée le TransfertLot (MODE_FULL). Le
+      signal transfert_lot_post_save NE se contente PAS de déplacer
+      lot.batiment : il FERME le lot source et crée un nouveau LotElevage
+      ENFANT au bâtiment de destination (lot_enfant), qui héberge
+      désormais les oiseaux vivants. Les étapes suivantes (`--what oeufs`)
+      basculent automatiquement sur ce lot enfant. Le transfert ne peut
+      être exécuté qu'une fois (immuable) et seulement après
+      `pondeuse-elevage`.
 
 Données incluses (scénario Lot Mai 2025 — Bâtiment A, 2 000 poussins Ross 308) :
     Mortalités   : 5 événements, 40 oiseaux au total
@@ -1167,22 +1172,44 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(f"  ~ Œufs ignorés : {message}"))
                 return
 
-        if lot_pondeuses.statut != LotElevage.STATUT_OUVERT:
-            self.stdout.write(
-                self.style.WARNING(
-                    f"  ⚠  Le lot pondeuses est au statut «{lot_pondeuses.statut}» "
-                    "(attendu: ouvert). Les récoltes ne pourront pas être ajoutées "
-                    "sur un lot fermé. Continuer quand même…"
+        # MODE_FULL doesn't just move lot_pondeuses.batiment — the
+        # transfert_lot_post_save signal (elevage/signals.py) CLOSES the
+        # source lot and creates a brand-new CHILD LotElevage at the
+        # destination bâtiment (lot_enfant), which now holds the live
+        # birds. Post-transfert work (Aliment Ponte, RecolteOeufs) must
+        # target that child lot, not the now-closed parent — otherwise it
+        # gets silently written onto a fermé/empty lot (get_or_create()
+        # doesn't call full_clean(), so no error is raised, only the
+        # statut warning below and the stock-negative side effects seen
+        # in the logs).
+        transfert = lot_pondeuses.transferts.first()
+        if transfert is not None:
+            if transfert.mode == transfert.MODE_FULL and transfert.lot_enfant_id:
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"  ↷ Lot «{lot_pondeuses.designation}» fermé par le "
+                        f"transfert (MODE_FULL) — bascule sur le lot enfant "
+                        f"«{transfert.lot_enfant.designation}» (Bâtiment "
+                        f"{transfert.lot_enfant.batiment.nom}) pour la suite."
+                    )
                 )
-            )
-
-        if not lot_pondeuses.transferts.exists():
+                lot_pondeuses = transfert.lot_enfant
+        else:
             self.stdout.write(
                 self.style.WARNING(
                     "  ⚠  Aucun TransfertLot enregistré — ce lot est probablement "
                     "encore en Poussinière (Bâtiment C). Exécutez d'abord "
                     "'--what pondeuse-transfert'. La ponte réelle ne démarre "
                     "qu'après le transfert au Poulailler."
+                )
+            )
+
+        if lot_pondeuses.statut != LotElevage.STATUT_OUVERT:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"  ⚠  Le lot pondeuses est au statut «{lot_pondeuses.statut}» "
+                    "(attendu: ouvert). Les récoltes ne pourront pas être ajoutées "
+                    "sur un lot fermé. Continuer quand même…"
                 )
             )
 

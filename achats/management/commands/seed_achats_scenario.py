@@ -35,15 +35,32 @@ Utilisation :
 
 Détails (scenario §3.2 → §3.5) :
     BLF-2025-0001 — Poussins CCA               (2 000 × Poussin Ross 308 @ 32,00)
-    BLF-2025-0002 — Aliments ONAB (lot 1/2)    (200 sacs Démarrage + 180 sacs Croissance)
-    BLF-2025-0003 — Aliments ONAB (finition)   (150 sacs Finition)
+    BLF-2025-0002 — Aliments ONAB (lot 1/2)    (420 sacs Démarrage + 650 sacs Croissance)
+    BLF-2025-0003 — Aliments ONAB (finition)   (170 sacs Finition)
     BLF-2025-0004 — Médicaments Sanofi         (Vaccins Newcastle/Gumboro + Amox. + Vitamines)
     BLF-2025-0005 — Matières premières ONAB    (500 kg Maïs concassé + 300 kg Tourteau de
                                                  soja — ingrédients FeedFormula, §5.3bis)
+    BLF-2025-0006 — Aliments ONAB (pondeuses)  (110 sacs Pré-Ponte + 420 sacs Ponte)
 
-    FRN-2025-0001 → 0005 — une facture par BL, montant_total auto-calculé (BR-FAF-01)
-    REG-2025-0001 → 0005 — allocation FIFO automatique (BR-REG-03) via signal
+    FRN-2025-0001 → 0006 — une facture par BL, montant_total auto-calculé (BR-FAF-01)
+    REG-2025-0001 → 0006 — allocation FIFO automatique (BR-REG-03) via signal
                             post_save sur ReglementFournisseur.
+
+⚠️ Quantités révisées : le lot pondeuses (seed_elevage_lot.py, scénario
+§5.6) consomme les MÊMES intrants Démarrage/Croissance/vaccins/médicaments
+que le lot broiler (catalogue partagé, un seul pool de stock). Les
+quantités ci-dessous ont été portées à (besoin broiler + besoin pondeuses +
+marge ~10 %) pour éviter tout StockIntrant négatif :
+    Démarrage    : 200 (broiler) + 180 (pondeuses) = 380 besoin → 420 achetés
+    Croissance   : 180 (broiler) + 420 (pondeuses) = 600 besoin → 650 achetés
+    Finition     : 150 (broiler, exclusif)                     → 170 achetés
+    Newcastle    : 2000 (broiler) + 5925 (pondeuses) = 7925 besoin → 8500 achetés
+    Gumboro      : 1965 (broiler) + 2965 (pondeuses) = 4930 besoin → 5200 achetés
+    Amoxicilline : 500 (broiler) + 300 (pondeuses) = 800 besoin  → 900 achetés
+    Vitamines    : 10 (broiler) + 12 (pondeuses) = 22 besoin     → 30 achetés
+Pré-Ponte et Ponte (aliments exclusifs au lot pondeuses, §5.6.4/§5.6.7)
+n'étaient achetés nulle part auparavant → ajout de BLF-2025-0006 (110 sacs
+Pré-Ponte pour 90 nécessaires, 420 sacs Ponte pour 380 nécessaires).
 
 Idempotent : get_or_create sur `reference` pour BLF/FRN, et sur la combinaison
 (fournisseur, date_reglement, montant, reference_paiement) pour REG (les
@@ -100,15 +117,15 @@ BLF_DATA = [
         [
             (
                 "علف البداية — الطور الأول (0–14 يوم)",
-                Decimal("200"),
+                Decimal("420"),
                 Decimal("1850.0000"),
-                "",
+                "Couvre lot broiler (200) + lot pondeuses (180) + marge",
             ),
             (
                 "علف النمو — الطور الثاني (15–28 يوم)",
-                Decimal("180"),
+                Decimal("650"),
                 Decimal("1950.0000"),
-                "",
+                "Couvre lot broiler (180) + lot pondeuses (420) + marge",
             ),
         ],
     ),
@@ -121,9 +138,9 @@ BLF_DATA = [
         [
             (
                 "علف التسمين — الطور الثالث (29 يوم فأكثر)",
-                Decimal("150"),
+                Decimal("170"),
                 Decimal("2050.0000"),
-                "",
+                "150 nécessaires (broiler, exclusif) + marge",
             ),
         ],
     ),
@@ -134,10 +151,30 @@ BLF_DATA = [
         "",
         "",
         [
-            ("لقاح نيوكاسل (هيتشنر B1)", Decimal("4000"), Decimal("4.5000"), ""),
-            ("لقاح غامبورو (IBD متوسط)", Decimal("4000"), Decimal("4.8000"), ""),
-            ("أموكسيسيلين 50% مسحوق", Decimal("500"), Decimal("12.0000"), ""),
-            ("فيتامينات + إلكتروليتات (مركّب)", Decimal("10"), Decimal("850.0000"), ""),
+            (
+                "لقاح نيوكاسل (هيتشنر B1)",
+                Decimal("8500"),
+                Decimal("4.5000"),
+                "Couvre broiler (2000) + pondeuses (5925) + marge",
+            ),
+            (
+                "لقاح غامبورو (IBD متوسط)",
+                Decimal("5200"),
+                Decimal("4.8000"),
+                "Couvre broiler (1965) + pondeuses (2965) + marge",
+            ),
+            (
+                "أموكسيسيلين 50% مسحوق",
+                Decimal("900"),
+                Decimal("12.0000"),
+                "Couvre broiler (500) + pondeuses (300) + marge",
+            ),
+            (
+                "فيتامينات + إلكتروليتات (مركّب)",
+                Decimal("30"),
+                Decimal("850.0000"),
+                "Couvre broiler (10) + pondeuses (12) + marge",
+            ),
         ],
     ),
     (
@@ -151,6 +188,30 @@ BLF_DATA = [
             # (§5.3bis, FeedFormula/FeedProduction).
             ("ذرة مجروشة (Maïs concassé)", Decimal("500"), Decimal("45.0000"), ""),
             ("كسب الصويا (Tourteau de soja)", Decimal("300"), Decimal("65.0000"), ""),
+        ],
+    ),
+    (
+        "BLF-2025-0006",
+        "ONAB Setifien",
+        datetime.date(2025, 6, 15),
+        "ONAB-BL-20250615-112",
+        "",
+        [
+            # Aliments exclusifs au lot pondeuses (§5.6.4 / §5.6.7) — jamais
+            # achetés auparavant, cause de rupture de stock (StockIntrant < 0)
+            # dès la 1ère consommation Pré-Ponte / Ponte.
+            (
+                "علف ما قبل الإنتاج — Pré-Ponte (15–18 أسبوع)",
+                Decimal("110"),
+                Decimal("2150.0000"),
+                "90 nécessaires (pondeuses, exclusif) + marge",
+            ),
+            (
+                "علف الإنتاج — Ponte (عالي الكالسيوم)",
+                Decimal("420"),
+                Decimal("2250.0000"),
+                "380 nécessaires (pondeuses, exclusif) + marge",
+            ),
         ],
     ),
 ]
@@ -192,6 +253,13 @@ FRN_DATA = [
         datetime.date(2025, 5, 19),
         datetime.date(2025, 6, 18),
     ),
+    (
+        "FRN-2025-0006",
+        "ONAB Setifien",
+        ["BLF-2025-0006"],
+        datetime.date(2025, 6, 16),
+        datetime.date(2025, 7, 16),
+    ),
 ]
 
 # Format : (fournisseur_nom, date_reglement, montant, mode_paiement, reference_paiement)
@@ -220,7 +288,7 @@ REG_DATA = [
     (
         "Sanofi Algérie (Vétérinaire)",
         datetime.date(2025, 5, 15),
-        Decimal("51700.00"),
+        Decimal("99510.00"),  # facture révisée (8500+5200 doses, 900g, 30L) — soldée
         "virement",
         "",
     ),
@@ -230,6 +298,13 @@ REG_DATA = [
         Decimal("42000.00"),
         "virement",
         "",
+    ),
+    (
+        "ONAB Setifien",
+        datetime.date(2025, 6, 20),
+        Decimal("700000.00"),  # règlement partiel FRN-2025-0006 (aliments pondeuses)
+        "virement",
+        "VIR-BNA-20062025-004",
     ),
 ]
 

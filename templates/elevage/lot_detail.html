@@ -148,6 +148,33 @@
     </div>
     <div class="col-xl-3 col-md-6">
       <div class="metric-card">
+        <div class="metric-icon ic-orange"><i class="bx bxs-id-card"></i></div>
+        <div class="metric-label">اليد العاملة (رواتب)</div>
+        <div class="metric-value" style="font-size:20px;">{{ summary.cout_main_oeuvre_salariale_total|floatformat:0 }}</div>
+        {% if summary.cout_main_oeuvre_salariale_herite %}
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> {{ summary.cout_main_oeuvre_salariale|floatformat:0 }} لهذه المرحلة + {{ summary.cout_main_oeuvre_salariale_herite|floatformat:0 }} موروثة (تتحدّث تلقائياً)</span>
+        {% else %}
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> نصيب الدفعة من رواتب عمال المبنى</span>
+        {% endif %}
+      </div>
+    </div>
+    {% if summary.is_pondeuse %}
+    <div class="col-xl-6 col-md-12">
+      <div class="metric-card" style="display:flex;align-items:center;gap:12px;">
+        <div class="metric-icon ic-blue" style="flex-shrink:0;"><i class="bx bxs-info-circle"></i></div>
+        <div>
+          <div class="metric-label">الإيرادات / الهامش</div>
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.6;">
+            هذه الدفعة في طور الإنتاج (بيّاضة) — لا تُحتسب أرباح المبيعات هنا؛
+            المتابعة تقتصر على تكلفة ومصاريف تربيتها. راجع بطاقة "تكلفة الفرخة
+            الواحدة" ورصيد البيض أدناه.
+          </div>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
         <div class="metric-icon ic-green"><i class="bx bxs-bar-chart-alt-2"></i></div>
         <div class="metric-label">إيرادات المبيعات</div>
         <div class="metric-value" style="font-size:20px;">{{ summary.revenus_ventes|floatformat:0 }}</div>
@@ -167,6 +194,37 @@
           <i class="bx {% if summary.marge_brute >= 0 %}bx-trending-up{% else %}bx-trending-down{% endif %}"></i>
           دج{% if summary.ic %} · م.ت {{ summary.ic }}{% endif %}
         </span>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Cost per bird — total lot cost (inputs + attributed expenses) / true initial cohort -->
+  <div class="row g-3 mb-4">
+    <div class="col-12">
+      <div class="metric-card" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <div class="metric-icon ic-orange" style="flex-shrink:0;"><i class="bx bxs-coin-stack"></i></div>
+        <div style="flex:1;min-width:200px;">
+          <div class="metric-label">تكلفة الفرخة الواحدة</div>
+          <div class="metric-value" style="font-size:22px;">
+            {% if summary.cout_par_poulet != None %}{{ summary.cout_par_poulet|floatformat:2 }}{% else %}—{% endif %}
+            <span style="font-size:13px;font-weight:600;color:var(--text-muted);">دج / طير</span>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);text-align:left;line-height:1.7;">
+          إجمالي تكلفة الدفعة {{ summary.cout_total_lot|floatformat:0 }} دج
+          (مدخلات {{ summary.cout_total_intrants|floatformat:0 }} + مصاريف تشغيلية {{ summary.cout_total_depenses|floatformat:0 }} + يد عاملة {{ summary.cout_main_oeuvre_salariale_total|floatformat:0 }}{% if summary.cout_herite %} + تكلفة موروثة {{ summary.cout_herite|floatformat:0 }}{% endif %})
+          ÷ {{ summary.nombre_survivants|floatformat:0 }} طير (الناجون — العدد المرجعي {{ summary.nombre_poussins_reference|floatformat:0 }} ناقص النافق {{ summary.total_mortalite|floatformat:0 }})
+          {% if summary.cout_main_oeuvre_salariale %}
+          <br><i class="bx bx-id-card"></i> تتضمن {{ summary.cout_main_oeuvre_salariale|floatformat:0 }} دج نصيب هذه الدفعة من رواتب عمال المبنى (بالتناسب مع المدة وعدد الطيور).
+          {% endif %}
+          {% if summary.cout_main_oeuvre_salariale_herite %}
+          <br><i class="bx bx-id-card"></i> + {{ summary.cout_main_oeuvre_salariale_herite|floatformat:0 }} دج رواتب موروثة من مرحلة سابقة (تُحدَّث تلقائياً عند أي تصحيح لاحق في الرواتب).
+          {% endif %}
+          {% if summary.cout_herite %}
+          <br><i class="bx bx-transfer-alt"></i> تتضمن {{ summary.cout_herite|floatformat:0 }} دج (غير الرواتب) موروثة من مرحلة/دفعة سابقة عبر عملية نقل.
+          {% endif %}
+        </div>
       </div>
     </div>
   </div>

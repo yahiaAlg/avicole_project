@@ -87,6 +87,23 @@ def get_lot_summary(lot) -> dict:
         cout_traitement_total    (Decimal — DZD, cout_medicaments + cout_main_oeuvre_medicament)
         cout_mortalite_poussins  (Decimal — DZD)
         cout_total_depenses      (Decimal — DZD)
+        cout_main_oeuvre_salariale (Decimal — DZD, this lot's OWN-phase headcount/time-
+                                   weighted share of assigned employees' BulletinPaie salary cost)
+        cout_main_oeuvre_salariale_herite (Decimal — DZD, salary share inherited from an
+                                   earlier phase via transfer — recomputed LIVE on every
+                                   read, so payroll corrections booked after the transfer
+                                   still reach it; unlike cout_herite this is never frozen)
+        cout_main_oeuvre_salariale_total (Decimal — DZD, own + herite; the figure actually
+                                   used in cout_total_lot / marge_brute)
+        cout_herite               (Decimal — DZD, non-salary cost inherited from a previous
+                                   phase via transfer, frozen at transfer instant)
+        cout_total_lot            (Decimal — DZD, cout_total_intrants + cout_total_depenses
+                                   + cout_main_oeuvre_salariale_total + cout_herite)
+        nombre_poussins_reference (int — true initial cohort)
+        nombre_survivants         (int — reference minus real mortality; denominator below)
+        cout_par_poulet           (Decimal | None — DZD, cout_total_lot / nombre_survivants)
+        is_pondeuse              (bool — True if lot is currently in laying phase;
+                                   revenus_ventes/marge_brute are not meaningful then)
         revenus_ventes           (Decimal — DZD)
         marge_brute              (Decimal — DZD)
         productions              (queryset)
@@ -148,9 +165,7 @@ def get_lot_summary(lot) -> dict:
     from elevage.models import ConsommationAlimentAllocation
 
     batches_aliment_consommes = (
-        ConsommationAlimentAllocation.objects.filter(
-            consommation__in=conso_aliment_qs
-        )
+        ConsommationAlimentAllocation.objects.filter(consommation__in=conso_aliment_qs)
         .values(
             "production_id",
             "production__intrant_produit__designation",
@@ -190,7 +205,75 @@ def get_lot_summary(lot) -> dict:
     #     We link via: lot → production → produits finis → BLClientLigne
     revenus_ventes = _calculer_revenus_lot(lot)
 
-    marge_brute = revenus_ventes - cout_total_intrants - cout_total_depenses
+    # cout_main_oeuvre_salariale: this lot's OWN phase only.
+    # cout_main_oeuvre_salariale_herite: live-recomputed share inherited
+    # from earlier phase(s) via transfer — re-derived on every read from
+    # TransfertLot.part_effectif_snapshot (a birds-count ratio) × the
+    # source lot's CURRENT salary cost, so a payroll correction booked on
+    # an ancestor lot after the transfer still reaches this lot's figures.
+    # cout_main_oeuvre_salariale_total is the sum of both — the figure
+    # actually used below and in cout_total_lot.
+    cout_main_oeuvre_salariale = Decimal(str(lot.cout_main_oeuvre_salariale))
+    cout_main_oeuvre_salariale_herite = Decimal(
+        str(lot.cout_main_oeuvre_salariale_herite)
+    )
+    cout_main_oeuvre_salariale_total = Decimal(
+        str(lot.cout_main_oeuvre_salariale_total)
+    )
+    cout_herite = Decimal(str(lot.cout_herite))
+    marge_brute = (
+        revenus_ventes
+        - cout_total_intrants
+        - cout_total_depenses
+        - cout_main_oeuvre_salariale_total
+        - cout_herite
+    )
+
+    # --- Cost per bird ----------------------------------------------------
+    # cout_herite: cost snapshotted onto THIS lot at the moment it received
+    # birds via a transfer (see LotElevage.cout_herite / TransfertLot.
+    # cout_herite_alloue) — fixes "transfer fragments the lifecycle cost":
+    # without it, a lot created by a split/merge/full transfer started its
+    # cost history at zero and cout_par_poulet only reflected this phase.
+    #
+    # cout_total_lot = this phase's own costs (feed, médicaments, dead-chick
+    # stock value, attributed Depenses) PLUS whatever it inherited from an
+    # earlier phase.
+    #
+    # Divided by nombre_survivants — every bird this lot ever housed
+    # (nombre_poussins_reference) minus those that actually DIED here.
+    # Unlike nombre_poussins_reference, this deliberately excludes real
+    # mortality from the denominator (a bird the farm paid to raise and got
+    # nothing back for shouldn't dilute the survivors' cost), while still
+    # counting birds later transferred out/sold/slaughtered — they consumed
+    # their share of cost while present, so removing them would inflate the
+    # remaining birds' figure artificially. See LotElevage.nombre_survivants.
+    cout_total_lot = (
+        cout_total_intrants
+        + cout_total_depenses
+        + cout_main_oeuvre_salariale_total
+        + cout_herite
+    )
+    nombre_poussins_reference = lot.nombre_poussins_reference
+    nombre_survivants = lot.nombre_survivants
+    cout_par_poulet = (
+        round(cout_total_lot / Decimal(str(nombre_survivants)), 2)
+        if nombre_survivants
+        else None
+    )
+
+    # --- Egg-laying lots: no profit metric ---------------------------------
+    # revenus_ventes / marge_brute are only ever populated from meat-product
+    # BL Client lines (see _calculer_revenus_lot) — they never include egg
+    # sales. Showing them on a lot in its laying phase would read as
+    # "0 revenue, full loss", which is misleading rather than informative:
+    # for pondeuse lots the user only wants cost/expense tracking, not a
+    # profit figure. `phase` is the building type the lot currently sits
+    # in — "poulailler" is this system's laying stage (see LotElevage.phase
+    # / stade_intrant_attendu docstrings).
+    from intrants.models import Batiment
+
+    is_pondeuse = lot.phase == Batiment.TYPE_POULAILLER
 
     # --- Eggs (RecolteOeufs / RetraitOeufs) ------------------------------
     # `stock_oeufs_lot` is informational only (see RetraitOeufs docstring):
@@ -228,6 +311,15 @@ def get_lot_summary(lot) -> dict:
         "cout_traitement_total": cout_traitement_total,
         "cout_mortalite_poussins": cout_mortalite_poussins,
         "cout_total_depenses": cout_total_depenses,
+        "cout_main_oeuvre_salariale": cout_main_oeuvre_salariale,
+        "cout_main_oeuvre_salariale_herite": cout_main_oeuvre_salariale_herite,
+        "cout_main_oeuvre_salariale_total": cout_main_oeuvre_salariale_total,
+        "cout_herite": cout_herite,
+        "cout_total_lot": cout_total_lot,
+        "nombre_poussins_reference": nombre_poussins_reference,
+        "nombre_survivants": nombre_survivants,
+        "cout_par_poulet": cout_par_poulet,
+        "is_pondeuse": is_pondeuse,
         "revenus_ventes": revenus_ventes,
         "marge_brute": marge_brute,
         "productions": productions,

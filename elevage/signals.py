@@ -383,8 +383,7 @@ def consommation_post_save(sender, instance, created, **kwargs):
     old_intrant_id = getattr(instance, "_old_intrant_id", None)
 
     est_aliment = bool(
-        getattr(intrant, "categorie_id", None)
-        and intrant.categorie.code == "ALIMENT"
+        getattr(intrant, "categorie_id", None) and intrant.categorie.code == "ALIMENT"
     )
 
     if created:
@@ -672,11 +671,15 @@ def _allouer_consommation_aliment(consommation, quantite):
     if restante <= 0:
         return
 
-    batches = ProductionAliment.objects.select_for_update().filter(
-        branche=consommation.lot.branche,
-        intrant_produit_id=consommation.intrant_id,
-        quantite_restante_kg__gt=0,
-    ).order_by("date", "created_at")
+    batches = (
+        ProductionAliment.objects.select_for_update()
+        .filter(
+            branche=consommation.lot.branche,
+            intrant_produit_id=consommation.intrant_id,
+            quantite_restante_kg__gt=0,
+        )
+        .order_by("date", "created_at")
+    )
 
     for batch in batches:
         if restante <= 0:
@@ -767,11 +770,52 @@ def transfert_lot_post_save(sender, instance, created, **kwargs):
 
     lot = instance.lot
     mode = instance.mode
+    n = instance.effectif_transfere
+
+    # ── Cost continuity snapshot (fixes "transfer fragments the lifecycle
+    #    cost" — see LotElevage.cout_herite docstring) ────────────────────
+    # Capture the source lot's cost-per-survivor BEFORE this transfer's
+    # headcount leaves, then allocate that rate × n to the birds moving out.
+    # Read back later by LotElevage.cout_herite on whichever lot receives
+    # them (lot_enfant for FULL/SPLIT_NEW, lot_destination for SPLIT_MERGE).
+    #
+    # Correction: by the time this post_save signal runs, `instance` is
+    # already persisted, so lot.nombre_survivants (which sums ALL rows in
+    # lot.transferts, including this brand-new one) is inflated by exactly
+    # `n`. Subtracting it back out gives the survivor count as it stood
+    # immediately before this transfer — the correct denominator for the
+    # rate these `n` birds should carry forward.
+    survivants_avant = lot.nombre_survivants - n
+
+    # Salary is deliberately left OUT of this snapshot — see
+    # LotElevage.cout_main_oeuvre_salariale_herite. Only the frozen part
+    # (feed/médicament/dead-chick-value/depenses/already-inherited-frozen)
+    # is captured here; a payroll correction booked on `lot` after this
+    # transfer must still reach these birds, which a frozen dollar amount
+    # could never do.
+    cout_gelable = (
+        Decimal(str(lot.cout_total_intrants))
+        + Decimal(str(lot.cout_total_depenses))
+        + Decimal(str(lot.cout_herite))
+    )
+    if survivants_avant > 0:
+        cout_par_survivant = cout_gelable / Decimal(str(survivants_avant))
+        part_effectif_snapshot = Decimal(str(n)) / Decimal(str(survivants_avant))
+    else:
+        cout_par_survivant = Decimal("0")
+        part_effectif_snapshot = Decimal("0")
+    cout_herite_alloue = round(cout_par_survivant * n, 2)
+
+    TransfertLot.objects.filter(pk=instance.pk).update(
+        cout_herite_alloue=cout_herite_alloue,
+        part_effectif_snapshot=part_effectif_snapshot,
+    )
+    instance.cout_herite_alloue = cout_herite_alloue
+    instance.part_effectif_snapshot = part_effectif_snapshot
 
     if mode == instance.MODE_FULL:
         # ── Full transfer: source loses all transferred birds, a child lot
         #    is created at the destination building, then source is closed.
-        n = instance.effectif_transfere
 
         # 1. Decrease source baseline
         lot.nombre_poussins_initial = lot.nombre_poussins_initial - n
@@ -820,8 +864,6 @@ def transfert_lot_post_save(sender, instance, created, **kwargs):
 
     elif mode == instance.MODE_SPLIT_NEW:
         # ── Partial: create child lot ────────────────────────────────────
-        n = instance.effectif_transfere
-
         # Decrease source baseline
         lot.nombre_poussins_initial = lot.nombre_poussins_initial - n
         lot.save(update_fields=["nombre_poussins_initial", "updated_at"])
@@ -864,7 +906,6 @@ def transfert_lot_post_save(sender, instance, created, **kwargs):
 
     elif mode == instance.MODE_SPLIT_MERGE:
         # ── Partial: merge into existing destination lot ─────────────────
-        n = instance.effectif_transfere
         dest_lot = instance.lot_destination
 
         # Decrease source baseline
