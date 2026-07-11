@@ -112,22 +112,22 @@
             <tbody>
               {% for ligne in lignes %}
               <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
-                <td>
+                <td data-label="البند">
                   <span style="font-weight:500;color:var(--text-primary);">{{ ligne.designation }}</span>
                   <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">
                     {% if ligne.produit_fini %}{{ ligne.produit_fini.get_type_produit_display }}
                     {% else %}<span class="pill-neutral">مدخل (فائض للبيع)</span>{% endif %}
                   </div>
                 </td>
-                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ ligne.quantite|floatformat:2 }} {{ ligne.unite_mesure }}</td>
-                <td style="text-align:left;color:var(--text-secondary);">{{ ligne.prix_unitaire|floatformat:2 }} دج</td>
-                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ ligne.montant_total|floatformat:0 }} دج</td>
-                <td style="color:var(--text-muted);font-size:12px;">{{ ligne.notes|default:"—" }}</td>
+                <td data-label="الكمية" style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ ligne.quantite|floatformat:2 }} {{ ligne.unite_mesure }}</td>
+                <td data-label="سعر الوحدة" style="text-align:left;color:var(--text-secondary);">{{ ligne.prix_unitaire|floatformat:2 }} دج</td>
+                <td data-label="المجموع" style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ ligne.montant_total|floatformat:0 }} دج</td>
+                <td data-label="ملاحظات" style="color:var(--text-muted);font-size:12px;">{{ ligne.notes|default:"—" }}</td>
               </tr>
               {% endfor %}
             </tbody>
             <tfoot>
-              <tr>
+              <tr class="lignes-total-row">
                 <td colspan="3" style="text-align:left;font-size:12px;font-weight:600;color:var(--text-muted);padding:12px 14px;">المجموع الكلي</td>
                 <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);padding:12px 14px;">{{ montant_total|floatformat:0 }} دج</td>
                 <td></td>
@@ -162,10 +162,10 @@
             <tbody>
               {% for pj in pieces_jointes %}
               <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
-                <td><span class="pill-neutral">{{ pj.get_type_document_display }}</span></td>
-                <td style="color:var(--text-secondary);font-size:12.5px;">{{ pj.description|default:"—" }}</td>
-                <td style="font-size:12px;color:var(--text-muted);">{{ pj.uploaded_by|default:"—" }} · {{ pj.created_at|date:"d/m/Y H:i" }}</td>
-                <td>
+                <td data-label="النوع"><span class="pill-neutral">{{ pj.get_type_document_display }}</span></td>
+                <td data-label="الوصف" style="color:var(--text-secondary);font-size:12.5px;">{{ pj.description|default:"—" }}</td>
+                <td data-label="أُضيف بواسطة" style="font-size:12px;color:var(--text-muted);">{{ pj.uploaded_by|default:"—" }} · {{ pj.created_at|date:"d/m/Y H:i" }}</td>
+                <td data-label="">
                   <div class="actions-cell">
                     <a href="{{ pj.fichier.url }}" class="action-btn" title="فتح الملف" target="_blank"><i class="bx bx-download"></i></a>
                     <form method="post" action="{% url 'core:piece_jointe_delete' pj.pk %}" style="display:inline;" onsubmit="return confirm('حذف هذا المرفق؟');">
@@ -371,6 +371,46 @@
   .data-table tbody td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); text-align: right; }
   .data-table tbody tr:last-child td { border-bottom: none; }
   .data-table tfoot td { background: var(--bg-base); border-top: 1px solid var(--border); text-align: right; }
+
+  /* ── Mobile card layout for data-table (≤ 640px) ──
+     Each row becomes a stacked card with attr(data-label) captions
+     instead of a table you have to scroll sideways to read. */
+  @media (max-width: 640px) {
+    .data-table { min-width: 0; }
+    .data-table thead { display: none; }
+    .data-table, .data-table tbody, .data-table tr, .data-table td {
+      display: block; width: 100%;
+    }
+    .data-table tbody tr {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      margin-bottom: 10px;
+    }
+    .data-table tbody tr:last-child { margin-bottom: 0; }
+    .data-table td {
+      padding: 6px 0;
+      text-align: right !important;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: none !important;
+    }
+    .data-table td[data-label]:not([data-label=""])::before {
+      content: attr(data-label);
+      font-size: 10.5px; font-weight: 600; letter-spacing: .04em;
+      text-transform: uppercase; color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .data-table td[data-label=""] { justify-content: flex-end; }
+    .data-table tfoot .lignes-total-row {
+      display: flex; flex-wrap: wrap; align-items: center;
+      justify-content: space-between; border-radius: var(--radius-md);
+    }
+    .data-table tfoot .lignes-total-row td { display: block; width: auto; }
+    .data-table tfoot .lignes-total-row td:last-child { display: none; }
+  }
   .table-row { animation: fadeIn .3s ease both; animation-delay: calc(var(--row-i) * 35ms); }
   .table-row:hover td { background: var(--bg-hover); }
 

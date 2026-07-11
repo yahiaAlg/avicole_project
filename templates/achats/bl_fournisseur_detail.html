@@ -199,20 +199,20 @@
           <tbody>
             {% for ligne in lignes %}
             <tr style="--row-i:{{ forloop.counter0 }};">
-              <td>
+              <td data-label="المدخل">
                 <span style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
                   {{ ligne.intrant.designation }}
                 </span>
               </td>
-              <td><span class="pill-neutral">{{ ligne.intrant.categorie.libelle }}</span></td>
-              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:600;">
+              <td data-label="الفئة"><span class="pill-neutral">{{ ligne.intrant.categorie.libelle }}</span></td>
+              <td data-label="Quantité" style="text-align:right;font-family:'Nunito',sans-serif;font-weight:600;">
                 {{ ligne.quantite|floatformat:3 }} {{ ligne.intrant.unite_mesure }}
               </td>
-              <td style="text-align:right;color:var(--text-muted);">{{ ligne.prix_unitaire|floatformat:4 }} DZD</td>
-              <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
+              <td data-label="Prix unitaire" style="text-align:right;color:var(--text-muted);">{{ ligne.prix_unitaire|floatformat:4 }} DZD</td>
+              <td data-label="Montant" style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
                 {{ ligne.montant_total|floatformat:0 }} DZD
               </td>
-              <td style="color:var(--text-muted);font-size:12px;">{{ ligne.notes|default:"—" }}</td>
+              <td data-label="Notes" style="color:var(--text-muted);font-size:12px;">{{ ligne.notes|default:"—" }}</td>
             </tr>
             {% empty %}
             <tr>
@@ -224,7 +224,7 @@
           </tbody>
           {% if lignes %}
           <tfoot>
-            <tr style="background:var(--bg-raised);">
+            <tr class="lignes-total-row" style="background:var(--bg-raised);">
               <td colspan="4" style="text-align:right;font-size:12px;font-weight:600;color:var(--text-muted);padding:12px 14px;">
                 إجمالي الوصل
               </td>
@@ -263,24 +263,24 @@
           <tbody>
             {% for f in factures %}
             <tr style="--row-i:{{ forloop.counter0 }};">
-              <td><a href="{% url 'achats:facture_fournisseur_detail' f.pk %}" class="ref-link">{{ f.reference }}</a></td>
-              <td style="color:var(--text-muted);">{{ f.date_facture|date:"d/m/Y" }}</td>
-              <td style="font-family:'Nunito',sans-serif;font-weight:700;">{{ f.montant_total|floatformat:0 }} DZD</td>
-              <td>
+              <td data-label="المرجع"><a href="{% url 'achats:facture_fournisseur_detail' f.pk %}" class="ref-link">{{ f.reference }}</a></td>
+              <td data-label="التاريخ" style="color:var(--text-muted);">{{ f.date_facture|date:"d/m/Y" }}</td>
+              <td data-label="المبلغ الإجمالي" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ f.montant_total|floatformat:0 }} DZD</td>
+              <td data-label="المبلغ المتبقي">
                 {% if f.reste_a_payer > 0 %}
                   <span style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;">{{ f.reste_a_payer|floatformat:0 }} DZD</span>
                 {% else %}
                   <span style="color:var(--accent-text);">—</span>
                 {% endif %}
               </td>
-              <td>
+              <td data-label="Statut">
                 {% if f.statut == "non_paye" %}<span class="pill-danger">غير مدفوعة</span>
                 {% elif f.statut == "partiellement_paye" %}<span class="pill-warning">مدفوعة جزئيًا</span>
                 {% elif f.statut == "paye" %}<span class="pill-success">مدفوعة</span>
                 {% elif f.statut == "en_litige" %}<span class="pill-danger">في نزاع</span>
                 {% endif %}
               </td>
-              <td><a href="{% url 'achats:facture_fournisseur_detail' f.pk %}" class="action-btn" title="عرض"><i class="bx bxs-show"></i></a></td>
+              <td data-label=""><a href="{% url 'achats:facture_fournisseur_detail' f.pk %}" class="action-btn" title="عرض"><i class="bx bxs-show"></i></a></td>
             </tr>
             {% endfor %}
           </tbody>
@@ -537,6 +537,45 @@
   .data-table tbody tr:last-child { border-bottom: none; }
   .data-table tbody tr:hover { background: var(--bg-hover); }
   .data-table td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); vertical-align: middle; }
+
+  /* ── Mobile card layout for data-table (≤ 640px) ──
+     Each row becomes a stacked card with attr(data-label) captions
+     instead of a table you have to scroll sideways to read. */
+  @media (max-width: 640px) {
+    .data-table { min-width: 0; }
+    .data-table thead { display: none; }
+    .data-table, .data-table tbody, .data-table tr, .data-table td {
+      display: block; width: 100%;
+    }
+    .data-table tbody tr {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      margin-bottom: 10px;
+    }
+    .data-table tbody tr:last-child { margin-bottom: 0; }
+    .data-table td {
+      padding: 6px 0;
+      text-align: right !important;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .data-table td[data-label]:not([data-label=""])::before {
+      content: attr(data-label);
+      font-size: 10.5px; font-weight: 600; letter-spacing: .04em;
+      text-transform: uppercase; color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .data-table td[data-label=""] { justify-content: flex-end; }
+    .data-table tfoot .lignes-total-row {
+      display: flex; flex-wrap: wrap; align-items: center;
+      justify-content: space-between; border-radius: var(--radius-md);
+    }
+    .data-table tfoot .lignes-total-row td { display: block; width: auto; }
+    .data-table tfoot .lignes-total-row td:last-child { display: none; }
+  }
 
   .pill-warning, .pill-info, .pill-success, .pill-danger, .pill-neutral {
     display: inline-flex; align-items: center; gap: 4px;

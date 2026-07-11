@@ -92,6 +92,7 @@
     }
 
     /* Table */
+    .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     thead th {
       background: #f3f4f6;
@@ -151,6 +152,44 @@
         margin: 0; padding: 24px 32px;
         box-shadow: none; border-radius: 0;
       }
+    }
+
+    /* ── Mobile card layout for the lines table (≤ 640px, screen only) ──
+       Keeps the printed/PDF output as a real table; only the on-screen
+       preview on small devices switches to a stacked card per line. */
+    @media screen and (max-width: 640px) {
+      .print-preview { padding: 24px 16px; }
+      .table-wrapper table { min-width: 0; }
+      table thead { display: none; }
+      table, tbody, tr, td { display: block; width: 100%; }
+      tbody tr {
+        border: 1px solid #eee;
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+      }
+      tbody tr:last-child { margin-bottom: 10px; }
+      td {
+        padding: 6px 0 !important;
+        text-align: right !important;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        border-bottom: none !important;
+      }
+      td[data-label]::before {
+        content: attr(data-label);
+        font-size: 10.5px; font-weight: 600; letter-spacing: .04em;
+        text-transform: uppercase; color: #7a8c78;
+        flex-shrink: 0;
+      }
+      tfoot .lignes-total-row {
+        display: flex; flex-wrap: wrap; align-items: center;
+        justify-content: space-between; border-radius: 8px;
+      }
+      tfoot .lignes-total-row td { display: block; width: auto; }
+      tfoot .lignes-total-row td:first-child { display: none; }
     }
   </style>
 </head>
@@ -226,6 +265,7 @@
   </div>
 
   <!-- Lines table -->
+  <div class="table-wrapper">
   <table>
     <thead>
       <tr>
@@ -241,23 +281,24 @@
     <tbody>
       {% for ligne in lignes %}
       <tr>
-        <td style="color:#888;">{{ forloop.counter }}</td>
-        <td style="font-weight:600;">{{ ligne.intrant.designation }}</td>
-        <td>{{ ligne.intrant.categorie.libelle }}</td>
-        <td>{{ ligne.intrant.unite_mesure }}</td>
-        <td style="text-align:right;">{{ ligne.quantite|floatformat:3 }}</td>
-        <td style="text-align:right;color:#555;">{{ ligne.prix_unitaire|floatformat:4 }}</td>
-        <td style="text-align:right;font-weight:600;">{{ ligne.montant_total|floatformat:0 }}</td>
+        <td data-label="#" style="color:#888;">{{ forloop.counter }}</td>
+        <td data-label="التسمية" style="font-weight:600;">{{ ligne.intrant.designation }}</td>
+        <td data-label="الفئة">{{ ligne.intrant.categorie.libelle }}</td>
+        <td data-label="الوحدة">{{ ligne.intrant.unite_mesure }}</td>
+        <td data-label="الكمية" style="text-align:right;">{{ ligne.quantite|floatformat:3 }}</td>
+        <td data-label="سعر الوحدة" style="text-align:right;color:#555;">{{ ligne.prix_unitaire|floatformat:4 }}</td>
+        <td data-label="المبلغ (دج)" style="text-align:right;font-weight:600;">{{ ligne.montant_total|floatformat:0 }}</td>
       </tr>
       {% endfor %}
     </tbody>
     <tfoot>
-      <tr>
+      <tr class="lignes-total-row">
         <td colspan="6" style="text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#555;">المجموع الإجمالي</td>
         <td>{{ montant_total|floatformat:0 }} DZD</td>
       </tr>
     </tfoot>
   </table>
+  </div>
 
   <!-- Notes -->
   {% if bl.notes_reception %}

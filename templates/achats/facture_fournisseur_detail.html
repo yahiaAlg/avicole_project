@@ -145,12 +145,12 @@
             <tbody>
               {% for ligne in bl.lignes.all %}
               <tr>
-                <td style="font-weight:500;">{{ ligne.intrant.designation }}</td>
-                <td style="color:var(--text-muted);">{{ ligne.intrant.categorie.libelle }}</td>
-                <td style="color:var(--text-muted);">{{ ligne.intrant.unite_mesure }}</td>
-                <td style="text-align:left;">{{ ligne.quantite|floatformat:3 }}</td>
-                <td style="text-align:left;color:var(--text-muted);">{{ ligne.prix_unitaire|floatformat:4 }}</td>
-                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ ligne.montant_total|floatformat:0 }} DZD</td>
+                <td data-label="المدخل" style="font-weight:500;">{{ ligne.intrant.designation }}</td>
+                <td data-label="الفئة" style="color:var(--text-muted);">{{ ligne.intrant.categorie.libelle }}</td>
+                <td data-label="الوحدة" style="color:var(--text-muted);">{{ ligne.intrant.unite_mesure }}</td>
+                <td data-label="الكمية" style="text-align:left;">{{ ligne.quantite|floatformat:3 }}</td>
+                <td data-label="سعر الوحدة (دج)" style="text-align:left;color:var(--text-muted);">{{ ligne.prix_unitaire|floatformat:4 }}</td>
+                <td data-label="المبلغ" style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ ligne.montant_total|floatformat:0 }} DZD</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -184,17 +184,17 @@
           <tbody>
             {% for alloc in allocations %}
             <tr style="--row-i:{{ forloop.counter0 }};">
-              <td>{{ alloc.reglement.date_reglement|date:"d/m/Y" }}</td>
-              <td>
+              <td data-label="تاريخ التسوية">{{ alloc.reglement.date_reglement|date:"d/m/Y" }}</td>
+              <td data-label="التسوية">
                 <a href="{% url 'achats:reglement_fournisseur_detail' alloc.reglement.pk %}" class="ref-link">
                   تسوية #{{ alloc.reglement.pk }}
                 </a>
               </td>
-              <td style="color:var(--text-muted);">{{ alloc.reglement.get_mode_paiement_display }}</td>
-              <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">
+              <td data-label="طريقة الدفع" style="color:var(--text-muted);">{{ alloc.reglement.get_mode_paiement_display }}</td>
+              <td data-label="المبلغ المخصص" style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">
                 {{ alloc.montant_alloue|floatformat:0 }} DZD
               </td>
-              <td></td>
+              <td data-label=""></td>
             </tr>
             {% endfor %}
           </tbody>
@@ -473,6 +473,40 @@
   .data-table tbody tr:last-child { border-bottom: none; }
   .data-table tbody tr:hover { background: var(--bg-hover); }
   .data-table td { padding: 11px 14px; font-size: 13px; color: var(--text-secondary); vertical-align: middle; }
+
+  /* ── Mobile card layout for data-table (≤ 640px) ──
+     Each row becomes a stacked card with attr(data-label) captions
+     instead of a table you have to scroll sideways to read. */
+  @media (max-width: 640px) {
+    .data-table { min-width: 0; }
+    .data-table thead { display: none; }
+    .data-table, .data-table tbody, .data-table tr, .data-table td {
+      display: block; width: 100%;
+    }
+    .data-table tbody tr {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      margin-bottom: 10px;
+    }
+    .data-table tbody tr:last-child { margin-bottom: 0; }
+    .data-table td {
+      padding: 6px 0;
+      text-align: right !important;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: none !important;
+    }
+    .data-table td[data-label]:not([data-label=""])::before {
+      content: attr(data-label);
+      font-size: 10.5px; font-weight: 600; letter-spacing: .04em;
+      text-transform: uppercase; color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .data-table td[data-label=""] { justify-content: flex-end; }
+  }
 
   .ref-link { font-family: 'Nunito', sans-serif; font-weight: 700; color: var(--accent-text); text-decoration: none; }
   .ref-link:hover { color: var(--accent); }

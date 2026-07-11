@@ -41,6 +41,7 @@
     .meta-val { font-size: 13px; font-weight: 500; color: #111; }
 
     /* Lines table */
+    .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-bottom: 24px; }
     thead th { background: #f3f4f6; padding: 9px 11px; text-align: right; font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: #555; }
     tbody td { padding: 9px 11px; border-bottom: 1px solid #e5e7eb; color: #222; text-align: right; }
@@ -75,6 +76,44 @@
       .no-print { display: none !important; }
       .print-preview { margin: 0; box-shadow: none; border-radius: 0; padding: 20px 28px; }
       @page { margin: 1cm; }
+    }
+
+    /* ── Mobile card layout for the lines table (≤ 640px, screen only) ──
+       Keeps the printed/PDF output as a real table; only the on-screen
+       preview on small devices switches to a stacked card per line. */
+    @media screen and (max-width: 640px) {
+      .print-preview { padding: 24px 16px; }
+      .table-wrapper table { min-width: 0; }
+      table thead { display: none; }
+      table, tbody, tr, td { display: block; width: 100%; }
+      tbody tr {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+      }
+      tbody tr:last-child { margin-bottom: 10px; }
+      td {
+        padding: 6px 0 !important;
+        text-align: right !important;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        border-bottom: none !important;
+      }
+      td[data-label]::before {
+        content: attr(data-label);
+        font-size: 10.5px; font-weight: 600; letter-spacing: .04em;
+        text-transform: uppercase; color: #888;
+        flex-shrink: 0;
+      }
+      tfoot .lignes-total-row {
+        display: flex; flex-wrap: wrap; align-items: center;
+        justify-content: space-between; border-radius: 8px;
+      }
+      tfoot .lignes-total-row td { display: block; width: auto; text-align: left !important; }
+      tfoot .lignes-total-row td:first-child { display: none; }
     }
   </style>
 </head>
@@ -141,6 +180,7 @@
   </div>
 
   <!-- Lines -->
+  <div class="table-wrapper">
   <table>
     <thead>
       <tr>
@@ -154,26 +194,27 @@
     <tbody>
       {% for ligne in lignes %}
       <tr>
-        <td style="color:#aaa;">{{ forloop.counter }}</td>
-        <td>
+        <td data-label="#" style="color:#aaa;">{{ forloop.counter }}</td>
+        <td data-label="التسمية">
           <strong>{{ ligne.designation }}</strong>
           <span style="font-size:11px;color:#888;display:block;">
             {% if ligne.produit_fini %}{{ ligne.produit_fini.get_type_produit_display }}{% else %}مدخل (فائض للبيع){% endif %}
           </span>
         </td>
-        <td class="text-left">{{ ligne.quantite|floatformat:2 }} {{ ligne.unite_mesure }}</td>
-        <td class="text-left">{{ ligne.prix_unitaire|floatformat:2 }}</td>
-        <td class="text-left"><strong>{{ ligne.montant_total|floatformat:0 }}</strong></td>
+        <td data-label="الكمية" class="text-left">{{ ligne.quantite|floatformat:2 }} {{ ligne.unite_mesure }}</td>
+        <td data-label="سعر الوحدة (دج)" class="text-left">{{ ligne.prix_unitaire|floatformat:2 }}</td>
+        <td data-label="المجموع (دج)" class="text-left"><strong>{{ ligne.montant_total|floatformat:0 }}</strong></td>
       </tr>
       {% endfor %}
     </tbody>
     <tfoot>
-      <tr>
+      <tr class="lignes-total-row">
         <td colspan="4" class="text-left">المجموع الكلي</td>
         <td class="text-left">{{ montant_total|floatformat:0 }} دج</td>
       </tr>
     </tfoot>
   </table>
+  </div>
 
   <!-- Totals -->
   <div class="totals-block">

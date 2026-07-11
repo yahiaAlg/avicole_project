@@ -103,15 +103,15 @@
             <tbody>
               {% for ligne in bl.lignes.all %}
               <tr>
-                <td>
+                <td data-label="البند">
                   <span style="font-weight:500;color:var(--text-primary);">{{ ligne.designation }}</span>
                   <div style="font-size:11px;color:var(--text-muted);">
                     {% if ligne.produit_fini %}{{ ligne.produit_fini.get_type_produit_display }}{% else %}مدخل (فائض للبيع){% endif %}
                   </div>
                 </td>
-                <td style="text-align:right;">{{ ligne.quantite|floatformat:2 }} {{ ligne.unite_mesure }}</td>
-                <td style="text-align:right;color:var(--text-muted);">{{ ligne.prix_unitaire|floatformat:2 }} DZD</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ ligne.montant_total|floatformat:0 }} DZD</td>
+                <td data-label="الكمية" style="text-align:right;">{{ ligne.quantite|floatformat:2 }} {{ ligne.unite_mesure }}</td>
+                <td data-label="سعر الوحدة" style="text-align:right;color:var(--text-muted);">{{ ligne.prix_unitaire|floatformat:2 }} DZD</td>
+                <td data-label="الإجمالي" style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ ligne.montant_total|floatformat:0 }} DZD</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -145,11 +145,11 @@
             <tbody>
               {% for alloc in allocations %}
               <tr>
-                <td style="font-size:12px;color:var(--text-muted);">{{ alloc.paiement.date_paiement|date:"d/m/Y" }}</td>
-                <td>{{ alloc.paiement.get_mode_paiement_display }}</td>
-                <td style="font-size:12px;color:var(--text-muted);">{{ alloc.paiement.reference_paiement|default:"—" }}</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">{{ alloc.montant_alloue|floatformat:0 }} DZD</td>
-                <td>
+                <td data-label="التاريخ" style="font-size:12px;color:var(--text-muted);">{{ alloc.paiement.date_paiement|date:"d/m/Y" }}</td>
+                <td data-label="طريقة الدفع">{{ alloc.paiement.get_mode_paiement_display }}</td>
+                <td data-label="مرجع الدفعة" style="font-size:12px;color:var(--text-muted);">{{ alloc.paiement.reference_paiement|default:"—" }}</td>
+                <td data-label="المبلغ المخصص" style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">{{ alloc.montant_alloue|floatformat:0 }} DZD</td>
+                <td data-label="إجراءات">
                   <div class="actions-cell">
                     <a href="{% url 'clients:paiement_client_detail' alloc.paiement.pk %}" class="action-btn" title="تفاصيل الدفعة"><i class="bx bx-show"></i></a>
                   </div>
@@ -186,10 +186,10 @@
             <tbody>
               {% for pj in pieces_jointes %}
               <tr>
-                <td><span class="pill-neutral">{{ pj.get_type_document_display }}</span></td>
-                <td style="color:var(--text-secondary);font-size:12.5px;">{{ pj.description|default:"—" }}</td>
-                <td style="font-size:12px;color:var(--text-muted);">{{ pj.uploaded_by|default:"—" }} · {{ pj.created_at|date:"d/m/Y H:i" }}</td>
-                <td>
+                <td data-label="النوع"><span class="pill-neutral">{{ pj.get_type_document_display }}</span></td>
+                <td data-label="الوصف" style="color:var(--text-secondary);font-size:12.5px;">{{ pj.description|default:"—" }}</td>
+                <td data-label="أُضيف بواسطة" style="font-size:12px;color:var(--text-muted);">{{ pj.uploaded_by|default:"—" }} · {{ pj.created_at|date:"d/m/Y H:i" }}</td>
+                <td data-label="">
                   <div class="actions-cell">
                     <a href="{{ pj.fichier.url }}" class="action-btn" title="فتح الملف" target="_blank"><i class="bx bx-download"></i></a>
                     <form method="post" action="{% url 'core:piece_jointe_delete' pj.pk %}" style="display:inline;" onsubmit="return confirm('حذف هذا المرفق؟');">
@@ -362,6 +362,40 @@
   .data-table thead th { padding: 10px 14px; font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: right; background: var(--bg-base); }
   .data-table tbody td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
   .data-table tbody tr:last-child td { border-bottom: none; }
+
+  /* ── Mobile card layout for data-table (≤ 640px) ──
+     Each row becomes a stacked card with attr(data-label) captions
+     instead of a table you have to scroll sideways to read. */
+  @media (max-width: 640px) {
+    .data-table { min-width: 0; }
+    .data-table thead { display: none; }
+    .data-table, .data-table tbody, .data-table tr, .data-table td {
+      display: block; width: 100%;
+    }
+    .data-table tbody tr {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      margin-bottom: 10px;
+    }
+    .data-table tbody tr:last-child { margin-bottom: 0; }
+    .data-table td {
+      padding: 6px 0;
+      text-align: right !important;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: none !important;
+    }
+    .data-table td[data-label]:not([data-label=""])::before {
+      content: attr(data-label);
+      font-size: 10.5px; font-weight: 600; letter-spacing: .04em;
+      text-transform: uppercase; color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .data-table td[data-label=""] { justify-content: flex-end; }
+  }
 
   .total-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
   .total-row:last-child { border-bottom: none; }

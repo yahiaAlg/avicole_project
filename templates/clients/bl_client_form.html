@@ -154,7 +154,7 @@
             <tbody id="formset-container">
               {% for ligne_form in formset %}
               <tr class="ligne-form {% if ligne_form.instance.pk %}ligne-existing{% endif %}" data-form-idx="{{ forloop.counter0 }}" data-type="{% if ligne_form.instance.pk and ligne_form.instance.intrant_id %}intrant{% else %}produit_fini{% endif %}">
-                <td>
+                <td data-label="النوع">
                   {% for hfield in ligne_form.hidden_fields %}{{ hfield }}{% endfor %}
                   {{ ligne_form.DELETE }}
                   <select class="article-type-select">
@@ -162,7 +162,7 @@
                     <option value="intrant" {% if ligne_form.instance.intrant_id %}selected{% endif %}>مدخل (فائض)</option>
                   </select>
                 </td>
-                <td>
+                <td data-label="البند">
                   <div class="article-field article-field--produit_fini">
                     {{ ligne_form.produit_fini }}
                     {% for err in ligne_form.produit_fini.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
@@ -172,21 +172,21 @@
                     {% for err in ligne_form.intrant.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
                   </div>
                 </td>
-                <td>
+                <td data-label="الكمية">
                   {{ ligne_form.quantite }}
                   {% for err in ligne_form.quantite.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
                 </td>
-                <td>
+                <td data-label="سعر الوحدة (دج)">
                   {{ ligne_form.prix_unitaire }}
                   {% for err in ligne_form.prix_unitaire.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ err }}</div>{% endfor %}
                 </td>
-                <td>
+                <td data-label="المبلغ">
                   <span class="ligne-total" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">—</span>
                 </td>
-                <td>
+                <td data-label="المخزون المتاح">
                   <span class="stock-hint" style="font-size:11px;color:var(--text-muted);"></span>
                 </td>
-                <td style="text-align:center;">
+                <td class="ligne-row__delete-cell" style="text-align:center;">
                   <button type="button" class="delete-btn" title="حذف البند">
                     <i class="bx bx-trash"></i>
                   </button>
@@ -326,7 +326,7 @@
 <!-- Empty form template for JS cloning -->
 <template id="empty-form-template">
   <tr class="ligne-form" data-form-idx="__prefix__" data-type="produit_fini">
-    <td>
+    <td data-label="النوع">
       {{ formset.empty_form.id }}
       {{ formset.empty_form.DELETE }}
       <select class="article-type-select">
@@ -334,15 +334,15 @@
         <option value="intrant">مدخل (فائض)</option>
       </select>
     </td>
-    <td>
+    <td data-label="البند">
       <div class="article-field article-field--produit_fini">{{ formset.empty_form.produit_fini }}</div>
       <div class="article-field article-field--intrant">{{ formset.empty_form.intrant }}</div>
     </td>
-    <td>{{ formset.empty_form.quantite }}</td>
-    <td>{{ formset.empty_form.prix_unitaire }}</td>
-    <td><span class="ligne-total" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">—</span></td>
-    <td><span class="stock-hint" style="font-size:11px;color:var(--text-muted);"></span></td>
-    <td style="text-align:center;">
+    <td data-label="الكمية">{{ formset.empty_form.quantite }}</td>
+    <td data-label="سعر الوحدة (دج)">{{ formset.empty_form.prix_unitaire }}</td>
+    <td data-label="المبلغ"><span class="ligne-total" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">—</span></td>
+    <td data-label="المخزون المتاح"><span class="stock-hint" style="font-size:11px;color:var(--text-muted);"></span></td>
+    <td class="ligne-row__delete-cell" style="text-align:center;">
       <button type="button" class="delete-btn" title="حذف البند"><i class="bx bx-trash"></i></button>
     </td>
   </tr>
@@ -420,6 +420,54 @@
 
   .delete-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--radius-sm); border: 1px solid rgba(239,68,68,.2); background: transparent; color: #dc2626; cursor: pointer; font-size: 14px; transition: background .12s; }
   .delete-btn:hover { background: rgba(239,68,68,.08); }
+
+  /* ── Mobile card layout for the lines formset (≤ 720px) ──
+     The table markup stays intact (JS relies on tr.ligne-form / td order),
+     only its visual presentation switches to a stacked card per line so
+     nothing requires horizontal scrolling on a phone screen. */
+  @media (max-width: 720px) {
+    #formset-table { min-width: 0; width: 100%; }
+    #formset-table thead { display: none; }
+    #formset-table, #formset-table tbody, #formset-table tr, #formset-table td {
+      display: block; width: 100%;
+    }
+    #formset-table tr.ligne-form {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      margin-bottom: 12px;
+      background: var(--bg-surface);
+    }
+    #formset-table td {
+      padding: 6px 0;
+      border-bottom: none;
+    }
+    #formset-table td[data-label]:not([data-label=""])::before {
+      content: attr(data-label);
+      display: block;
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    #formset-table td.ligne-row__delete-cell {
+      text-align: stretch;
+      margin-top: 6px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--border);
+    }
+    #formset-table .delete-btn {
+      width: 100%;
+      height: auto;
+      padding: 9px 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+  }
 
   /* Pièces jointes */
   .pj-row { padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-md); margin-top: 12px; }

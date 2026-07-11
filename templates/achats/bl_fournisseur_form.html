@@ -288,7 +288,7 @@
             <tbody id="formset-body">
               {% for ligne_form in formset %}
               <tr class="ligne-row{% if ligne_form.instance.pk %} existing{% endif %}" data-row-idx="{{ forloop.counter0 }}">
-                <td>
+                <td data-label="Intrant">
                   {{ ligne_form.id }}
                   {{ ligne_form.DELETE }}
                   <div class="input-icon-wrap">
@@ -299,32 +299,32 @@
                   <div class="field-error"><i class="bx bxs-x-circle"></i> {{ ligne_form.intrant.errors|join:", " }}</div>
                   {% endif %}
                 </td>
-                <td>
+                <td data-label="الكمية">
                   {{ ligne_form.quantite }}
                   {% if ligne_form.quantite.errors %}
                   <div class="field-error"><i class="bx bxs-x-circle"></i> {{ ligne_form.quantite.errors|join:", " }}</div>
                   {% endif %}
                 </td>
-                <td>
+                <td data-label="سعر الوحدة (دج)">
                   {{ ligne_form.prix_unitaire }}
                   {% if ligne_form.prix_unitaire.errors %}
                   <div class="field-error"><i class="bx bxs-x-circle"></i> {{ ligne_form.prix_unitaire.errors|join:", " }}</div>
                   {% endif %}
                 </td>
-                <td>
+                <td data-label="المبلغ">
                   <span class="ligne-montant" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
                     0 DZD
                   </span>
                 </td>
-                <td>
+                <td data-label="المخزون المتاح">
                   <span class="stock-hint" style="font-size:11px;color:var(--text-muted);"></span>
                 </td>
-                <td>
+                <td data-label="ملاحظات">
                   {{ ligne_form.notes }}
                 </td>
-                <td style="text-align:center;">
+                <td data-label="" class="ligne-row__delete-cell" style="text-align:center;">
                   <button type="button" class="action-btn action-btn--danger remove-line-btn" title="حذف الخط">
-                    <i class="bx bx-trash"></i>
+                    <i class="bx bx-trash"></i> <span class="remove-line-btn__label">حذف الخط</span>
                   </button>
                 </td>
               </tr>
@@ -687,6 +687,57 @@
     color: var(--text-muted);
   }
 
+  .remove-line-btn__label { display: none; }
+
+  /* ── Mobile card layout for the lines formset (≤ 720px) ──
+     The table markup stays intact (JS relies on tr.ligne-row / td order),
+     only its visual presentation switches to a stacked card per line so
+     nothing requires horizontal scrolling on a phone screen. */
+  @media (max-width: 720px) {
+    #formset-table { min-width: 0; width: 100%; }
+    #formset-table thead { display: none; }
+    #formset-table, #formset-table tbody, #formset-table tr, #formset-table td {
+      display: block; width: 100%;
+    }
+    #formset-table tr.ligne-row {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      margin-bottom: 12px;
+      background: var(--bg-surface);
+    }
+    #formset-table td {
+      padding: 6px 0;
+      border-bottom: none;
+    }
+    #formset-table td[data-label]:not([data-label=""])::before {
+      content: attr(data-label);
+      display: block;
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    #formset-table td.ligne-row__delete-cell {
+      text-align: stretch;
+      margin-top: 6px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--border);
+    }
+    #formset-table .remove-line-btn {
+      width: 100%;
+      height: auto;
+      padding: 9px 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    #formset-table .remove-line-btn__label { display: inline; font-size: 12.5px; font-weight: 600; }
+  }
+
   /* Sidebar summary */
   .sticky-card { position: sticky; top: calc(var(--topbar-h) + 16px); }
   .summary-row {
@@ -851,6 +902,14 @@ document.addEventListener('DOMContentLoaded', function () {
   const tbody       = document.getElementById('formset-body');
   const addBtn      = document.getElementById('add-line-btn');
   const totalFormInput = document.querySelector('[name="lignes-TOTAL_FORMS"]');
+
+  /* Cache a detached copy of the row template at load time so that
+     "add line" keeps working even after every visible row has been
+     removed (tbody.querySelector('.ligne-row') would otherwise return null). */
+  const rowTemplate = (function () {
+    const r = tbody.querySelector('.ligne-row');
+    return r ? r.cloneNode(true) : null;
+  })();
   const grandTotalEl   = document.getElementById('lines-grand-total');
   const summaryLinesEl = document.getElementById('summary-lines');
   const summaryTotalEl = document.getElementById('summary-total');
@@ -973,7 +1032,7 @@ document.addEventListener('DOMContentLoaded', function () {
   addBtn.addEventListener('click', function () {
     const totalForms = parseInt(totalFormInput.value);
     const newIdx = totalForms;
-    const templateRow = tbody.querySelector('.ligne-row');
+    const templateRow = tbody.querySelector('.ligne-row') || rowTemplate;
     if (!templateRow) return;
     const newRow = templateRow.cloneNode(true);
     newRow.style.setProperty('--row-i', newIdx);

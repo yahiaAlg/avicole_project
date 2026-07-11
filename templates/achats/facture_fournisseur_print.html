@@ -82,6 +82,7 @@
     .bl-section__date { font-size: 11px; color: #7a8c78; font-weight: 400; }
 
     /* Table */
+    .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 0; }
     thead th {
       background: #f3f4f6; padding: 8px 10px; text-align: left;
@@ -118,6 +119,44 @@
       body { background: #fff; }
       .no-print { display: none !important; }
       .print-preview { margin: 0; padding: 24px 32px; box-shadow: none; border-radius: 0; }
+    }
+
+    /* ── Mobile card layout for line-item tables (≤ 640px, screen only) ──
+       Keeps the printed/PDF output as a real table; only the on-screen
+       preview on small devices switches to a stacked card per line. */
+    @media screen and (max-width: 640px) {
+      .print-preview { padding: 24px 16px; }
+      .fin-row { flex-wrap: wrap; gap: 16px; }
+      .table-wrapper table { min-width: 0; }
+      table thead { display: none; }
+      table, tbody, tr, td { display: block; width: 100%; }
+      tbody tr {
+        border: 1px solid #eee;
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+      }
+      tbody tr:last-child { margin-bottom: 10px; border-bottom: 1px solid #eee !important; }
+      td {
+        padding: 6px 0 !important;
+        text-align: right !important;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        border-bottom: none !important;
+      }
+      td[data-label]:not([data-label=""])::before {
+        content: attr(data-label);
+        font-size: 10.5px; font-weight: 600; letter-spacing: .04em;
+        text-transform: uppercase; color: #7a8c78;
+        flex-shrink: 0;
+      }
+      .total-row td {
+        display: flex; justify-content: space-between;
+        border-top: 2px solid #111 !important;
+      }
+      .bl-section__header { flex-wrap: wrap; gap: 4px; }
     }
   </style>
 </head>
@@ -205,6 +244,7 @@
       <span class="bl-section__date">{{ bl.date_bl|date:"d/m/Y" }}{% if bl.reference_fournisseur %} · Réf. four. : {{ bl.reference_fournisseur }}{% endif %}</span>
       <span style="font-family:'Nunito',sans-serif;font-weight:700;margin-right:auto;">{{ bl.montant_total|floatformat:0 }} DZD</span>
     </div>
+    <div class="table-wrapper">
     <table>
       <thead>
         <tr>
@@ -220,17 +260,18 @@
       <tbody>
         {% for ligne in bl.lignes.all %}
         <tr>
-          <td style="color:#888;">{{ forloop.counter }}</td>
-          <td style="font-weight:600;">{{ ligne.intrant.designation }}</td>
-          <td>{{ ligne.intrant.categorie.libelle }}</td>
-          <td>{{ ligne.intrant.unite_mesure }}</td>
-          <td style="text-align:left;">{{ ligne.quantite|floatformat:3 }}</td>
-          <td style="text-align:left;color:#555;">{{ ligne.prix_unitaire|floatformat:4 }}</td>
-          <td style="text-align:left;font-weight:600;">{{ ligne.montant_total|floatformat:0 }}</td>
+          <td data-label="#" style="color:#888;">{{ forloop.counter }}</td>
+          <td data-label="التسمية" style="font-weight:600;">{{ ligne.intrant.designation }}</td>
+          <td data-label="الفئة">{{ ligne.intrant.categorie.libelle }}</td>
+          <td data-label="الوحدة">{{ ligne.intrant.unite_mesure }}</td>
+          <td data-label="الكمية" style="text-align:left;">{{ ligne.quantite|floatformat:3 }}</td>
+          <td data-label="سعر الوحدة" style="text-align:left;color:#555;">{{ ligne.prix_unitaire|floatformat:4 }}</td>
+          <td data-label="المبلغ (دج)" style="text-align:left;font-weight:600;">{{ ligne.montant_total|floatformat:0 }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
   {% endfor %}
 
@@ -238,8 +279,8 @@
   <table class="total-section">
     <tfoot>
       <tr class="total-row">
-        <td style="text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#555;">المجموع الكلي</td>
-        <td style="width:140px;">{{ facture.montant_total|floatformat:0 }} DZD</td>
+        <td data-label="" style="text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#555;">المجموع الكلي</td>
+        <td data-label="" style="width:140px;">{{ facture.montant_total|floatformat:0 }} DZD</td>
       </tr>
     </tfoot>
   </table>
@@ -248,6 +289,7 @@
   {% if allocations %}
   <div class="alloc-section">
     <div class="alloc-section__title">سجل المدفوعات</div>
+    <div class="table-wrapper">
     <table>
       <thead>
         <tr>
@@ -260,14 +302,15 @@
       <tbody>
         {% for alloc in allocations %}
         <tr>
-          <td>{{ alloc.reglement.date_reglement|date:"d/m/Y" }}</td>
-          <td>{{ alloc.reglement.get_mode_paiement_display }}</td>
-          <td style="color:#7a8c78;">{{ alloc.reglement.reference_paiement|default:"—" }}</td>
-          <td style="text-align:left;font-weight:600;color:#15803d;">{{ alloc.montant_alloue|floatformat:0 }}</td>
+          <td data-label="التاريخ">{{ alloc.reglement.date_reglement|date:"d/m/Y" }}</td>
+          <td data-label="طريقة الدفع">{{ alloc.reglement.get_mode_paiement_display }}</td>
+          <td data-label="مرجع الدفع" style="color:#7a8c78;">{{ alloc.reglement.reference_paiement|default:"—" }}</td>
+          <td data-label="المبلغ المخصص (دج)" style="text-align:left;font-weight:600;color:#15803d;">{{ alloc.montant_alloue|floatformat:0 }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
   {% endif %}
 
