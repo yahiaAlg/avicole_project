@@ -64,6 +64,36 @@ def _paginate(qs, page_number, per_page=PER_PAGE):
         return paginator.page(paginator.num_pages)
 
 
+def _is_chauffeur(user):
+    """True when *user*'s profile role is "سائق" (truck driver)."""
+    try:
+        return user.profile.est_chauffeur
+    except Exception:
+        return False
+
+
+def _is_admin(user):
+    try:
+        return user.is_staff or user.profile.role == "admin"
+    except Exception:
+        return user.is_staff
+
+
+def _deny_if_not_own_fournisseur(request, fournisseur):
+    """
+    For a chauffeur account: redirect away (with an error message) if
+    *fournisseur* was not created by the requesting user. Returns the
+    redirect response, or None when access is allowed.
+    """
+    if _is_chauffeur(request.user) and fournisseur.created_by_id != request.user.id:
+        messages.error(
+            request,
+            "غير مسموح: يمكن للسائق الاطلاع فقط على الموردين الذين أنشأهم بنفسه.",
+        )
+        return redirect("intrants:fournisseur_list")
+    return None
+
+
 # ===========================================================================
 # CategorieIntrant
 # ===========================================================================
@@ -316,8 +346,14 @@ def type_fournisseur_toggle_active(request, pk):
 def fournisseur_list(request):
     """
     Supplier list with search (name, city) and actif/inactif filter.
+
+    Chauffeur accounts only ever see the suppliers they created themselves
+    (mirrors achats.views' BL scoping for the same role).
     """
     qs = Fournisseur.objects.select_related("type_principal").order_by("nom")
+
+    if _is_chauffeur(request.user):
+        qs = qs.filter(created_by=request.user)
 
     # Filter: actif only by default; pass ?afficher=tous to see all.
     afficher = request.GET.get("afficher", "actifs")
@@ -358,6 +394,11 @@ def fournisseur_detail(request, pk):
     ever transacted with.
     """
     fournisseur = get_object_or_404(Fournisseur, pk=pk)
+
+    deny = _deny_if_not_own_fournisseur(request, fournisseur)
+    if deny is not None:
+        return deny
+
     branche = get_active_branche(request)
 
     # Financial snapshot via achats utils (lazy import — achats depends on intrants).
@@ -407,7 +448,10 @@ def fournisseur_create(request):
     if request.method == "POST":
         form = FournisseurForm(request.POST)
         if form.is_valid():
-            obj = form.save()
+            obj = form.save(commit=False)
+            obj.created_by = request.user
+            obj.save()
+            form.save_m2m()
             messages.success(request, f"تم إنشاء المورد « {obj.nom} » بنجاح.")
             logger.info("Fournisseur pk=%s created by '%s'.", obj.pk, request.user)
             return redirect("intrants:fournisseur_detail", pk=obj.pk)
@@ -428,6 +472,11 @@ def fournisseur_create(request):
 @login_required(login_url=LOGIN_URL)
 def fournisseur_edit(request, pk):
     fournisseur = get_object_or_404(Fournisseur, pk=pk)
+
+    deny = _deny_if_not_own_fournisseur(request, fournisseur)
+    if deny is not None:
+        return deny
+
     if request.method == "POST":
         form = FournisseurForm(request.POST, instance=fournisseur)
         if form.is_valid():
@@ -452,7 +501,20 @@ def fournisseur_edit(request, pk):
 @login_required(login_url=LOGIN_URL)
 @require_POST
 def fournisseur_toggle_active(request, pk):
-    """Deactivate / reactivate a supplier. Does NOT delete."""
+    """
+    Deactivate / reactivate a supplier. Does NOT delete.
+
+    Restricted to admins (is_staff or profile.role=="admin") — same rule as
+    the Intrant catalogue: any role, including chauffeur, may add/edit
+    suppliers, but only an admin may deactivate/"delete" one.
+    """
+    if not _is_admin(request.user):
+        messages.error(
+            request,
+            "غير مسموح: تعطيل/حذف مورد مخصص للمدير فقط.",
+        )
+        return redirect("intrants:fournisseur_list")
+
     fournisseur = get_object_or_404(Fournisseur, pk=pk)
     fournisseur.actif = not fournisseur.actif
     fournisseur.save(update_fields=["actif", "updated_at"])
@@ -747,7 +809,25 @@ def intrant_edit(request, pk):
 @login_required(login_url=LOGIN_URL)
 @require_POST
 def intrant_toggle_active(request, pk):
-    """Deactivate / reactivate an intrant. Does NOT delete."""
+    """
+    Deactivate / reactivate an intrant. Does NOT delete.
+
+    Restricted to admins (is_staff or profile.role=="admin"). Any other
+    role — including chauffeur, who may freely add new intrants to the
+    catalogue via intrant_create — may not deactivate/"delete" one.
+    """
+    try:
+        is_admin = request.user.is_staff or request.user.profile.role == "admin"
+    except Exception:
+        is_admin = request.user.is_staff
+
+    if not is_admin:
+        messages.error(
+            request,
+            "غير مسموح: تعطيل/حذف مادة من الكتالوج مخصص للمدير فقط.",
+        )
+        return redirect("intrants:intrant_list")
+
     intrant = get_object_or_404(Intrant, pk=pk)
     intrant.actif = not intrant.actif
     intrant.save(update_fields=["actif", "updated_at"])

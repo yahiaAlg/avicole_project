@@ -101,6 +101,44 @@ def _auto_reference_facture(branche):
     return generer_reference_facture_fournisseur(branche)
 
 
+def _is_chauffeur(user):
+    """True when *user*'s profile role is "سائق" (truck driver)."""
+    try:
+        return user.profile.est_chauffeur
+    except Exception:
+        return False
+
+
+def _deny_if_not_own_bl(request, bl):
+    """
+    For a chauffeur account: redirect away (with an error message) if *bl*
+    was not created by the requesting user. Returns the redirect response,
+    or None when access is allowed.
+    """
+    if _is_chauffeur(request.user) and bl.created_by_id != request.user.id:
+        messages.error(
+            request,
+            "غير مسموح: يمكن للسائق الاطلاع فقط على وصولات الاستلام التي أنشأها بنفسه.",
+        )
+        return redirect("achats:bl_fournisseur_list")
+    return None
+
+
+def _deny_chauffeur(request):
+    """
+    Block a chauffeur account from any non-BL view of the achats app
+    (factures, règlements, acomptes, tableau de bord, relevé). Returns the
+    redirect response, or None when access is allowed.
+    """
+    if _is_chauffeur(request.user):
+        messages.error(
+            request,
+            "غير مسموح: حساب السائق مخصص فقط لوصولات استلام الموردين (BL).",
+        )
+        return redirect("achats:bl_fournisseur_list")
+    return None
+
+
 # ===========================================================================
 # BL Fournisseur — List
 # ===========================================================================
@@ -121,6 +159,10 @@ def bl_fournisseur_list(request):
     ).order_by("-date_bl", "-created_at")
     if branche is not None:
         qs = qs.filter(branche=branche)
+
+    # Chauffeur accounts only ever see the BLs they created themselves.
+    if _is_chauffeur(request.user):
+        qs = qs.filter(created_by=request.user)
 
     # Statut filter
     statut = request.GET.get("statut", "")
@@ -322,6 +364,10 @@ def bl_fournisseur_edit(request, pk):
         pk=pk,
     )
 
+    deny = _deny_if_not_own_bl(request, bl)
+    if deny is not None:
+        return deny
+
     if bl.est_verrouille:
         messages.error(
             request,
@@ -399,6 +445,11 @@ def bl_fournisseur_detail(request, pk):
         BLFournisseur.objects.select_related("fournisseur", "branche", "created_by"),
         pk=pk,
     )
+
+    deny = _deny_if_not_own_bl(request, bl)
+    if deny is not None:
+        return deny
+
     lignes = bl.lignes.select_related("intrant").all()
     factures = bl.factures.order_by("-date_facture")
     pieces_jointes = bl.pieces_jointes.select_related("uploaded_by").order_by(
@@ -491,6 +542,10 @@ def bl_fournisseur_change_statut(request, pk):
     """
     bl = branche_object_or_404(request, BLFournisseur, pk=pk)
 
+    deny = _deny_if_not_own_bl(request, bl)
+    if deny is not None:
+        return deny
+
     if bl.est_verrouille:
         messages.error(
             request,
@@ -582,6 +637,11 @@ def bl_fournisseur_print(request, pk):
         BLFournisseur.objects.select_related("fournisseur"),
         pk=pk,
     )
+
+    deny = _deny_if_not_own_bl(request, bl)
+    if deny is not None:
+        return deny
+
     lignes = bl.lignes.select_related("intrant").all()
     company = CompanyInfo.get_instance()
 
@@ -610,6 +670,10 @@ def bl_fournisseur_delete(request, pk):
     RECU / FACTURE / LITIGE BLs cannot be deleted (stock impact or locked).
     """
     bl = branche_object_or_404(request, BLFournisseur, pk=pk)
+
+    deny = _deny_if_not_own_bl(request, bl)
+    if deny is not None:
+        return deny
 
     DELETABLE_STATUTS = {BLFournisseur.STATUT_BROUILLON, BLFournisseur.STATUT_AUTORISE}
     if bl.statut not in DELETABLE_STATUTS:
@@ -640,6 +704,10 @@ def facture_fournisseur_list(request):
     v1.4 (BR-BRA-01/02): Vue par Branche shows only the active branche's
     invoices; Vue Globale shows every branche's invoices combined.
     """
+    deny = _deny_chauffeur(request)
+    if deny is not None:
+        return deny
+
     branche = get_active_branche(request)
     qs = FactureFournisseur.objects.select_related("fournisseur", "branche").order_by(
         "-date_facture", "-created_at"
@@ -710,6 +778,10 @@ def facture_fournisseur_create(request):
                that branche's Reçu BLs can be selected; Vue Globale cannot
                reach this view (@require_branche_context).
     """
+    deny = _deny_chauffeur(request)
+    if deny is not None:
+        return deny
+
     branche = get_active_branche(request)
 
     # Resolve fournisseur from POST body or GET param
@@ -825,6 +897,10 @@ def facture_fournisseur_detail(request, pk):
     """
     Invoice detail: header, linked BLs/lines, payment allocations, balance.
     """
+    deny = _deny_chauffeur(request)
+    if deny is not None:
+        return deny
+
     facture = branche_object_or_404(
         request,
         FactureFournisseur.objects.select_related("fournisseur", "created_by"),
@@ -877,6 +953,10 @@ def facture_fournisseur_ajouter_piece_jointe(request, pk):
     so adding proof documents after the fact goes through this dedicated
     POST-only action instead of a full edit form.
     """
+    deny = _deny_chauffeur(request)
+    if deny is not None:
+        return deny
+
     facture = branche_object_or_404(request, FactureFournisseur, pk=pk)
     pj_formset = build_piece_jointe_formset(
         FactureFournisseurPieceJointeFormSet, request, instance=facture, prefix="pj"
@@ -897,6 +977,10 @@ def facture_fournisseur_ajouter_piece_jointe(request, pk):
 @login_required(login_url=LOGIN_URL)
 def facture_fournisseur_print(request, pk):
     """Printable invoice — @media print CSS handled in template."""
+    deny = _deny_chauffeur(request)
+    if deny is not None:
+        return deny
+
     from core.models import CompanyInfo
 
     facture = branche_object_or_404(
@@ -934,6 +1018,10 @@ def facture_fournisseur_toggle_litige(request, pk):
     Toggle an invoice between EN_LITIGE and its previous payment status.
     POST-only.  Cannot be applied to fully paid invoices.
     """
+    deny = _deny_chauffeur(request)
+    if deny is not None:
+        return deny
+
     facture = branche_object_or_404(request, FactureFournisseur, pk=pk)
 
     if facture.statut == FactureFournisseur.STATUT_PAYE:
@@ -980,6 +1068,10 @@ def facture_fournisseur_delete(request, pk):
     and its side effects, including on OTHER invoices a shared règlement
     also paid.
     """
+    deny = _deny_chauffeur(request)
+    if deny is not None:
+        return deny
+
     try:
         is_admin = request.user.is_staff or request.user.profile.role == "admin"
     except Exception:
@@ -1034,6 +1126,10 @@ def reglement_fournisseur_list(request):
     v1.4 (BR-BRA-01/02): Vue par Branche shows only the active branche's
     payments; Vue Globale shows every branche's payments combined.
     """
+    deny = _deny_chauffeur(request)
+    if deny is not None:
+        return deny
+
     branche = get_active_branche(request)
     qs = ReglementFournisseur.objects.select_related(
         "fournisseur", "branche", "created_by"
@@ -1101,6 +1197,10 @@ def reglement_fournisseur_create(request):
       ?fournisseur=<pk>  — pre-select supplier
       ?facture=<pk>      — pre-fill montant with facture.reste_a_payer
     """
+    deny = _deny_chauffeur(request)
+    if deny is not None:
+        return deny
+
     branche = get_active_branche(request)
 
     # Pre-select supplier via ?fournisseur=<pk>
@@ -1220,6 +1320,10 @@ def reglement_fournisseur_detail(request, pk):
     Payment detail: amount, mode, and all allocation lines created by the
     FIFO engine, plus any overpayment acompte.
     """
+    deny = _deny_chauffeur(request)
+    if deny is not None:
+        return deny
+
     reglement = branche_object_or_404(
         request,
         ReglementFournisseur.objects.select_related("fournisseur", "created_by"),
@@ -1279,6 +1383,10 @@ def reglement_fournisseur_delete(request, pk):
     See achats.utils.supprimer_reglement_fournisseur_cascade for the full
     cascade and its side effects.
     """
+    deny = _deny_chauffeur(request)
+    if deny is not None:
+        return deny
+
     try:
         is_admin = request.user.is_staff or request.user.profile.role == "admin"
     except Exception:
@@ -1332,6 +1440,10 @@ def reglement_fournisseur_ajouter_piece_jointe(request, pk):
     proof documents added after creation go through this dedicated
     POST-only action.
     """
+    deny = _deny_chauffeur(request)
+    if deny is not None:
+        return deny
+
     reglement = branche_object_or_404(request, ReglementFournisseur, pk=pk)
     pj_formset = build_piece_jointe_formset(
         ReglementFournisseurPieceJointeFormSet, request, instance=reglement, prefix="pj"
@@ -1358,6 +1470,10 @@ def acompte_fournisseur_list(request):
     v1.4 (BR-BRA-01/02): Vue par Branche shows only the active branche's
     credits; Vue Globale shows every branche's credits combined.
     """
+    deny = _deny_chauffeur(request)
+    if deny is not None:
+        return deny
+
     branche = get_active_branche(request)
     qs = AcompteFournisseur.objects.select_related(
         "fournisseur", "branche", "reglement"
@@ -1400,6 +1516,10 @@ def acompte_fournisseur_list(request):
 @login_required(login_url=LOGIN_URL)
 def acompte_fournisseur_detail(request, pk):
     """BR-BRA-02: the acompte must belong to the request's active branche."""
+    deny = _deny_chauffeur(request)
+    if deny is not None:
+        return deny
+
     acompte = branche_object_or_404(
         request,
         AcompteFournisseur.objects.select_related(
@@ -1443,6 +1563,10 @@ def acompte_fournisseur_detail(request, pk):
 @login_required(login_url=LOGIN_URL)
 @require_POST
 def acompte_fournisseur_ajouter_piece_jointe(request, pk):
+    deny = _deny_chauffeur(request)
+    if deny is not None:
+        return deny
+
     acompte = branche_object_or_404(request, AcompteFournisseur, pk=pk)
     pj_formset = build_piece_jointe_formset(
         AcompteFournisseurPieceJointeFormSet, request, instance=acompte, prefix="pj"
@@ -1473,6 +1597,10 @@ def fournisseur_tableau_de_bord(request, pk):
     Branche by default (exactly what that branch's chef de branche sees) and
     sums every branche in Vue Globale.
     """
+    deny = _deny_chauffeur(request)
+    if deny is not None:
+        return deny
+
     from achats.utils import (
         get_fournisseur_solde,
         get_supplier_aging_buckets,
@@ -1550,6 +1678,10 @@ def releve_compte_fournisseur(request, pk):
         date_debut, date_fin (YYYY-MM-DD) — optional reporting period.
         Everything before date_debut is folded into the opening balance.
     """
+    deny = _deny_chauffeur(request)
+    if deny is not None:
+        return deny
+
     import datetime as dt_module
 
     from achats.utils import get_releve_compte_fournisseur
@@ -1675,6 +1807,10 @@ def fournisseur_dette_json(request, pk):
         {"dette_globale": "...", "acompte_disponible": "...",
          "nb_factures_ouvertes": N}
     """
+    deny = _deny_chauffeur(request)
+    if deny is not None:
+        return deny
+
     fournisseur = get_object_or_404(Fournisseur, pk=pk)
     branche = get_active_branche(request)
     try:

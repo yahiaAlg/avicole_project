@@ -186,6 +186,18 @@ class Fournisseur(models.Model):
     )
     actif = models.BooleanField(default=True, verbose_name="نشط")
     notes = models.TextField(verbose_name="ملاحظات", blank=True)
+    created_by = models.ForeignKey(
+        "auth.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="fournisseurs_crees",
+        verbose_name="أنشئ بواسطة",
+        help_text=(
+            "يُملأ تلقائياً عند الإنشاء. يُستخدم لتقييد رؤية حساب السائق "
+            "على الموردين الذين أنشأهم بنفسه فقط."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

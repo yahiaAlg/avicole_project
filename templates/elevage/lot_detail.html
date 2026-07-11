@@ -16,7 +16,7 @@
   <a href="{% url 'elevage:lot_suivi_journalier' lot.pk %}" class="btn-ghost">
     <i class="bx bxs-spreadsheet"></i> جدول التتبع اليومي
   </a>
-  {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+  {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' and not request.user.profile.est_operateur_terrain %}
   <a href="{% url 'elevage:lot_edit' lot.pk %}" class="btn-ghost">
     <i class="bx bxs-pencil"></i> تعديل
   </a>
@@ -54,7 +54,7 @@
     <div style="flex:1;font-size:13px;color:var(--text-secondary);">
       <strong style="color:#b45309;">الدفعة جاهزة للنقل</strong> — بلغ عمر الدفعة حد النقل من الحضانة. يُنصح بنقلها إلى حظيرة التربية.
     </div>
-    {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+    {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' and not request.user.profile.est_operateur_terrain %}
     <a href="{% url 'elevage:transfert_create' lot.pk %}" class="btn-warning" style="font-size:12px;padding:7px 13px;white-space:nowrap;">
       <i class="bx bxs-buildings"></i> نقل الدفعة
     </a>
@@ -75,10 +75,12 @@
         تم ذبح جميع الطيور أو تسجيلها كنفوق. يمكنك إضافة مصاريف أو ملاحظات قبل إغلاق الدفعة نهائياً.
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        {% if not request.user.profile.est_operateur_terrain %}
         <a href="{% url 'elevage:lot_fermer' lot.pk %}"
            style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);color:#15803d;font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;border-radius:var(--radius-md);padding:8px 16px;display:inline-flex;align-items:center;gap:6px;text-decoration:none;">
           <i class="bx bxs-lock"></i> إغلاق هذه الدفعة
         </a>
+        {% endif %}
         <button type="button"
                 onclick="document.getElementById('banner-fermeture').style.display='none'"
                 style="background:transparent;border:1px solid var(--border);color:var(--text-muted);font-size:12px;border-radius:var(--radius-md);padding:8px 14px;cursor:pointer;font-family:'Inter',sans-serif;">
@@ -302,7 +304,7 @@
       <div class="card mb-3">
         <div class="section-header">
           <span class="section-eyebrow"><i class="bx bxs-buildings" style="font-size:12px;color:#0284c7;"></i> عمليات النقل</span>
-          {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+          {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' and not request.user.profile.est_operateur_terrain %}
           <a href="{% url 'elevage:transfert_create' lot.pk %}" class="btn-ghost btn-sm">
             <i class="bx bx-transfer"></i> نقل الدفعة
           </a>
@@ -340,7 +342,7 @@
         <div class="empty-state-sm">
           <i class="bx bxs-buildings" style="color:var(--border-strong);"></i>
           <span>لا يوجد نقل مسجل</span>
-          {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+          {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' and not request.user.profile.est_operateur_terrain %}
           <a href="{% url 'elevage:transfert_create' lot.pk %}" class="btn-ghost btn-sm"><i class="bx bx-transfer"></i> نقل</a>
           {% endif %}
         </div>
@@ -419,9 +421,11 @@
           <span class="section-eyebrow"><i class="bx bxs-droplet" style="font-size:12px;color:var(--accent-text);"></i> الاستهلاكات</span>
           {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
           <div style="display:flex;gap:8px;">
+            {% if not request.user.profile.est_operateur_terrain %}
             <a href="{% url 'elevage:production_aliment_create' %}" class="btn-ghost btn-sm" title="تزويد مخزون العلف">
               <i class="bx bxs-package"></i> تزويد المخزون
             </a>
+            {% endif %}
             <a href="{% url 'elevage:consommation_create' lot.pk %}" class="btn-ghost btn-sm">
               <i class="bx bx-plus"></i> إدخال
             </a>
@@ -536,9 +540,11 @@
         <div class="section-header">
           <span class="section-eyebrow"><i class="bx bxs-flask" style="font-size:12px;color:#dc2626;"></i> الأدوية واللقاحات</span>
           <div style="display:flex;gap:8px;">
+            {% if not request.user.profile.est_operateur_terrain %}
             <a href="{% url 'elevage:consommation_medicament_list' %}" class="btn-ghost btn-sm">
               <i class="bx bxs-wallet"></i> دفع أجرة الطبيب/الفريق
             </a>
+            {% endif %}
             {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
             <a href="{% url 'elevage:consommation_medicament_create' lot.pk %}" class="btn-ghost btn-sm">
               <i class="bx bx-plus"></i> إدخال
@@ -950,7 +956,7 @@
       {% endif %}
 
       <!-- Danger zone: close lot -->
-      {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' %}
+      {% if lot.statut == 'ouvert' and request.user.userprofile.role != 'viewer' and not request.user.profile.est_operateur_terrain %}
       <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--radius-md);padding:16px 18px;">
         <div style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;margin-bottom:4px;font-size:14px;">
           <i class="bx bxs-error me-1"></i> منطقة حساسة

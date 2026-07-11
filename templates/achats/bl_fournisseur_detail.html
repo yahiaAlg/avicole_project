@@ -77,7 +77,11 @@
         <div class="info-item">
           <div class="info-label">المورد</div>
           <div class="info-val">
+            {% if request.user.profile.est_chauffeur %}
+            {{ bl.fournisseur.nom }}
+            {% else %}
             <a href="{% url 'achats:fournisseur_tableau_de_bord' bl.fournisseur.pk %}" class="ref-link">{{ bl.fournisseur.nom }}</a>
+            {% endif %}
           </div>
         </div>
         <div class="info-item">
@@ -235,8 +239,8 @@
       </div>
     </div>
 
-    <!-- Linked invoices -->
-    {% if factures %}
+    <!-- Linked invoices (hidden for chauffeur — no access to factures) -->
+    {% if factures and not request.user.profile.est_chauffeur %}
     <div class="detail-card" style="margin-top:16px;">
       <div class="detail-card__header">
         <div style="display:flex;align-items:center;gap:8px;">
@@ -339,7 +343,8 @@
         </a>
         {% endif %}
 
-        {# ── Invoice button: active only when statut == recu ── #}
+        {# ── Invoice button: active only when statut == recu (hidden for chauffeur) ── #}
+        {% if not request.user.profile.est_chauffeur %}
         {% if bl.statut == "recu" %}
         <a href="{% url 'achats:facture_fournisseur_create' %}?fournisseur={{ bl.fournisseur.pk }}" class="btn-success" style="width:100%;justify-content:center;">
           <i class="bx bxs-file-txt"></i> إنشاء فاتورة
@@ -348,6 +353,7 @@
         <span class="btn-ghost btn-disabled" style="width:100%;justify-content:center;cursor:not-allowed;opacity:.45;" title="{% if bl.statut == 'brouillon' %}يجب أن يكون الوصل بحالة «مستلم» لإنشاء فاتورة.{% elif bl.statut == 'autorise' %}يجب تأكيد الاستلام أولًا (مغادرة البوابة) قبل الفوترة.{% elif bl.statut == 'litige' %}حل النزاع قبل الفوترة.{% else %}هذا الوصل مفوتر بالفعل.{% endif %}">
           <i class="bx bxs-file-txt"></i> إنشاء فاتورة
         </span>
+        {% endif %}
         {% endif %}
 
         <a href="{% url 'achats:bl_fournisseur_list' %}?fournisseur={{ bl.fournisseur.pk }}" class="btn-ghost" style="width:100%;justify-content:center;">

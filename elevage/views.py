@@ -23,6 +23,7 @@ import datetime
 import json
 import logging
 from decimal import Decimal
+from functools import wraps
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -328,6 +329,26 @@ def _ensure_lot_visible_pour_operateur_terrain(request, lot):
         raise Http404("Ce lot n'est pas accessible à ce compte.")
 
 
+def bloquer_operateur_terrain(view_func):
+    """
+    BR-RH-06 — an opérateur-terrain account (auto-provisioned from an RH
+    Employe record) may only reach lot_list, lot_detail and lot_kpi_json —
+    all three scoped to its own bâtiment's currently-open lots. Every other
+    view in this module (create/edit/delete of any sub-record, closing a
+    lot, dashboards, other list/JSON endpoints) is entirely off-limits to
+    this account type — apply this decorator to all of them.
+    """
+
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        profile = getattr(request.user, "profile", None)
+        if getattr(profile, "est_operateur_terrain", False):
+            raise Http404("هذا الحساب لا يملك صلاحية الوصول إلى هذه الصفحة.")
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped
+
+
 # ===========================================================================
 # LotElevage — List
 # ===========================================================================
@@ -407,6 +428,7 @@ def lot_list(request):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 @require_branche_context
 def lot_create(request):
     """
@@ -564,6 +586,7 @@ def lot_detail(request, pk):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 def lot_edit(request, pk):
     """
     Edit a lot's header information.
@@ -573,7 +596,6 @@ def lot_edit(request, pk):
     total mortalité) is computed — not editable through this view.
     """
     lot = branche_object_or_404(request, LotElevage, pk=pk)
-    _ensure_lot_visible_pour_operateur_terrain(request, lot)
 
     if lot.statut == LotElevage.STATUT_FERME:
         messages.error(
@@ -618,6 +640,7 @@ def lot_edit(request, pk):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 def lot_fermer(request, pk):
     """
     Close an open lot d'élevage.
@@ -737,6 +760,7 @@ def mortalite_create(request, lot_pk):
     in MortaliteForm.clean()).
     """
     lot = branche_object_or_404(request, LotElevage, pk=lot_pk)
+    _ensure_lot_visible_pour_operateur_terrain(request, lot)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -811,6 +835,7 @@ def mortalite_edit(request, pk):
     mortalite = get_object_or_404(Mortalite.objects.select_related("lot"), pk=pk)
     lot = mortalite.lot
     _ensure_branche_access(request, lot)
+    _ensure_lot_visible_pour_operateur_terrain(request, lot)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -866,6 +891,7 @@ def mortalite_delete(request, pk):
     mortalite = get_object_or_404(Mortalite.objects.select_related("lot"), pk=pk)
     lot = mortalite.lot
     _ensure_branche_access(request, lot)
+    _ensure_lot_visible_pour_operateur_terrain(request, lot)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -911,6 +937,7 @@ def _consommation_create(request, lot_pk, form_class, template, kind_label):
     in-view availability check below is scoped to `lot.branche`.
     """
     lot = branche_object_or_404(request, LotElevage, pk=lot_pk)
+    _ensure_lot_visible_pour_operateur_terrain(request, lot)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -1083,6 +1110,7 @@ def consommation_edit(request, pk):
     )
     lot = conso.lot
     _ensure_branche_access(request, lot)
+    _ensure_lot_visible_pour_operateur_terrain(request, lot)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -1216,6 +1244,7 @@ def consommation_delete(request, pk):
     )
     lot = conso.lot
     _ensure_branche_access(request, lot)
+    _ensure_lot_visible_pour_operateur_terrain(request, lot)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -1253,6 +1282,7 @@ def consommation_delete(request, pk):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 def consommation_list(request):
     """
     Cross-lot consumption list — useful for reporting and auditing feed usage.
@@ -1349,6 +1379,7 @@ def consommation_list(request):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 def consommation_medicament_list(request):
     """
     Cross-lot listing of médicament/vaccin Consommation records — its own
@@ -1438,6 +1469,7 @@ def consommation_medicament_list(request):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 @require_branche_context
 def consommation_medicament_paiement_create(request):
     """
@@ -1689,6 +1721,7 @@ def consommation_medicament_paiement_create(request):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 def mortalite_list(request):
     """
     Cross-lot mortality list — supports global mortality reporting.
@@ -1751,6 +1784,7 @@ def mortalite_list(request):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 def transfert_create(request, lot_pk):
     """
     Move a lot from its current building to another, in one of three modes:
@@ -1860,6 +1894,7 @@ def transfert_create(request, lot_pk):
 def pesee_create(request, lot_pk):
     """Record a sample weighing (birds or eggs) for a lot."""
     lot = branche_object_or_404(request, LotElevage, pk=lot_pk)
+    _ensure_lot_visible_pour_operateur_terrain(request, lot)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -1957,6 +1992,7 @@ def pesee_delete(request, pk):
     pesee = get_object_or_404(PeseeEchantillon.objects.select_related("lot"), pk=pk)
     lot = pesee.lot
     _ensure_branche_access(request, lot)
+    _ensure_lot_visible_pour_operateur_terrain(request, lot)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -1990,6 +2026,7 @@ def recolte_oeufs_create(request, lot_pk):
     BR-BRA-02: the lot must belong to the request's active branche.
     """
     lot = branche_object_or_404(request, LotElevage, pk=lot_pk)
+    _ensure_lot_visible_pour_operateur_terrain(request, lot)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -2048,6 +2085,7 @@ def recolte_oeufs_edit(request, pk):
     recolte = get_object_or_404(RecolteOeufs.objects.select_related("lot"), pk=pk)
     lot = recolte.lot
     _ensure_branche_access(request, lot)
+    _ensure_lot_visible_pour_operateur_terrain(request, lot)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -2095,6 +2133,7 @@ def recolte_oeufs_delete(request, pk):
     recolte = get_object_or_404(RecolteOeufs.objects.select_related("lot"), pk=pk)
     lot = recolte.lot
     _ensure_branche_access(request, lot)
+    _ensure_lot_visible_pour_operateur_terrain(request, lot)
 
     if not _assert_lot_ouvert(lot, request):
         return redirect("elevage:lot_detail", pk=lot.pk)
@@ -2116,6 +2155,7 @@ def recolte_oeufs_delete(request, pk):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 def recolte_oeufs_list(request):
     """
     Cross-lot egg-collection list — supports global ponte reporting.
@@ -2176,6 +2216,7 @@ def lot_suivi_journalier(request, pk):
     (+ cumul et solde) — see elevage.utils.get_lot_suivi_journalier.
     """
     lot = branche_object_or_404(request, LotElevage, pk=pk)
+    _ensure_lot_visible_pour_operateur_terrain(request, lot)
 
     # get_lot_suivi_journalier returns chronological (oldest → newest) rows
     # so the running cumulative columns build up correctly. For display we
@@ -2198,6 +2239,7 @@ def lot_suivi_journalier(request, pk):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 def formule_aliment_list(request):
     """
     List feed recipes (FormuleAliment). Not branche-scoped — a recipe is a
@@ -2227,6 +2269,7 @@ def _safe_next_url(request, default):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 def formule_aliment_create(request):
     """
     Create a feed recipe with its ingredient lines. Reached mainly from the
@@ -2275,6 +2318,7 @@ def formule_aliment_create(request):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 def formule_aliment_edit(request, pk):
     formule = get_object_or_404(FormuleAliment, pk=pk)
     next_url = _safe_next_url(request, "elevage:formule_aliment_list")
@@ -2311,6 +2355,7 @@ def formule_aliment_edit(request, pk):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 @require_branche_context
 def production_aliment_create(request):
     """
@@ -2398,6 +2443,7 @@ def production_aliment_create(request):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 def production_aliment_detail(request, pk):
     """
     Batch costing detail (BR-request): full picture of ONE ProductionAliment
@@ -2441,6 +2487,7 @@ def production_aliment_detail(request, pk):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 def production_aliment_list(request):
     """
     Cross list of feed replenishment/production records (direct entry or
@@ -2533,6 +2580,7 @@ def production_aliment_list(request):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 @require_branche_context
 def production_aliment_paiement_create(request):
     """
@@ -2682,10 +2730,19 @@ def retrait_oeufs_create(request, lot_pk=None):
 
     `lot_pk` is optional: when given, the withdrawal is attributed to that
     lot's daily table; otherwise it's just scoped to the active branche.
+
+    BR-RH-06: an opérateur-terrain account may only use the lot-scoped form
+    (its own bâtiment's open lot) — the unscoped, branche-wide withdrawal
+    is off-limits to this account type.
     """
     lot = None
     if lot_pk is not None:
         lot = branche_object_or_404(request, LotElevage, pk=lot_pk)
+        _ensure_lot_visible_pour_operateur_terrain(request, lot)
+    else:
+        profile = getattr(request.user, "profile", None)
+        if getattr(profile, "est_operateur_terrain", False):
+            raise Http404("هذا الحساب لا يملك صلاحية الوصول إلى هذه الصفحة.")
     branche = lot.branche if lot else get_active_branche(request)
 
     if request.method == "POST":
@@ -2877,6 +2934,7 @@ def retrait_oeufs_create(request, lot_pk=None):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 def elevage_dashboard(request):
     """
     Elevage module dashboard:
@@ -3090,6 +3148,7 @@ def lot_kpi_json(request, pk):
         }
     """
     lot = branche_object_or_404(request, LotElevage, pk=pk)
+    _ensure_lot_visible_pour_operateur_terrain(request, lot)
 
     data = {
         "effectif_vivant": lot.effectif_vivant,
@@ -3104,6 +3163,7 @@ def lot_kpi_json(request, pk):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 def retrait_oeufs_verifier_json(request):
     """
     Soft/advisory check for the withdrawal form (AJAX, GET), called on every
@@ -3168,6 +3228,7 @@ def retrait_oeufs_verifier_json(request):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 def bl_fournisseur_poussins_json(request):
     """
     Return the eligible BL Fournisseur (poussins) options for one supplier,
@@ -3214,6 +3275,7 @@ def bl_fournisseur_poussins_json(request):
 
 
 @login_required(login_url=LOGIN_URL)
+@bloquer_operateur_terrain
 @require_POST
 def prix_marche_quick_create_json(request):
     """

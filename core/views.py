@@ -381,7 +381,18 @@ def dashboard(request):
     — exactly what a chef de branche already sees); admin/comptable in Vue
     Globale (`branche is None`) see the same KPIs aggregated across every
     branche, with no per-branche filter applied.
+
+    Chauffeur accounts never land here — the dashboard aggregates
+    company-wide financial/operational KPIs they have no business seeing
+    (their entire access surface is the supplier list + their own BL
+    Fournisseur records) — redirect straight to their working list.
     """
+    try:
+        if request.user.profile.est_chauffeur:
+            return redirect("achats:bl_fournisseur_list")
+    except Exception:
+        pass
+
     import datetime
     from decimal import Decimal
 

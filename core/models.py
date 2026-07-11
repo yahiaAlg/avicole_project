@@ -248,6 +248,7 @@ class UserProfile(models.Model):
     ROLE_CHEF_BRANCHE = "chef_branche"
     ROLE_OPERATEUR = "operateur"
     ROLE_COMPTABLE = "comptable"
+    ROLE_CHAUFFEUR = "chauffeur"
 
     ROLE_CHOICES = [
         (ROLE_ADMIN, "مدير"),
@@ -255,10 +256,11 @@ class UserProfile(models.Model):
         (ROLE_CHEF_BRANCHE, "رئيس فرع"),
         (ROLE_OPERATEUR, "مشغّل"),
         (ROLE_COMPTABLE, "محاسب"),
+        (ROLE_CHAUFFEUR, "سائق"),
     ]
 
     #: Roles that MUST be bound to exactly one branch (BR-BRA-02).
-    ROLES_LIES_A_UNE_BRANCHE = (ROLE_CHEF_BRANCHE, ROLE_OPERATEUR)
+    ROLES_LIES_A_UNE_BRANCHE = (ROLE_CHEF_BRANCHE, ROLE_OPERATEUR, ROLE_CHAUFFEUR)
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     role = models.CharField(
@@ -357,6 +359,17 @@ class UserProfile(models.Model):
         elevage.views, not here; this flag just marks the account).
         """
         return self.role == self.ROLE_OPERATEUR and self.employe_id is not None
+
+    @property
+    def est_chauffeur(self):
+        """
+        True for the "سائق" (truck driver) role — a field account scoped to
+        the achats app only, and within it, restricted to the BL Fournisseur
+        list/detail (no factures, règlements, acomptes, dashboard, or
+        relevé), further limited to BLs it created itself (see
+        achats.views._bl_fournisseur_visible_qs / _deny_if_not_own_bl).
+        """
+        return self.role == self.ROLE_CHAUFFEUR
 
 
 # ---------------------------------------------------------------------------

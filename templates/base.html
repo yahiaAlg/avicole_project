@@ -1097,13 +1097,36 @@
     <!-- Navigation -->
     <div class="sidebar-nav">
 
-      {% if not request.user.profile.est_operateur_terrain %}
+      {% if request.user.profile.est_chauffeur %}
+
+      <!-- سائق (chauffeur): وصول مقيّد — الموردون ووصولات الاستلام فقط -->
+      <div class="nav-group-label">الموردون</div>
+      <a href="{% url 'intrants:fournisseur_list' %}" class="nav-link {% if request.resolver_match.app_name == 'intrants' %}active{% endif %}">
+        <i class="bx bxs-building"></i>
+        <span class="nav-link-label">الموردون</span>
+      </a>
+      <a href="{% url 'achats:bl_fournisseur_list' %}" class="nav-link {% if request.resolver_match.app_name == 'achats' %}active{% endif %}">
+        <i class="bx bxs-truck"></i>
+        <span class="nav-link-label">وصل تسليم المورد</span>
+      </a>
+
+      {% elif request.user.profile.est_operateur_terrain %}
+
+      <!-- مشغّل ميداني (opérateur terrain, BR-RH-06): وصول مقيّد — دفعات
+           التربية الخاصة بمبناه فقط (lot_list/lot_detail) -->
+      <div class="nav-group-label">التربية</div>
+      <a href="{% url 'elevage:lot_list' %}" class="nav-link {% if request.resolver_match.app_name == 'elevage' %}active{% endif %}">
+        <i class="bx bxs-grid-alt"></i>
+        <span class="nav-link-label">دفعات التربية</span>
+      </a>
+
+      {% else %}
+
       <!-- Dashboard -->
       <a href="{% url 'core:dashboard' %}" class="nav-link {% block nav_dashboard %}{% endblock %}">
         <i class="bx bxs-dashboard"></i>
         <span class="nav-link-label">لوحة التحكم</span>
       </a>
-      {% endif %}
 
       <!-- تربية الدواجن -->
       <div class="nav-group-label">التربية</div>
@@ -1143,8 +1166,6 @@
         <i class="bx bxs-flask"></i>
         <span class="nav-link-label">معالجة السماد</span>
       </a>
-
-      {% if not request.user.profile.est_operateur_terrain %}
 
       <!-- المخزون -->
       <div class="nav-group-label">المخزون</div>
