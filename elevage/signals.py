@@ -1124,7 +1124,7 @@ def production_aliment_post_save(sender, instance, created, **kwargs):
     cout_ingredients_total = Decimal("0")
     if instance.formule_id:
         for ligne in instance.formule.lignes.select_related("intrant").all():
-            qte_ingredient = (delta / Decimal("100")) * ligne.proportion_kg
+            qte_ingredient = delta * ligne.proportion_kg
             if qte_ingredient == 0:
                 continue
             ing_stock, _ = StockIntrant.objects.get_or_create(
@@ -1271,9 +1271,7 @@ def production_aliment_pre_delete(sender, instance, **kwargs):
 
     if instance.formule_id:
         for ligne in instance.formule.lignes.select_related("intrant").all():
-            qte_ingredient = (
-                instance.quantite_produite_kg / Decimal("100")
-            ) * ligne.proportion_kg
+            qte_ingredient = instance.quantite_produite_kg * ligne.proportion_kg
             if qte_ingredient == 0:
                 continue
             ing_stock, _ = StockIntrant.objects.get_or_create(

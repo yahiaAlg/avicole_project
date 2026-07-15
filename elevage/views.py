@@ -2264,8 +2264,8 @@ def lot_suivi_journalier(request, pk):
     # reverse to most-recent-first — a lot can span hundreds of days, so
     # without this the operator would have to page all the way through
     # ancient history before reaching what happened this week.
-    lignes, date_min, date_max, date_debut, date_fin = (
-        _suivi_journalier_lignes_filtrees(lot, request)
+    lignes, date_min, date_max, date_debut, date_fin = _suivi_journalier_lignes_filtrees(
+        lot, request
     )
     page = _paginate(lignes, request.GET.get("page"), per_page=SUIVI_PER_PAGE)
 
@@ -2299,8 +2299,8 @@ def lot_suivi_journalier_export(request, pk):
     lot = branche_object_or_404(request, LotElevage, pk=pk)
     _ensure_lot_visible_pour_operateur_terrain(request, lot)
 
-    lignes, _date_min, _date_max, _date_debut, _date_fin = (
-        _suivi_journalier_lignes_filtrees(lot, request)
+    lignes, _date_min, _date_max, _date_debut, _date_fin = _suivi_journalier_lignes_filtrees(
+        lot, request
     )
     # Chronological order (oldest → newest) reads more naturally in a
     # spreadsheet export than the newest-first on-screen ordering.
@@ -2334,12 +2334,8 @@ def lot_suivi_journalier_export(request, pk):
         ]
     )
     for l in lignes:
-        med_jour = "، ".join(
-            f"{u['total']} {u['libelle']}" for u in l["medicament_jour"]
-        )
-        med_cumul = "، ".join(
-            f"{u['total']} {u['libelle']}" for u in l["medicament_cumul"]
-        )
+        med_jour = "، ".join(f"{u['total']} {u['libelle']}" for u in l["medicament_jour"])
+        med_cumul = "، ".join(f"{u['total']} {u['libelle']}" for u in l["medicament_cumul"])
         val = l.get("pesee_valuation")
         writer.writerow(
             [
@@ -3482,4 +3478,77 @@ def prix_marche_quick_create_json(request):
             "date": instance.date.isoformat(),
         },
         status=201,
+    )
+
+
+@login_required(login_url=LOGIN_URL)
+def formule_aliment_prix_estime_json(request):
+    """
+    Estimate a FormuleAliment's resulting unit cost (د.ج/كغ) for a given
+    quantite_produite_kg, from each ingredient's *current* stock PMP —
+    read-only mirror of the costing done in
+    signals.production_aliment_post_save, so the operator sees the price
+    *before* saving instead of only after.
+
+    Query params:
+        formule             — FormuleAliment pk (required)
+        quantite_produite_kg — quantity to simulate (required, > 0)
+
+    Returns:
+        {
+          "prix_unitaire_estime": float or null,   # د.ج/كغ, null if no
+                                                     # ingredient has a PMP yet
+          "montant_total_estime": float or null,
+          "ingredients_sans_prix": [str, ...],      # designations with PMP=0
+        }
+    or {"error": str} with status 400 if formule/quantite are missing or
+    invalid.
+    """
+    branche = get_active_branche(request)
+
+    formule_pk = request.GET.get("formule")
+    quantite_raw = request.GET.get("quantite_produite_kg")
+    if not formule_pk or not quantite_raw:
+        return JsonResponse(
+            {"error": "المعاملات formule و quantite_produite_kg مطلوبة."},
+            status=400,
+        )
+
+    try:
+        quantite_produite_kg = Decimal(quantite_raw)
+    except Exception:
+        return JsonResponse({"error": "كمية غير صالحة."}, status=400)
+
+    if quantite_produite_kg <= 0:
+        return JsonResponse({"error": "الكمية يجب أن تكون أكبر من صفر."}, status=400)
+
+    formule = FormuleAliment.objects.filter(pk=formule_pk).first()
+    if not formule:
+        return JsonResponse({"error": "التركيبة غير موجودة."}, status=400)
+
+    from stock.models import StockIntrant
+
+    cout_total = Decimal("0")
+    ingredients_sans_prix = []
+    for ligne in formule.lignes.select_related("intrant").all():
+        qte_ingredient = quantite_produite_kg * ligne.proportion_kg
+        stock = StockIntrant.objects.filter(
+            branche=branche, intrant=ligne.intrant
+        ).first()
+        pmp = stock.prix_moyen_pondere if stock else Decimal("0")
+        if not pmp:
+            ingredients_sans_prix.append(ligne.intrant.designation)
+            continue
+        cout_total += qte_ingredient * pmp
+
+    prix_unitaire_estime = (
+        float(cout_total / quantite_produite_kg) if cout_total > 0 else None
+    )
+
+    return JsonResponse(
+        {
+            "prix_unitaire_estime": prix_unitaire_estime,
+            "montant_total_estime": float(cout_total) if cout_total > 0 else None,
+            "ingredients_sans_prix": ingredients_sans_prix,
+        }
     )

@@ -4,7 +4,7 @@
 {% block title %}{{ title }} — تربية الدواجن{% endblock %}
 {% block nav_lots %}active{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_sub_text %}تركيبة تُحدّد مكوّناتها الخام ونسبها لكل 100 كغ علف ناتج{% endblock %}
+{% block page_sub_text %}تركيبة تُحدّد مكوّناتها الخام ونسبها — أدخلها بأي وضعية إنتاج (1، 10، 100، 1000 كغ){% endblock %}
 
 {% block topbar_actions %}
   <a href="{{ next_url }}" class="btn-ghost">
@@ -67,6 +67,20 @@
           </div>
 
           <div class="form-group">
+            <label class="form-label" for="{{ form.base_kg.id_for_label }}">وضعية إدخال المكوّنات</label>
+            <div class="input-wrap" style="max-width:260px;">
+              <i class="bx bx-slider-alt input-icon"></i>
+              {{ form.base_kg }}
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+              أدخل كميات المكوّنات أدناه كما لو كنت تُصنّع هذه الكمية دفعة واحدة (مثلاً 100 كغ).
+              هذا لا يُغيّر النسب المخزّنة فعلياً — تبقى دائماً محسوبة لكل كغ واحد من العلف الناتج،
+              مهما كانت الكمية التي تُنتجها لاحقاً عند التزويد.
+            </div>
+            {% if form.base_kg.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.base_kg.errors|join:", " }}</div>{% endif %}
+          </div>
+
+          <div class="form-group">
             <label class="checkbox-wrap">
               {{ form.actif }}
               <span>نشطة — تظهر في قائمة اختيار التركيبات عند التزويد</span>
@@ -84,10 +98,19 @@
           <!-- Ingredient lines -->
           <div class="lignes-section">
             <div class="lignes-header">
-              <span class="section-eyebrow">المكوّنات (كغ لكل 100 كغ علف ناتج)</span>
-              <button type="button" id="add-ligne" class="btn-ghost" style="font-size:12px;padding:7px 12px;">
-                <i class="bx bx-plus"></i> إضافة مكوّن
-              </button>
+              <span class="section-eyebrow">
+                المكوّنات (كغ لكل <span id="lignes-base-label">{{ form.instance.base_kg|default:100 }}</span> كغ علف ناتج)
+              </span>
+              <div style="display:flex;align-items:center;gap:12px;">
+                <span id="lignes-total-indicator" class="total-indicator"></span>
+                <button type="button" id="add-ligne" class="btn-ghost" style="font-size:12px;padding:7px 12px;">
+                  <i class="bx bx-plus"></i> إضافة مكوّن
+                </button>
+              </div>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;">
+              فعّل «تكميلي» على مكوّن واحد (مثل النخالة أو الحشو) ليُملأ تلقائياً بما تبقى من الدفعة —
+              اترك كميته فارغة، ستُحسب عند الحفظ من باقي المكوّنات المحدّدة.
             </div>
 
             <div id="lignes-container">
@@ -102,6 +125,12 @@
                 <div class="ligne-field ligne-field--qte">
                   {{ lform.proportion_kg }}
                   {% if lform.proportion_kg.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ lform.proportion_kg.errors|join:", " }}</div>{% endif %}
+                </div>
+                <div class="ligne-field ligne-field--complement">
+                  <label class="complement-toggle" title="مكوّن تكميلي — يملأ الباقي تلقائياً">
+                    {{ lform.est_complement }}
+                    <span>تكميلي</span>
+                  </label>
                 </div>
                 <div class="ligne-field ligne-field--del">
                   <button type="button" class="remove-ligne-btn" title="حذف هذا المكوّن">
@@ -119,6 +148,12 @@
                 {{ formset.empty_form.DELETE }}
                 <div class="ligne-field ligne-field--intrant">{{ formset.empty_form.intrant }}</div>
                 <div class="ligne-field ligne-field--qte">{{ formset.empty_form.proportion_kg }}</div>
+                <div class="ligne-field ligne-field--complement">
+                  <label class="complement-toggle" title="مكوّن تكميلي — يملأ الباقي تلقائياً">
+                    {{ formset.empty_form.est_complement }}
+                    <span>تكميلي</span>
+                  </label>
+                </div>
                 <div class="ligne-field ligne-field--del">
                   <button type="button" class="remove-ligne-btn" title="حذف هذا المكوّن">
                     <i class="bx bxs-trash"></i>
@@ -177,8 +212,16 @@
   .ligne-row.has-error { border-color:rgba(239,68,68,.4); }
   .ligne-field { display:flex;flex-direction:column; }
   .ligne-field--intrant { flex:1; }
-  .ligne-field--qte { width:170px; }
+  .ligne-field--qte { width:150px; }
+  .ligne-field--complement { width:90px;display:flex;align-items:center;justify-content:center;padding-top:8px; }
   .ligne-field--del { width:34px;display:flex;align-items:center;justify-content:center;padding-top:8px; }
+  .complement-toggle { display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px;color:var(--text-muted);cursor:pointer;user-select:none; }
+  .complement-toggle input { width:15px;height:15px;accent-color:#7c3aed;cursor:pointer; }
+  .ligne-row.is-complement { background:rgba(124,58,237,.05);border-color:rgba(124,58,237,.3); }
+  .ligne-row.is-complement .ligne-field--qte input { color:#7c3aed;font-weight:700; }
+  .total-indicator { font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--bg-hover);color:var(--text-muted); }
+  .total-indicator.ok { background:rgba(34,197,94,.12);color:var(--accent-text,#16a34a); }
+  .total-indicator.warn { background:rgba(180,131,9,.12);color:#b45309; }
   .ligne-row select, .ligne-row input[type="number"] { width:100%;background:var(--bg-app, var(--bg-surface));border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13px;padding:9px 11px; }
   .ligne-row select:focus, .ligne-row input[type="number"]:focus { border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.15);outline:none; }
   /* Deletion is handled entirely via JS (remove-ligne-btn) — the real Django
@@ -197,7 +240,133 @@ document.addEventListener('DOMContentLoaded', function () {
   const addBtn = document.getElementById('add-ligne');
   const totalForms = document.getElementById('id_{{ formset.prefix }}-TOTAL_FORMS');
   const emptyTemplate = document.getElementById('empty-ligne-template');
+  const baseSelect = document.getElementById('{{ form.base_kg.id_for_label }}');
+  const baseLabelSpan = document.getElementById('lignes-base-label');
+  const totalIndicator = document.getElementById('lignes-total-indicator');
   if (!container || !totalForms) return;
+
+  function getRows() {
+    return Array.from(container.querySelectorAll('[data-ligne-row]'));
+  }
+  function isRowActive(row) {
+    return row.style.display !== 'none';
+  }
+  function getQteInput(row) {
+    return row.querySelector('.ligne-field--qte input');
+  }
+  function getComplementChk(row) {
+    return row.querySelector('.ligne-field--complement input[type="checkbox"]');
+  }
+
+  /* ── Production mode (base_kg): rescale every already-typed quantity
+     when the mode changes, so "6" entered under "per 100kg" becomes "60"
+     under "per 1000kg" — the canonical (per-1kg) ratio the user meant
+     never actually changes, only how it's displayed/edited. ── */
+  let prevBase = baseSelect ? (parseFloat(baseSelect.value) || 100) : 100;
+
+  function updateBaseLabel() {
+    if (baseLabelSpan && baseSelect) baseLabelSpan.textContent = baseSelect.value;
+  }
+
+  function rescaleForNewBase(newBase) {
+    const ratio = newBase / prevBase;
+    if (ratio !== 1) {
+      getRows().forEach(function (row) {
+        const chk = getComplementChk(row);
+        const input = getQteInput(row);
+        if (!input || (chk && chk.checked)) return; // complement recomputed below anyway
+        const val = parseFloat(input.value);
+        if (!isNaN(val)) input.value = (val * ratio).toFixed(3);
+      });
+    }
+    prevBase = newBase;
+    updateBaseLabel();
+    recomputeComplement();
+  }
+
+  if (baseSelect) {
+    baseSelect.addEventListener('change', function () {
+      rescaleForNewBase(parseFloat(baseSelect.value) || 100);
+    });
+  }
+
+  /* ── Complement ("تكميلي") line: at most one active at a time — checking
+     one unchecks any other. Its quantity field becomes read-only and is
+     kept auto-filled with whatever's left of the current base_kg batch
+     once every other active line's quantity is subtracted. ── */
+  function recomputeComplement() {
+    const base = baseSelect ? (parseFloat(baseSelect.value) || 100) : 100;
+    let complementRow = null;
+    let sumOthers = 0;
+
+    getRows().forEach(function (row) {
+      if (!isRowActive(row)) return;
+      const chk = getComplementChk(row);
+      const input = getQteInput(row);
+      if (chk && chk.checked) {
+        complementRow = row;
+      } else if (input) {
+        const v = parseFloat(input.value);
+        if (!isNaN(v)) sumOthers += v;
+      }
+    });
+
+    let total = sumOthers;
+    if (complementRow) {
+      const input = getQteInput(complementRow);
+      const reste = base - sumOthers;
+      if (input) {
+        input.value = reste > 0 ? reste.toFixed(3) : '0.000';
+        input.readOnly = true;
+      }
+      total += Math.max(reste, 0);
+    }
+
+    if (totalIndicator) {
+      const pct = base ? (total / base * 100) : 0;
+      totalIndicator.textContent = 'الإجمالي: ' + pct.toFixed(1) + '%';
+      totalIndicator.classList.remove('ok', 'warn');
+      totalIndicator.classList.add(Math.abs(pct - 100) < 0.5 ? 'ok' : 'warn');
+    }
+  }
+
+  container.addEventListener('change', function (e) {
+    const chk = e.target.closest('.ligne-field--complement input[type="checkbox"]');
+    if (!chk) return;
+    const row = chk.closest('[data-ligne-row]');
+    if (chk.checked) {
+      getRows().forEach(function (r) {
+        const otherChk = getComplementChk(r);
+        if (otherChk && otherChk !== chk) otherChk.checked = false;
+        r.classList.remove('is-complement');
+        const otherInput = getQteInput(r);
+        if (otherInput && otherChk !== chk) otherInput.readOnly = false;
+      });
+      row.classList.add('is-complement');
+    } else {
+      row.classList.remove('is-complement');
+      const input = getQteInput(row);
+      if (input) input.readOnly = false;
+    }
+    recomputeComplement();
+  });
+
+  container.addEventListener('input', function (e) {
+    if (e.target.matches('.ligne-field--qte input')) recomputeComplement();
+  });
+
+  // Existing (edit) forms may already have a complement line checked —
+  // reflect that visually and lock its field before the first calc.
+  getRows().forEach(function (row) {
+    const chk = getComplementChk(row);
+    if (chk && chk.checked) {
+      row.classList.add('is-complement');
+      const input = getQteInput(row);
+      if (input) input.readOnly = true;
+    }
+  });
+  updateBaseLabel();
+  recomputeComplement();
 
   /* ── Add new line ── */
   if (addBtn && emptyTemplate) {
@@ -208,6 +377,7 @@ document.addEventListener('DOMContentLoaded', function () {
       wrapper.innerHTML = html.trim();
       container.appendChild(wrapper.firstElementChild);
       totalForms.value = formIndex + 1;
+      recomputeComplement();
     });
   }
 
@@ -236,6 +406,7 @@ document.addEventListener('DOMContentLoaded', function () {
       totalForms.value = Math.max(0, parseInt(totalForms.value, 10) - 1);
       row.remove();
     }
+    recomputeComplement();
   });
 });
 </script>

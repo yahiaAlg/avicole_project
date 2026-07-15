@@ -223,4 +223,9 @@ urlpatterns = [
         views.prix_marche_quick_create_json,
         name="prix_marche_quick_create_json",
     ),
+    path(
+        "formules-aliment/prix-estime.json",
+        views.formule_aliment_prix_estime_json,
+        name="formule_aliment_prix_estime_json",
+    ),
 ]

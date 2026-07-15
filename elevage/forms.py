@@ -613,11 +613,16 @@ class FormuleAlimentForm(forms.ModelForm):
     below). This is what populates the "التركيبة" dropdown on
     ProductionAlimentForm — that dropdown has nothing to show until at
     least one FormuleAliment exists.
+
+    `base_kg` is the "production mode" the ingredient lines below are
+    entered/displayed in (1 / 10 / 100 / 1000 kg batch) — see
+    FormuleAlimentLigneForm, which does the actual per-base ↔ canonical
+    (per-1kg) conversion.
     """
 
     class Meta:
         model = FormuleAliment
-        fields = ["nom", "intrant_produit", "actif", "notes"]
+        fields = ["nom", "intrant_produit", "base_kg", "actif", "notes"]
         widgets = {
             "notes": forms.Textarea(attrs={"rows": 2}),
         }
@@ -631,17 +636,37 @@ class FormuleAlimentForm(forms.ModelForm):
 
 
 class FormuleAlimentLigneForm(forms.ModelForm):
-    """One ingredient row of a FormuleAliment (kg per 100kg produced)."""
+    """
+    One ingredient row of a FormuleAliment. The user always types the
+    quantity in "per base_kg" terms (matching the parent formule's chosen
+    production mode — e.g. kg per 100kg batch) since that's the familiar,
+    human-friendly way to enter a recipe; clean_proportion_kg converts that
+    down to the model's canonical per-1kg-of-output value before it's ever
+    saved, and __init__ does the reverse conversion to pre-fill the field
+    when editing an existing line.
+
+    est_complement marks (at most one) line per formule as "fills whatever
+    is left" — its proportion_kg is ignored here (a placeholder keeps the
+    model validator happy) and recomputed for real in
+    FormuleAlimentLigneFormSetBase.clean(), once every other line's amount
+    is known.
+    """
 
     class Meta:
         model = FormuleAlimentLigne
-        fields = ["intrant", "proportion_kg"]
+        # est_complement listed before proportion_kg so
+        # clean_proportion_kg (run in field order) can already see it.
+        fields = ["intrant", "est_complement", "proportion_kg"]
         widgets = {
-            "proportion_kg": forms.NumberInput(attrs={"step": "0.001", "min": "0.001"}),
+            "proportion_kg": forms.NumberInput(attrs={"step": "0.001", "min": "0"}),
         }
 
     def __init__(self, *args, parent_formule=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.parent_formule = parent_formule
+        self.base_kg = Decimal(str(getattr(parent_formule, "base_kg", None) or 100))
+        self.fields["proportion_kg"].required = False
+
         # Ingredients can be ANY active intrant — including raw feed
         # components (MAIS, SOJA, Phosphate, CMV…), which are themselves
         # catégorie ALIMENT — EXCEPT another *finished* feed (an intrant
@@ -661,17 +686,80 @@ class FormuleAlimentLigneForm(forms.ModelForm):
             pk__in=excluded_ids
         )
 
+        # Pre-fill in "per base_kg" display terms — the stored value is
+        # always canonical (per 1kg); only the widget shows it scaled.
+        if self.instance and self.instance.pk and self.instance.proportion_kg is not None:
+            self.initial["proportion_kg"] = (
+                self.instance.proportion_kg * self.base_kg
+            ).quantize(Decimal("0.001"))
+
+    def clean_proportion_kg(self):
+        value = self.cleaned_data.get("proportion_kg")
+        if self.cleaned_data.get("est_complement"):
+            # Real value is computed by the formset once every other
+            # line's amount is known; this placeholder only satisfies the
+            # model's MinValueValidator in the meantime.
+            return Decimal("0.00001")
+        if not value:
+            raise ValidationError(
+                "كمية المكوّن مطلوبة (أو فعّل «مكوّن تكميلي» لملئها تلقائياً)."
+            )
+        # Convert from "per base_kg" (what the user typed) to canonical
+        # per-1kg-of-output (what the model stores).
+        return value / self.base_kg
+
 
 class FormuleAlimentLigneFormSetBase(forms.BaseInlineFormSet):
     """Feeds `parent_formule` (the FormuleAliment being edited/created) down
     to every child FormuleAlimentLigneForm so it can exclude that recipe's
-    own output feed from its ingredient choices — see
-    FormuleAlimentLigneForm.__init__."""
+    own output feed from its ingredient choices, and know its base_kg
+    entry mode — see FormuleAlimentLigneForm.__init__.
+
+    Also enforces/applies the "مكوّن تكميلي" (complement) rule: at most one
+    line per formule may be marked est_complement, and when one is, its
+    canonical proportion_kg is (re)computed here as 1 minus every other
+    line's canonical proportion — independent of base_kg, since canonical
+    proportions are always fractions of a single kg of output.
+    """
 
     def get_form_kwargs(self, index):
         kwargs = super().get_form_kwargs(index)
         kwargs["parent_formule"] = self.instance
         return kwargs
+
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+
+        complement_forms = []
+        total_others = Decimal("0")
+        for form in self.forms:
+            cleaned = getattr(form, "cleaned_data", None)
+            if not cleaned or cleaned.get("DELETE"):
+                continue
+            if cleaned.get("est_complement"):
+                complement_forms.append(form)
+            else:
+                total_others += cleaned.get("proportion_kg") or Decimal("0")
+
+        if len(complement_forms) > 1:
+            raise ValidationError(
+                "لا يمكن تحديد أكثر من مكوّن تكميلي واحد (يملأ الباقي تلقائياً) "
+                "في نفس التركيبة."
+            )
+
+        if complement_forms:
+            complement_form = complement_forms[0]
+            reste = Decimal("1") - total_others
+            if reste <= 0:
+                raise ValidationError(
+                    "مجموع نسب المكوّنات الأخرى يبلغ أو يتجاوز 100% من العلف "
+                    "الناتج — لا يوجد ما يملأه المكوّن التكميلي."
+                )
+            proportion_calculee = reste.quantize(Decimal("0.00001"))
+            complement_form.cleaned_data["proportion_kg"] = proportion_calculee
+            complement_form.instance.proportion_kg = proportion_calculee
 
 
 FormuleAlimentLigneFormSet = inlineformset_factory(
@@ -682,6 +770,7 @@ FormuleAlimentLigneFormSet = inlineformset_factory(
     extra=3,
     can_delete=True,
 )
+
 
 
 class ProductionAlimentForm(forms.ModelForm):
@@ -760,9 +849,7 @@ class ProductionAlimentForm(forms.ModelForm):
         if formule and quantite_produite_kg:
             insuffisants = []
             for ligne in formule.lignes.select_related("intrant").all():
-                qte_ingredient = (
-                    quantite_produite_kg / Decimal("100")
-                ) * ligne.proportion_kg
+                qte_ingredient = quantite_produite_kg * ligne.proportion_kg
                 if qte_ingredient <= 0:
                     continue
                 stock_dispo = ligne.intrant.quantite_en_stock(branche=branche)

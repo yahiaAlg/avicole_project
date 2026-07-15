@@ -52,7 +52,7 @@
             </div>
             <div class="col-md-6">
               <div class="form-group">
-                <label class="form-label" for="{{ form.quantite_produite_kg.id_for_label }}">الكمية (قنطار) <span class="required-star">*</span></label>
+                <label class="form-label" for="{{ form.quantite_produite_kg.id_for_label }}">الكمية (كغ) <span class="required-star">*</span></label>
                 <div class="input-wrap">
                   <i class="bx bxs-cylinder input-icon"></i>
                   {{ form.quantite_produite_kg }}
@@ -65,7 +65,7 @@
           <!-- Prix unitaire (coût) -->
           <div class="form-group">
             <label class="form-label" for="{{ form.prix_unitaire.id_for_label }}">
-              سعر الوحدة (د.ج/قنطار) <span style="font-size:11px;color:var(--text-muted);font-weight:400;">— اختياري</span>
+              سعر الوحدة (د.ج/كغ) <span style="font-size:11px;color:var(--text-muted);font-weight:400;">— اختياري</span>
             </label>
             <div class="input-wrap">
               <i class="bx bxs-purchase-tag input-icon"></i>
@@ -76,6 +76,9 @@
               عند اختيار تركيبة أدناه، اترك الحقل 0 — تُحسب التكلفة من أسعار مكوّناتها الحالية في المخزون.
             </div>
             {% if form.prix_unitaire.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.prix_unitaire.errors|join:", " }}</div>{% endif %}
+            <div id="formule-prix-estime-hint" class="soft-hint" style="display:none;">
+              <i class="bx bx-info-circle"></i> <span id="formule-prix-estime-text"></span>
+            </div>
           </div>
 
           <!-- Intrant produit -->
@@ -160,6 +163,8 @@
   .btn-primary:hover { opacity:.88;color:#fff; }
   .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:600;font-size:13px;border-radius:var(--radius-md);padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;text-decoration:none; }
   .btn-ghost:hover { background:var(--bg-hover);border-color:var(--border-strong);color:var(--text-primary); }
+  .soft-hint { display:flex;align-items:flex-start;gap:6px;font-size:11.5px;color:var(--accent-text, #16a34a);background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius-sm);padding:8px 10px;margin-top:8px; }
+  .soft-hint.soft-hint--warn { color:#b45309;background:rgba(180,131,9,.08);border-color:rgba(180,131,9,.2); }
 </style>
 {% endblock %}
 
@@ -169,7 +174,10 @@ document.addEventListener('DOMContentLoaded', function () {
   var formuleIntrantMap = {{ formule_intrant_map|default:"{}"|safe }};
   var formuleSelect = document.getElementById('{{ form.formule.id_for_label }}');
   var intrantSelect = document.getElementById('{{ form.intrant_produit.id_for_label }}');
+  var quantiteInput = document.getElementById('{{ form.quantite_produite_kg.id_for_label }}');
   var hint = document.getElementById('intrant-auto-hint');
+  var prixHint = document.getElementById('formule-prix-estime-hint');
+  var prixHintText = document.getElementById('formule-prix-estime-text');
   if (!formuleSelect || !intrantSelect) return;
 
   function applyFromFormule() {
@@ -186,6 +194,63 @@ document.addEventListener('DOMContentLoaded', function () {
   // Re-apply on load too (e.g. re-rendered after a validation error with a
   // formule already selected, or a browser-restored form value).
   applyFromFormule();
+
+  /* ── Dynamic price estimate — soft, informational only. Recomputed from
+     each ingredient's CURRENT stock PMP every time the formule or the
+     quantity changes; never touches the actual prix_unitaire field, since
+     that one stays 0 for formule-based entries (the real cost is computed
+     server-side on save, this is just a preview of what that will be). ── */
+  var prixEstimeUrl = "{% url 'elevage:formule_aliment_prix_estime_json' %}";
+  var debounceTimer = null;
+
+  function hidePrixHint() {
+    if (prixHint) prixHint.style.display = 'none';
+  }
+
+  function fetchPrixEstime() {
+    if (!prixHint || !prixHintText) return;
+    var formuleId = formuleSelect.value;
+    var quantite = quantiteInput ? quantiteInput.value : '';
+    if (!formuleId || !quantite || parseFloat(quantite) <= 0) {
+      hidePrixHint();
+      return;
+    }
+    var url = prixEstimeUrl + '?formule=' + encodeURIComponent(formuleId) +
+      '&quantite_produite_kg=' + encodeURIComponent(quantite);
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) { hidePrixHint(); return; }
+        if (data.prix_unitaire_estime === null) {
+          prixHint.classList.add('soft-hint--warn');
+          prixHintText.textContent = 'لا يمكن تقدير السعر بعد — لا يوجد سعر تكلفة مسجّل لمكوّنات هذه التركيبة في المخزون حالياً.';
+          prixHint.style.display = 'flex';
+          return;
+        }
+        prixHint.classList.remove('soft-hint--warn');
+        var unitaire = data.prix_unitaire_estime.toFixed(2);
+        var total = data.montant_total_estime.toFixed(2);
+        var msg = 'السعر التقديري لهذا العلف عبر التركيبة الحالية: ' + unitaire +
+          ' د.ج/كغ (الإجمالي التقديري: ' + total + ' د.ج)';
+        if (data.ingredients_sans_prix && data.ingredients_sans_prix.length) {
+          msg += ' — تنبيه: لا يوجد سعر مسجّل لـ ' + data.ingredients_sans_prix.join('، ') + '.';
+        }
+        prixHintText.textContent = msg;
+        prixHint.style.display = 'flex';
+      })
+      .catch(hidePrixHint);
+  }
+
+  function scheduleFetchPrixEstime() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(fetchPrixEstime, 300);
+  }
+
+  formuleSelect.addEventListener('change', scheduleFetchPrixEstime);
+  if (quantiteInput) quantiteInput.addEventListener('input', scheduleFetchPrixEstime);
+  // Re-apply on load too, e.g. a validation-error re-render with a formule
+  // and quantity already filled in.
+  fetchPrixEstime();
 });
 </script>
 {% endblock %}

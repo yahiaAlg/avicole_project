@@ -1388,7 +1388,26 @@ class FormuleAliment(models.Model):
     Optional feed recipe: which raw Intrant ingredients (and in what
     proportion) go into one finished feed Intrant. Purely for traceability —
     ProductionAliment can always be entered without one.
+
+    Every FormuleAlimentLigne.proportion_kg is always stored canonically as
+    kg of that ingredient per SINGLE kg of finished feed produced — so the
+    lines of a complete recipe sum to 1 (100% of the output's mass) and
+    signals.py can scale straight by quantite_produite_kg with no /100 (or
+    any other) conversion. `base_kg` below is purely a data-entry/display
+    convenience (the "production mode" — enter/view the recipe as if
+    making a 1, 10, 100, or 1000 kg batch); it never changes what's stored.
     """
+
+    BASE_KG_1 = 1
+    BASE_KG_10 = 10
+    BASE_KG_100 = 100
+    BASE_KG_1000 = 1000
+    BASE_KG_CHOICES = [
+        (BASE_KG_1, "1 كغ (لكل وحدة واحدة)"),
+        (BASE_KG_10, "10 كغ"),
+        (BASE_KG_100, "100 كغ"),
+        (BASE_KG_1000, "1000 كغ (طن)"),
+    ]
 
     nom = models.CharField(max_length=150, verbose_name="اسم التركيبة")
     intrant_produit = models.ForeignKey(
@@ -1398,6 +1417,16 @@ class FormuleAliment(models.Model):
         verbose_name="العلف الناتج",
         limit_choices_to={"categorie__code": "ALIMENT"},
         help_text="العلف الجاهز الذي تُضاف إليه الكمية المصنّعة إلى المخزون.",
+    )
+    base_kg = models.PositiveIntegerField(
+        choices=BASE_KG_CHOICES,
+        default=BASE_KG_100,
+        verbose_name="وحدة إدخال المكوّنات (وضعية الإنتاج)",
+        help_text=(
+            "حجم الدفعة المستعمل فقط لإدخال/عرض كميات المكوّنات أدناه (مثلاً "
+            "أدخل المكوّنات كما لو كنت تُصنّع 100 كغ). لا يُغيّر هذا أبداً "
+            "النسب المخزّنة فعلياً — تبقى دائماً لكل كغ واحد من العلف الناتج."
+        ),
     )
     actif = models.BooleanField(default=True, verbose_name="نشطة")
     notes = models.TextField(blank=True, verbose_name="ملاحظات")
@@ -1413,6 +1442,12 @@ class FormuleAliment(models.Model):
 
     @property
     def total_proportion_kg(self):
+        """
+        Sum of every line's canonical proportion_kg (kg per 1 kg output).
+        For a complete recipe this should read 1 (100% of the output's
+        mass accounted for) — used by the form/template as a live sanity
+        check, independent of whatever base_kg entry mode was used.
+        """
         from django.db.models import Sum
 
         return self.lignes.aggregate(total=Sum("proportion_kg"))["total"] or Decimal(
@@ -1423,8 +1458,10 @@ class FormuleAliment(models.Model):
 class FormuleAlimentLigne(models.Model):
     """
     One ingredient line of a FormuleAliment, expressed as kg of that raw
-    Intrant per 100 kg of finished feed produced (proportion_kg / 100 gives
-    the ratio applied to whatever quantite_produite is entered).
+    Intrant per SINGLE kg of finished feed produced — proportion_kg is
+    applied directly to whatever quantite_produite_kg is entered at
+    production time (no /100 or other batch-size conversion; see
+    FormuleAliment.base_kg for the display-only entry mode).
     """
 
     formule = models.ForeignKey(
@@ -1440,10 +1477,19 @@ class FormuleAlimentLigne(models.Model):
         verbose_name="المدخل (مكوّن)",
     )
     proportion_kg = models.DecimalField(
-        max_digits=8,
-        decimal_places=3,
-        verbose_name="كغ لكل 100 كغ علف ناتج",
-        validators=[MinValueValidator(0.001)],
+        max_digits=10,
+        decimal_places=5,
+        verbose_name="كغ لكل كغ واحد من العلف الناتج",
+        validators=[MinValueValidator(Decimal("0.00001"))],
+    )
+    est_complement = models.BooleanField(
+        default=False,
+        verbose_name="مكوّن تكميلي (يملأ الباقي تلقائياً)",
+        help_text=(
+            "عند التفعيل، تُحسب كمية هذا المكوّن تلقائياً لتكملة الدفعة إلى "
+            "100% من العلف الناتج بدل إدخالها يدوياً. يُسمح بمكوّن تكميلي "
+            "واحد فقط لكل تركيبة."
+        ),
     )
 
     class Meta:
@@ -1453,7 +1499,8 @@ class FormuleAlimentLigne(models.Model):
         ordering = ["formule", "-proportion_kg"]
 
     def __str__(self):
-        return f"{self.formule.nom} — {self.intrant.designation} ({self.proportion_kg} kg/100kg)"
+        return f"{self.formule.nom} — {self.intrant.designation} ({self.proportion_kg} kg/kg)"
+
 
 
 class ProductionAliment(models.Model):
