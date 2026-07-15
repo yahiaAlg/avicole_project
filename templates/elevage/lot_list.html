@@ -45,8 +45,10 @@
           {% endfor %}
         </select>
       </div>
+      <input type="date" name="cout_date_debut" value="{{ cout_date_debut }}" class="filter-input" style="min-width:150px;" title="تكلفة الكتكوت من">
+      <input type="date" name="cout_date_fin" value="{{ cout_date_fin }}" class="filter-input" style="min-width:150px;" title="تكلفة الكتكوت إلى">
       <button type="submit" class="btn-ghost"><i class="bx bxs-filter-alt"></i> تصفية</button>
-      {% if q or statut or batiment_pk %}
+      {% if q or statut or batiment_pk or cout_date_debut or cout_date_fin %}
       <a href="{% url 'elevage:lot_list' %}" class="btn-ghost" style="color:#dc2626;border-color:rgba(239,68,68,.2);">
         <i class="bx bx-x"></i> إعادة ضبط
       </a>
@@ -75,6 +77,8 @@
             <th>العدد الحي</th>
             <th>النفوق</th>
             <th>المدة (ي)</th>
+            <th>تكلفة الكتكوت (إجمالي)</th>
+            {% if filtre_periode_actif %}<th>تكلفة الكتكوت (الفترة)</th>{% endif %}
             <th>الحالة</th>
             <th style="text-align:left;">الإجراءات</th>
           </tr>
@@ -102,6 +106,14 @@
               </span>
             </td>
             <td style="color:var(--text-muted);">{{ lot.duree_elevage }}</td>
+            <td style="font-family:'Nunito',sans-serif;font-weight:700;">
+              {% if lot.cout_par_poulet_global is not None %}{{ lot.cout_par_poulet_global|floatformat:2 }}{% else %}—{% endif %}
+            </td>
+            {% if filtre_periode_actif %}
+            <td style="font-family:'Nunito',sans-serif;font-weight:700;">
+              {% if lot.cout_par_poulet_periode is not None %}{{ lot.cout_par_poulet_periode|floatformat:2 }}{% else %}—{% endif %}
+            </td>
+            {% endif %}
             <td>
               {% if lot.statut == 'ouvert' %}
                 <span class="pill-success"><i class="bx bxs-check-circle"></i> مفتوح</span>
@@ -131,13 +143,13 @@
     {% if page.has_other_pages %}
     <div class="pagination-bar">
       {% if page.has_previous %}
-      <a href="?{% if q %}q={{ q }}&{% endif %}{% if statut %}statut={{ statut }}&{% endif %}{% if batiment_pk %}batiment={{ batiment_pk }}&{% endif %}page={{ page.previous_page_number }}" class="page-btn">
+      <a href="?{% if q %}q={{ q }}&{% endif %}{% if statut %}statut={{ statut }}&{% endif %}{% if batiment_pk %}batiment={{ batiment_pk }}&{% endif %}{% if cout_date_debut %}cout_date_debut={{ cout_date_debut }}&{% endif %}{% if cout_date_fin %}cout_date_fin={{ cout_date_fin }}&{% endif %}page={{ page.previous_page_number }}" class="page-btn">
         <i class="bx bx-chevron-left"></i>
       </a>
       {% endif %}
       <span class="page-info">صفحة {{ page.number }} / {{ page.paginator.num_pages }}</span>
       {% if page.has_next %}
-      <a href="?{% if q %}q={{ q }}&{% endif %}{% if statut %}statut={{ statut }}&{% endif %}{% if batiment_pk %}batiment={{ batiment_pk }}&{% endif %}page={{ page.next_page_number }}" class="page-btn">
+      <a href="?{% if q %}q={{ q }}&{% endif %}{% if statut %}statut={{ statut }}&{% endif %}{% if batiment_pk %}batiment={{ batiment_pk }}&{% endif %}{% if cout_date_debut %}cout_date_debut={{ cout_date_debut }}&{% endif %}{% if cout_date_fin %}cout_date_fin={{ cout_date_fin }}&{% endif %}page={{ page.next_page_number }}" class="page-btn">
         <i class="bx bx-chevron-right"></i>
       </a>
       {% endif %}

@@ -72,6 +72,7 @@ from elevage.models import (
     TransfertLot,
 )
 from elevage.utils import (
+    calculer_cout_par_poulet,
     get_lot_summary,
     get_lot_suivi_journalier,
     get_oeufs_fifo_allocation,
@@ -405,6 +406,28 @@ def lot_list(request):
     nb_ouverts = counts_qs.filter(statut=LotElevage.STATUT_OUVERT).count()
     nb_fermes = counts_qs.filter(statut=LotElevage.STATUT_FERME).count()
 
+    # --- Cost-per-chick period filter (same ?cout_date_debut/?cout_date_fin
+    # convention as elevage_dashboard) — narrows the "تكلفة الكتكوت" column
+    # to a window instead of always the lot's whole lifetime. Left blank →
+    # only the "global" (lifetime) column is populated.
+    from django.utils.dateparse import parse_date
+
+    cout_date_debut_str = request.GET.get("cout_date_debut", "")
+    cout_date_fin_str = request.GET.get("cout_date_fin", "")
+    cout_date_debut = parse_date(cout_date_debut_str) if cout_date_debut_str else None
+    cout_date_fin = parse_date(cout_date_fin_str) if cout_date_fin_str else None
+    if cout_date_debut and cout_date_fin and cout_date_debut > cout_date_fin:
+        cout_date_debut, cout_date_fin = cout_date_fin, cout_date_debut
+    filtre_periode_actif = bool(cout_date_debut or cout_date_fin)
+
+    # Per-lot cost-per-bird (global + period) — only for the current page,
+    # not the whole filtered queryset, to avoid recomputing this for every
+    # lot in the table when only one page is shown.
+    for lot in page.object_list:
+        couts_lot = calculer_cout_par_poulet(lot, cout_date_debut, cout_date_fin)
+        lot.cout_par_poulet_global = couts_lot["global"]
+        lot.cout_par_poulet_periode = couts_lot["periode"]
+
     return render(
         request,
         "elevage/lot_list.html",
@@ -416,6 +439,9 @@ def lot_list(request):
             "batiments": batiments,
             "nb_ouverts": nb_ouverts,
             "nb_fermes": nb_fermes,
+            "cout_date_debut": cout_date_debut_str,
+            "cout_date_fin": cout_date_fin_str,
+            "filtre_periode_actif": filtre_periode_actif,
             "statut_choices": LotElevage.STATUT_CHOICES,
             "active_branche": branche,
             "title": "دفعات التربية",
@@ -1520,29 +1546,20 @@ def consommation_medicament_paiement_create(request):
             )
             return redirect("elevage:consommation_medicament_list")
 
-        form = ConsommationMedicamentPaiementForm(request.POST)
+        lots_uniques = {c.lot_id: c.lot for c in consommations}
+        form = ConsommationMedicamentPaiementForm(
+            request.POST, lots=list(lots_uniques.values())
+        )
         if form.is_valid():
             total_qte = sum((c.quantite for c in consommations), Decimal("0"))
             # BR-request fix: prix_unitaire is per-chick/bird, not per-dose
-            # — multiply by the total effectif_vivant of the lot(s) covered
-            # by this batch (summed once per distinct lot), not by the
-            # summed dose quantite.
-            lots_uniques = {c.lot_id: c.lot for c in consommations}
+            # — multiply by each lot's own effectif_vivant, not the summed
+            # dose quantite.
             total_effectif = sum(l.effectif_vivant for l in lots_uniques.values())
 
-            # BR-request: non-homogeneous batches (several distinct
-            # médicaments/vaccins in one vet visit) don't always have a
-            # clean per-chick rate — the form now also accepts a single
-            # direct lump-sum amount for the whole batch as an alternative
-            # to prix_unitaire × total_effectif.
             mode_montant = form.cleaned_data["mode_montant"]
             prix_unitaire = form.cleaned_data.get("prix_unitaire")
-            montant_direct = form.cleaned_data.get("montant_direct")
-            if mode_montant == ConsommationMedicamentPaiementForm.MODE_DIRECT:
-                montant = montant_direct.quantize(Decimal("0.01"))
-                prix_unitaire = None
-            else:
-                montant = (total_effectif * prix_unitaire).quantize(Decimal("0.01"))
+            montants_par_lot = form.cleaned_data.get("montants_direct_par_lot")
 
             categorie, _ = CategorieDepense.objects.get_or_create(
                 code="MAIN_OEUVRE_MEDICAMENT",
@@ -1554,66 +1571,103 @@ def consommation_medicament_paiement_create(request):
                     "actif": True,
                 },
             )
-            # BR-request: vaccination/médicament names travel from the
-            # selected records into the Depense description, prepopulating
-            # a sensible default (same as production_aliment_paiement's
-            # `noms`) that stays free-text and fully editable via `notes`.
-            noms = "، ".join(sorted({c.intrant.designation for c in consommations}))
 
-            # BR-request: when every selected consumption belongs to the
-            # same lot, attribute the Depense to it directly so it feeds
-            # that lot's cout_total_depenses / marge_brute (lot_detail)
-            # without a manual edit. A batch spanning several lots is left
-            # unattributed (BR-DEP-04 is optional) — the user can still
-            # assign one lot manually from the Depense edit screen.
-            lots_selectionnes = set(lots_uniques.keys())
-            lot_unique = consommations[0].lot if len(lots_selectionnes) == 1 else None
-
+            # BR-request: a batch is now split ONE Depense PER LOT instead
+            # of a single lump Depense left unattributed when it spans
+            # several lots. Each lot's Depense only covers that lot's
+            # Consommation records, so it feeds that lot's
+            # cout_total_depenses / marge_brute automatically.
+            #   - mode "unitaire": split is exact and automatic —
+            #     prix_unitaire × lot.effectif_vivant.
+            #   - mode "direct": the form collected one lump-sum amount
+            #     PER LOT directly from the user (no allocation guess).
+            depenses_creees = []
             try:
                 with transaction.atomic():
-                    depense = Depense.objects.create(
-                        date=form.cleaned_data["date"],
-                        branche=branche or consommations[0].lot.branche,
-                        lot=lot_unique,
-                        categorie=categorie,
-                        description=(
-                            f"دفع أجرة طبيب/فريق — {noms} "
-                            f"({total_qte} عبر {len(consommations)} استهلاك)"
-                        ),
-                        montant=montant,
-                        mode_paiement=form.cleaned_data["mode_paiement"],
-                        notes=form.cleaned_data.get("notes", ""),
-                        enregistre_par=request.user,
-                    )
-                    Consommation.objects.filter(
-                        pk__in=[c.pk for c in consommations]
-                    ).update(depense_paiement=depense)
+                    for lot_id, lot in lots_uniques.items():
+                        consommations_lot = [
+                            c for c in consommations if c.lot_id == lot_id
+                        ]
+                        noms_lot = "، ".join(
+                            sorted({c.intrant.designation for c in consommations_lot})
+                        )
+                        qte_lot = sum(
+                            (c.quantite for c in consommations_lot), Decimal("0")
+                        )
 
-                if mode_montant == ConsommationMedicamentPaiementForm.MODE_DIRECT:
-                    detail_montant = f"مبلغ إجمالي مباشر لـ {total_effectif} طير"
+                        if (
+                            mode_montant
+                            == ConsommationMedicamentPaiementForm.MODE_DIRECT
+                        ):
+                            montant_lot = montants_par_lot[lot.pk].quantize(
+                                Decimal("0.01")
+                            )
+                        else:
+                            montant_lot = (
+                                lot.effectif_vivant * prix_unitaire
+                            ).quantize(Decimal("0.01"))
+
+                        depense = Depense.objects.create(
+                            date=form.cleaned_data["date"],
+                            branche=branche or lot.branche,
+                            lot=lot,
+                            categorie=categorie,
+                            description=(
+                                f"دفع أجرة طبيب/فريق — {noms_lot} "
+                                f"({qte_lot} عبر {len(consommations_lot)} استهلاك) "
+                                f"— {lot.designation}"
+                            ),
+                            montant=montant_lot,
+                            mode_paiement=form.cleaned_data["mode_paiement"],
+                            notes=form.cleaned_data.get("notes", ""),
+                            enregistre_par=request.user,
+                        )
+                        Consommation.objects.filter(
+                            pk__in=[c.pk for c in consommations_lot]
+                        ).update(depense_paiement=depense)
+                        depenses_creees.append(depense)
+
+                montant_total = sum((d.montant for d in depenses_creees), Decimal("0"))
+                if len(depenses_creees) == 1:
+                    messages.success(
+                        request,
+                        f"تم إنشاء مصروف بمبلغ {montant_total} د.ج "
+                        f"عبر {len(consommations)} استهلاك.",
+                    )
+                    logger.info(
+                        "Depense pk=%s created for %s Consommation(médicament) "
+                        "payment (mode_montant=%s, total_effectif=%s, "
+                        "total_qte=%s, prix_unitaire=%s) by '%s'.",
+                        depenses_creees[0].pk,
+                        len(consommations),
+                        mode_montant,
+                        total_effectif,
+                        total_qte,
+                        prix_unitaire,
+                        request.user,
+                    )
+                    # Same UX as production_aliment: land on the expense's
+                    # edit form directly, to attach a supporting document.
+                    return redirect("depenses:depense_edit", pk=depenses_creees[0].pk)
                 else:
-                    detail_montant = f"{total_effectif} طير × {prix_unitaire} د.ج"
-                messages.success(
-                    request,
-                    f"تم إنشاء مصروف بمبلغ {montant} د.ج ({detail_montant}) "
-                    f"عبر {len(consommations)} استهلاك.",
-                )
-                logger.info(
-                    "Depense pk=%s created for %s Consommation(médicament) "
-                    "payment (mode_montant=%s, total_effectif=%s, total_qte=%s, "
-                    "prix_unitaire=%s, montant_direct=%s) by '%s'.",
-                    depense.pk,
-                    len(consommations),
-                    mode_montant,
-                    total_effectif,
-                    total_qte,
-                    prix_unitaire,
-                    montant_direct,
-                    request.user,
-                )
-                # Same UX as production_aliment: land on the expense's edit
-                # form directly, to attach a supporting document right away.
-                return redirect("depenses:depense_edit", pk=depense.pk)
+                    messages.success(
+                        request,
+                        f"تم إنشاء {len(depenses_creees)} مصاريف بمبلغ إجمالي "
+                        f"{montant_total} د.ج — واحد لكل دفعة "
+                        f"({', '.join(l.designation for l in lots_uniques.values())}) "
+                        f"عبر {len(consommations)} استهلاك.",
+                    )
+                    logger.info(
+                        "%s Depense created (one per lot) for %s "
+                        "Consommation(médicament) payment "
+                        "(mode_montant=%s, prix_unitaire=%s) by '%s'.",
+                        len(depenses_creees),
+                        len(consommations),
+                        mode_montant,
+                        prix_unitaire,
+                        request.user,
+                    )
+                    return redirect("elevage:consommation_medicament_list")
             except Exception as exc:
                 logger.exception(
                     "Error creating paiement consommation medicament: %s", exc
@@ -1637,8 +1691,9 @@ def consommation_medicament_paiement_create(request):
             if len(intrants_distincts_init) > 1
             else ConsommationMedicamentPaiementForm.MODE_UNITAIRE
         )
+        lots_pour_formulaire = list({c.lot_id: c.lot for c in consommations}.values())
         form = ConsommationMedicamentPaiementForm(
-            initial={"mode_montant": mode_initial}
+            initial={"mode_montant": mode_initial}, lots=lots_pour_formulaire
         )
 
     total_qte = sum((c.quantite for c in consommations), Decimal("0"))
@@ -1699,6 +1754,16 @@ def consommation_medicament_paiement_create(request):
         )
     total_materiel = sum((g["montant"] for g in materiel_groupes), Decimal("0"))
 
+    # BR-request: when the batch spans several lots, the template needs to
+    # render one montant_direct_lot_<pk> field per lot instead of the single
+    # montant_direct field — build (lot, bound_field) pairs here since
+    # Django templates can't do dynamic attribute lookups by variable name.
+    lot_montant_fields = []
+    if getattr(form, "lots_multiples", False):
+        lot_montant_fields = [
+            (lot, form[form.montant_direct_field_name(lot)]) for lot in form.lots
+        ]
+
     return render(
         request,
         "elevage/consommation_medicament_paiement_form.html",
@@ -1711,6 +1776,8 @@ def consommation_medicament_paiement_create(request):
             "est_non_homogene": est_non_homogene,
             "materiel_groupes": materiel_groupes,
             "total_materiel": total_materiel,
+            "lots_multiples": getattr(form, "lots_multiples", False),
+            "lot_montant_fields": lot_montant_fields,
             "title": "دفع أجرة الطبيب/الفريق البيطري",
         },
     )
@@ -2264,8 +2331,8 @@ def lot_suivi_journalier(request, pk):
     # reverse to most-recent-first — a lot can span hundreds of days, so
     # without this the operator would have to page all the way through
     # ancient history before reaching what happened this week.
-    lignes, date_min, date_max, date_debut, date_fin = _suivi_journalier_lignes_filtrees(
-        lot, request
+    lignes, date_min, date_max, date_debut, date_fin = (
+        _suivi_journalier_lignes_filtrees(lot, request)
     )
     page = _paginate(lignes, request.GET.get("page"), per_page=SUIVI_PER_PAGE)
 
@@ -2299,8 +2366,8 @@ def lot_suivi_journalier_export(request, pk):
     lot = branche_object_or_404(request, LotElevage, pk=pk)
     _ensure_lot_visible_pour_operateur_terrain(request, lot)
 
-    lignes, _date_min, _date_max, _date_debut, _date_fin = _suivi_journalier_lignes_filtrees(
-        lot, request
+    lignes, _date_min, _date_max, _date_debut, _date_fin = (
+        _suivi_journalier_lignes_filtrees(lot, request)
     )
     # Chronological order (oldest → newest) reads more naturally in a
     # spreadsheet export than the newest-first on-screen ordering.
@@ -2334,8 +2401,12 @@ def lot_suivi_journalier_export(request, pk):
         ]
     )
     for l in lignes:
-        med_jour = "، ".join(f"{u['total']} {u['libelle']}" for u in l["medicament_jour"])
-        med_cumul = "، ".join(f"{u['total']} {u['libelle']}" for u in l["medicament_cumul"])
+        med_jour = "، ".join(
+            f"{u['total']} {u['libelle']}" for u in l["medicament_jour"]
+        )
+        med_cumul = "، ".join(
+            f"{u['total']} {u['libelle']}" for u in l["medicament_cumul"]
+        )
         val = l.get("pesee_valuation")
         writer.writerow(
             [
@@ -3085,6 +3156,22 @@ def elevage_dashboard(request):
     today = datetime.date.today()
     sept_jours = today - datetime.timedelta(days=7)
 
+    # --- Cost-per-chick period filter (BR-request) ------------------------
+    # ?date_debut / ?date_fin — optional inclusive bounds narrowing the
+    # cost-per-chick roll-up below to a specific window (e.g. "this
+    # month's" raising cost) instead of always the farm's whole lifetime
+    # total. Left blank → unbounded, same totals as before this feature.
+    from django.utils.dateparse import parse_date
+
+    date_debut_str = request.GET.get("cout_date_debut", "")
+    date_fin_str = request.GET.get("cout_date_fin", "")
+    cout_date_debut = parse_date(date_debut_str) if date_debut_str else None
+    cout_date_fin = parse_date(date_fin_str) if date_fin_str else None
+    if cout_date_debut and cout_date_fin and cout_date_debut > cout_date_fin:
+        # Swap rather than error — a reversed range is an obvious typo, not
+        # something worth bouncing the whole dashboard for.
+        cout_date_debut, cout_date_fin = cout_date_fin, cout_date_debut
+
     mortalites_recentes_qs = Mortalite.objects.filter(
         date__gte=sept_jours
     ).select_related("lot")
@@ -3155,14 +3242,32 @@ def elevage_dashboard(request):
     nb_lots_fermes = nb_lots_fermes_qs.count()
 
     # --- Cost-per-chick roll-up (BR-request) -----------------------------
-    # The farm's real per-chick raising cost is médicaments (material +
-    # vet/team labor) plus aliment (material + mill-worker labor), spread
-    # over every chick ever placed (open AND closed lots — a chick's cost
-    # doesn't disappear once its lot closes). Mirrors the same
-    # material-vs-labor split already surfaced on the payment form and
-    # lot_detail page:
-    #   cout_medicaments / cout_aliments        → Σ quantite × PMP (stock)
-    #   MAIN_OEUVRE_MEDICAMENT / MAIN_OEUVRE_ALIMENT Depense → labor fee
+    # The farm's real per-chick raising cost is everything a chick's
+    # lifetime actually consumes:
+    #   - médicaments (material + vet/team labor)
+    #   - aliment (material + mill-worker labor)
+    #   - the value of chicks that died (cout_mortalite_poussins) — a
+    #     genuine consumed cost, not a free write-off
+    #   - the building staff's prorated SALARY cost (cout_main_oeuvre_salariale)
+    #   - any other Depense tagged directly to the lot (cout_total_depenses,
+    #     excluding the two main_oeuvre categories already counted above,
+    #     to avoid double-counting them)
+    # spread over every chick ever placed (open AND closed lots — a
+    # chick's cost doesn't disappear once its lot closes).
+    #
+    # DENOMINATOR — deliberately nombre_survivants, NOT effectif_vivant /
+    # nombre_poussins_initial. See LotElevage.nombre_survivants: birds
+    # sold/transferred out ALIVE already consumed their share of cost while
+    # here and must stay in the denominator, or the survivors left behind
+    # would absorb an artificially inflated cost. Only real mortality
+    # (a bird the farm paid to raise and got nothing back for) shrinks it.
+    #
+    # PERIOD FILTER — ?cout_date_debut / ?cout_date_fin narrow every cost
+    # component above to that window via the *_periode() variants. The
+    # denominator (nombre_survivants) intentionally stays a lifetime
+    # snapshot — "how many birds are we spreading this period's cost
+    # over" isn't a period-scoped headcount concept the way spend is.
+    #
     # Feed-mill labor (MAIN_OEUVRE_ALIMENT) is NEVER attributable to a
     # single lot — ProductionAliment feeds the shared branche stock, not
     # one lot — so this roll-up only makes sense at this branch-wide (or
@@ -3171,14 +3276,123 @@ def elevage_dashboard(request):
     if branche is not None:
         lots_toutes_qs = lots_toutes_qs.filter(branche=branche)
 
-    total_cout_medicaments = sum(
-        (Decimal(str(lot.cout_medicaments)) for lot in lots_toutes_qs), Decimal("0")
-    )
-    total_cout_aliments = sum(
-        (Decimal(str(lot.cout_aliments)) for lot in lots_toutes_qs), Decimal("0")
-    )
-    total_poussins = (
-        lots_toutes_qs.aggregate(total=Sum("nombre_poussins_initial"))["total"] or 0
+    filtre_periode_actif = bool(cout_date_debut or cout_date_fin)
+
+    if filtre_periode_actif:
+        total_cout_medicaments = sum(
+            (
+                Decimal(
+                    str(lot.cout_medicaments_periode(cout_date_debut, cout_date_fin))
+                )
+                for lot in lots_toutes_qs
+            ),
+            Decimal("0"),
+        )
+        total_cout_aliments = sum(
+            (
+                Decimal(str(lot.cout_aliments_periode(cout_date_debut, cout_date_fin)))
+                for lot in lots_toutes_qs
+            ),
+            Decimal("0"),
+        )
+        total_cout_mortalite_poussins = sum(
+            (
+                Decimal(
+                    str(
+                        lot.cout_mortalite_poussins_periode(
+                            cout_date_debut, cout_date_fin
+                        )
+                    )
+                )
+                for lot in lots_toutes_qs
+            ),
+            Decimal("0"),
+        )
+        total_cout_main_oeuvre_salariale = sum(
+            (
+                Decimal(
+                    str(
+                        lot.cout_main_oeuvre_salariale_periode(
+                            cout_date_debut, cout_date_fin
+                        )
+                    )
+                )
+                for lot in lots_toutes_qs
+            ),
+            Decimal("0"),
+        )
+        total_cout_depenses_lot = sum(
+            (
+                Decimal(
+                    str(
+                        lot.cout_total_depenses_periode(
+                            cout_date_debut,
+                            cout_date_fin,
+                            exclude_categorie_codes=[
+                                "MAIN_OEUVRE_MEDICAMENT",
+                                "MAIN_OEUVRE_ALIMENT",
+                            ],
+                        )
+                    )
+                )
+                for lot in lots_toutes_qs
+            ),
+            Decimal("0"),
+        )
+    else:
+        total_cout_medicaments = sum(
+            (Decimal(str(lot.cout_medicaments)) for lot in lots_toutes_qs), Decimal("0")
+        )
+        total_cout_aliments = sum(
+            (Decimal(str(lot.cout_aliments)) for lot in lots_toutes_qs), Decimal("0")
+        )
+        total_cout_mortalite_poussins = sum(
+            (Decimal(str(lot.cout_mortalite_poussins)) for lot in lots_toutes_qs),
+            Decimal("0"),
+        )
+        total_cout_main_oeuvre_salariale = sum(
+            (Decimal(str(lot.cout_main_oeuvre_salariale)) for lot in lots_toutes_qs),
+            Decimal("0"),
+        )
+        total_cout_depenses_lot = sum(
+            (
+                Decimal(
+                    str(
+                        lot.cout_total_depenses_periode(
+                            exclude_categorie_codes=[
+                                "MAIN_OEUVRE_MEDICAMENT",
+                                "MAIN_OEUVRE_ALIMENT",
+                            ]
+                        )
+                    )
+                )
+                for lot in lots_toutes_qs
+            ),
+            Decimal("0"),
+        )
+
+    # Farm-wide survivor headcount — a lifetime figure, never scoped to the
+    # period filter (see rationale above).
+    #
+    # Deliberately NOT sum(lot.nombre_survivants for lot in lots_toutes_qs):
+    # nombre_survivants reconstructs a single lot's own original cohort by
+    # adding back nombre_poussins_reference = nombre_poussins_initial +
+    # transferts_out. That's correct for one lot in isolation, but summing
+    # it across every lot double-counts any transferred birds — they get
+    # counted once via the source lot's reconstructed reference AND again
+    # via the destination lot's own nombre_poussins_initial (which absorbed
+    # them at transfer time, per transfert_lot_post_save).
+    #
+    # The raw nombre_poussins_initial field is zero-sum across a transfer
+    # (source -= n, destination += n — see signals.transfert_lot_post_save),
+    # so summing it directly across every lot nets transfers to zero
+    # automatically, with no reconstruction needed. Subtracting each lot's
+    # total_mortalite still correctly shrinks the denominator for birds
+    # that actually died (their cost is redistributed onto survivors via
+    # cout_mortalite_poussins, already counted on the cost side above).
+    total_survivants = sum(
+        (lot.nombre_poussins_initial - lot.total_mortalite for lot in lots_toutes_qs),
+        0,
     )
 
     from depenses.models import Depense
@@ -3188,6 +3402,14 @@ def elevage_dashboard(request):
     )
     if branche is not None:
         depenses_main_oeuvre_qs = depenses_main_oeuvre_qs.filter(branche=branche)
+    if cout_date_debut:
+        depenses_main_oeuvre_qs = depenses_main_oeuvre_qs.filter(
+            date__gte=cout_date_debut
+        )
+    if cout_date_fin:
+        depenses_main_oeuvre_qs = depenses_main_oeuvre_qs.filter(
+            date__lte=cout_date_fin
+        )
     main_oeuvre_par_categorie = {
         row["categorie__code"]: row["total"]
         for row in depenses_main_oeuvre_qs.values("categorie__code").annotate(
@@ -3203,12 +3425,41 @@ def elevage_dashboard(request):
 
     total_cout_traitement = total_cout_medicaments + total_main_oeuvre_medicament
     total_cout_aliment_complet = total_cout_aliments + total_main_oeuvre_aliment
-    total_cout_elevage = total_cout_traitement + total_cout_aliment_complet
+    total_cout_elevage = (
+        total_cout_traitement
+        + total_cout_aliment_complet
+        + total_cout_mortalite_poussins
+        + total_cout_main_oeuvre_salariale
+        + total_cout_depenses_lot
+    )
     cout_par_poussin = (
-        (total_cout_elevage / total_poussins).quantize(Decimal("0.01"))
-        if total_poussins
+        (total_cout_elevage / total_survivants).quantize(Decimal("0.01"))
+        if total_survivants
         else None
     )
+
+    # --- Per-lot cost-per-bird (global lifetime + period-filtered) --------
+    # Mirrors the farm-wide cout_par_poussin card above, but scoped to a
+    # single lot, for the "القطعان الجارية" card list.
+    #
+    # "Global" (lifetime) = cout_total_lot / nombre_survivants. Includes
+    # cout_herite (cost this lot inherited from an earlier phase via
+    # transfer) — meaningful here because we're looking at ONE lot's own
+    # full history, not summing across lots (unlike the farm-wide roll-up
+    # above, herite can't double-count when there's only one lot in the
+    # division).
+    #
+    # "Partiel" (period-filtered) mirrors the farm-wide period branch:
+    # only own-phase costs incurred inside [cout_date_debut, cout_date_fin]
+    # — no cout_herite, since that's a one-time historical amount frozen at
+    # the transfer instant, not new spend during this window — divided by
+    # the same lifetime nombre_survivants (a period filter narrows spend,
+    # not how many birds this lot ever housed).
+    lots_ouverts = list(lots_ouverts)
+    for lot in lots_ouverts:
+        couts_lot = calculer_cout_par_poulet(lot, cout_date_debut, cout_date_fin)
+        lot.cout_par_poulet_global = couts_lot["global"]
+        lot.cout_par_poulet_periode = couts_lot["periode"]
 
     return render(
         request,
@@ -3239,9 +3490,15 @@ def elevage_dashboard(request):
             "total_cout_aliments": total_cout_aliments,
             "total_main_oeuvre_aliment": total_main_oeuvre_aliment,
             "total_cout_aliment_complet": total_cout_aliment_complet,
+            "total_cout_mortalite_poussins": total_cout_mortalite_poussins,
+            "total_cout_main_oeuvre_salariale": total_cout_main_oeuvre_salariale,
+            "total_cout_depenses_lot": total_cout_depenses_lot,
             "total_cout_elevage": total_cout_elevage,
-            "total_poussins": total_poussins,
+            "total_survivants": total_survivants,
             "cout_par_poussin": cout_par_poussin,
+            "cout_date_debut": date_debut_str,
+            "cout_date_fin": date_fin_str,
+            "filtre_periode_actif": filtre_periode_actif,
             "title": "لوحة تحكم — التربية",
         },
     )

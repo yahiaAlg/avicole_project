@@ -7,6 +7,7 @@ administration — are organised.
 """
 
 from django.db import models
+from django.db.models import Sum
 from django.core.validators import MinValueValidator
 from django.conf import settings
 from decimal import Decimal
@@ -394,7 +395,14 @@ class LotElevage(models.Model):
             for row in rows
         ]
 
-    def _cout_consommations(self, *, exclude_aliment=False, only_aliment=False):
+    def _cout_consommations(
+        self,
+        *,
+        exclude_aliment=False,
+        only_aliment=False,
+        date_debut=None,
+        date_fin=None,
+    ):
         """
         Internal helper: Σ (quantite × PMP) over this lot's Consommation
         records, scoped to the given catégorie filter.
@@ -406,6 +414,11 @@ class LotElevage(models.Model):
         only_aliment=True     → feed (catégorie ALIMENT) only (mirrors
                                  ConsommationForm._intrant_base_queryset).
         Neither flag          → every consommation regardless of catégorie.
+
+        date_debut / date_fin  → optional inclusive bounds on Consommation.date
+                                  (BR-request: dashboard period filter). Not
+                                  set → unbounded (lifetime), unchanged
+                                  behaviour for cout_aliments/cout_medicaments.
         """
         from django.db.models import Prefetch
         from stock.models import StockIntrant
@@ -415,6 +428,10 @@ class LotElevage(models.Model):
             qs = qs.filter(intrant__categorie__code="ALIMENT")
         elif exclude_aliment:
             qs = qs.exclude(intrant__categorie__code="ALIMENT")
+        if date_debut:
+            qs = qs.filter(date__gte=date_debut)
+        if date_fin:
+            qs = qs.filter(date__lte=date_fin)
 
         qs = qs.prefetch_related(
             Prefetch(
@@ -456,6 +473,32 @@ class LotElevage(models.Model):
         )
         return round(float(base) + float(facon), 2)
 
+    def cout_aliments_periode(self, date_debut=None, date_fin=None):
+        """
+        Period-scoped counterpart of cout_aliments (BR-request: dashboard
+        date-range filter) — same material + façon logic, but Consommation
+        records are additionally bounded to [date_debut, date_fin]
+        (inclusive, either side optional). Unbounded call is equivalent to
+        cout_aliments.
+        """
+        from django.db.models import Sum
+
+        base = self._cout_consommations(
+            only_aliment=True, date_debut=date_debut, date_fin=date_fin
+        )
+        facon_qs = self.consommations.filter(intrant__categorie__code="ALIMENT")
+        if date_debut:
+            facon_qs = facon_qs.filter(date__gte=date_debut)
+        if date_fin:
+            facon_qs = facon_qs.filter(date__lte=date_fin)
+        facon = (
+            facon_qs.aggregate(total=Sum("allocations_batch__cout_facon_alloue"))[
+                "total"
+            ]
+            or 0
+        )
+        return round(float(base) + float(facon), 2)
+
     @property
     def cout_medicaments(self):
         """
@@ -463,6 +506,12 @@ class LotElevage(models.Model):
         = Σ (quantite × PMP) over every non-ALIMENT consommation.
         """
         return self._cout_consommations(exclude_aliment=True)
+
+    def cout_medicaments_periode(self, date_debut=None, date_fin=None):
+        """Period-scoped counterpart of cout_medicaments — see cout_aliments_periode."""
+        return self._cout_consommations(
+            exclude_aliment=True, date_debut=date_debut, date_fin=date_fin
+        )
 
     @property
     def cout_mortalite_poussins(self):
@@ -493,6 +542,37 @@ class LotElevage(models.Model):
             float(self.total_mortalite) * float(stock_poussin.prix_moyen_pondere), 2
         )
 
+    def cout_mortalite_poussins_periode(self, date_debut=None, date_fin=None):
+        """
+        Period-scoped counterpart of cout_mortalite_poussins (BR-request:
+        dashboard date-range filter) — only Mortalite records whose date
+        falls within [date_debut, date_fin] (inclusive, either side
+        optional) are valued. Unbounded call is equivalent to
+        cout_mortalite_poussins.
+        """
+        from django.db.models import Sum
+
+        mortalites_qs = self.mortalites.all()
+        if date_debut:
+            mortalites_qs = mortalites_qs.filter(date__gte=date_debut)
+        if date_fin:
+            mortalites_qs = mortalites_qs.filter(date__lte=date_fin)
+        nombre_periode = mortalites_qs.aggregate(total=Sum("nombre"))["total"] or 0
+        if not nombre_periode:
+            return 0
+
+        from elevage.signals import _get_poussin_intrant
+
+        poussin_intrant = _get_poussin_intrant(self)
+        if poussin_intrant is None:
+            return 0
+
+        stock_poussin = poussin_intrant.stocks.filter(branche=self.branche).first()
+        if stock_poussin is None:
+            return 0
+
+        return round(float(nombre_periode) * float(stock_poussin.prix_moyen_pondere), 2)
+
     @property
     def cout_total_intrants(self):
         """
@@ -521,6 +601,25 @@ class LotElevage(models.Model):
         from django.db.models import Sum
 
         return self.depenses.aggregate(total=Sum("montant"))["total"] or Decimal("0")
+
+    def cout_total_depenses_periode(
+        self, date_debut=None, date_fin=None, exclude_categorie_codes=None
+    ):
+        """
+        Period-scoped counterpart of cout_total_depenses (BR-request:
+        dashboard date-range filter). `exclude_categorie_codes` lets a
+        caller that already counts certain Depense categories separately
+        (e.g. MAIN_OEUVRE_MEDICAMENT / MAIN_OEUVRE_ALIMENT on the elevage
+        dashboard) avoid double-counting them here.
+        """
+        qs = self.depenses.all()
+        if date_debut:
+            qs = qs.filter(date__gte=date_debut)
+        if date_fin:
+            qs = qs.filter(date__lte=date_fin)
+        if exclude_categorie_codes:
+            qs = qs.exclude(categorie__code__in=exclude_categorie_codes)
+        return qs.aggregate(total=Sum("montant"))["total"] or Decimal("0")
 
     @property
     def cout_main_oeuvre_salariale(self):
@@ -553,13 +652,50 @@ class LotElevage(models.Model):
         the labor cost of raising them follows them like feed/médicament
         cost does — it isn't left behind with the now-closed source lot.
         """
+        from datetime import date as _date
+
+        fin_lot = self.date_fermeture or _date.today()
+        return self._cout_main_oeuvre_salariale(self.date_ouverture, fin_lot)
+
+    def cout_main_oeuvre_salariale_periode(self, date_debut=None, date_fin=None):
+        """
+        Period-scoped counterpart of cout_main_oeuvre_salariale (BR-request:
+        dashboard date-range filter) — same TIME × HEADCOUNT proration, but
+        the lot's own [date_ouverture, fin_lot] window is further
+        intersected with [date_debut, date_fin] (either side optional).
+        Unbounded call is equivalent to cout_main_oeuvre_salariale.
+
+        Deliberately own-phase only (mirrors cout_main_oeuvre_salariale,
+        NOT the _herite/_total variants) — summing this across every lot
+        farm-wide double-counts nothing, since each payroll period is
+        booked to whichever lot(s) occupied the bâtiment at the time, once.
+        """
+        from datetime import date as _date
+
+        fin_lot = self.date_fermeture or _date.today()
+        borne_debut = self.date_ouverture
+        if date_debut and date_debut > borne_debut:
+            borne_debut = date_debut
+        borne_fin = fin_lot
+        if date_fin and date_fin < borne_fin:
+            borne_fin = date_fin
+        if borne_debut > borne_fin:
+            return Decimal("0")
+        return self._cout_main_oeuvre_salariale(borne_debut, borne_fin)
+
+    def _cout_main_oeuvre_salariale(self, borne_debut, borne_fin):
+        """
+        Shared TIME × HEADCOUNT proration logic used by both
+        cout_main_oeuvre_salariale (full lot lifetime) and
+        cout_main_oeuvre_salariale_periode (date-range-bounded) — see
+        either caller's docstring for the two proration steps.
+        """
         from calendar import monthrange
         from datetime import date as _date
         from django.db.models import Q
 
         from depenses.models import Employe, BulletinPaie
 
-        fin_lot = self.date_fermeture or _date.today()
         employes = Employe.objects.filter(batiment_id=self.batiment_id)
         if not employes:
             return Decimal("0")
@@ -576,8 +712,8 @@ class LotElevage(models.Model):
                     bulletin.mois,
                     monthrange(bulletin.annee, bulletin.mois)[1],
                 )
-                overlap_debut = max(mois_debut, self.date_ouverture)
-                overlap_fin = min(mois_fin, fin_lot)
+                overlap_debut = max(mois_debut, borne_debut)
+                overlap_fin = min(mois_fin, borne_fin)
                 if overlap_debut > overlap_fin:
                     continue
 
@@ -646,7 +782,9 @@ class LotElevage(models.Model):
 
         for t in self.transferts_recus_fusion.select_related("lot").all():
             if t.part_effectif_snapshot:
-                total += t.lot.cout_main_oeuvre_salariale_total * t.part_effectif_snapshot
+                total += (
+                    t.lot.cout_main_oeuvre_salariale_total * t.part_effectif_snapshot
+                )
 
         return round(total, 2)
 
@@ -677,12 +815,18 @@ class LotElevage(models.Model):
         it inherited from a previous phase via a transfer, frozen at that
         instant (cout_herite). This is the correct numerator for
         cout_par_poulet.
+
+        cout_total_intrants is built from cout_aliments/cout_medicaments/
+        cout_mortalite_poussins, which all return plain float; the other
+        three components return Decimal. Every addend is cast to Decimal
+        here before summing so this never raises
+        "unsupported operand type(s) for +: 'float' and 'decimal.Decimal'".
         """
         return (
-            self.cout_total_intrants
-            + self.cout_total_depenses
-            + self.cout_main_oeuvre_salariale_total
-            + self.cout_herite
+            Decimal(str(self.cout_total_intrants))
+            + Decimal(str(self.cout_total_depenses))
+            + Decimal(str(self.cout_main_oeuvre_salariale_total))
+            + Decimal(str(self.cout_herite))
         )
 
     @property
@@ -1266,18 +1410,14 @@ class PeseeEchantillon(models.Model):
         reference = self.prix_marche.poids_reference_kg
         if not reference:
             return None
-        return round(
-            self.prix_marche.prix_marche * (poids_plateau / reference), 2
-        )
+        return round(self.prix_marche.prix_marche * (poids_plateau / reference), 2)
 
     @property
     def marge_valeur(self):
         """My estimation minus the reference market price, in د.ج. None if either is missing."""
         if self.estimation_prix_plateau is None or not self.prix_marche_id:
             return None
-        return round(
-            self.estimation_prix_plateau - self.prix_marche.prix_marche, 2
-        )
+        return round(self.estimation_prix_plateau - self.prix_marche.prix_marche, 2)
 
     @property
     def marge_pourcentage(self):
@@ -1500,7 +1640,6 @@ class FormuleAlimentLigne(models.Model):
 
     def __str__(self):
         return f"{self.formule.nom} — {self.intrant.designation} ({self.proportion_kg} kg/kg)"
-
 
 
 class ProductionAliment(models.Model):

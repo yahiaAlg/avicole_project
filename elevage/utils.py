@@ -57,6 +57,84 @@ def calculer_ic(
 
 
 # ---------------------------------------------------------------------------
+# Cost-per-bird — single lot, lifetime + period-scoped
+# ---------------------------------------------------------------------------
+
+
+def calculer_cout_par_poulet(lot, date_debut=None, date_fin=None):
+    """
+    Cost-per-bird for ONE lot — lifetime ("global") and, optionally, scoped
+    to a date window ("periode"). Shared by elevage_dashboard's open-lot
+    cards and lot_list's table columns, so both pages compute this the same
+    way.
+
+    Returns {"global": Decimal|None, "periode": Decimal|None}.
+
+      - "global"  = cout_total_lot / nombre_survivants (lifetime). Includes
+        cout_herite — cost this lot inherited from an earlier phase via
+        transfer — which is meaningful here because we're dividing by THIS
+        lot's own nombre_survivants only; no double-count risk the way
+        there would be summing nombre_survivants across multiple lots (see
+        elevage_dashboard's total_survivants fix for that separate issue).
+
+      - "periode" = only own-phase costs incurred inside
+        [date_debut, date_fin] — no cout_herite, since that's a one-time
+        historical amount frozen at the transfer instant, not new spend
+        during this window — divided by the SAME lifetime nombre_survivants
+        (a period filter narrows spend, not how many birds this lot ever
+        housed). None when neither bound is given.
+    """
+    from django.db.models import Sum
+
+    survivants = lot.nombre_survivants
+    cout_global = (
+        round(Decimal(str(lot.cout_total_lot)) / Decimal(str(survivants)), 2)
+        if survivants
+        else None
+    )
+
+    cout_periode = None
+    if date_debut or date_fin:
+        depenses_medicament = lot.depenses.filter(
+            categorie__code="MAIN_OEUVRE_MEDICAMENT"
+        )
+        if date_debut:
+            depenses_medicament = depenses_medicament.filter(date__gte=date_debut)
+        if date_fin:
+            depenses_medicament = depenses_medicament.filter(date__lte=date_fin)
+        main_oeuvre_medicament = depenses_medicament.aggregate(total=Sum("montant"))[
+            "total"
+        ] or Decimal("0")
+
+        cout_lot_periode = (
+            Decimal(str(lot.cout_medicaments_periode(date_debut, date_fin)))
+            + main_oeuvre_medicament
+            + Decimal(str(lot.cout_aliments_periode(date_debut, date_fin)))
+            + Decimal(str(lot.cout_mortalite_poussins_periode(date_debut, date_fin)))
+            + Decimal(str(lot.cout_main_oeuvre_salariale_periode(date_debut, date_fin)))
+            + Decimal(
+                str(
+                    lot.cout_total_depenses_periode(
+                        date_debut,
+                        date_fin,
+                        exclude_categorie_codes=[
+                            "MAIN_OEUVRE_MEDICAMENT",
+                            "MAIN_OEUVRE_ALIMENT",
+                        ],
+                    )
+                )
+            )
+        )
+        cout_periode = (
+            round(cout_lot_periode / Decimal(str(survivants)), 2)
+            if survivants
+            else None
+        )
+
+    return {"global": cout_global, "periode": cout_periode}
+
+
+# ---------------------------------------------------------------------------
 # Lot KPI summary
 # ---------------------------------------------------------------------------
 

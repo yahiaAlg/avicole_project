@@ -688,7 +688,11 @@ class FormuleAlimentLigneForm(forms.ModelForm):
 
         # Pre-fill in "per base_kg" display terms — the stored value is
         # always canonical (per 1kg); only the widget shows it scaled.
-        if self.instance and self.instance.pk and self.instance.proportion_kg is not None:
+        if (
+            self.instance
+            and self.instance.pk
+            and self.instance.proportion_kg is not None
+        ):
             self.initial["proportion_kg"] = (
                 self.instance.proportion_kg * self.base_kg
             ).quantize(Decimal("0.001"))
@@ -770,7 +774,6 @@ FormuleAlimentLigneFormSet = inlineformset_factory(
     extra=3,
     can_delete=True,
 )
-
 
 
 class ProductionAlimentForm(forms.ModelForm):
@@ -988,7 +991,21 @@ class ConsommationMedicamentPaiementForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 2}),
     )
 
-    def __init__(self, *args, **kwargs):
+    # Prefix for the dynamically-added per-lot lump-sum fields — see __init__.
+    MONTANT_DIRECT_LOT_PREFIX = "montant_direct_lot_"
+
+    def __init__(self, *args, lots=None, **kwargs):
+        """
+        `lots` — the distinct LotElevage instances covered by the batch
+        being reviewed (passed by the view from the selected Consommation
+        records). When the batch spans more than one lot, the single
+        `montant_direct` field is replaced by one
+        `montant_direct_lot_<pk>` field per lot, so a non-homogeneous
+        multi-lot vet visit still yields one correctly-attributed Depense
+        per lot instead of one unattributed lump Depense (BR-request).
+        When there's a single lot (or none yet, e.g. blank form), the
+        original single `montant_direct` field is used unchanged.
+        """
         super().__init__(*args, **kwargs)
         from depenses.models import Depense
 
@@ -998,18 +1015,59 @@ class ConsommationMedicamentPaiementForm(forms.Form):
         if not self.initial.get("mode_paiement"):
             self.fields["mode_paiement"].initial = Depense.MODE_ESPECES
 
+        self.lots = list(lots) if lots else []
+        self.lots_multiples = len(self.lots) > 1
+        if self.lots_multiples:
+            # Multi-lot batch: drop the single lump-sum field, add one per lot.
+            del self.fields["montant_direct"]
+            for lot in self.lots:
+                self.fields[f"{self.MONTANT_DIRECT_LOT_PREFIX}{lot.pk}"] = (
+                    forms.DecimalField(
+                        label=f"المبلغ الإجمالي المباشر — {lot.designation}",
+                        max_digits=12,
+                        decimal_places=2,
+                        required=False,
+                        min_value=Decimal("0"),
+                        widget=forms.NumberInput(
+                            attrs={
+                                "step": "0.01",
+                                "min": "0",
+                                "class": "lot-montant-input",
+                                "data-lot-pk": lot.pk,
+                            }
+                        ),
+                    )
+                )
+
+    def montant_direct_field_name(self, lot):
+        return f"{self.MONTANT_DIRECT_LOT_PREFIX}{lot.pk}"
+
     def clean(self):
         cleaned_data = super().clean()
         mode = cleaned_data.get("mode_montant")
         prix_unitaire = cleaned_data.get("prix_unitaire")
-        montant_direct = cleaned_data.get("montant_direct")
 
         if mode == self.MODE_DIRECT:
-            if not montant_direct:
-                self.add_error(
-                    "montant_direct",
-                    "أدخل المبلغ الإجمالي المباشر لهذه الدفعة.",
-                )
+            if self.lots_multiples:
+                montants_par_lot = {}
+                for lot in self.lots:
+                    field_name = self.montant_direct_field_name(lot)
+                    montant_lot = cleaned_data.get(field_name)
+                    if not montant_lot:
+                        self.add_error(
+                            field_name,
+                            f"أدخل المبلغ الإجمالي المباشر لدفعة «{lot.designation}».",
+                        )
+                    else:
+                        montants_par_lot[lot.pk] = montant_lot
+                cleaned_data["montants_direct_par_lot"] = montants_par_lot
+            else:
+                montant_direct = cleaned_data.get("montant_direct")
+                if not montant_direct:
+                    self.add_error(
+                        "montant_direct",
+                        "أدخل المبلغ الإجمالي المباشر لهذه الدفعة.",
+                    )
         else:
             if not prix_unitaire:
                 self.add_error(

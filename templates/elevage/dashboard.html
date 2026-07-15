@@ -93,7 +93,30 @@
   </div>
 
   <!-- Cost roll-up row — material (stock/PMP) + labor (Depense), all lots -->
-  <div class="section-eyebrow mb-2">تكلفة التربية الإجمالية (كل القطعان{% if vue_globale %} — كل الفروع{% endif %})</div>
+  <div class="cout-periode-bar mb-2">
+    <div class="section-eyebrow" style="margin-bottom:0;">تكلفة التربية الإجمالية (كل القطعان{% if vue_globale %} — كل الفروع{% endif %})</div>
+    <form method="get" class="cout-periode-form">
+      <label class="cout-periode-label">من
+        <input type="date" name="cout_date_debut" value="{{ cout_date_debut }}">
+      </label>
+      <label class="cout-periode-label">إلى
+        <input type="date" name="cout_date_fin" value="{{ cout_date_fin }}">
+      </label>
+      <button type="submit" class="btn-ghost btn-sm"><i class="bx bxs-filter-alt"></i> تطبيق</button>
+      {% if filtre_periode_actif %}
+      <a href="?" class="btn-ghost btn-sm">إلغاء الفترة</a>
+      {% endif %}
+    </form>
+  </div>
+  {% if filtre_periode_actif %}
+  <div class="cout-periode-banner mb-2">
+    <i class="bx bxs-calendar-check"></i>
+    التكاليف أدناه محسوبة عن الفترة
+    {% if cout_date_debut %}من {{ cout_date_debut }}{% endif %}
+    {% if cout_date_fin %}إلى {{ cout_date_fin }}{% endif %}
+    فقط — عدد الطيور المستخدم في القسمة يبقى إجمالياً (كل الطيور التي مرّت عبر المزرعة).
+  </div>
+  {% endif %}
   <div class="row g-3 mb-4">
     <div class="col-xl-3 col-md-6">
       <div class="metric-card">
@@ -119,10 +142,29 @@
     </div>
     <div class="col-xl-3 col-md-6">
       <div class="metric-card">
+        <div class="metric-icon" style="background:rgba(220,38,38,.10);color:#dc2626;"><i class="bx bxs-skull"></i></div>
+        <div class="metric-label">قيمة الكتاكيت النافقة</div>
+        <div class="metric-value" style="font-size:20px;">{{ total_cout_mortalite_poussins|floatformat:0 }}</div>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> تكلفة نفوق مُحمّلة، دج</span>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
+        <div class="metric-icon" style="background:rgba(37,99,235,.10);color:#2563eb;"><i class="bx bxs-id-card"></i></div>
+        <div class="metric-label">أجرة الفريق الدائم + مصاريف أخرى</div>
+        <div class="metric-value" style="font-size:20px;">{{ total_cout_main_oeuvre_salariale|add:total_cout_depenses_lot|floatformat:0 }}</div>
+        <span class="metric-delta neutral">
+          <i class="bx bx-minus"></i>
+          رواتب {{ total_cout_main_oeuvre_salariale|floatformat:0 }} + مصاريف {{ total_cout_depenses_lot|floatformat:0 }} دج
+        </span>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="metric-card">
         <div class="metric-icon ic-orange"><i class="bx bxs-wallet"></i></div>
         <div class="metric-label">إجمالي تكلفة التربية</div>
         <div class="metric-value" style="font-size:20px;">{{ total_cout_elevage|floatformat:0 }}</div>
-        <span class="metric-delta neutral"><i class="bx bx-minus"></i> علاج + علف، مواد وأجرة، دج</span>
+        <span class="metric-delta neutral"><i class="bx bx-minus"></i> علاج + علف + نفوق + رواتب ومصاريف، دج</span>
       </div>
     </div>
     <div class="col-xl-3 col-md-6">
@@ -134,11 +176,12 @@
         </div>
         <span class="metric-delta neutral">
           <i class="bx bx-minus"></i>
-          {% if total_poussins %}÷ {{ total_poussins|floatformat:0 }} كتكوت مربّى{% else %}لا توجد قطعان بعد{% endif %}
+          {% if total_survivants %}÷ {{ total_survivants|floatformat:0 }} كتكوت (نجا من النفوق){% else %}لا توجد قطعان بعد{% endif %}
         </span>
       </div>
     </div>
   </div>
+
 
   <!-- Quick actions -->
   {% if request.user.userprofile.role != 'viewer' %}
@@ -247,6 +290,16 @@
                   <div class="lot-stat-label">الأيام</div>
                   <div class="lot-stat-val">{{ lot.duree_elevage }}</div>
                 </div>
+                <div>
+                  <div class="lot-stat-label">تكلفة الكتكوت (إجمالي)</div>
+                  <div class="lot-stat-val">{% if lot.cout_par_poulet_global is not None %}{{ lot.cout_par_poulet_global|floatformat:2 }}{% else %}—{% endif %}</div>
+                </div>
+                {% if filtre_periode_actif %}
+                <div>
+                  <div class="lot-stat-label">تكلفة الكتكوت (الفترة)</div>
+                  <div class="lot-stat-val">{% if lot.cout_par_poulet_periode is not None %}{{ lot.cout_par_poulet_periode|floatformat:2 }}{% else %}—{% endif %}</div>
+                </div>
+                {% endif %}
               </div>
             </a>
             {% endfor %}
@@ -398,6 +451,47 @@
 
 {% block extra_css %}
 <style>
+  .cout-periode-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .cout-periode-form {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .cout-periode-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .cout-periode-label input[type="date"] {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px;
+    padding: 6px 9px;
+  }
+  .cout-periode-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(37, 99, 235, .07);
+    border: 1px solid rgba(37, 99, 235, .2);
+    border-radius: var(--radius-md);
+    padding: 9px 14px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+  }
+  .cout-periode-banner i { color: #2563eb; font-size: 16px; }
   .card {
     background: var(--bg-surface);
     border: 1px solid var(--border);

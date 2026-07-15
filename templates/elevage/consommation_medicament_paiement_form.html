@@ -152,6 +152,22 @@
               </div>
             </div>
             <div class="col-md-6" id="montant-direct-group">
+              {% if lots_multiples %}
+              <div class="form-group">
+                <label class="form-label">المبلغ الإجمالي المباشر — لكل دفعة <span class="required-star">*</span></label>
+                <div class="field-hint" style="margin-bottom:8px;">تضم هذه الدفعة أكثر من دفعة تربية واحدة — أدخل مبلغاً مستقلاً لكل دفعة، سيُنشأ مصروف منفصل لكل واحدة منها.</div>
+                {% for lot, field in lot_montant_fields %}
+                <div class="form-group lot-montant-field">
+                  <label class="form-label" for="{{ field.id_for_label }}">{{ lot.designation }}</label>
+                  <div class="input-wrap">
+                    <i class="bx bxs-wallet input-icon"></i>
+                    {{ field }}
+                  </div>
+                  {% if field.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ field.errors|join:", " }}</div>{% endif %}
+                </div>
+                {% endfor %}
+              </div>
+              {% else %}
               <div class="form-group">
                 <label class="form-label" for="{{ form.montant_direct.id_for_label }}">المبلغ الإجمالي المباشر</label>
                 <div class="input-wrap">
@@ -161,8 +177,16 @@
                 {% if form.montant_direct.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ form.montant_direct.errors|join:", " }}</div>{% endif %}
                 <div class="field-hint">{{ form.montant_direct.help_text }}</div>
               </div>
+              {% endif %}
             </div>
           </div>
+
+          {% if lots_multiples %}
+          <div class="non-homogene-banner mb-3">
+            <i class="bx bxs-info-circle"></i>
+            <div><strong>دفعة متعددة الدفعات:</strong> سيتم إنشاء مصروف منفصل لكل دفعة تربية، مرتبط بها مباشرة، بدل مصروف واحد مجمّع غير مرتبط بأي دفعة.</div>
+          </div>
+          {% endif %}
 
           <div class="form-group">
             <label class="form-label" for="{{ form.mode_paiement.id_for_label }}">طريقة الدفع</label>
@@ -262,8 +286,10 @@
 document.addEventListener('DOMContentLoaded', function () {
   var totalEffectif = parseFloat(document.getElementById('total-effectif-value').value) || 0;
   var totalMateriel = parseFloat(document.getElementById('total-materiel-value').value) || 0;
+  var lotsMultiples = {{ lots_multiples|yesno:"true,false" }};
   var prixInput = document.getElementById('{{ form.prix_unitaire.id_for_label }}');
-  var montantDirectInput = document.getElementById('{{ form.montant_direct.id_for_label }}');
+  var montantDirectInput = lotsMultiples ? null : document.getElementById('{{ form.montant_direct.id_for_label }}');
+  var lotMontantInputs = lotsMultiples ? document.querySelectorAll('.lot-montant-input') : [];
   var preview = document.getElementById('montant-preview');
   var previewLabel = document.getElementById('montant-preview-label');
   var grandTotalPreview = document.getElementById('grand-total-preview');
@@ -285,9 +311,18 @@ document.addEventListener('DOMContentLoaded', function () {
     montantDirectGroup.classList.toggle('pricing-group-disabled', !isDirect);
 
     if (isDirect) {
-      fraisEquipe = parseFloat(montantDirectInput.value) || 0;
-      preview.textContent = fraisEquipe.toFixed(2);
-      previewLabel.textContent = 'مبلغ مصروف أجرة الفريق (مبلغ مباشر لـ ' + totalEffectif + ' طير)';
+      if (lotsMultiples) {
+        fraisEquipe = 0;
+        lotMontantInputs.forEach(function (input) {
+          fraisEquipe += parseFloat(input.value) || 0;
+        });
+        preview.textContent = fraisEquipe.toFixed(2);
+        previewLabel.textContent = 'إجمالي مصاريف أجرة الفريق (مجموع المبالغ المباشرة لكل دفعة — سيُنشأ مصروف منفصل لكل واحدة)';
+      } else {
+        fraisEquipe = parseFloat(montantDirectInput.value) || 0;
+        preview.textContent = fraisEquipe.toFixed(2);
+        previewLabel.textContent = 'مبلغ مصروف أجرة الفريق (مبلغ مباشر لـ ' + totalEffectif + ' طير)';
+      }
     } else {
       var prix = parseFloat(prixInput.value) || 0;
       fraisEquipe = totalEffectif * prix;
@@ -301,6 +336,7 @@ document.addEventListener('DOMContentLoaded', function () {
   modeRadios.forEach(function (r) { r.addEventListener('change', update); });
   if (prixInput) prixInput.addEventListener('input', update);
   if (montantDirectInput) montantDirectInput.addEventListener('input', update);
+  lotMontantInputs.forEach(function (input) { input.addEventListener('input', update); });
   update();
 });
 </script>
