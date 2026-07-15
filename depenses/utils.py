@@ -749,7 +749,12 @@ def calculer_donnees_paie(employe, annee: int, mois: int) -> dict:
     'acomptes_a_deduire' (queryset) for the caller to link once saved.
     """
     from calendar import monthrange
-    from depenses.models import Pointage, AcompteEmploye, JourFerie
+    from depenses.models import (
+        Pointage,
+        AcompteEmploye,
+        JourFerie,
+        JOURS_REFERENCE_MENSUEL,
+    )
     from django.db.models import Sum, Count
 
     premier_jour = datetime.date(annee, mois, 1)
@@ -801,13 +806,19 @@ def calculer_donnees_paie(employe, annee: int, mois: int) -> dict:
     taux_journalier = employe.taux_journalier
     taux_horaire = employe.taux_horaire
 
+    # Unrounded daily rate: used for the actual money math so a full-month
+    # (30/30 days) payslip reconciles exactly to salaire_base_mensuel instead
+    # of losing a few centimes to the 0.01 rounding of the *displayed*
+    # taux_journalier. Rounding happens once, on the final totals below.
+    taux_journalier_precis = employe.salaire_base_mensuel / JOURS_REFERENCE_MENSUEL
+
     montant_heures_sup = (
         total_heures_sup * taux_horaire * employe.taux_majoration_heure_sup
     ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     # Each worked ceremonial day is paid as TWO days: jours_presence already
     # counts it once, so the +1 extra day per jours_feries doubles its pay.
-    montant_jours_feries = (taux_journalier * Decimal(jours_feries)).quantize(
+    montant_jours_feries = (taux_journalier_precis * Decimal(jours_feries)).quantize(
         Decimal("0.01"), rounding=ROUND_HALF_UP
     )
 
@@ -815,7 +826,7 @@ def calculer_donnees_paie(employe, annee: int, mois: int) -> dict:
     # salary is referenced to 30 calendar days, so jours_repos is included
     # alongside jours_presence/jours_conge rather than being deducted.
     montant_brut = (
-        taux_journalier * Decimal(jours_presence + jours_conge + jours_repos)
+        taux_journalier_precis * Decimal(jours_presence + jours_conge + jours_repos)
         + montant_heures_sup
         + montant_jours_feries
     ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
