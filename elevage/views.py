@@ -33,6 +33,7 @@ from django.db.models import Q, Sum
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.dateparse import parse_date
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
@@ -2208,12 +2209,52 @@ def recolte_oeufs_list(request):
     )
 
 
+def _suivi_journalier_lignes_filtrees(lot, request):
+    """
+    Shared helper for the suivi-journalier page and its export: builds the
+    full chronological table once, then applies the ?date_debut / ?date_fin
+    filters (both clamped to the range actually covered by the lot's days).
+
+    Returns (lignes_filtrees_desc, date_min, date_max, date_debut, date_fin)
+    where lignes_filtrees_desc is most-recent-first (matches page display)
+    and date_min/date_max are the ISO bounds of the whole table (used as
+    the date inputs' min/max so the operator can't pick an out-of-range date).
+    """
+    lignes_all = get_lot_suivi_journalier(lot)  # chronological, oldest → newest
+
+    date_min = lignes_all[0]["date"] if lignes_all else None
+    date_max = lignes_all[-1]["date"] if lignes_all else None
+
+    date_debut_raw = request.GET.get("date_debut", "")
+    date_fin_raw = request.GET.get("date_fin", "")
+    date_debut = parse_date(date_debut_raw) if date_debut_raw else None
+    date_fin = parse_date(date_fin_raw) if date_fin_raw else None
+
+    lignes_filtrees = lignes_all
+    if date_debut:
+        lignes_filtrees = [l for l in lignes_filtrees if l["date"] >= date_debut]
+    if date_fin:
+        lignes_filtrees = [l for l in lignes_filtrees if l["date"] <= date_fin]
+
+    return (
+        list(reversed(lignes_filtrees)),
+        date_min,
+        date_max,
+        date_debut_raw,
+        date_fin_raw,
+    )
+
+
 @login_required(login_url=LOGIN_URL)
 def lot_suivi_journalier(request, pk):
     """
     Render the day-by-day accumulation table for one lot (paper-ledger
     style): mortalité, aliment consommé (+ cumul), œufs récoltés/retirés
     (+ cumul et solde) — see elevage.utils.get_lot_suivi_journalier.
+
+    Supports ?date_debut / ?date_fin to narrow the range shown (and, via the
+    export quick action, exported) — both bounded by the lot's actual first
+    and last recorded day.
     """
     lot = branche_object_or_404(request, LotElevage, pk=pk)
     _ensure_lot_visible_pour_operateur_terrain(request, lot)
@@ -2223,7 +2264,9 @@ def lot_suivi_journalier(request, pk):
     # reverse to most-recent-first — a lot can span hundreds of days, so
     # without this the operator would have to page all the way through
     # ancient history before reaching what happened this week.
-    lignes = list(reversed(get_lot_suivi_journalier(lot)))
+    lignes, date_min, date_max, date_debut, date_fin = (
+        _suivi_journalier_lignes_filtrees(lot, request)
+    )
     page = _paginate(lignes, request.GET.get("page"), per_page=SUIVI_PER_PAGE)
 
     return render(
@@ -2233,9 +2276,92 @@ def lot_suivi_journalier(request, pk):
             "lot": lot,
             "page": page,
             "lignes": lignes,
+            "date_min": date_min,
+            "date_max": date_max,
+            "date_debut": date_debut,
+            "date_fin": date_fin,
             "title": f"جدول التتبع اليومي — {lot.designation}",
         },
     )
+
+
+@login_required(login_url=LOGIN_URL)
+def lot_suivi_journalier_export(request, pk):
+    """
+    CSV export of the suivi-journalier table, honoring the same
+    ?date_debut / ?date_fin filters as the on-screen view (min/max
+    already clamped by _suivi_journalier_lignes_filtrees).
+    """
+    import csv
+
+    from django.http import HttpResponse
+
+    lot = branche_object_or_404(request, LotElevage, pk=pk)
+    _ensure_lot_visible_pour_operateur_terrain(request, lot)
+
+    lignes, _date_min, _date_max, _date_debut, _date_fin = (
+        _suivi_journalier_lignes_filtrees(lot, request)
+    )
+    # Chronological order (oldest → newest) reads more naturally in a
+    # spreadsheet export than the newest-first on-screen ordering.
+    lignes = list(reversed(lignes))
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = (
+        f'attachment; filename="suivi_journalier_{lot.designation}_{lot.pk}.csv"'
+    )
+    response.write("\ufeff")  # BOM so Excel opens UTF-8 (Arabic) correctly
+
+    writer = csv.writer(response)
+    writer.writerow(
+        [
+            "اليوم",
+            "التاريخ",
+            "الأسبوع",
+            "نفوق",
+            "العدد الحي",
+            "علف اليوم (كغ)",
+            "تراكمي العلف (كغ)",
+            "أدوية اليوم",
+            "تراكمي الأدوية",
+            "بيض اليوم",
+            "تراكمي البيض",
+            "سحب بيض اليوم",
+            "رصيد البيض",
+            "سعر السوق",
+            "التقدير",
+            "الهامش",
+        ]
+    )
+    for l in lignes:
+        med_jour = "، ".join(
+            f"{u['total']} {u['libelle']}" for u in l["medicament_jour"]
+        )
+        med_cumul = "، ".join(
+            f"{u['total']} {u['libelle']}" for u in l["medicament_cumul"]
+        )
+        val = l.get("pesee_valuation")
+        writer.writerow(
+            [
+                l["jour_numero"],
+                l["date"].strftime("%d/%m/%Y"),
+                l["semaine"],
+                l["mortalite_jour"],
+                l["effectif_vivant_fin_jour"],
+                l["aliment_jour_kg"],
+                l["aliment_cumul_kg"],
+                med_jour,
+                med_cumul,
+                l["oeufs_jour"],
+                l["oeufs_cumul"],
+                l["oeufs_retraits_jour"],
+                l["oeufs_stock"],
+                val["prix_marche"] if val else "",
+                val["estimation"] if val else "",
+                val["marge_valeur"] if val else "",
+            ]
+        )
+    return response
 
 
 @login_required(login_url=LOGIN_URL)

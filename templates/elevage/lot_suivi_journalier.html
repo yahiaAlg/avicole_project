@@ -102,6 +102,33 @@
     </div>
 
     {% if lignes %}
+    <form method="get" class="suivi-filter-row">
+      <div class="suivi-filter-field">
+        <label for="suivi-date-debut">من تاريخ</label>
+        <input type="date" id="suivi-date-debut" name="date_debut" value="{{ date_debut }}"
+               min="{{ date_min|date:'Y-m-d' }}" max="{{ date_max|date:'Y-m-d' }}">
+      </div>
+      <div class="suivi-filter-field">
+        <label for="suivi-date-fin">إلى تاريخ</label>
+        <input type="date" id="suivi-date-fin" name="date_fin" value="{{ date_fin }}"
+               min="{{ date_min|date:'Y-m-d' }}" max="{{ date_max|date:'Y-m-d' }}">
+      </div>
+      <button type="submit" class="btn-ghost" style="font-size:12px;padding:7px 12px;">
+        <i class="bx bx-filter-alt"></i> تطبيق
+      </button>
+      {% if date_debut or date_fin %}
+      <a href="{% url 'elevage:lot_suivi_journalier' lot.pk %}" class="btn-ghost" style="font-size:12px;padding:7px 12px;">
+        <i class="bx bx-x"></i> إلغاء التصفية
+      </a>
+      {% endif %}
+      <a href="{% url 'elevage:lot_suivi_journalier_export' lot.pk %}?date_debut={{ date_debut }}&date_fin={{ date_fin }}"
+         class="btn-ghost suivi-export-btn" style="font-size:12px;padding:7px 12px;">
+        <i class="bx bxs-file-export"></i> تصدير (CSV)
+      </a>
+    </form>
+    {% endif %}
+
+    {% if lignes %}
     <div class="suivi-scroll-shell">
       <button type="button" class="scroll-arrow scroll-arrow--left" id="suivi-scroll-left" aria-label="التمرير لليسار">
         <i class="bx bx-chevron-left"></i>
@@ -192,11 +219,11 @@
     {% if page.has_other_pages %}
     <div class="pagination-bar">
       {% if page.has_previous %}
-      <a href="?page={{ page.previous_page_number }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
+      <a href="?page={{ page.previous_page_number }}&date_debut={{ date_debut }}&date_fin={{ date_fin }}" class="page-btn"><i class="bx bx-chevron-left"></i></a>
       {% endif %}
       <span class="page-info">صفحة {{ page.number }} / {{ page.paginator.num_pages }} — الأحدث أولاً</span>
       {% if page.has_next %}
-      <a href="?page={{ page.next_page_number }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
+      <a href="?page={{ page.next_page_number }}&date_debut={{ date_debut }}&date_fin={{ date_fin }}" class="page-btn"><i class="bx bx-chevron-right"></i></a>
       {% endif %}
     </div>
     {% endif %}
@@ -227,6 +254,12 @@
   .page-btn { display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-surface);color:var(--text-secondary);font-size:16px;text-decoration:none;transition:background .12s; }
   .page-btn:hover { background:var(--bg-hover); }
   .page-info { font-size:12px;color:var(--text-muted); }
+
+  .suivi-filter-row { display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--bg-hover); }
+  .suivi-filter-field { display:flex;flex-direction:column;gap:4px; }
+  .suivi-filter-field label { font-size:11px;color:var(--text-muted); }
+  .suivi-filter-field input[type="date"] { padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-surface);color:var(--text-primary);font-size:12.5px; }
+  .suivi-export-btn { margin-inline-start:auto; }
 
   .table-wrapper { overflow-x:auto; }
 

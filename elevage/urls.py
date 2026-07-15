@@ -149,6 +149,11 @@ urlpatterns = [
         views.lot_suivi_journalier,
         name="lot_suivi_journalier",
     ),
+    path(
+        "lots/<int:pk>/suivi/exporter.csv",
+        views.lot_suivi_journalier_export,
+        name="lot_suivi_journalier_export",
+    ),
     # ── FormuleAliment (recettes d'aliment) ─────────────────────────────
     path(
         "formules-aliment/",
