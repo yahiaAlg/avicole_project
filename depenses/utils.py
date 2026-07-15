@@ -1013,7 +1013,13 @@ def provisionner_compte_operateur(employe):
             profil_existant.save(update_fields=["branche"])
         return None
 
-    base_username = slugify(employe.matricule) or f"employe-{employe.pk}"
+    # Username built from the employee's NAME, not `matricule` (the
+    # national ID / "الرقم التعريفي" — an SSN-like identifier that has no
+    # business becoming a login name visible in URLs, session data, audit
+    # logs, etc.). Falls back to a pk-based placeholder only if the name
+    # somehow slugifies to nothing (e.g. name is entirely non-Latin
+    # characters with no ASCII transliteration).
+    base_username = slugify(employe.nom_complet) or f"employe-{employe.pk}"
     username = base_username
     suffixe = 1
     while User.objects.filter(username=username).exists():
@@ -1027,11 +1033,20 @@ def provisionner_compte_operateur(employe):
     user.set_password(password)
     user.save()
 
-    UserProfile.objects.create(
+    # Carry the employee's phone number onto the profile, when that field
+    # exists on core.UserProfile (introspected rather than assumed, so this
+    # doesn't crash if the field hasn't been added there yet — add a
+    # `telephone` CharField to UserProfile + migrate to make this take
+    # effect).
+    profile_kwargs = dict(
         user=user,
         role=UserProfile.ROLE_OPERATEUR,
         branche=branche,
         employe=employe,
     )
+    if "telephone" in {f.name for f in UserProfile._meta.get_fields()}:
+        profile_kwargs["telephone"] = employe.telephone
+
+    UserProfile.objects.create(**profile_kwargs)
 
     return user, password

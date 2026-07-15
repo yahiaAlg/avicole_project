@@ -19,7 +19,7 @@
       <div class="summary-value">{{ bulletin.montant_net|floatformat:2 }} <span>دج</span></div>
     </div>
 
-    <form method="post" action="">
+    <form method="post" action="" enctype="multipart/form-data">
       {% csrf_token %}
       <div class="form-card">
         <div class="form-card__header">
@@ -43,6 +43,33 @@
             <div class="input-wrapper input-wrapper--textarea">{{ form.notes }}</div>
             {% for e in form.notes.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ e }}</div>{% endfor %}
           </div>
+        </div>
+      </div>
+
+      <div class="form-card">
+        <div class="form-card__header">
+          <div class="section-eyebrow"><i class="bx bx-paperclip"></i> المرفقات (اختياري)</div>
+        </div>
+        <div class="form-card__body">
+          {{ pj_formset.management_form }}
+          {% if pj_formset.non_form_errors %}
+          <div class="nfe-block">{% for e in pj_formset.non_form_errors %}<div><i class="bx bxs-x-circle"></i> {{ e }}</div>{% endfor %}</div>
+          {% endif %}
+          {% for pj_form in pj_formset %}
+          <div class="pj-form-row">
+            {% for hidden in pj_form.hidden_fields %}{{ hidden }}{% endfor %}
+            <div class="pj-form-grid">
+              {% for field in pj_form.visible_fields %}
+              <div class="form-group{% if field.field.widget.input_type == 'checkbox' %} form-group--checkbox{% endif %}">
+                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% for e in field.errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ e }}</div>{% endfor %}
+              </div>
+              {% endfor %}
+            </div>
+            {% for e in pj_form.non_field_errors %}<div class="field-error"><i class="bx bxs-x-circle"></i> {{ e }}</div>{% endfor %}
+          </div>
+          {% endfor %}
         </div>
       </div>
 
@@ -86,6 +113,38 @@
   .input-wrapper--textarea textarea:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(34,197,94,.15); outline:none; }
   .field-error { font-size:12px; color:#dc2626; margin-top:5px; display:flex; align-items:center; gap:4px; }
   .nfe-block { background:rgba(239,68,68,.06); border:1px solid rgba(239,68,68,.18); border-radius:var(--radius-md); padding:12px 14px; font-size:12px; color:#dc2626; }
+  .pj-form-row { border:1px dashed var(--border); border-radius:var(--radius-md); padding:14px; margin-bottom:12px; }
+  .pj-form-row:last-child { margin-bottom:0; }
+  .pj-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:560px) { .pj-form-grid { grid-template-columns:1fr; } }
+  .pj-form-row .form-group input[type="text"],
+  .pj-form-row .form-group input[type="file"],
+  .pj-form-row .form-group select {
+    width:100%; background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-md);
+    color:var(--text-primary); font-family:'Inter',sans-serif; font-size:13px; padding:9px 11px;
+    box-sizing:border-box; transition:border-color .15s,box-shadow .15s;
+  }
+  .pj-form-row .form-group input[type="text"]:focus,
+  .pj-form-row .form-group select:focus {
+    border-color:var(--accent); box-shadow:0 0 0 3px rgba(34,197,94,.15); outline:none;
+  }
+  .pj-form-row .form-group input[type="file"] {
+    cursor:pointer; font-size:12.5px; color:var(--text-secondary);
+  }
+  .pj-form-row .form-group input[type="file"]::file-selector-button {
+    background:var(--bg-hover); border:1px solid var(--border); border-radius:var(--radius-sm);
+    color:var(--text-primary); font-family:'Nunito',sans-serif; font-weight:600; font-size:12px;
+    padding:6px 12px; margin-left:10px; cursor:pointer; transition:background .12s;
+  }
+  [dir="rtl"] .pj-form-row .form-group input[type="file"]::file-selector-button { margin-left:0; margin-right:10px; }
+  .pj-form-row .form-group input[type="file"]::file-selector-button:hover { background:var(--border); }
+  .pj-form-row .form-group--checkbox {
+    grid-column:1 / -1; flex-direction:row; align-items:center; gap:8px;
+  }
+  .pj-form-row .form-group--checkbox .form-label { margin-bottom:0; order:2; cursor:pointer; }
+  .pj-form-row .form-group--checkbox input[type="checkbox"] {
+    width:16px; height:16px; margin:0; accent-color:var(--accent); cursor:pointer; order:1;
+  }
   .form-actions-footer { display:flex; align-items:center; justify-content:flex-end; gap:10px; padding:16px 20px; background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-lg); }
   .btn-primary { background:var(--accent); color:#fff; font-family:'Nunito',sans-serif; font-weight:700; font-size:13.5px; border:none; border-radius:var(--radius-md); padding:10px 18px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:opacity .18s; text-decoration:none; }
   .btn-primary:hover { opacity:.88; color:#fff; }
