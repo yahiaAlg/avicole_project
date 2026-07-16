@@ -51,13 +51,14 @@ class BLClientLigneInline(admin.TabularInline):
     extra = 1
     fields = (
         "produit_fini",
+        "intrant",
         "quantite",
         "prix_unitaire",
         "montant_total_display",
         "notes",
     )
     readonly_fields = ("montant_total_display",)
-    autocomplete_fields = ("produit_fini",)
+    autocomplete_fields = ("produit_fini", "intrant")
 
     @admin.display(description="Total (DZD)")
     def montant_total_display(self, obj):
@@ -69,6 +70,7 @@ class BLClientLigneInline(admin.TabularInline):
         if obj and obj.est_verrouille:
             return (
                 "produit_fini",
+                "intrant",
                 "quantite",
                 "prix_unitaire",
                 "montant_total_display",
@@ -320,14 +322,15 @@ class BLClientLigneAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     list_display = (
         "bl",
         "produit_fini",
+        "intrant",
         "quantite",
         "prix_unitaire",
         "montant_total_dzd",
     )
     list_filter = ("bl__statut", "bl__branche", "produit_fini__type_produit")
-    search_fields = ("bl__reference", "produit_fini__designation")
+    search_fields = ("bl__reference", "produit_fini__designation", "intrant__designation")
     readonly_fields = ("montant_total_dzd",)
-    autocomplete_fields = ("bl", "produit_fini")
+    autocomplete_fields = ("bl", "produit_fini", "intrant")
 
     @admin.display(description="Total (DZD)")
     def montant_total_dzd(self, obj):
@@ -358,6 +361,9 @@ class FactureClientAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     date_hierarchy = "date_facture"
     filter_horizontal = ("bls",)
     readonly_fields = (
+        "abonnement",
+        "periode_debut",
+        "periode_fin",
         "montant_ht",
         "montant_tva",
         "montant_ttc",
@@ -368,7 +374,7 @@ class FactureClientAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         "updated_at",
     )
     inlines = (PaiementAllocationInline, PieceJointeInline)
-    autocomplete_fields = ("branche", "client")
+    autocomplete_fields = ("branche", "client", "abonnement")
 
     fieldsets = (
         (
@@ -385,6 +391,14 @@ class FactureClientAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
             },
         ),
         ("BL inclus", {"fields": ("bls",)}),
+        (
+            "Abonnement (forfait — BR-ABO-03)",
+            {
+                "fields": ("abonnement", "periode_debut", "periode_fin"),
+                "description": "Renseigné automatiquement lorsque cette facture provient d'une échéance d'abonnement forfaitaire, plutôt que de BL.",
+                "classes": ("collapse",),
+            },
+        ),
         (
             "Finances (calculé automatiquement)",
             {
@@ -447,6 +461,10 @@ class FactureClientAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         if obj:
             base += ["reference", "branche", "client", "bls", "taux_tva"]
         return base
+
+    @admin.display(description="Abonnement (forfait)", boolean=True)
+    def est_facture_abonnement(self, obj):
+        return obj.est_facture_abonnement
 
     # -----------------------------------------------------------------
     # Cascade delete — a plain .delete() would hit ProtectedError because
@@ -723,7 +741,7 @@ class AbonnementClientAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         "solde_restant_dzd",
         "statut_badge",
     )
-    list_filter = ("statut", "branche", "frequence", "produit_fini")
+    list_filter = ("statut", "branche", "frequence", "mode_facturation", "produit_fini")
     search_fields = ("client__nom", "produit_fini__designation")
     readonly_fields = (
         "created_at",
@@ -747,7 +765,14 @@ class AbonnementClientAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
                     "frequence",
                     "quantite_totale_prevue",
                     "prix_unitaire",
+                    "mode_facturation",
+                    "montant_forfait",
+                    "mode_paiement",
                     "statut",
+                ),
+                "description": (
+                    "« سعر الوحدة » يُستخدم فقط عندما تكون الفوترة «بحسب الكمية»؛ "
+                    "« المبلغ الجزافي » إلزامي عندما تكون الفوترة «جزافية»."
                 ),
             },
         ),
@@ -894,6 +919,7 @@ class PrixMarcheAdmin(ImportExportModelAdmin):
                     "produit_fini",
                     "date",
                     "prix_marche",
+                    "poids_reference_kg",
                     "source",
                 )
             },

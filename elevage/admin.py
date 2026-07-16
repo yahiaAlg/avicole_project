@@ -17,6 +17,7 @@ from elevage.models import (
     LotElevage,
     Mortalite,
     Consommation,
+    ConsommationAlimentAllocation,
     TransfertLot,
     PeseeEchantillon,
     RecolteOeufs,
@@ -50,12 +51,12 @@ class MortaliteInline(admin.TabularInline):
 class ConsommationInline(admin.TabularInline):
     model = Consommation
     extra = 1
-    fields = ("date", "intrant", "quantite", "notes")
+    fields = ("date", "intrant", "quantite", "prix_unitaire", "notes")
     autocomplete_fields = ("intrant",)
 
     def get_readonly_fields(self, request, obj=None):
         if obj and obj.statut == LotElevage.STATUT_FERME:
-            return ("date", "intrant", "quantite", "notes")
+            return ("date", "intrant", "quantite", "prix_unitaire", "notes")
         return ()
 
 
@@ -104,6 +105,7 @@ class LotElevageAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     date_hierarchy = "date_ouverture"
     readonly_fields = (
         "branche",
+        "lot_parent",
         "created_at",
         "updated_at",
         "total_mortalite",
@@ -114,7 +116,7 @@ class LotElevageAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         "cout_total_intrants",
     )
     inlines = (MortaliteInline, ConsommationInline)
-    autocomplete_fields = ("fournisseur_poussins", "batiment")
+    autocomplete_fields = ("fournisseur_poussins", "batiment", "lot_parent")
 
     fieldsets = (
         (
@@ -126,6 +128,7 @@ class LotElevageAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
                     "statut",
                     "date_ouverture",
                     "date_fermeture",
+                    "lot_parent",
                 ),
             },
         ),
@@ -238,15 +241,30 @@ class ConsommationAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = ConsommationResource
     branche_lookup = "lot__branche"
 
-    list_display = ("lot", "date", "intrant", "quantite", "created_at")
+    list_display = (
+        "lot",
+        "date",
+        "intrant",
+        "quantite",
+        "prix_unitaire",
+        "est_paye_badge",
+        "created_at",
+    )
     list_filter = ("lot__statut", "lot__branche", "intrant__categorie", "date")
     search_fields = ("lot__designation", "intrant__designation")
     date_hierarchy = "date"
-    autocomplete_fields = ("lot", "intrant")
+    autocomplete_fields = ("lot", "intrant", "depense_paiement")
     readonly_fields = ("created_at",)
 
     fieldsets = (
         (None, {"fields": ("lot", "date", "intrant", "quantite")}),
+        (
+            "Tarification / paiement (médicament — BR-request)",
+            {
+                "fields": ("prix_unitaire", "depense_paiement"),
+                "classes": ("collapse",),
+            },
+        ),
         ("Notes", {"fields": ("notes",), "classes": ("collapse",)}),
         (
             "Horodatage",
@@ -256,6 +274,10 @@ class ConsommationAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
             },
         ),
     )
+
+    @admin.display(description="مدفوعة", boolean=True)
+    def est_paye_badge(self, obj):
+        return obj.est_paye
 
 
 # ---------------------------------------------------------------------------
@@ -511,14 +533,22 @@ class ProductionAlimentAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
         "date",
         "formule",
         "quantite_produite_kg",
+        "quantite_restante_kg",
         "prix_unitaire",
         "montant_total_display",
+        "est_paye_badge",
     )
     list_filter = ("branche", "intrant_produit", "formule", "date")
     search_fields = ("intrant_produit__designation", "formule__nom")
     date_hierarchy = "date"
-    autocomplete_fields = ("intrant_produit", "formule")
-    readonly_fields = ("created_at", "montant_total_display")
+    autocomplete_fields = ("intrant_produit", "formule", "depense_paiement")
+    readonly_fields = (
+        "created_at",
+        "montant_total_display",
+        "quantite_restante_kg",
+        "prix_facon_unitaire",
+        "cout_facon_impute",
+    )
 
     fieldsets = (
         (
@@ -535,6 +565,18 @@ class ProductionAlimentAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
                 ),
             },
         ),
+        (
+            "تكلفة التصنيع بالدفعة (BR-request)",
+            {
+                "fields": (
+                    "quantite_restante_kg",
+                    "prix_facon_unitaire",
+                    "cout_facon_impute",
+                    "depense_paiement",
+                ),
+                "classes": ("collapse",),
+            },
+        ),
         ("Notes", {"fields": ("notes",), "classes": ("collapse",)}),
         (
             "Horodatage",
@@ -548,6 +590,40 @@ class ProductionAlimentAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
     @admin.display(description="المبلغ الإجمالي (د.ج)")
     def montant_total_display(self, obj):
         return obj.montant_total
+
+    @admin.display(description="مدفوعة", boolean=True)
+    def est_paye_badge(self, obj):
+        return obj.est_paye
+
+
+# ---------------------------------------------------------------------------
+# ConsommationAlimentAllocation — auto-generated batch-costing ledger
+# ---------------------------------------------------------------------------
+
+
+@admin.register(ConsommationAlimentAllocation)
+class ConsommationAlimentAllocationAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
+    branche_lookup = "consommation__lot__branche"
+
+    list_display = (
+        "consommation",
+        "production",
+        "quantite_kg",
+        "cout_facon_alloue",
+        "created_at",
+    )
+    list_filter = ("consommation__lot__branche", "consommation__lot")
+    search_fields = ("consommation__lot__designation", "production__intrant_produit__designation")
+    readonly_fields = ("consommation", "production", "quantite_kg", "cout_facon_alloue", "created_at")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 # ---------------------------------------------------------------------------

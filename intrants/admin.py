@@ -181,6 +181,7 @@ class FournisseurAdmin(ImportExportModelAdmin):
     list_filter = ("actif", "type_principal", "wilaya")
     search_fields = ("nom", "nif", "rc", "telephone", "email")
     readonly_fields = (
+        "created_by",
         "created_at",
         "updated_at",
         "dette_globale_dzd",
@@ -224,7 +225,7 @@ class FournisseurAdmin(ImportExportModelAdmin):
         (
             "Horodatage",
             {
-                "fields": ("created_at", "updated_at"),
+                "fields": ("created_by", "created_at", "updated_at"),
                 "classes": ("collapse",),
             },
         ),

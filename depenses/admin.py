@@ -21,8 +21,11 @@ from depenses.models import (
     RetraitAssocie,
     Employe,
     Pointage,
+    JourFerie,
     CongeEmploye,
     AcompteEmploye,
+    DetteEmploye,
+    RemboursementDette,
     BulletinPaie,
 )
 from depenses.resources import (
@@ -67,11 +70,11 @@ class DepenseAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         "facture_liee",
         "a_pj",
     )
-    list_filter = ("categorie", "mode_paiement", "branche", "date", "lot")
+    list_filter = ("categorie", "mode_paiement", "branche", "date", "lot", "voyage")
     search_fields = ("description", "reference_document", "notes", "lot__designation")
     date_hierarchy = "date"
     readonly_fields = ("a_pj", "created_at", "updated_at")
-    autocomplete_fields = ("branche", "categorie", "lot", "facture_liee")
+    autocomplete_fields = ("branche", "categorie", "lot", "voyage", "facture_liee")
     inlines = (PieceJointeInline,)
 
     fieldsets = (
@@ -97,9 +100,11 @@ class DepenseAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         (
             "Imputations optionnelles",
             {
-                "fields": ("lot", "facture_liee"),
+                "fields": ("lot", "voyage", "facture_liee"),
                 "description": (
                     "Lot : pour le calcul de rentabilité par lot (BR-DEP-04). "
+                    "Voyage : coût de transport d'une tournée de livraison "
+                    "(clients.VoyageLivraison). "
                     "Facture liée : service uniquement (BR-DEP-03)."
                 ),
                 "classes": ("collapse",),
@@ -278,6 +283,84 @@ class AcompteEmployeAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         return obj.a_piece_jointe
 
 
+@admin.register(JourFerie)
+class JourFerieAdmin(admin.ModelAdmin):
+    list_display = ("nom", "date", "actif")
+    list_filter = ("actif",)
+    search_fields = ("nom",)
+    date_hierarchy = "date"
+    list_editable = ("actif",)
+    ordering = ("-date",)
+
+
+class RemboursementDetteInline(admin.TabularInline):
+    model = RemboursementDette
+    extra = 0
+    fields = ("bulletin_paie", "montant", "notes", "created_at")
+    readonly_fields = ("created_at",)
+    autocomplete_fields = ("bulletin_paie",)
+
+
+@admin.register(DetteEmploye)
+class DetteEmployeAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
+    branche_lookup = "employe__batiment__branche"
+
+    list_display = (
+        "date",
+        "employe",
+        "montant",
+        "montant_rembourse",
+        "montant_restant",
+        "soldee_badge",
+        "a_pj",
+    )
+    list_filter = ("employe__batiment__branche", "employe", "date")
+    search_fields = ("employe__nom_complet", "motif", "notes")
+    date_hierarchy = "date"
+    autocomplete_fields = ("employe",)
+    readonly_fields = (
+        "created_at",
+        "montant_rembourse",
+        "montant_restant",
+    )
+    inlines = (RemboursementDetteInline, PieceJointeInline)
+
+    fieldsets = (
+        (None, {"fields": ("employe", "date", "montant", "motif")}),
+        (
+            "Suivi (calculé)",
+            {"fields": ("montant_rembourse", "montant_restant")},
+        ),
+        ("Notes", {"fields": ("notes",), "classes": ("collapse",)}),
+        (
+            "Horodatage",
+            {
+                "fields": ("enregistre_par", "created_at"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    @admin.display(description="مسددّ", boolean=True)
+    def soldee_badge(self, obj):
+        return obj.soldee
+
+    @admin.display(description="PJ", boolean=True)
+    def a_pj(self, obj):
+        return obj.a_piece_jointe
+
+
+@admin.register(RemboursementDette)
+class RemboursementDetteAdmin(BrancheScopedAdminMixin, admin.ModelAdmin):
+    branche_lookup = "dette__employe__batiment__branche"
+
+    list_display = ("dette", "bulletin_paie", "montant", "created_at")
+    list_filter = ("dette__employe__batiment__branche", "dette__employe")
+    search_fields = ("dette__employe__nom_complet", "notes")
+    autocomplete_fields = ("dette", "bulletin_paie")
+    readonly_fields = ("created_at",)
+
+
 @admin.register(BulletinPaie)
 class BulletinPaieAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
     resource_class = BulletinPaieResource
@@ -288,8 +371,10 @@ class BulletinPaieAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         "periode_label",
         "jours_presence",
         "jours_conge",
+        "jours_feries",
         "montant_brut",
         "total_acomptes",
+        "total_dettes",
         "montant_net",
         "statut",
         "a_pj",
@@ -303,12 +388,15 @@ class BulletinPaieAdmin(BrancheScopedAdminMixin, ImportExportModelAdmin):
         "jours_absence",
         "jours_repos",
         "jours_conge",
+        "jours_feries",
+        "montant_jours_feries",
         "total_heures_supplementaires",
         "salaire_base_reference",
         "taux_journalier",
         "montant_heures_sup",
         "montant_brut",
         "total_acomptes",
+        "total_dettes",
         "montant_net",
         "created_at",
         "updated_at",
