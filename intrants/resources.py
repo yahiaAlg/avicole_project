@@ -26,6 +26,8 @@ Import notes:
 from import_export import resources, fields
 from import_export.widgets import ForeignKeyWidget, ManyToManyWidget, BooleanWidget
 
+from django.contrib.auth.models import User
+
 from intrants.models import (
     CategorieIntrant,
     TypeFournisseur,
@@ -207,6 +209,14 @@ class FournisseurResource(resources.ModelResource):
         attribute="type_principal",
         widget=ForeignKeyWidget(TypeFournisseur, field="code"),
     )
+    # Used to scope a "سائق" (chauffeur) account's visibility to suppliers
+    # it created itself — export only, never set on import.
+    created_by = fields.Field(
+        column_name="created_by_username",
+        attribute="created_by",
+        widget=ForeignKeyWidget(User, field="username"),
+        readonly=True,
+    )
 
     class Meta:
         model = Fournisseur
@@ -227,6 +237,7 @@ class FournisseurResource(resources.ModelResource):
             "type_principal",
             "actif",
             "notes",
+            "created_by",
             "created_at",
             "updated_at",
         ]

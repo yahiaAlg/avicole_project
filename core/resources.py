@@ -17,6 +17,7 @@ from import_export.widgets import ForeignKeyWidget, BooleanWidget
 
 from django.contrib.auth.models import User
 from core.models import CompanyInfo, UserProfile, Branche
+from depenses.models import Employe
 
 
 class CompanyInfoResource(resources.ModelResource):
@@ -104,6 +105,15 @@ class UserProfileResource(resources.ModelResource):
         widget=ForeignKeyWidget(Branche, field="code"),
         readonly=True,
     )
+    # v1.x — BR-RH-06: links an auto-provisioned opérateur account to the
+    # RH Employe record it was created from. Export-only (never set here —
+    # populated by depenses.provisionner_compte_operateur).
+    employe = fields.Field(
+        column_name="employe_matricule",
+        attribute="employe",
+        widget=ForeignKeyWidget(Employe, field="matricule"),
+        readonly=True,
+    )
 
     class Meta:
         model = UserProfile
@@ -119,6 +129,7 @@ class UserProfileResource(resources.ModelResource):
             "is_active",
             "role",
             "branche",
+            "employe",
             "telephone",
             "notes",
             "created_at",

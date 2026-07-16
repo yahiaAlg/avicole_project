@@ -14,6 +14,10 @@ Import policy:
                      Warning: importing Consommation rows triggers the post_save
                      signal which will deduct from StockIntrant — ensure stock
                      records are correct before bulk importing.
+                     `prix_unitaire` (médicament/vaccin costing, optional) is
+                     importable; `depense_paiement` (BR-request batched
+                     team/vet payment link) is export-only — it is only ever
+                     set via the "دفع أجرة" batching workflow.
   ParametrageElevage — no resource: singleton row managed via the admin only.
 
 v1.4 — TransfertLot, PeseeEchantillon, and RecolteOeufs no longer have an
@@ -28,7 +32,7 @@ dropped ImportExportModelAdmin in favor of the standard web workflow:
 """
 
 from import_export import resources, fields
-from import_export.widgets import ForeignKeyWidget
+from import_export.widgets import ForeignKeyWidget, BooleanWidget
 
 from django.contrib.auth.models import User
 
@@ -39,6 +43,7 @@ from elevage.models import (
 )
 from intrants.models import Fournisseur, Batiment, Intrant
 from achats.models import BLFournisseur
+from depenses.models import Depense
 from core.models import Branche
 
 # ---------------------------------------------------------------------------
@@ -78,6 +83,14 @@ class LotElevageResource(resources.ModelResource):
         column_name="bl_poussins_reference",
         attribute="bl_fournisseur_poussins",
         widget=ForeignKeyWidget(BLFournisseur, field="reference"),
+    )
+    # Lineage — set automatically when this lot is created by a SPLIT_NEW
+    # TransfertLot; export only (self-referential, resolved by designation).
+    lot_parent = fields.Field(
+        column_name="lot_parent_designation",
+        attribute="lot_parent",
+        widget=ForeignKeyWidget(LotElevage, field="designation"),
+        readonly=True,
     )
     created_by = fields.Field(
         column_name="created_by_username",
@@ -135,6 +148,7 @@ class LotElevageResource(resources.ModelResource):
             "batiment",
             "branche",
             "souche",
+            "lot_parent",
             "notes",
             "total_mortalite",
             "effectif_vivant",
@@ -270,6 +284,24 @@ class ConsommationResource(resources.ModelResource):
         column_name="branche_code",
         readonly=True,
     )
+    # Costing/payment tracking (médicament/vaccin only — BR-request).
+    depense_paiement = fields.Field(
+        column_name="depense_paiement_id",
+        attribute="depense_paiement",
+        widget=ForeignKeyWidget(Depense, field="id"),
+        readonly=True,
+    )
+    est_paye = fields.Field(
+        column_name="est_paye",
+        attribute="est_paye",
+        widget=BooleanWidget(),
+        readonly=True,
+    )
+    montant_total = fields.Field(
+        column_name="montant_total",
+        attribute="montant_total",
+        readonly=True,
+    )
     created_by = fields.Field(
         column_name="created_by_username",
         attribute="created_by",
@@ -289,6 +321,10 @@ class ConsommationResource(resources.ModelResource):
             "date",
             "intrant",
             "quantite",
+            "prix_unitaire",
+            "montant_total",
+            "depense_paiement",
+            "est_paye",
             "notes",
             "created_by",
             "created_at",

@@ -10,6 +10,8 @@ Import policy:
                       The facture_liee FK is constrained on import to
                       service-type invoices only (BR-DEP-03 / BR-DEP-01).
                       v1.4: `branche` is required (BR-BRA-01).
+                      v1.7: `voyage` (clients.VoyageLivraison) is an optional
+                      delivery-trip attribution, resolved by id.
   Associe / RetraitAssocie — import supported for historical withdrawals.
                       v1.4: intentionally WITHOUT branche — equity
                       withdrawals stay company-wide (BR-BRA-08).
@@ -26,6 +28,11 @@ Import policy:
                       depenses.utils.calculer_donnees_paie() so the snapshot
                       figures stay consistent with Pointage (BR-RH-05);
                       importing arbitrary payslip rows is disabled.
+  DetteEmploye     — import supported for bulk historical entry (mirrors
+                      AcompteEmploye).
+  RemboursementDette — EXPORT ONLY. Amounts are typed in manually against a
+                      specific BulletinPaie; import would bypass the
+                      montant_restant guard in DetteEmploye.clean().
 """
 
 from import_export import resources, fields
@@ -41,10 +48,13 @@ from depenses.models import (
     Employe,
     Pointage,
     AcompteEmploye,
+    DetteEmploye,
+    RemboursementDette,
     BulletinPaie,
 )
 from elevage.models import LotElevage
 from achats.models import FactureFournisseur
+from clients.models import VoyageLivraison
 from intrants.models import Batiment
 from core.models import Branche
 
@@ -111,6 +121,13 @@ class DepenseResource(resources.ModelResource):
         attribute="lot",
         widget=ForeignKeyWidget(LotElevage, field="designation"),
     )
+    # v1.7 — optional attribution to a delivery trip (clients.VoyageLivraison).
+    # Resolved by id since VoyageLivraison has no unique human-readable field.
+    voyage = fields.Field(
+        column_name="voyage_id",
+        attribute="voyage",
+        widget=ForeignKeyWidget(VoyageLivraison, field="id"),
+    )
     facture_liee = fields.Field(
         column_name="facture_liee_reference",
         attribute="facture_liee",
@@ -144,6 +161,7 @@ class DepenseResource(resources.ModelResource):
             "mode_paiement",
             "reference_document",
             "lot",
+            "voyage",
             "facture_liee",
             "notes",
             "a_piece_jointe",
@@ -475,12 +493,15 @@ class BulletinPaieResource(resources.ModelResource):
             "jours_absence",
             "jours_repos",
             "jours_conge",
+            "jours_feries",
+            "montant_jours_feries",
             "total_heures_supplementaires",
             "salaire_base_reference",
             "taux_journalier",
             "montant_heures_sup",
             "montant_brut",
             "total_acomptes",
+            "total_dettes",
             "montant_net",
             "statut",
             "date_paiement",
@@ -498,4 +519,137 @@ class BulletinPaieResource(resources.ModelResource):
         raise ValueError(
             f"Ligne {row_number}: l'import de BulletinPaie est désactivé — "
             "les bulletins sont générés via le module RH (BR-RH-05)."
+        )
+
+
+# ---------------------------------------------------------------------------
+# DetteEmploye / RemboursementDette
+# ---------------------------------------------------------------------------
+
+
+class DetteEmployeResource(resources.ModelResource):
+    """
+    Import / export of employee debts (distinct from AcompteEmploye —
+    repaid via manual RemboursementDette installments, not deducted in
+    full on the next payslip).
+    """
+
+    employe = fields.Field(
+        column_name="employe_matricule",
+        attribute="employe",
+        widget=ForeignKeyWidget(Employe, field="matricule"),
+    )
+    enregistre_par = fields.Field(
+        column_name="enregistre_par_username",
+        attribute="enregistre_par",
+        widget=ForeignKeyWidget(User, field="username"),
+        readonly=True,
+    )
+    # Derived from employe.branche (BR-BRA-09), export only.
+    branche_code = fields.Field(
+        column_name="branche_code",
+        readonly=True,
+    )
+    montant_rembourse = fields.Field(
+        column_name="montant_rembourse",
+        attribute="montant_rembourse",
+        readonly=True,
+    )
+    montant_restant = fields.Field(
+        column_name="montant_restant",
+        attribute="montant_restant",
+        readonly=True,
+    )
+    soldee = fields.Field(
+        column_name="soldee",
+        attribute="soldee",
+        widget=BooleanWidget(),
+        readonly=True,
+    )
+    a_piece_jointe = fields.Field(
+        column_name="a_piece_jointe",
+        attribute="a_piece_jointe",
+        widget=BooleanWidget(),
+        readonly=True,
+    )
+
+    class Meta:
+        model = DetteEmploye
+        skip_unchanged = True
+        report_skipped = False
+        import_id_fields = ["id"]
+        fields = [
+            "id",
+            "date",
+            "employe",
+            "branche_code",
+            "montant",
+            "montant_rembourse",
+            "montant_restant",
+            "soldee",
+            "motif",
+            "notes",
+            "a_piece_jointe",
+            "enregistre_par",
+            "created_at",
+        ]
+        export_order = fields
+
+    def dehydrate_branche_code(self, obj):
+        branche = obj.branche
+        return branche.code if branche else ""
+
+
+class RemboursementDetteResource(resources.ModelResource):
+    """
+    EXPORT ONLY — installment repayments against a DetteEmploye.
+    Amounts are typed in manually while generating/viewing a payslip
+    (judgment call, not derived from attendance); import is disabled to
+    avoid bypassing that workflow and its montant_restant guard.
+    """
+
+    dette_id = fields.Field(
+        column_name="dette_id",
+        attribute="dette__id",
+        readonly=True,
+    )
+    employe_matricule = fields.Field(
+        column_name="employe_matricule",
+        attribute="dette__employe__matricule",
+        readonly=True,
+    )
+    bulletin_paie = fields.Field(
+        column_name="bulletin_paie_id",
+        attribute="bulletin_paie",
+        widget=ForeignKeyWidget(BulletinPaie, field="id"),
+        readonly=True,
+    )
+    enregistre_par = fields.Field(
+        column_name="enregistre_par_username",
+        attribute="enregistre_par",
+        widget=ForeignKeyWidget(User, field="username"),
+        readonly=True,
+    )
+
+    class Meta:
+        model = RemboursementDette
+        skip_unchanged = True
+        report_skipped = False
+        import_id_fields = ["id"]
+        fields = [
+            "id",
+            "dette_id",
+            "employe_matricule",
+            "bulletin_paie",
+            "montant",
+            "notes",
+            "enregistre_par",
+            "created_at",
+        ]
+        export_order = fields
+
+    def before_import(self, dataset, **kwargs):
+        raise NotImplementedError(
+            "RemboursementDette import est désactivé — les remboursements "
+            "sont saisis manuellement depuis la fiche du bulletin de paie."
         )

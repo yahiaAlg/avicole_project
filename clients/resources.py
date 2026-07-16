@@ -11,6 +11,8 @@ from clients.models import (
     FactureClient,
     PaiementClient,
     PaiementClientAllocation,
+    AcompteClient,
+    AllocationAcompteClient,
     AbonnementClient,
     VoyageLivraison,
     LivraisonPartielle,
@@ -18,6 +20,7 @@ from clients.models import (
 )
 from core.models import Branche
 from production.models import ProduitFini
+from intrants.models import Intrant
 
 
 class TypeClientResource(resources.ModelResource):
@@ -114,6 +117,13 @@ class BLClientLigneResource(resources.ModelResource):
         attribute="produit_fini",
         widget=ForeignKeyWidget(ProduitFini, field="designation"),
     )
+    # v1.6 — BR-BLC-06: a line sells EITHER produit_fini OR a surplus
+    # intrant, never both (enforced by BLClientLigne.clean()).
+    intrant = fields.Field(
+        column_name="intrant",
+        attribute="intrant",
+        widget=ForeignKeyWidget(Intrant, field="designation"),
+    )
 
     class Meta:
         model = BLClientLigne
@@ -121,6 +131,7 @@ class BLClientLigneResource(resources.ModelResource):
             "id",
             "bl",
             "produit_fini",
+            "intrant",
             "quantite",
             "prix_unitaire",
             "notes",
@@ -147,6 +158,16 @@ class FactureClientResource(resources.ModelResource):
         attribute="bls",
         widget=ManyToManyWidget(BLClient, field="reference", separator=","),
     )
+    # v1.6 — BR-ABO-03: alternate invoice source for a forfait
+    # AbonnementClient due, bypassing the BL-driven montant_ht computation.
+    # A facture has EITHER bls OR abonnement — never both. Export only;
+    # populated exclusively by clients.utils.generer_facture_abonnement.
+    abonnement = fields.Field(
+        column_name="abonnement_id",
+        attribute="abonnement",
+        widget=ForeignKeyWidget(AbonnementClient, field="id"),
+        readonly=True,
+    )
     a_piece_jointe = fields.Field(
         column_name="a_piece_jointe",
         widget=BooleanWidget(),
@@ -161,6 +182,9 @@ class FactureClientResource(resources.ModelResource):
             "branche",
             "client",
             "bls",
+            "abonnement",
+            "periode_debut",
+            "periode_fin",
             "date_facture",
             "date_echeance",
             "montant_ht",
@@ -274,6 +298,9 @@ class AbonnementClientResource(resources.ModelResource):
             "frequence",
             "quantite_totale_prevue",
             "prix_unitaire",
+            "mode_facturation",
+            "montant_forfait",
+            "mode_paiement",
             "statut",
             "notes",
             "created_at",
@@ -283,6 +310,125 @@ class AbonnementClientResource(resources.ModelResource):
         import_id_fields = ("id",)
         skip_unchanged = True
         report_skipped = True
+
+
+class AcompteClientResource(resources.ModelResource):
+    """
+    EXPORT ONLY — client prepayments / overpayment surplus, mirroring
+    AcompteFournisseurResource on the supplier side. Created automatically
+    right after a PaiementClient's allocations are applied; import is
+    disabled since these rows are never created directly by a user.
+    """
+
+    client = fields.Field(
+        column_name="client",
+        attribute="client",
+        widget=ForeignKeyWidget(Client, field="nom"),
+        readonly=True,
+    )
+    branche = fields.Field(
+        column_name="branche_code",
+        attribute="branche",
+        widget=ForeignKeyWidget(Branche, field="code"),
+        readonly=True,
+    )
+    paiement_id = fields.Field(
+        column_name="paiement_source_id",
+        attribute="paiement__id",
+        readonly=True,
+    )
+    utilise = fields.Field(
+        column_name="utilise",
+        attribute="utilise",
+        widget=BooleanWidget(),
+        readonly=True,
+    )
+    a_piece_jointe = fields.Field(
+        column_name="a_piece_jointe",
+        widget=BooleanWidget(),
+        readonly=True,
+    )
+
+    class Meta:
+        model = AcompteClient
+        fields = (
+            "id",
+            "branche",
+            "client",
+            "paiement_id",
+            "montant",
+            "montant_restant",
+            "date",
+            "utilise",
+            "a_piece_jointe",
+            "notes",
+            "created_at",
+            "updated_at",
+        )
+        export_order = fields
+        import_id_fields = ("id",)
+        skip_unchanged = True
+        report_skipped = True
+
+    def dehydrate_a_piece_jointe(self, obj):
+        return obj.pieces_jointes.exists()
+
+    def before_import(self, dataset, **kwargs):
+        raise NotImplementedError(
+            "AcompteClient import est désactivé — enregistrement automatique "
+            "après imputation d'un PaiementClient (BR-FAC-03)."
+        )
+
+
+class AllocationAcompteClientResource(resources.ModelResource):
+    """
+    EXPORT ONLY — portion of an AcompteClient consumed against a
+    FactureClient. Created exclusively by
+    clients.utils.consommer_acomptes_client_fifo; immutable afterwards.
+    """
+
+    acompte_id = fields.Field(
+        column_name="acompte_id",
+        attribute="acompte__id",
+        readonly=True,
+    )
+    facture_reference = fields.Field(
+        column_name="facture_reference",
+        attribute="facture__reference",
+        readonly=True,
+    )
+    client_nom = fields.Field(
+        column_name="client_nom",
+        attribute="acompte__client__nom",
+        readonly=True,
+    )
+    branche_code = fields.Field(
+        column_name="branche_code",
+        attribute="acompte__branche__code",
+        readonly=True,
+    )
+
+    class Meta:
+        model = AllocationAcompteClient
+        fields = (
+            "id",
+            "acompte_id",
+            "branche_code",
+            "client_nom",
+            "facture_reference",
+            "montant_alloue",
+            "created_at",
+        )
+        export_order = fields
+        import_id_fields = ("id",)
+        skip_unchanged = True
+        report_skipped = True
+
+    def before_import(self, dataset, **kwargs):
+        raise NotImplementedError(
+            "AllocationAcompteClient import est désactivé — enregistrement "
+            "automatique par le moteur de consommation des avances client."
+        )
 
 
 class VoyageLivraisonResource(resources.ModelResource):
