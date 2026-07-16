@@ -454,6 +454,25 @@
 
       /* toast: full width */
       .toast-zone { left: 10px; right: 10px; max-width: none; }
+
+      /* topbar action buttons: allow horizontal scroll instead of
+         overflowing off-screen / being clipped on narrow devices */
+      .topbar { gap: 8px; }
+      .topbar-titles { display: none; }
+      .topbar-right {
+        flex: 1;
+        min-width: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        justify-content: flex-start;
+        gap: 8px;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      .topbar-right::-webkit-scrollbar { display: none; }
+      .topbar-right > a, .topbar-right > button {
+        flex-shrink: 0;
+      }
     }
 
     /* desktop 768px keep original value */
