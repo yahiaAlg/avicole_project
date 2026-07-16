@@ -154,7 +154,7 @@
   <div class="amount-hero">
     <div>
       <div class="amount-hero-label">المبلغ المستلم</div>
-      <div class="amount-hero-val">{{ paiement.montant|floatformat:0 }} DZD</div>
+      <div class="amount-hero-val"><span data-money="{{ paiement.montant }}" data-money-suffix=" DZD">{{ paiement.montant|floatformat:2 }} DZD</span></div>
       <div class="amount-hero-mode">{{ paiement.get_mode_paiement_display }}{% if paiement.reference_paiement %} · {{ paiement.reference_paiement }}{% endif %}</div>
     </div>
     <div class="amount-hero-ref">
@@ -183,7 +183,7 @@
         <td style="color:#aaa;">{{ forloop.counter }}</td>
         <td><strong>{{ alloc.facture.reference }}</strong></td>
         <td style="color:#666;">{{ alloc.facture.date_facture|date:"d/m/Y" }}</td>
-        <td class="text-right"><strong>{{ alloc.montant_alloue|floatformat:0 }}</strong></td>
+        <td class="text-right"><strong><span data-money="{{ alloc.montant_alloue }}">{{ alloc.montant_alloue|floatformat:2 }}</span></strong></td>
       </tr>
       {% endfor %}
     </tbody>
@@ -199,15 +199,15 @@
     <div class="summary-table">
       <div class="summary-row">
         <span class="summary-label">إجمالي المبلغ المستلم</span>
-        <span style="font-family:'Nunito',sans-serif;font-weight:700;">{{ paiement.montant|floatformat:0 }} DZD</span>
+        <span style="font-family:'Nunito',sans-serif;font-weight:700;"><span data-money="{{ paiement.montant }}" data-money-suffix=" DZD">{{ paiement.montant|floatformat:2 }} DZD</span></span>
       </div>
       <div class="summary-row">
         <span class="summary-label">إجمالي المخصص aux factures</span>
-        <span class="summary-val-green">{{ paiement.montant_alloue|floatformat:0 }} DZD</span>
+        <span class="summary-val-green"><span data-money="{{ paiement.montant_alloue }}" data-money-suffix=" DZD">{{ paiement.montant_alloue|floatformat:2 }} DZD</span></span>
       </div>
       <div class="summary-row summary-row--total">
         <span class="summary-label" style="font-weight:700;">رصيد غير مخصص</span>
-        <span class="{% if paiement.solde_non_alloue > 0 %}summary-val-amber{% else %}summary-val-green{% endif %}">{{ paiement.solde_non_alloue|floatformat:0 }} DZD</span>
+        <span class="{% if paiement.solde_non_alloue > 0 %}summary-val-amber{% else %}summary-val-green{% endif %}"><span data-money="{{ paiement.solde_non_alloue }}" data-money-suffix=" DZD">{{ paiement.solde_non_alloue|floatformat:2 }} DZD</span></span>
       </div>
     </div>
   </div>
@@ -231,6 +231,12 @@
   });
   window.addEventListener('afterprint', function () {
     document.querySelectorAll('.no-print-bar').forEach(function (el) { el.style.display = ''; });
+  });
+  document.querySelectorAll('[data-money]').forEach(function (el) {
+    var raw = parseFloat(el.getAttribute('data-money'));
+    if (isNaN(raw)) return;
+    var formatted = new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(raw);
+    el.textContent = formatted + (el.getAttribute('data-money-suffix') || '');
   });
 </script>
 </body>

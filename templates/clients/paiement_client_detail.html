@@ -6,7 +6,7 @@
 {% block nav_paiements_clients %}active{% endblock %}
 
 {% block page_title %}Paiement — {{ paiement.client.nom }}{% endblock %}
-{% block page_sub_text %}{{ paiement.date_paiement|date:"d/m/Y" }} · {{ paiement.montant|floatformat:0 }} DZD{% endblock %}
+{% block page_sub_text %}{{ paiement.date_paiement|date:"d/m/Y" }} · <span data-money="{{ paiement.montant }}" data-money-suffix=" DZD">{{ paiement.montant|floatformat:2 }} DZD</span>{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'clients:paiement_client_list' %}" class="btn-ghost">
@@ -74,7 +74,7 @@
           </div>
           <div class="info-row">
             <span class="info-label">المبلغ</span>
-            <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;color:var(--text-primary);">{{ paiement.montant|floatformat:0 }} DZD</span>
+            <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;color:var(--text-primary);"><span data-money="{{ paiement.montant }}" data-money-suffix=" DZD">{{ paiement.montant|floatformat:2 }} DZD</span></span>
           </div>
           {% if paiement.notes %}
           <div class="info-row info-row--full">
@@ -94,9 +94,9 @@
           </span>
         </div>
         <div style="padding:16px 18px;font-size:13px;color:var(--text-secondary);">
-          تم تحويل <strong>{{ acompte.montant|floatformat:0 }} DZD</strong> من هذه الدفعة إلى دفعة مسبقة
+          تم تحويل <strong><span data-money="{{ acompte.montant }}" data-money-suffix=" DZD">{{ acompte.montant|floatformat:2 }} DZD</span></strong> من هذه الدفعة إلى دفعة مسبقة
           بتاريخ {{ acompte.date|date:"d/m/Y" }}. المتبقي منها
-          <strong style="color:{% if acompte.montant_restant > 0 %}#b45309{% else %}#15803d{% endif %};">{{ acompte.montant_restant|floatformat:0 }} DZD</strong>
+          <strong style="color:{% if acompte.montant_restant > 0 %}#b45309{% else %}#15803d{% endif %};"><span data-money="{{ acompte.montant_restant }}" data-money-suffix=" DZD">{{ acompte.montant_restant|floatformat:2 }} DZD</span></strong>
           — سيُخصم تلقائياً من الفواتير القادمة لهذا العميل، فاتورة تلو الأخرى.
           <div style="margin-top:10px;">
             <a href="{% url 'clients:acompte_client_detail' acompte.pk %}" class="btn-ghost btn-sm">
@@ -140,7 +140,7 @@
                   {% elif alloc.facture.statut == 'en_litige' %}<span class="pill-danger">متنازع عليها</span>
                   {% endif %}
                 </td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">{{ alloc.montant_alloue|floatformat:0 }} DZD</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;"><span data-money="{{ alloc.montant_alloue }}" data-money-suffix=" DZD">{{ alloc.montant_alloue|floatformat:2 }} DZD</span></td>
                 <td>
                   <div class="actions-cell">
                     <a href="{% url 'clients:facture_client_detail' alloc.facture.pk %}" class="action-btn" title="عرض الفاتورة"><i class="bx bx-show"></i></a>
@@ -234,15 +234,15 @@
         <div style="padding:20px;display:flex;flex-direction:column;gap:0;">
           <div class="total-row">
             <span class="total-label">المبلغ المستلم</span>
-            <span class="total-val" style="font-size:16px;font-weight:800;color:var(--text-primary);">{{ paiement.montant|floatformat:0 }} DZD</span>
+            <span class="total-val" style="font-size:16px;font-weight:800;color:var(--text-primary);"><span data-money="{{ paiement.montant }}" data-money-suffix=" DZD">{{ paiement.montant|floatformat:2 }} DZD</span></span>
           </div>
           <div class="total-row total-row--divider">
             <span class="total-label">إجمالي المخصص</span>
-            <span class="total-val" style="color:#15803d;">{{ paiement.montant_alloue|floatformat:0 }} DZD</span>
+            <span class="total-val" style="color:#15803d;"><span data-money="{{ paiement.montant_alloue }}" data-money-suffix=" DZD">{{ paiement.montant_alloue|floatformat:2 }} DZD</span></span>
           </div>
           <div class="total-row total-row--highlight">
             <span class="total-label" style="font-weight:700;">رصيد غير مخصص</span>
-            <span class="total-val" style="font-size:18px;font-weight:800;color:{% if paiement.solde_non_alloue > 0 %}#b45309{% else %}#15803d{% endif %};">{{ paiement.solde_non_alloue|floatformat:0 }} DZD</span>
+            <span class="total-val" style="font-size:18px;font-weight:800;color:{% if paiement.solde_non_alloue > 0 %}#b45309{% else %}#15803d{% endif %};"><span data-money="{{ paiement.solde_non_alloue }}" data-money-suffix=" DZD">{{ paiement.solde_non_alloue|floatformat:2 }} DZD</span></span>
           </div>
         </div>
       </div>

@@ -222,16 +222,16 @@
   <div class="fin-row">
     <div class="fin-item">
       <div class="fin-item__label">المبلغ الإجمالي</div>
-      <div class="fin-item__val">{{ facture.montant_total|floatformat:0 }} DZD</div>
+      <div class="fin-item__val" data-money="{{ facture.montant_total }}" data-money-suffix=" DZD">{{ facture.montant_total|floatformat:2 }} DZD</div>
     </div>
     <div class="fin-item">
       <div class="fin-item__label">المبلغ المدفوع</div>
-      <div class="fin-item__val fin-item__val--green">{{ facture.montant_regle|floatformat:0 }} DZD</div>
+      <div class="fin-item__val fin-item__val--green" data-money="{{ facture.montant_regle }}" data-money-suffix=" DZD">{{ facture.montant_regle|floatformat:2 }} DZD</div>
     </div>
     <div class="fin-item">
       <div class="fin-item__label">المتبقي للدفع</div>
       <div class="fin-item__val {% if facture.reste_a_payer > 0 %}fin-item__val--red{% else %}fin-item__val--green{% endif %}">
-        {{ facture.reste_a_payer|floatformat:0 }} DZD
+        <span data-money="{{ facture.reste_a_payer }}" data-money-suffix=" DZD">{{ facture.reste_a_payer|floatformat:2 }} DZD</span>
       </div>
     </div>
   </div>
@@ -242,7 +242,7 @@
     <div class="bl-section__header">
       <span>BL : {{ bl.reference }}</span>
       <span class="bl-section__date">{{ bl.date_bl|date:"d/m/Y" }}{% if bl.reference_fournisseur %} · Réf. four. : {{ bl.reference_fournisseur }}{% endif %}</span>
-      <span style="font-family:'Nunito',sans-serif;font-weight:700;margin-right:auto;">{{ bl.montant_total|floatformat:0 }} DZD</span>
+      <span style="font-family:'Nunito',sans-serif;font-weight:700;margin-right:auto;" data-money="{{ bl.montant_total }}" data-money-suffix=" DZD">{{ bl.montant_total|floatformat:2 }} DZD</span>
     </div>
     <div class="table-wrapper">
     <table>
@@ -266,7 +266,7 @@
           <td data-label="الوحدة">{{ ligne.intrant.unite_mesure }}</td>
           <td data-label="الكمية" style="text-align:left;">{{ ligne.quantite|floatformat:3 }}</td>
           <td data-label="سعر الوحدة" style="text-align:left;color:#555;">{{ ligne.prix_unitaire|floatformat:4 }}</td>
-          <td data-label="المبلغ (دج)" style="text-align:left;font-weight:600;">{{ ligne.montant_total|floatformat:0 }}</td>
+          <td data-label="المبلغ (دج)" style="text-align:left;font-weight:600;" data-money="{{ ligne.montant_total }}">{{ ligne.montant_total|floatformat:2 }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -280,7 +280,7 @@
     <tfoot>
       <tr class="total-row">
         <td data-label="" style="text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#555;">المجموع الكلي</td>
-        <td data-label="" style="width:140px;">{{ facture.montant_total|floatformat:0 }} DZD</td>
+        <td data-label="" style="width:140px;" data-money="{{ facture.montant_total }}" data-money-suffix=" DZD">{{ facture.montant_total|floatformat:2 }} DZD</td>
       </tr>
     </tfoot>
   </table>
@@ -305,7 +305,7 @@
           <td data-label="التاريخ">{{ alloc.reglement.date_reglement|date:"d/m/Y" }}</td>
           <td data-label="طريقة الدفع">{{ alloc.reglement.get_mode_paiement_display }}</td>
           <td data-label="مرجع الدفع" style="color:#7a8c78;">{{ alloc.reglement.reference_paiement|default:"—" }}</td>
-          <td data-label="المبلغ المخصص (دج)" style="text-align:left;font-weight:600;color:#15803d;">{{ alloc.montant_alloue|floatformat:0 }}</td>
+          <td data-label="المبلغ المخصص (دج)" style="text-align:left;font-weight:600;color:#15803d;" data-money="{{ alloc.montant_alloue }}">{{ alloc.montant_alloue|floatformat:2 }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -336,6 +336,12 @@
   });
   document.addEventListener('beforeprint', function () {
     document.querySelectorAll('.no-print').forEach(function (el) { el.style.display = 'none'; });
+  });
+  document.querySelectorAll('[data-money]').forEach(function (el) {
+    var raw = parseFloat(el.getAttribute('data-money'));
+    if (isNaN(raw)) return;
+    var formatted = new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(raw);
+    el.textContent = formatted + (el.getAttribute('data-money-suffix') || '');
   });
 </script>
 </body>

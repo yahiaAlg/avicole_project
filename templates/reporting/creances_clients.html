@@ -6,7 +6,7 @@
 {% block page_title %}ذمم العملاء حسب الأقدمية{% endblock %}
 {% block page_sub_text %}
   {% if client_obj %}{{ client_obj.nom }} — {% endif %}
-  {{ buckets|length }} عميل(عملاء) بذمم مستحقة — الإجمالي: {{ totaux.total|floatformat:0 }} DZD
+  {{ buckets|length }} عميل(عملاء) بذمم مستحقة — الإجمالي: <span data-money="{{ totaux.total }}">{{ totaux.total|floatformat:2 }}</span> DZD
 {% endblock %}
 {% block topbar_actions %}
 <a href="?{% if client_pk %}client={{ client_pk }}&{% endif %}export=csv" class="btn-ghost btn-sm">
@@ -62,28 +62,28 @@
     <div class="metric-card">
       <div class="metric-icon ic-green"><i class="bx bxs-check-circle"></i></div>
       <div class="metric-label">جارٍ (غير متأخر)</div>
-      <div class="metric-value sm" style="color:#15803d;">{{ totaux.current|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
+      <div class="metric-value sm" style="color:#15803d;"><span data-money="{{ totaux.current }}">{{ totaux.current|floatformat:2 }}</span> <small style="font-size:12px;">DZD</small></div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-amber"><i class="bx bx-hourglass"></i></div>
       <div class="metric-label">1–30 يوم</div>
-      <div class="metric-value sm" style="color:#b45309;">{{ totaux.1_30|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
+      <div class="metric-value sm" style="color:#b45309;"><span data-money="{{ totaux.1_30 }}">{{ totaux.1_30|floatformat:2 }}</span> <small style="font-size:12px;">DZD</small></div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-orange"><i class="bx bxs-error"></i></div>
       <div class="metric-label">31–90 يوم</div>
-      <div class="metric-value sm" style="color:#ea580c;">{{ totaux.31_60|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
+      <div class="metric-value sm" style="color:#ea580c;"><span data-money="{{ totaux.31_60 }}">{{ totaux.31_60|floatformat:2 }}</span> <small style="font-size:12px;">DZD</small></div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
     <div class="metric-card">
       <div class="metric-icon ic-red"><i class="bx bxs-error-circle"></i></div>
       <div class="metric-label">+90 يوم (حرج)</div>
-      <div class="metric-value sm" style="color:#dc2626;">{{ totaux.over_90|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
+      <div class="metric-value sm" style="color:#dc2626;"><span data-money="{{ totaux.over_90 }}">{{ totaux.over_90|floatformat:2 }}</span> <small style="font-size:12px;">DZD</small></div>
     </div>
   </div>
 </div>
@@ -108,30 +108,30 @@
       <div class="section-card__body">
         <div style="margin-bottom:12px;">
           <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:4px;">إجمالي الذمم</div>
-          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:26px;color:#15803d;">{{ totaux.total|floatformat:0 }} DZD</div>
+          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:26px;color:#15803d;"><span data-money="{{ totaux.total }}">{{ totaux.total|floatformat:2 }}</span> DZD</div>
         </div>
         <div class="chart-wrap" style="height:160px;"><canvas id="bucketDonut"></canvas></div>
         <div style="margin-top:12px;">
           {% with colors="#22c55e,#f59e0b,#fb923c,#ef4444,#991b1b" %}
           <div class="bucket-legend-row">
             <div style="display:flex;align-items:center;gap:7px;"><div class="bucket-dot" style="background:#22c55e;"></div><span style="font-size:12px;color:var(--text-secondary);">جارٍ</span></div>
-            <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;">{{ totaux.current|floatformat:0 }} DZD</span>
+            <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;"><span data-money="{{ totaux.current }}">{{ totaux.current|floatformat:2 }}</span> DZD</span>
           </div>
           <div class="bucket-legend-row">
             <div style="display:flex;align-items:center;gap:7px;"><div class="bucket-dot" style="background:#f59e0b;"></div><span style="font-size:12px;color:var(--text-secondary);">1–30 ي</span></div>
-            <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;">{{ totaux.1_30|floatformat:0 }} DZD</span>
+            <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;"><span data-money="{{ totaux.1_30 }}">{{ totaux.1_30|floatformat:2 }}</span> DZD</span>
           </div>
           <div class="bucket-legend-row">
             <div style="display:flex;align-items:center;gap:7px;"><div class="bucket-dot" style="background:#fb923c;"></div><span style="font-size:12px;color:var(--text-secondary);">31–60 ي</span></div>
-            <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;">{{ totaux.31_60|floatformat:0 }} DZD</span>
+            <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;"><span data-money="{{ totaux.31_60 }}">{{ totaux.31_60|floatformat:2 }}</span> DZD</span>
           </div>
           <div class="bucket-legend-row">
             <div style="display:flex;align-items:center;gap:7px;"><div class="bucket-dot" style="background:#ef4444;"></div><span style="font-size:12px;color:var(--text-secondary);">61–90 ي</span></div>
-            <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;">{{ totaux.61_90|floatformat:0 }} DZD</span>
+            <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;"><span data-money="{{ totaux.61_90 }}">{{ totaux.61_90|floatformat:2 }}</span> DZD</span>
           </div>
           <div class="bucket-legend-row">
             <div style="display:flex;align-items:center;gap:7px;"><div class="bucket-dot" style="background:#991b1b;"></div><span style="font-size:12px;color:var(--text-secondary);">&gt;90 ي</span></div>
-            <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;">{{ totaux.over_90|floatformat:0 }} DZD</span>
+            <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;"><span data-money="{{ totaux.over_90 }}">{{ totaux.over_90|floatformat:2 }}</span> DZD</span>
           </div>
           {% endwith %}
         </div>
@@ -169,24 +169,24 @@
               <div style="font-size:11px;color:var(--text-muted);">{{ b.client.telephone }}</div>
               {% endif %}
             </td>
-            <td class="aging-cell cur">{% if b.current %}{{ b.current|floatformat:0 }}{% else %}—{% endif %}</td>
-            <td class="aging-cell d30">{% if b.1_30 %}{{ b.1_30|floatformat:0 }}{% else %}—{% endif %}</td>
-            <td class="aging-cell d60">{% if b.31_60 %}{{ b.31_60|floatformat:0 }}{% else %}—{% endif %}</td>
-            <td class="aging-cell d90">{% if b.61_90 %}{{ b.61_90|floatformat:0 }}{% else %}—{% endif %}</td>
-            <td class="aging-cell over">{% if b.over_90 %}{{ b.over_90|floatformat:0 }}{% else %}—{% endif %}</td>
-            <td class="aging-cell tot">{{ b.total|floatformat:0 }} DZD</td>
+            <td class="aging-cell cur">{% if b.current %}<span data-money="{{ b.current }}">{{ b.current|floatformat:2 }}</span>{% else %}—{% endif %}</td>
+            <td class="aging-cell d30">{% if b.1_30 %}<span data-money="{{ b.1_30 }}">{{ b.1_30|floatformat:2 }}</span>{% else %}—{% endif %}</td>
+            <td class="aging-cell d60">{% if b.31_60 %}<span data-money="{{ b.31_60 }}">{{ b.31_60|floatformat:2 }}</span>{% else %}—{% endif %}</td>
+            <td class="aging-cell d90">{% if b.61_90 %}<span data-money="{{ b.61_90 }}">{{ b.61_90|floatformat:2 }}</span>{% else %}—{% endif %}</td>
+            <td class="aging-cell over">{% if b.over_90 %}<span data-money="{{ b.over_90 }}">{{ b.over_90|floatformat:2 }}</span>{% else %}—{% endif %}</td>
+            <td class="aging-cell tot"><span data-money="{{ b.total }}">{{ b.total|floatformat:2 }}</span> DZD</td>
           </tr>
           {% endfor %}
         </tbody>
         <tfoot>
           <tr class="tfoot-row">
             <td style="color:var(--text-primary);padding:12px 14px;">الإجمالي العام</td>
-            <td class="aging-cell cur" style="padding:12px 14px;">{{ totaux.current|floatformat:0 }}</td>
-            <td class="aging-cell d30" style="padding:12px 14px;">{{ totaux.1_30|floatformat:0 }}</td>
-            <td class="aging-cell d60" style="padding:12px 14px;">{{ totaux.31_60|floatformat:0 }}</td>
-            <td class="aging-cell d90" style="padding:12px 14px;">{{ totaux.61_90|floatformat:0 }}</td>
-            <td class="aging-cell over" style="padding:12px 14px;">{{ totaux.over_90|floatformat:0 }}</td>
-            <td class="aging-cell tot" style="padding:12px 14px;">{{ totaux.total|floatformat:0 }} DZD</td>
+            <td class="aging-cell cur" style="padding:12px 14px;"><span data-money="{{ totaux.current }}">{{ totaux.current|floatformat:2 }}</span></td>
+            <td class="aging-cell d30" style="padding:12px 14px;"><span data-money="{{ totaux.1_30 }}">{{ totaux.1_30|floatformat:2 }}</span></td>
+            <td class="aging-cell d60" style="padding:12px 14px;"><span data-money="{{ totaux.31_60 }}">{{ totaux.31_60|floatformat:2 }}</span></td>
+            <td class="aging-cell d90" style="padding:12px 14px;"><span data-money="{{ totaux.61_90 }}">{{ totaux.61_90|floatformat:2 }}</span></td>
+            <td class="aging-cell over" style="padding:12px 14px;"><span data-money="{{ totaux.over_90 }}">{{ totaux.over_90|floatformat:2 }}</span></td>
+            <td class="aging-cell tot" style="padding:12px 14px;"><span data-money="{{ totaux.total }}">{{ totaux.total|floatformat:2 }}</span> DZD</td>
           </tr>
         </tfoot>
       </table>

@@ -61,7 +61,7 @@
             <td style="text-align:center;">{{ b.jours_presence }}</td>
             <td style="text-align:center;color:var(--text-muted);">{{ b.jours_absence }}</td>
             <td style="text-align:center;">{% if b.total_heures_supplementaires %}{{ b.total_heures_supplementaires }}h{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td>
-            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ b.montant_net|floatformat:2 }}</td>
+            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;"><span data-money="{{ b.montant_net }}">{{ b.montant_net|floatformat:2 }}</span></td>
             <td>
               {% if b.statut == 'paye' %}<span class="pill-success">مدفوع</span>
               {% elif b.statut == 'valide' %}<span class="pill-warning">مصادق</span>

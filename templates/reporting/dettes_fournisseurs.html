@@ -3,7 +3,7 @@
 {% block title %}الديون الجارية — تربية الدواجن{% endblock %}
 {% block nav_rapports %}active{% endblock %}
 {% block page_title %}الديون الجارية لكل مورّد{% endblock %}
-{% block page_sub_text %}{% if q %}"{{ q }}" — {% endif %}{{ rows|length }} مورّد (موردون) بدين — الإجمالي : {{ grand_total_dette|floatformat:0 }} DZD{% endblock %}
+{% block page_sub_text %}{% if q %}"{{ q }}" — {% endif %}{{ rows|length }} مورّد (موردون) بدين — الإجمالي : <span data-money="{{ grand_total_dette }}">{{ grand_total_dette|floatformat:2 }}</span> DZD{% endblock %}
 {% block topbar_actions %}
 <a href="?{% if q %}q={{ q }}&{% endif %}export=csv" class="btn-ghost btn-sm"><i class="bx bxs-spreadsheet"></i> تصدير CSV</a>
 <a href="{% url 'reporting:dashboard' %}" class="btn-ghost btn-sm"><i class="bx bx-arrow-back"></i> التقارير</a>
@@ -45,7 +45,7 @@
     <div class="metric-card" style="margin-bottom:14px;">
       <div class="metric-icon ic-red"><i class="bx bx-hourglass"></i></div>
       <div class="metric-label">إجمالي الديون الجارية</div>
-      <div class="metric-value" style="color:#dc2626;">{{ grand_total_dette|floatformat:0 }}</div>
+      <div class="metric-value" style="color:#dc2626;"><span data-money="{{ grand_total_dette }}">{{ grand_total_dette|floatformat:2 }}</span></div>
       <span style="font-size:12px;color:var(--text-muted);">DZD — {{ today|date:"d/m/Y" }}</span>
     </div>
     <div class="metric-card">
@@ -95,7 +95,7 @@
             </td>
             <td style="text-align:right;">
               <span class="val-money" style="font-size:14px;{% if r.dette_globale > 500000 %}color:#dc2626;{% elif r.dette_globale > 200000 %}color:#b45309;{% else %}color:#15803d;{% endif %}">
-                {{ r.dette_globale|floatformat:0 }} DZD
+                <span data-money="{{ r.dette_globale }}">{{ r.dette_globale|floatformat:2 }}</span> DZD
               </span>
               <!-- Debt bar -->
               {% if grand_total_dette %}
@@ -140,7 +140,7 @@
         <tfoot>
           <tr style="background:var(--bg-raised);">
             <td colspan="2" style="font-weight:700;padding:12px 14px;">الإجمالي</td>
-            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;padding:12px 14px;color:#dc2626;">{{ grand_total_dette|floatformat:0 }} DZD</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;padding:12px 14px;color:#dc2626;"><span data-money="{{ grand_total_dette }}">{{ grand_total_dette|floatformat:2 }}</span> DZD</td>
             <td colspan="6" style="padding:12px 14px;color:var(--text-muted);font-size:12px;">{{ rows|length }} مورّد (موردون) بدين نشط</td>
           </tr>
         </tfoot>

@@ -187,7 +187,7 @@
         <tr>
           <td>{{ a.motif|default:"—" }}</td>
           <td>{{ a.date|date:"d/m/Y" }}</td>
-          <td class="num">{{ a.montant|floatformat:2 }}</td>
+          <td class="num"><span data-money="{{ a.montant }}">{{ a.montant|floatformat:2 }}</span></td>
         </tr>
         {% endfor %}
       </tbody>
@@ -201,7 +201,7 @@
         {% for r in remboursements_dettes %}
         <tr>
           <td>{{ r.dette.motif|default:"دين" }} — {{ r.dette.date|date:"d/m/Y" }}</td>
-          <td class="num">{{ r.montant|floatformat:2 }}</td>
+          <td class="num"><span data-money="{{ r.montant }}">{{ r.montant|floatformat:2 }}</span></td>
         </tr>
         {% endfor %}
       </tbody>
@@ -213,16 +213,16 @@
     </div>
 
     <div class="totals">
-      <div class="row"><span>السعر اليومي</span><span class="val">{{ bulletin.taux_journalier|floatformat:2 }} دج</span></div>
+      <div class="row"><span>السعر اليومي</span><span class="val"><span data-money="{{ bulletin.taux_journalier }}">{{ bulletin.taux_journalier|floatformat:2 }}</span> دج</span></div>
       <div class="row"><span>أيام الراحة المدفوعة</span><span class="val">{{ bulletin.jours_repos }}</span></div>
-      <div class="row"><span>مبلغ الساعات الإضافية</span><span class="val">{{ bulletin.montant_heures_sup|floatformat:2 }} دج</span></div>
+      <div class="row"><span>مبلغ الساعات الإضافية</span><span class="val"><span data-money="{{ bulletin.montant_heures_sup }}">{{ bulletin.montant_heures_sup|floatformat:2 }}</span> دج</span></div>
       {% if bulletin.montant_jours_feries %}
-      <div class="row"><span>مبلغ أيام الأعياد الإضافي</span><span class="val">{{ bulletin.montant_jours_feries|floatformat:2 }} دج</span></div>
+      <div class="row"><span>مبلغ أيام الأعياد الإضافي</span><span class="val"><span data-money="{{ bulletin.montant_jours_feries }}">{{ bulletin.montant_jours_feries|floatformat:2 }}</span> دج</span></div>
       {% endif %}
-      <div class="row"><span>الإجمالي الخام</span><span class="val">{{ bulletin.montant_brut|floatformat:2 }} دج</span></div>
-      <div class="row deduct"><span>إجمالي التسبيقات</span><span class="val">− {{ bulletin.total_acomptes|floatformat:2 }} دج</span></div>
-      <div class="row deduct"><span>تسديد الديون</span><span class="val">− {{ bulletin.total_dettes|floatformat:2 }} دج</span></div>
-      <div class="row net"><span>الصافي المستحق</span><span class="val">{{ bulletin.montant_net|floatformat:2 }} دج</span></div>
+      <div class="row"><span>الإجمالي الخام</span><span class="val"><span data-money="{{ bulletin.montant_brut }}">{{ bulletin.montant_brut|floatformat:2 }}</span> دج</span></div>
+      <div class="row deduct"><span>إجمالي التسبيقات</span><span class="val">− <span data-money="{{ bulletin.total_acomptes }}">{{ bulletin.total_acomptes|floatformat:2 }}</span> دج</span></div>
+      <div class="row deduct"><span>تسديد الديون</span><span class="val">− <span data-money="{{ bulletin.total_dettes }}">{{ bulletin.total_dettes|floatformat:2 }}</span> دج</span></div>
+      <div class="row net"><span>الصافي المستحق</span><span class="val"><span data-money="{{ bulletin.montant_net }}">{{ bulletin.montant_net|floatformat:2 }}</span> دج</span></div>
     </div>
 
     <div class="signatures">
@@ -236,5 +236,13 @@
 
   </div>
 
+<script>
+  document.querySelectorAll('[data-money]').forEach(function (el) {
+    var raw = parseFloat(el.getAttribute('data-money'));
+    if (isNaN(raw)) return;
+    var formatted = new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(raw);
+    el.textContent = formatted + (el.getAttribute('data-money-suffix') || '');
+  });
+</script>
 </body>
 </html>

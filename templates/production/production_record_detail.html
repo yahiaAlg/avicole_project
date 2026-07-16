@@ -56,7 +56,7 @@
     <div class="kpi-card">
       <div class="kpi-card__label">القيمة التقديرية</div>
       <div class="kpi-card__value">
-        {{ valeur_totale_production|floatformat:0 }}
+        <span data-money="{{ valeur_totale_production }}">{{ valeur_totale_production|floatformat:2 }}</span>
         <span class="kpi-currency">DZD</span>
       </div>
       <div class="kpi-card__sub">إجمالي التكلفة المخصصة</div>
@@ -82,7 +82,7 @@
           <div class="section-eyebrow"><i class="bx bxs-package"></i> المنتجات النهائية الناتجة</div>
           {% if lignes %}
           <span style="font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;color:var(--text-primary);">
-            Total : {{ valeur_totale_production|floatformat:0 }} DZD
+            Total : <span data-money="{{ valeur_totale_production }}">{{ valeur_totale_production|floatformat:2 }}</span> DZD
           </span>
           {% endif %}
         </div>
@@ -122,14 +122,14 @@
                 </td>
                 <td style="text-align:right;">{{ ligne.poids_unitaire_kg|floatformat:3 }}</td>
                 <td style="text-align:right;">{{ ligne.cout_unitaire_estime|floatformat:4 }}</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ ligne.valeur_totale|floatformat:0 }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);"><span data-money="{{ ligne.valeur_totale }}">{{ ligne.valeur_totale|floatformat:2 }}</span></td>
               </tr>
               {% endfor %}
             </tbody>
             <tfoot>
               <tr>
                 <td colspan="5" style="text-align:right;font-size:11.5px;font-weight:600;color:var(--text-muted);padding:10px 14px;">الإجمالي التقديري</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;color:var(--text-primary);padding:10px 14px;">{{ valeur_totale_production|floatformat:0 }} DZD</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;color:var(--text-primary);padding:10px 14px;"><span data-money="{{ valeur_totale_production }}">{{ valeur_totale_production|floatformat:2 }}</span> DZD</td>
               </tr>
             </tfoot>
           </table>
@@ -240,7 +240,7 @@
           {% endif %}
           <div class="aside-info-row">
             <span class="aside-info-label">القيمة الإجمالية التقديرية</span>
-            <span class="aside-info-val" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);">{{ valeur_totale_production|floatformat:0 }} DZD</span>
+            <span class="aside-info-val" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);"><span data-money="{{ valeur_totale_production }}">{{ valeur_totale_production|floatformat:2 }}</span> DZD</span>
           </div>
           {% if record.notes %}
           <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">

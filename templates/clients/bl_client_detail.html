@@ -95,7 +95,7 @@
       <div class="card">
         <div class="card-header-row">
           <div class="section-eyebrow"><i class="bx bx-list-ul"></i> بنود المنتجات</div>
-          <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:15px;color:var(--text-primary);">{{ montant_total|floatformat:0 }} دج</span>
+          <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:15px;color:var(--text-primary);"><span data-money="{{ montant_total }}" data-money-suffix=" دج">{{ montant_total|floatformat:2 }} دج</span></span>
         </div>
         {% if lignes %}
         <div class="table-wrapper">
@@ -121,7 +121,7 @@
                 </td>
                 <td data-label="الكمية" style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ ligne.quantite|floatformat:2 }} {{ ligne.unite_mesure }}</td>
                 <td data-label="سعر الوحدة" style="text-align:left;color:var(--text-secondary);">{{ ligne.prix_unitaire|floatformat:2 }} دج</td>
-                <td data-label="المجموع" style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ ligne.montant_total|floatformat:0 }} دج</td>
+                <td data-label="المجموع" style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);"><span data-money="{{ ligne.montant_total }}" data-money-suffix=" دج">{{ ligne.montant_total|floatformat:2 }} دج</span></td>
                 <td data-label="ملاحظات" style="color:var(--text-muted);font-size:12px;">{{ ligne.notes|default:"—" }}</td>
               </tr>
               {% endfor %}
@@ -129,7 +129,7 @@
             <tfoot>
               <tr class="lignes-total-row">
                 <td colspan="3" style="text-align:left;font-size:12px;font-weight:600;color:var(--text-muted);padding:12px 14px;">المجموع الكلي</td>
-                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);padding:12px 14px;">{{ montant_total|floatformat:0 }} دج</td>
+                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);padding:12px 14px;"><span data-money="{{ montant_total }}" data-money-suffix=" دج">{{ montant_total|floatformat:2 }} دج</span></td>
                 <td></td>
               </tr>
             </tfoot>
@@ -293,7 +293,7 @@
               {% elif facture.statut == 'payee' %}<span class="pill-success">مدفوعة</span>
               {% elif facture.statut == 'en_litige' %}<span class="pill-danger">نزاع</span>
               {% endif %}
-              <div style="font-size:12px;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);margin-top:3px;">{{ facture.montant_ttc|floatformat:0 }} دج</div>
+              <div style="font-size:12px;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);margin-top:3px;"><span data-money="{{ facture.montant_ttc }}" data-money-suffix=" دج">{{ facture.montant_ttc|floatformat:2 }} دج</span></div>
             </div>
           </div>
           {% endfor %}

@@ -203,14 +203,14 @@
         </td>
         <td data-label="الكمية" class="text-left">{{ ligne.quantite|floatformat:2 }} {{ ligne.unite_mesure }}</td>
         <td data-label="سعر الوحدة (دج)" class="text-left">{{ ligne.prix_unitaire|floatformat:2 }}</td>
-        <td data-label="المجموع (دج)" class="text-left"><strong>{{ ligne.montant_total|floatformat:0 }}</strong></td>
+        <td data-label="المجموع (دج)" class="text-left"><strong><span data-money="{{ ligne.montant_total }}">{{ ligne.montant_total|floatformat:2 }}</span></strong></td>
       </tr>
       {% endfor %}
     </tbody>
     <tfoot>
       <tr class="lignes-total-row">
         <td colspan="4" class="text-left">المجموع الكلي</td>
-        <td class="text-left">{{ montant_total|floatformat:0 }} دج</td>
+        <td class="text-left"><span data-money="{{ montant_total }}" data-money-suffix=" دج">{{ montant_total|floatformat:2 }} دج</span></td>
       </tr>
     </tfoot>
   </table>
@@ -221,7 +221,7 @@
     <div class="totals-table">
       <div class="totals-row">
         <span class="totals-label">المجموع (خارج الضريبة)</span>
-        <span>{{ montant_total|floatformat:0 }} دج</span>
+        <span><span data-money="{{ montant_total }}" data-money-suffix=" دج">{{ montant_total|floatformat:2 }} دج</span></span>
       </div>
       <div class="totals-row">
         <span class="totals-label">الرسم على القيمة المضافة</span>
@@ -229,7 +229,7 @@
       </div>
       <div class="totals-row">
         <span class="totals-label">المجموع الكلي (شامل الضريبة)</span>
-        <span>{{ montant_total|floatformat:0 }} دج</span>
+        <span><span data-money="{{ montant_total }}" data-money-suffix=" دج">{{ montant_total|floatformat:2 }} دج</span></span>
       </div>
     </div>
   </div>
@@ -259,5 +259,14 @@
   </div>
 
 </div>
+
+<script>
+  document.querySelectorAll('[data-money]').forEach(function (el) {
+    var raw = parseFloat(el.getAttribute('data-money'));
+    if (isNaN(raw)) return;
+    var formatted = new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(raw);
+    el.textContent = formatted + (el.getAttribute('data-money-suffix') || '');
+  });
+</script>
 </body>
 </html>

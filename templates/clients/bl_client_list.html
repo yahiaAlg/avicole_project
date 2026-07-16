@@ -88,7 +88,7 @@
               {% elif bl.statut == 'litige' %}<span class="pill-danger">نزاع</span>
               {% endif %}
             </td>
-            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ bl.montant_total|floatformat:0 }} دج</td>
+            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);"><span data-money="{{ bl.montant_total }}" data-money-suffix=" دج">{{ bl.montant_total|floatformat:2 }} دج</span></td>
             <td>
               <div class="actions-cell">
                 <a href="{% url 'clients:bl_client_detail' bl.pk %}" class="action-btn" title="التفاصيل"><i class="bx bx-show"></i></a>

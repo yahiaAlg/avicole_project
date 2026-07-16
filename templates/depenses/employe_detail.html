@@ -26,7 +26,7 @@
     </div>
     <div class="kpi-card">
       <div class="kpi-label">الراتب الأساسي</div>
-      <div class="kpi-value">{{ employe.salaire_base_mensuel|floatformat:0 }} <span class="kpi-unit">دج/شهر</span></div>
+      <div class="kpi-value"><span data-money="{{ employe.salaire_base_mensuel }}">{{ employe.salaire_base_mensuel|floatformat:2 }}</span> <span class="kpi-unit">دج/شهر</span></div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">المبنى</div>
@@ -94,7 +94,7 @@
             {% for b in bulletins_recents %}
             <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
               <td>{{ b.periode_label }}</td>
-              <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ b.montant_net|floatformat:2 }}</td>
+              <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;"><span data-money="{{ b.montant_net }}">{{ b.montant_net|floatformat:2 }}</span></td>
               <td>
                 {% if b.statut == 'paye' %}<span class="pill-success">مدفوع</span>
                 {% elif b.statut == 'valide' %}<span class="pill-warning">مصادق</span>
@@ -146,7 +146,7 @@
           <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
             <td>{{ a.date|date:"d/m/Y" }}</td>
             <td style="color:var(--text-muted);">{{ a.motif|default:"—"|truncatechars:60 }}</td>
-            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ a.montant|floatformat:2 }}</td>
+            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;"><span data-money="{{ a.montant }}">{{ a.montant|floatformat:2 }}</span></td>
             <td><span class="mode-badge">{{ a.get_mode_paiement_display }}</span></td>
           </tr>
           {% endfor %}

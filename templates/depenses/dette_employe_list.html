@@ -4,7 +4,7 @@
 {% block title %}ديون العمال — تربية الدواجن{% endblock %}
 {% block nav_rh %}active{% endblock %}
 {% block page_title %}ديون العمال{% endblock %}
-{% block page_sub_text %}الإجمالي: {{ total_montant|floatformat:2 }} دج — المتبقي: {{ total_restant|floatformat:2 }} دج{% if not active_branche %} — كل الفروع (رؤية شاملة){% endif %}{% endblock %}
+{% block page_sub_text %}الإجمالي: <span data-money="{{ total_montant }}">{{ total_montant|floatformat:2 }}</span> دج — المتبقي: <span data-money="{{ total_restant }}">{{ total_restant|floatformat:2 }}</span> دج{% if not active_branche %} — كل الفروع (رؤية شاملة){% endif %}{% endblock %}
 
 {% block topbar_actions %}
   {% if not request.user.userprofile.role == 'viewer' %}
@@ -44,8 +44,8 @@
             {% if not active_branche %}
             <td><span class="pill-branche"><i class="bx bxs-buildings"></i> {{ d.branche.nom|default:"—" }}</span></td>
             {% endif %}
-            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ d.montant|floatformat:2 }}</td>
-            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ d.montant_restant|floatformat:2 }}</td>
+            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);"><span data-money="{{ d.montant }}">{{ d.montant|floatformat:2 }}</span></td>
+            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;"><span data-money="{{ d.montant_restant }}">{{ d.montant_restant|floatformat:2 }}</span></td>
             <td style="color:var(--text-muted);">{{ d.motif|default:"—"|truncatechars:50 }}</td>
             <td>
               {% if d.soldee %}<span class="pill-success"><i class="bx bxs-check-circle"></i> مسدد</span>

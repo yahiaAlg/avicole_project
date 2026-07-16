@@ -67,7 +67,7 @@
     </div>
     <div class="kpi-card">
       <div class="kpi-card__label">سعر البيع الافتراضي</div>
-      <div class="kpi-card__value">{{ produit.prix_vente_defaut|floatformat:0 }} <span class="kpi-currency">دج</span></div>
+      <div class="kpi-card__value"><span data-money="{{ produit.prix_vente_defaut }}">{{ produit.prix_vente_defaut|floatformat:2 }}</span> <span class="kpi-currency">دج</span></div>
       <div class="kpi-card__sub">يُملأ تلقائياً في فواتير العملاء</div>
     </div>
     <div class="kpi-card">
@@ -114,7 +114,7 @@
             </div>
             <div class="info-item">
               <div class="info-label">سعر البيع الافتراضي</div>
-              <div class="info-value" style="font-family:'Nunito',sans-serif;font-weight:700;">{{ produit.prix_vente_defaut|floatformat:0 }} دج</div>
+              <div class="info-value" style="font-family:'Nunito',sans-serif;font-weight:700;"><span data-money="{{ produit.prix_vente_defaut }}">{{ produit.prix_vente_defaut|floatformat:2 }}</span> دج</div>
             </div>
             <div class="info-item">
               <div class="info-label">الحالة</div>
@@ -176,7 +176,7 @@
                 </td>
                 <td style="text-align:right;">{{ ligne.poids_unitaire_kg|floatformat:3 }}</td>
                 <td style="text-align:right;">{{ ligne.cout_unitaire_estime|floatformat:2 }}</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ ligne.valeur_totale|floatformat:0 }}</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);"><span data-money="{{ ligne.valeur_totale }}">{{ ligne.valeur_totale|floatformat:2 }}</span></td>
               </tr>
               {% endfor %}
             </tbody>
@@ -281,7 +281,7 @@
                 </div>
                 <div class="aside-info-row">
                   <span class="aside-info-label">القيمة التقديرية للمخزون</span>
-                  <span class="aside-info-val" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ stock.valeur_stock|floatformat:0 }} دج</span>
+                  <span class="aside-info-val" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);"><span data-money="{{ stock.valeur_stock }}">{{ stock.valeur_stock|floatformat:2 }}</span> دج</span>
                 </div>
                 <div class="aside-info-row">
                   <span class="aside-info-label">حد التنبيه</span>
@@ -377,7 +377,7 @@
             <div class="calc-base-arrow">→</div>
             <div class="calc-base-item">
               <span class="calc-base-label">سعر البيع الحالي</span>
-              <span class="calc-base-val">{{ produit.prix_vente_defaut|floatformat:2 }}</span>
+              <span class="calc-base-val"><span data-money="{{ produit.prix_vente_defaut }}">{{ produit.prix_vente_defaut|floatformat:2 }}</span></span>
               <span class="calc-base-unit">DZD</span>
             </div>
           </div>

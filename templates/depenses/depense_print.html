@@ -415,7 +415,7 @@
         <div class="amount-banner__description">{{ depense.description }}</div>
       </div>
       <div class="amount-banner__amount">
-        <span class="amount-banner__figure">{{ depense.montant|floatformat:0 }}</span>
+        <span class="amount-banner__figure"><span data-money="{{ depense.montant }}">{{ depense.montant|floatformat:2 }}</span></span>
         <span class="amount-banner__currency">DZD</span>
       </div>
     </div>
@@ -436,7 +436,7 @@
       <dd>{{ depense.description }}</dd>
 
       <dt>المبلغ</dt>
-      <dd><strong>{{ depense.montant|floatformat:2 }} دج</strong></dd>
+      <dd><strong><span data-money="{{ depense.montant }}">{{ depense.montant|floatformat:2 }}</span> دج</strong></dd>
 
       <dt>طريقة الدفع</dt>
       <dd><span class="mode-badge">{{ depense.get_mode_paiement_display }}</span></dd>
@@ -496,7 +496,7 @@
       <dt>تاريخ الفاتورة</dt>
       <dd>{{ depense.facture_liee.date_facture|date:"d/m/Y" }}</dd>
       <dt>مبلغ الفاتورة</dt>
-      <dd>{{ depense.facture_liee.montant_total|floatformat:2 }} دج</dd>
+      <dd><span data-money="{{ depense.facture_liee.montant_total }}">{{ depense.facture_liee.montant_total|floatformat:2 }}</span> دج</dd>
     </dl>
     <div class="br-notice">
       BR-DEP-03 : فواتير الخدمات فقط يمكن ربطها بمصروف تشغيلي.
@@ -577,6 +577,13 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.no-print').forEach(function (el) {
       el.style.display = '';
     });
+  });
+
+  document.querySelectorAll('[data-money]').forEach(function (el) {
+    var raw = parseFloat(el.getAttribute('data-money'));
+    if (isNaN(raw)) return;
+    var formatted = new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(raw);
+    el.textContent = formatted + (el.getAttribute('data-money-suffix') || '');
   });
 });
 </script>

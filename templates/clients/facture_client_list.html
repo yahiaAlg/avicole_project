@@ -25,17 +25,17 @@
     <div class="metric-card">
       <div class="metric-icon ic-blue"><i class="bx bx-file"></i></div>
       <div class="metric-label">إجمالي شامل الضريبة</div>
-      <div class="metric-value">{{ totals.total_ttc|floatformat:0 }} <small>DZD</small></div>
+      <div class="metric-value"><span data-money="{{ totals.total_ttc }}">{{ totals.total_ttc|floatformat:2 }}</span> <small>DZD</small></div>
     </div>
     <div class="metric-card">
       <div class="metric-icon ic-amber"><i class="bx bxs-hourglass"></i></div>
       <div class="metric-label">المبلغ المتبقي</div>
-      <div class="metric-value">{{ totals.total_rap|floatformat:0 }} <small>DZD</small></div>
+      <div class="metric-value"><span data-money="{{ totals.total_rap }}">{{ totals.total_rap|floatformat:2 }}</span> <small>DZD</small></div>
     </div>
     <div class="metric-card">
       <div class="metric-icon ic-green"><i class="bx bxs-check-circle"></i></div>
       <div class="metric-label">المدفوع</div>
-      <div class="metric-value">{{ totals.total_regle|floatformat:0 }} <small>DZD</small></div>
+      <div class="metric-value"><span data-money="{{ totals.total_regle }}">{{ totals.total_regle|floatformat:2 }}</span> <small>DZD</small></div>
     </div>
   </div>
   {% endif %}
@@ -119,9 +119,9 @@
               {% elif facture.statut == 'en_litige' %}<span class="pill-danger">متنازع عليها</span>
               {% endif %}
             </td>
-            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ facture.montant_ttc|floatformat:0 }} DZD</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);"><span data-money="{{ facture.montant_ttc }}" data-money-suffix=" DZD">{{ facture.montant_ttc|floatformat:2 }} DZD</span></td>
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:{% if facture.reste_a_payer > 0 %}#b45309{% else %}#15803d{% endif %};">
-              {{ facture.reste_a_payer|floatformat:0 }} DZD
+              <span data-money="{{ facture.reste_a_payer }}" data-money-suffix=" DZD">{{ facture.reste_a_payer|floatformat:2 }} DZD</span>
             </td>
             <td>
               <div class="actions-cell">

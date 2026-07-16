@@ -6,7 +6,7 @@
 {% block nav_acomptes_clients %}active{% endblock %}
 
 {% block page_title %}دفعة مسبقة — {{ acompte.client.nom }}{% endblock %}
-{% block page_sub_text %}{{ acompte.date|date:"d/m/Y" }} · {{ acompte.montant|floatformat:0 }} DZD{% endblock %}
+{% block page_sub_text %}{{ acompte.date|date:"d/m/Y" }} · <span data-money="{{ acompte.montant }}" data-money-suffix=" DZD">{{ acompte.montant|floatformat:2 }} DZD</span>{% endblock %}
 
 {% block topbar_actions %}
   <a href="{% url 'clients:acompte_client_list' %}" class="btn-ghost">
@@ -47,7 +47,7 @@
           </div>
           <div class="info-row">
             <span class="info-label">المبلغ الأصلي</span>
-            <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;">{{ acompte.montant|floatformat:0 }} DZD</span>
+            <span class="info-value" style="font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;"><span data-money="{{ acompte.montant }}" data-money-suffix=" DZD">{{ acompte.montant|floatformat:2 }} DZD</span></span>
           </div>
           {% if acompte.notes %}
           <div class="info-row info-row--full">
@@ -84,7 +84,7 @@
                   <a href="{% url 'clients:facture_client_detail' alloc.facture.pk %}" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);text-decoration:none;">{{ alloc.facture.reference }}</a>
                 </td>
                 <td style="font-size:12px;color:var(--text-muted);">{{ alloc.facture.date_facture|date:"d/m/Y" }}</td>
-                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;">{{ alloc.montant_alloue|floatformat:0 }} DZD</td>
+                <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:#15803d;"><span data-money="{{ alloc.montant_alloue }}" data-money-suffix=" DZD">{{ alloc.montant_alloue|floatformat:2 }} DZD</span></td>
                 <td style="font-size:12px;color:var(--text-muted);">{{ alloc.created_at|date:"d/m/Y H:i" }}</td>
                 <td>
                   <div class="actions-cell">
@@ -152,15 +152,15 @@
         <div style="padding:20px;display:flex;flex-direction:column;gap:0;">
           <div class="total-row">
             <span class="total-label">المبلغ الأصلي</span>
-            <span class="total-val" style="font-size:16px;font-weight:800;color:var(--text-primary);">{{ acompte.montant|floatformat:0 }} DZD</span>
+            <span class="total-val" style="font-size:16px;font-weight:800;color:var(--text-primary);"><span data-money="{{ acompte.montant }}" data-money-suffix=" DZD">{{ acompte.montant|floatformat:2 }} DZD</span></span>
           </div>
           <div class="total-row total-row--divider">
             <span class="total-label">المستهلك</span>
-            <span class="total-val" style="color:#15803d;">{{ montant_consomme|floatformat:0 }} DZD</span>
+            <span class="total-val" style="color:#15803d;"><span data-money="{{ montant_consomme }}" data-money-suffix=" DZD">{{ montant_consomme|floatformat:2 }} DZD</span></span>
           </div>
           <div class="total-row total-row--highlight">
             <span class="total-label" style="font-weight:700;">المتبقي</span>
-            <span class="total-val" style="font-size:18px;font-weight:800;color:{% if acompte.montant_restant > 0 %}#b45309{% else %}#15803d{% endif %};">{{ acompte.montant_restant|floatformat:0 }} DZD</span>
+            <span class="total-val" style="font-size:18px;font-weight:800;color:{% if acompte.montant_restant > 0 %}#b45309{% else %}#15803d{% endif %};"><span data-money="{{ acompte.montant_restant }}" data-money-suffix=" DZD">{{ acompte.montant_restant|floatformat:2 }} DZD</span></span>
           </div>
         </div>
       </div>

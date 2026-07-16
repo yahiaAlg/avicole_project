@@ -4,7 +4,7 @@
 {% block title %}سحوبات الشركاء — تربية الدواجن{% endblock %}
 {% block nav_retraits %}active{% endblock %}
 {% block page_title %}سحوبات الشركاء{% endblock %}
-{% block page_sub_text %}إجمالي الفترة: {{ total|floatformat:2 }} دج{% endblock %}
+{% block page_sub_text %}إجمالي الفترة: <span data-money="{{ total }}">{{ total|floatformat:2 }}</span> دج{% endblock %}
 
 {% block topbar_actions %}
   {% if not request.user.userprofile.role == 'viewer' %}
@@ -55,7 +55,7 @@
             <td>
               <a href="{% url 'depenses:associe_detail' r.associe.pk %}" class="row-link">{{ r.associe.nom }}</a>
             </td>
-            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ r.montant|floatformat:2 }}</td>
+            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);"><span data-money="{{ r.montant }}">{{ r.montant|floatformat:2 }}</span></td>
             <td><span class="mode-badge">{{ r.get_mode_paiement_display }}</span></td>
             <td style="color:var(--text-muted);">{{ r.motif|default:"—"|truncatechars:50 }}</td>
             <td style="font-size:12px;color:var(--text-muted);">{{ r.reference_document|default:"—" }}</td>

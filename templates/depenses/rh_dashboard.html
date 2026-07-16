@@ -31,11 +31,11 @@
     </div>
     <div class="kpi-card">
       <div class="kpi-label">إجمالي الرواتب المدفوعة</div>
-      <div class="kpi-value">{{ summary.total_salaires_payes|floatformat:0 }} <span class="kpi-unit">دج</span></div>
+      <div class="kpi-value"><span data-money="{{ summary.total_salaires_payes }}">{{ summary.total_salaires_payes|floatformat:2 }}</span> <span class="kpi-unit">دج</span></div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">إجمالي التسبيقات</div>
-      <div class="kpi-value">{{ summary.total_acomptes|floatformat:0 }} <span class="kpi-unit">دج</span></div>
+      <div class="kpi-value"><span data-money="{{ summary.total_acomptes }}">{{ summary.total_acomptes|floatformat:2 }}</span> <span class="kpi-unit">دج</span></div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">كشوف في انتظار الدفع</div>
@@ -43,7 +43,7 @@
     </div>
     <div class="kpi-card">
       <div class="kpi-label">ديون غير مسددة</div>
-      <div class="kpi-value">{{ summary.total_dettes_restantes|floatformat:0 }} <span class="kpi-unit">دج</span></div>
+      <div class="kpi-value"><span data-money="{{ summary.total_dettes_restantes }}">{{ summary.total_dettes_restantes|floatformat:2 }}</span> <span class="kpi-unit">دج</span></div>
     </div>
   </div>
 
@@ -63,7 +63,7 @@
             <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
               <td><a href="{% url 'depenses:bulletin_paie_detail' b.pk %}" class="row-link">{{ b.employe.nom_complet }}</a></td>
               <td style="color:var(--text-muted);font-size:12.5px;">{{ b.periode_label }}</td>
-              <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ b.montant_net|floatformat:2 }}</td>
+              <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;"><span data-money="{{ b.montant_net }}">{{ b.montant_net|floatformat:2 }}</span></td>
               <td>
                 {% if b.statut == 'paye' %}<span class="pill-success">مدفوع</span>
                 {% elif b.statut == 'valide' %}<span class="pill-warning">مصادق</span>
@@ -94,7 +94,7 @@
             <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
               <td><a href="{% url 'depenses:employe_detail' a.employe.pk %}" class="row-link">{{ a.employe.nom_complet }}</a></td>
               <td style="color:var(--text-muted);font-size:12.5px;">{{ a.date|date:"d/m/Y" }}</td>
-              <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ a.montant|floatformat:2 }}</td>
+              <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;"><span data-money="{{ a.montant }}">{{ a.montant|floatformat:2 }}</span></td>
               <td>
                 {% if a.deduit %}<span class="pill-neutral" style="font-size:10.5px;">نعم</span>
                 {% else %}<span class="pill-warning" style="font-size:10.5px;">لا</span>{% endif %}

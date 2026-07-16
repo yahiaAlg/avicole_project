@@ -4,7 +4,7 @@
 {% block title %}تسبيقات على الرواتب — تربية الدواجن{% endblock %}
 {% block nav_rh %}active{% endblock %}
 {% block page_title %}تسبيقات على الرواتب{% endblock %}
-{% block page_sub_text %}إجمالي الفترة: {{ total|floatformat:2 }} دج{% if not active_branche %} — كل الفروع (رؤية شاملة){% endif %}{% endblock %}
+{% block page_sub_text %}إجمالي الفترة: <span data-money="{{ total }}">{{ total|floatformat:2 }}</span> دج{% if not active_branche %} — كل الفروع (رؤية شاملة){% endif %}{% endblock %}
 
 {% block topbar_actions %}
   {% if not request.user.userprofile.role == 'viewer' %}
@@ -44,7 +44,7 @@
             {% if not active_branche %}
             <td><span class="pill-branche"><i class="bx bxs-buildings"></i> {{ a.branche.nom|default:"—" }}</span></td>
             {% endif %}
-            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ a.montant|floatformat:2 }}</td>
+            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);"><span data-money="{{ a.montant }}">{{ a.montant|floatformat:2 }}</span></td>
             <td><span class="mode-badge">{{ a.get_mode_paiement_display }}</span></td>
             <td style="color:var(--text-muted);">{{ a.motif|default:"—"|truncatechars:50 }}</td>
             <td>

@@ -293,7 +293,7 @@
         <tr class="row-solde-initial">
           <td colspan="5" style="text-align:right;">الرصيد الافتتاحي قبل {{ date_debut|date:"d/m/Y" }}</td>
           <td class="num solde {% if releve.solde_initial < 0 %}negative{% endif %}">
-            {{ releve.solde_initial|floatformat:2 }}
+            <span data-money="{{ releve.solde_initial }}">{{ releve.solde_initial|floatformat:2 }}</span>
           </td>
         </tr>
         {% endif %}
@@ -320,9 +320,9 @@
               تسوية — {{ ligne.mode_paiement }}
             {% endif %}
           </td>
-          <td class="num debit">{% if ligne.debit %}{{ ligne.debit|floatformat:2 }}{% else %}—{% endif %}</td>
-          <td class="num credit">{% if ligne.credit %}{{ ligne.credit|floatformat:2 }}{% else %}—{% endif %}</td>
-          <td class="num solde {% if ligne.solde < 0 %}negative{% endif %}">{{ ligne.solde|floatformat:2 }}</td>
+          <td class="num debit">{% if ligne.debit %}<span data-money="{{ ligne.debit }}">{{ ligne.debit|floatformat:2 }}</span>{% else %}—{% endif %}</td>
+          <td class="num credit">{% if ligne.credit %}<span data-money="{{ ligne.credit }}">{{ ligne.credit|floatformat:2 }}</span>{% else %}—{% endif %}</td>
+          <td class="num solde {% if ligne.solde < 0 %}negative{% endif %}"><span data-money="{{ ligne.solde }}">{{ ligne.solde|floatformat:2 }}</span></td>
         </tr>
         {% empty %}
         <tr>
@@ -333,10 +333,10 @@
       <tfoot>
         <tr>
           <td colspan="3" class="label-final">الإجمالي</td>
-          <td class="num">{{ releve.total_debit|floatformat:2 }}</td>
-          <td class="num">{{ releve.total_credit|floatformat:2 }}</td>
+          <td class="num"><span data-money="{{ releve.total_debit }}">{{ releve.total_debit|floatformat:2 }}</span></td>
+          <td class="num"><span data-money="{{ releve.total_credit }}">{{ releve.total_credit|floatformat:2 }}</span></td>
           <td class="num solde-final {% if releve.solde_final < 0 %}negative{% endif %}">
-            {{ releve.solde_final|floatformat:2 }}
+            <span data-money="{{ releve.solde_final }}">{{ releve.solde_final|floatformat:2 }}</span>
           </td>
         </tr>
       </tfoot>
@@ -357,7 +357,7 @@
         <tr>
           <td>{{ bl.reference }}</td>
           <td class="num">{{ bl.date_bl|date:"d/m/Y" }}</td>
-          <td class="num">{{ bl.montant_total|floatformat:2 }}</td>
+          <td class="num"><span data-money="{{ bl.montant_total }}">{{ bl.montant_total|floatformat:2 }}</span></td>
         </tr>
         {% endfor %}
       </tbody>
@@ -370,5 +370,13 @@
 
   </div>
 
+<script>
+  document.querySelectorAll('[data-money]').forEach(function (el) {
+    var raw = parseFloat(el.getAttribute('data-money'));
+    if (isNaN(raw)) return;
+    var formatted = new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(raw);
+    el.textContent = formatted + (el.getAttribute('data-money-suffix') || '');
+  });
+</script>
 </body>
 </html>

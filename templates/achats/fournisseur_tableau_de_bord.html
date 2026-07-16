@@ -36,7 +36,7 @@
     </div>
     <div class="metric-label">الديون الإجمالية</div>
     <div class="metric-value {% if solde.dette_globale > 0 %}metric-value--red{% endif %}">
-      {{ solde.dette_globale|floatformat:0 }}
+      <span data-money="{{ solde.dette_globale }}">{{ solde.dette_globale|floatformat:2 }}</span>
       <span class="metric-currency">DZD</span>
     </div>
     {% if solde.nb_factures_retard > 0 %}
@@ -58,7 +58,7 @@
     </div>
     <div class="metric-label">السلفة المتاحة</div>
     <div class="metric-value {% if solde.acompte_disponible > 0 %}metric-value--amber{% endif %}">
-      {{ solde.acompte_disponible|floatformat:0 }}
+      <span data-money="{{ solde.acompte_disponible }}">{{ solde.acompte_disponible|floatformat:2 }}</span>
       <span class="metric-currency">DZD</span>
     </div>
     <div class="metric-delta metric-delta--neutral">
@@ -74,7 +74,7 @@
     </div>
     <div class="metric-label">إجمالي المدفوع (تاريخياً)</div>
     <div class="metric-value">
-      {{ solde.total_reglements|floatformat:0 }}
+      <span data-money="{{ solde.total_reglements }}">{{ solde.total_reglements|floatformat:2 }}</span>
       <span class="metric-currency">DZD</span>
     </div>
     <div class="metric-delta metric-delta--neutral">
@@ -115,7 +115,7 @@
     <div class="debt-bar__label">
       <span>الديون — {{ fournisseur.nom }}</span>
       <span class="debt-bar__amount {% if solde.dette_globale > 0 %}debt-bar__amount--red{% endif %}">
-        {{ solde.dette_globale|floatformat:0 }} DZD
+        <span data-money="{{ solde.dette_globale }}">{{ solde.dette_globale|floatformat:2 }}</span> DZD
       </span>
     </div>
     <div class="debt-bar__track">
@@ -131,9 +131,9 @@
       {% endif %}
     </div>
     <div class="debt-bar__sub">
-      <span style="color:var(--accent-text);">{{ solde.total_reglements|floatformat:0 }} دج مدفوعة</span>
+      <span style="color:var(--accent-text);"><span data-money="{{ solde.total_reglements }}">{{ solde.total_reglements|floatformat:2 }}</span> دج مدفوعة</span>
       {% if solde.acompte_disponible > 0 %}
-      <span style="color:#b45309;margin-left:12px;"><i class="bx bxs-piggy-bank"></i> {{ solde.acompte_disponible|floatformat:0 }} دج سلفة متاحة</span>
+      <span style="color:#b45309;margin-left:12px;"><i class="bx bxs-piggy-bank"></i> <span data-money="{{ solde.acompte_disponible }}">{{ solde.acompte_disponible|floatformat:2 }}</span> دج سلفة متاحة</span>
       {% endif %}
     </div>
   </div>
@@ -145,12 +145,12 @@
 <div class="section-card">
   <div class="section-card__header">
     <div class="section-eyebrow"><i class="bx bxs-bar-chart-alt-2"></i> تقادم الديون</div>
-    <span style="font-size:12px;color:var(--text-muted);">Total : {{ aging.total|floatformat:0 }} DZD</span>
+    <span style="font-size:12px;color:var(--text-muted);">Total : <span data-money="{{ aging.total }}">{{ aging.total|floatformat:2 }}</span> DZD</span>
   </div>
   <div class="aging-grid">
     <div class="aging-bucket aging-bucket--ok">
       <div class="aging-bucket__label">لم يحل</div>
-      <div class="aging-bucket__val">{{ aging.current|floatformat:0 }} DZD</div>
+      <div class="aging-bucket__val"><span data-money="{{ aging.current }}">{{ aging.current|floatformat:2 }}</span> DZD</div>
       <div class="aging-bucket__bar">
         <div class="aging-bucket__fill aging-bucket__fill--ok"
           {% if aging.total > 0 %}style="width:{% widthratio aging.current aging.total 100 %}%;"{% else %}style="width:0%;"{% endif %}>
@@ -159,7 +159,7 @@
     </div>
     <div class="aging-bucket aging-bucket--warn">
       <div class="aging-bucket__label">1–30 يوم</div>
-      <div class="aging-bucket__val">{{ aging.1_30|floatformat:0 }} DZD</div>
+      <div class="aging-bucket__val"><span data-money="{{ aging.1_30 }}">{{ aging.1_30|floatformat:2 }}</span> DZD</div>
       <div class="aging-bucket__bar">
         <div class="aging-bucket__fill aging-bucket__fill--warn"
           {% if aging.total > 0 %}style="width:{% widthratio aging.1_30 aging.total 100 %}%;"{% else %}style="width:0%;"{% endif %}>
@@ -168,7 +168,7 @@
     </div>
     <div class="aging-bucket aging-bucket--warn2">
       <div class="aging-bucket__label">31–60 يوم</div>
-      <div class="aging-bucket__val">{{ aging.31_60|floatformat:0 }} DZD</div>
+      <div class="aging-bucket__val"><span data-money="{{ aging.31_60 }}">{{ aging.31_60|floatformat:2 }}</span> DZD</div>
       <div class="aging-bucket__bar">
         <div class="aging-bucket__fill aging-bucket__fill--warn2"
           {% if aging.total > 0 %}style="width:{% widthratio aging.31_60 aging.total 100 %}%;"{% else %}style="width:0%;"{% endif %}>
@@ -177,7 +177,7 @@
     </div>
     <div class="aging-bucket aging-bucket--danger">
       <div class="aging-bucket__label">61–90 يوم</div>
-      <div class="aging-bucket__val">{{ aging.61_90|floatformat:0 }} DZD</div>
+      <div class="aging-bucket__val"><span data-money="{{ aging.61_90 }}">{{ aging.61_90|floatformat:2 }}</span> DZD</div>
       <div class="aging-bucket__bar">
         <div class="aging-bucket__fill aging-bucket__fill--danger"
           {% if aging.total > 0 %}style="width:{% widthratio aging.61_90 aging.total 100 %}%;"{% else %}style="width:0%;"{% endif %}>
@@ -186,7 +186,7 @@
     </div>
     <div class="aging-bucket aging-bucket--crit">
       <div class="aging-bucket__label">&gt; 90 يوم</div>
-      <div class="aging-bucket__val">{{ aging.over_90|floatformat:0 }} DZD</div>
+      <div class="aging-bucket__val"><span data-money="{{ aging.over_90 }}">{{ aging.over_90|floatformat:2 }}</span> DZD</div>
       <div class="aging-bucket__bar">
         <div class="aging-bucket__fill aging-bucket__fill--crit"
           {% if aging.total > 0 %}style="width:{% widthratio aging.over_90 aging.total 100 %}%;"{% else %}style="width:0%;"{% endif %}>
@@ -323,7 +323,7 @@
               {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
             </td>
             <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;{% if f.est_en_retard %}color:#dc2626;{% else %}color:#b45309;{% endif %}">
-              {{ f.reste_a_payer|floatformat:0 }} DZD
+              <span data-money="{{ f.reste_a_payer }}">{{ f.reste_a_payer|floatformat:2 }}</span> DZD
             </td>
             <td>
               {% if f.statut == "non_paye" %}<span class="pill-danger">غير مدفوعة</span>
@@ -374,7 +374,7 @@
             {% if reg.acompte %} · <span style="color:#b45309;">سلفة مولَّدة</span>{% endif %}
           </div>
         </div>
-        <div class="payment-item__amount">{{ reg.montant|floatformat:0 }} DZD</div>
+        <div class="payment-item__amount"><span data-money="{{ reg.montant }}">{{ reg.montant|floatformat:2 }}</span> DZD</div>
       </a>
       {% endfor %}
     </div>
@@ -426,7 +426,7 @@
           <td style="color:var(--text-muted);font-size:12px;">{{ bl.reference_fournisseur|default:"—" }}</td>
           <td style="color:var(--text-muted);">{{ bl.lignes.count }}</td>
           <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
-            {{ bl.montant_total|floatformat:0 }} DZD
+            <span data-money="{{ bl.montant_total }}">{{ bl.montant_total|floatformat:2 }}</span> DZD
           </td>
           <td>
             {% if bl.a_piece_jointe %}

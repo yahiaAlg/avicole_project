@@ -97,7 +97,7 @@
   </div>
   <div class="kpi-chip">
     <div class="kpi-chip__label">تكلفة المدخلات</div>
-    <div class="kpi-chip__val" style="font-size:14px;">{{ summary.cout_total_intrants|floatformat:0 }}<span class="kpi-chip__unit">DZD</span></div>
+    <div class="kpi-chip__val" style="font-size:14px;"><span data-money="{{ summary.cout_total_intrants }}">{{ summary.cout_total_intrants|floatformat:2 }}</span><span class="kpi-chip__unit">DZD</span></div>
   </div>
 </div>
 

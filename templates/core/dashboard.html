@@ -409,10 +409,10 @@ document.addEventListener('DOMContentLoaded', function () {
   };
 
   function fmtDZD(n) {
-    return new Intl.NumberFormat('fr-FR', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(Math.round(n)) + ' دج';
+    return new Intl.NumberFormat('fr-DZ', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(n) + ' DZD';
   }
 
   /* ── Fetch KPI data from reporting AJAX endpoint ─────────────────── */
@@ -558,4 +558,4 @@ document.addEventListener('DOMContentLoaded', function () {
 
 });
 </script>
-{% endblock %}²x
+{% endblock %}

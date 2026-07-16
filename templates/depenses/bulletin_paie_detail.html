@@ -55,15 +55,15 @@
     </div>
     <div class="kpi-card kpi-card--accent">
       <div class="kpi-label">الصافي المستحق</div>
-      <div class="kpi-value">{{ bulletin.montant_net|floatformat:2 }} <span class="kpi-unit">دج</span></div>
+      <div class="kpi-value"><span data-money="{{ bulletin.montant_net }}">{{ bulletin.montant_net|floatformat:2 }}</span> <span class="kpi-unit">دج</span></div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">الإجمالي الخام</div>
-      <div class="kpi-value kpi-value--sm">{{ bulletin.montant_brut|floatformat:2 }} <span class="kpi-unit">دج</span></div>
+      <div class="kpi-value kpi-value--sm"><span data-money="{{ bulletin.montant_brut }}">{{ bulletin.montant_brut|floatformat:2 }}</span> <span class="kpi-unit">دج</span></div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">إجمالي التسبيقات المخصومة</div>
-      <div class="kpi-value kpi-value--sm">{{ bulletin.total_acomptes|floatformat:2 }} <span class="kpi-unit">دج</span></div>
+      <div class="kpi-value kpi-value--sm"><span data-money="{{ bulletin.total_acomptes }}">{{ bulletin.total_acomptes|floatformat:2 }}</span> <span class="kpi-unit">دج</span></div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">الحالة</div>
@@ -100,16 +100,16 @@
         <div class="section-eyebrow"><i class="bx bx-calculator"></i> تفصيل الحساب</div>
       </div>
       <div class="kv-table">
-        <div class="kv-row"><span class="kv-label">الراتب الأساسي المرجعي</span><span class="kv-value">{{ bulletin.salaire_base_reference|floatformat:2 }} دج</span></div>
-        <div class="kv-row"><span class="kv-label">السعر اليومي</span><span class="kv-value">{{ bulletin.taux_journalier|floatformat:2 }} دج</span></div>
-        <div class="kv-row"><span class="kv-label">مبلغ الساعات الإضافية</span><span class="kv-value">{{ bulletin.montant_heures_sup|floatformat:2 }} دج</span></div>
+        <div class="kv-row"><span class="kv-label">الراتب الأساسي المرجعي</span><span class="kv-value"><span data-money="{{ bulletin.salaire_base_reference }}">{{ bulletin.salaire_base_reference|floatformat:2 }}</span> دج</span></div>
+        <div class="kv-row"><span class="kv-label">السعر اليومي</span><span class="kv-value"><span data-money="{{ bulletin.taux_journalier }}">{{ bulletin.taux_journalier|floatformat:2 }}</span> دج</span></div>
+        <div class="kv-row"><span class="kv-label">مبلغ الساعات الإضافية</span><span class="kv-value"><span data-money="{{ bulletin.montant_heures_sup }}">{{ bulletin.montant_heures_sup|floatformat:2 }}</span> دج</span></div>
         {% if bulletin.montant_jours_feries %}
-        <div class="kv-row"><span class="kv-label">مبلغ أيام الأعياد الإضافي</span><span class="kv-value">{{ bulletin.montant_jours_feries|floatformat:2 }} دج</span></div>
+        <div class="kv-row"><span class="kv-label">مبلغ أيام الأعياد الإضافي</span><span class="kv-value"><span data-money="{{ bulletin.montant_jours_feries }}">{{ bulletin.montant_jours_feries|floatformat:2 }}</span> دج</span></div>
         {% endif %}
-        <div class="kv-row kv-row--total"><span class="kv-label">الإجمالي الخام</span><span class="kv-value">{{ bulletin.montant_brut|floatformat:2 }} دج</span></div>
-        <div class="kv-row kv-row--negative"><span class="kv-label">− إجمالي التسبيقات</span><span class="kv-value">{{ bulletin.total_acomptes|floatformat:2 }} دج</span></div>
-        <div class="kv-row kv-row--negative"><span class="kv-label">− تسديد الديون</span><span class="kv-value">{{ bulletin.total_dettes|floatformat:2 }} دج</span></div>
-        <div class="kv-row kv-row--net"><span class="kv-label">الصافي المستحق</span><span class="kv-value">{{ bulletin.montant_net|floatformat:2 }} دج</span></div>
+        <div class="kv-row kv-row--total"><span class="kv-label">الإجمالي الخام</span><span class="kv-value"><span data-money="{{ bulletin.montant_brut }}">{{ bulletin.montant_brut|floatformat:2 }}</span> دج</span></div>
+        <div class="kv-row kv-row--negative"><span class="kv-label">− إجمالي التسبيقات</span><span class="kv-value"><span data-money="{{ bulletin.total_acomptes }}">{{ bulletin.total_acomptes|floatformat:2 }}</span> دج</span></div>
+        <div class="kv-row kv-row--negative"><span class="kv-label">− تسديد الديون</span><span class="kv-value"><span data-money="{{ bulletin.total_dettes }}">{{ bulletin.total_dettes|floatformat:2 }}</span> دج</span></div>
+        <div class="kv-row kv-row--net"><span class="kv-label">الصافي المستحق</span><span class="kv-value"><span data-money="{{ bulletin.montant_net }}">{{ bulletin.montant_net|floatformat:2 }}</span> دج</span></div>
       </div>
     </div>
   </div>
@@ -128,7 +128,7 @@
           <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
             <td>{{ a.date|date:"d/m/Y" }}</td>
             <td style="color:var(--text-muted);">{{ a.motif|default:"—"|truncatechars:60 }}</td>
-            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ a.montant|floatformat:2 }}</td>
+            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;"><span data-money="{{ a.montant }}">{{ a.montant|floatformat:2 }}</span></td>
             <td><span class="mode-badge">{{ a.get_mode_paiement_display }}</span></td>
           </tr>
           {% endfor %}
@@ -155,7 +155,7 @@
           {% for r in remboursements_dettes %}
           <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
             <td>{{ r.dette.motif|default:"دين" }} — {{ r.dette.date|date:"d/m/Y" }}</td>
-            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ r.montant|floatformat:2 }}</td>
+            <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;"><span data-money="{{ r.montant }}">{{ r.montant|floatformat:2 }}</span></td>
             <td style="color:var(--text-muted);">{{ r.notes|default:"—" }}</td>
             {% if remboursement_form %}
             <td>

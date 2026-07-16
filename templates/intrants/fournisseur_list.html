@@ -74,7 +74,7 @@
             <td style="color:var(--text-secondary);">{{ f.telephone|default:"—" }}</td>
             <td>
               {% if f.dette_globale > 0 %}
-                <span style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;">{{ f.dette_globale|floatformat:0 }} DZD</span>
+                <span style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;"><span data-money="{{ f.dette_globale }}">{{ f.dette_globale|floatformat:2 }}</span> DZD</span>
               {% else %}
                 <span style="color:var(--text-muted);font-size:12px;">—</span>
               {% endif %}

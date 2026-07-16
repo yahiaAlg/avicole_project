@@ -94,8 +94,8 @@
             </span>
           </td>
           <td style="color:var(--text-muted);font-size:12px;">{{ reg.reference_paiement|default:"—" }}</td>
-          <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--accent-text);">
-            {{ reg.montant|floatformat:0 }} DZD
+          <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--accent-text);" data-money="{{ reg.montant }}" data-money-suffix=" DZD">
+            {{ reg.montant|floatformat:2 }} DZD
           </td>
           <td>
             <span style="font-size:12px;color:var(--text-muted);">

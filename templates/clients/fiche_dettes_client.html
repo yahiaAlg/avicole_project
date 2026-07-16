@@ -55,7 +55,7 @@
     </div>
     <div class="summary-item summary-item--accent">
       <span class="summary-label">إجمالي المشتريات</span>
-      <span class="summary-val">{{ total_montant|floatformat:0 }} دج</span>
+      <span class="summary-val"><span data-money="{{ total_montant }}" data-money-suffix=" دج">{{ total_montant|floatformat:2 }} دج</span></span>
     </div>
     <div class="summary-item">
       <span class="summary-label">عدد السطور</span>
@@ -107,7 +107,7 @@
               <span class="product-name">{{ row.produit.designation }}</span>
               <span class="product-unit">{{ row.produit.unite_mesure }}</span>
             </td>
-            <td class="text-num">{{ row.quantite|floatformat:0 }}</td>
+            <td class="text-num"><span data-money="{{ row.quantite }}">{{ row.quantite|floatformat:2 }}</span></td>
             <td class="text-num fw-bold">{{ row.prix_unitaire|floatformat:2 }}</td>
             <td class="text-num">
               {% if row.prix_marche is not None %}
@@ -128,16 +128,16 @@
                 <span class="no-data">—</span>
               {% endif %}
             </td>
-            <td class="text-num fw-bold">{{ row.montant|floatformat:0 }}</td>
-            <td class="text-num solde-cumul">{{ row.solde_cumul|floatformat:0 }}</td>
+            <td class="text-num fw-bold"><span data-money="{{ row.montant }}">{{ row.montant|floatformat:2 }}</span></td>
+            <td class="text-num solde-cumul"><span data-money="{{ row.solde_cumul }}">{{ row.solde_cumul|floatformat:2 }}</span></td>
           </tr>
           {% endfor %}
         </tbody>
         <tfoot>
           <tr class="totals-row">
             <td colspan="{% if not active_branche %}8{% else %}7{% endif %}" class="text-num" style="font-size:12px;color:var(--text-muted);">المجموع</td>
-            <td class="text-num fw-bold" style="font-size:14px;">{{ total_montant|floatformat:0 }} دج</td>
-            <td class="text-num solde-cumul fw-bold" style="font-size:14px;">{{ total_montant|floatformat:0 }} دج</td>
+            <td class="text-num fw-bold" style="font-size:14px;"><span data-money="{{ total_montant }}" data-money-suffix=" دج">{{ total_montant|floatformat:2 }} دج</span></td>
+            <td class="text-num solde-cumul fw-bold" style="font-size:14px;"><span data-money="{{ total_montant }}" data-money-suffix=" دج">{{ total_montant|floatformat:2 }} دج</span></td>
           </tr>
         </tfoot>
       </table>

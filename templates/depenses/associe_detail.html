@@ -27,7 +27,7 @@
   <div class="kpi-strip">
     <div class="kpi-card">
       <div class="kpi-label">إجمالي السحوبات</div>
-      <div class="kpi-value">{{ total|floatformat:2 }} <span class="kpi-unit">دج</span></div>
+      <div class="kpi-value"><span data-money="{{ total }}">{{ total|floatformat:2 }}</span> <span class="kpi-unit">دج</span></div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">نسبة الحصص</div>
@@ -72,7 +72,7 @@
           {% for r in page.object_list %}
           <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
             <td>{{ r.date|date:"d/m/Y" }}</td>
-            <td style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ r.montant|floatformat:2 }}</td>
+            <td style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);"><span data-money="{{ r.montant }}">{{ r.montant|floatformat:2 }}</span></td>
             <td><span class="mode-badge">{{ r.get_mode_paiement_display }}</span></td>
             <td style="color:var(--text-muted);">{{ r.motif|default:"—"|truncatechars:60 }}</td>
             <td style="color:var(--text-muted);font-size:12px;">{{ r.reference_document|default:"—" }}</td>

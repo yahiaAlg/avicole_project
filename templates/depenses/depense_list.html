@@ -6,7 +6,7 @@
 {% block nav_depenses %}active{% endblock %}
 
 {% block page_title %}المصاريف التشغيلية{% endblock %}
-{% block page_sub_text %}{{ page.paginator.count }} مصروف — المجموع المصفى: {{ total|floatformat:0 }} دج{% if not active_branche %} — كل الفروع (رؤية شاملة){% endif %}{% endblock %}
+{% block page_sub_text %}{{ page.paginator.count }} مصروف — المجموع المصفى: <span data-money="{{ total }}">{{ total|floatformat:2 }}</span> دج{% if not active_branche %} — كل الفروع (رؤية شاملة){% endif %}{% endblock %}
 
 {% block topbar_actions %}
   {% if not request.user.userprofile.role == 'viewer' %}
@@ -58,7 +58,7 @@
   <div class="card">
     <div class="card-header-row">
       <div class="section-eyebrow"><i class="bx bxs-wallet"></i> المصاريف</div>
-      <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:14px;color:var(--text-primary);">{{ total|floatformat:0 }} DZD</span>
+      <span style="font-family:'Nunito',sans-serif;font-weight:700;font-size:14px;color:var(--text-primary);"><span data-money="{{ total }}">{{ total|floatformat:2 }}</span> DZD</span>
     </div>
 
     {% if page.object_list %}
@@ -93,7 +93,7 @@
               </a>
             </td>
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);white-space:nowrap;">
-              {{ dep.montant|floatformat:0 }} DZD
+              <span data-money="{{ dep.montant }}">{{ dep.montant|floatformat:2 }}</span> DZD
             </td>
             <td>
               <span class="mode-badge">

@@ -50,7 +50,7 @@
     <div class="kpi-card">
       <div class="kpi-label">قيمة المخزون</div>
       <div class="kpi-value">
-        {{ stock.valeur_stock|floatformat:0 }}
+        <span data-money="{{ stock.valeur_stock }}">{{ stock.valeur_stock|floatformat:2 }}</span>
         <span class="kpi-unit">DZD</span>
       </div>
       <div class="kpi-sub">الكمية × متوسط التكلفة</div>

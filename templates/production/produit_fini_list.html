@@ -93,7 +93,7 @@
               <span style="font-size:11px;color:var(--text-muted);"> {{ produit.unite_mesure }}</span>
             </td>
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">
-              {{ produit.prix_vente_defaut|floatformat:0 }} DZD
+              <span data-money="{{ produit.prix_vente_defaut }}">{{ produit.prix_vente_defaut|floatformat:2 }}</span> DZD
             </td>
             <td>
               {% if produit.actif %}

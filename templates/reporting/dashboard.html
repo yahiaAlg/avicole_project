@@ -153,7 +153,7 @@ a.alert-metric{text-decoration:none;cursor:pointer;display:flex;}
 
   <div class="fin-card fin-card--red">
     <div class="fin-card__label">ديون الموردين</div>
-    <div class="fin-card__value" id="kpi-dette-total">{{ dette_totale|floatformat:0 }} DZD</div>
+    <div class="fin-card__value" id="kpi-dette-total"><span data-money="{{ dette_totale }}">{{ dette_totale|floatformat:2 }}</span> DZD</div>
     <div class="fin-card__sub" id="kpi-dette-sub">{% if nb_factures_retard_fournisseur > 0 %}{{ nb_factures_retard_fournisseur }} فاتورة (فواتير) متأخرة{% else %}لا فواتير متأخرة{% endif %}</div>
     <a href="{% url 'reporting:dettes_fournisseurs' %}" class="fin-card__link" style="color:#dc2626;">عرض التقرير <i class="bx bx-right-arrow-alt"></i></a>
     <div class="fin-card__watermark">🏭</div>
@@ -161,7 +161,7 @@ a.alert-metric{text-decoration:none;cursor:pointer;display:flex;}
 
   <div class="fin-card fin-card--green">
     <div class="fin-card__label">حقوق العملاء</div>
-    <div class="fin-card__value" id="kpi-creances-total">{{ creances_totale|floatformat:0 }} DZD</div>
+    <div class="fin-card__value" id="kpi-creances-total"><span data-money="{{ creances_totale }}">{{ creances_totale|floatformat:2 }}</span> DZD</div>
     <div class="fin-card__sub" id="kpi-creances-sub">{% if nb_factures_retard_client > 0 %}{{ nb_factures_retard_client }} فاتورة (فواتير) عميل متأخرة{% else %}لا حقوق مستحقة{% endif %}</div>
     <a href="{% url 'reporting:creances_clients' %}" class="fin-card__link" style="color:#15803d;">عرض التقرير <i class="bx bx-right-arrow-alt"></i></a>
     <div class="fin-card__watermark">🤝</div>
@@ -426,7 +426,7 @@ a.alert-metric{text-decoration:none;cursor:pointer;display:flex;}
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  const fmt  = v => new Intl.NumberFormat('fr-DZ').format(Math.round(v));
+  const fmt  = v => new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
   const fmtK = v => {
     const n = Math.round(v);
     if (n >= 1000000) return (n/1000000).toFixed(1)+'M';

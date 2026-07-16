@@ -16,7 +16,7 @@
 
     <div class="summary-card">
       <div class="summary-label">المبلغ الصافي المستحق</div>
-      <div class="summary-value">{{ bulletin.montant_net|floatformat:2 }} <span>دج</span></div>
+      <div class="summary-value"><span data-money="{{ bulletin.montant_net }}">{{ bulletin.montant_net|floatformat:2 }}</span> <span>دج</span></div>
     </div>
 
     <form method="post" action="" enctype="multipart/form-data">

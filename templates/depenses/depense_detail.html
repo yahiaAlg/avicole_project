@@ -6,7 +6,7 @@
 {% block nav_depenses %}active{% endblock %}
 
 {% block page_title %}مصروف — {{ depense.date|date:"d/m/Y" }}{% endblock %}
-{% block page_sub_text %}{{ depense.categorie.libelle }} — {{ depense.montant|floatformat:0 }} DZD{% endblock %}
+{% block page_sub_text %}{{ depense.categorie.libelle }} — <span data-money="{{ depense.montant }}">{{ depense.montant|floatformat:2 }}</span> DZD{% endblock %}
 
 {% block topbar_actions %}
   {% if not request.user.userprofile.role == 'viewer' %}
@@ -48,7 +48,7 @@
 
             <dt>المبلغ</dt>
             <dd>
-              <span style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--text-primary);">{{ depense.montant|floatformat:0 }}</span>
+              <span style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--text-primary);"><span data-money="{{ depense.montant }}">{{ depense.montant|floatformat:2 }}</span></span>
               <span style="font-size:14px;color:var(--text-muted);margin-left:4px;">دج</span>
             </dd>
 
@@ -160,7 +160,7 @@
           <div style="margin-top:12px;">
             <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:14px;color:var(--text-primary);">{{ depense.facture_liee.reference }}</div>
             <div style="font-size:12.5px;color:var(--text-secondary);margin-top:4px;">{{ depense.facture_liee.fournisseur.nom }}</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">{{ depense.facture_liee.date_facture|date:"d/m/Y" }} — {{ depense.facture_liee.montant_total|floatformat:0 }} DZD</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">{{ depense.facture_liee.date_facture|date:"d/m/Y" }} — <span data-money="{{ depense.facture_liee.montant_total }}">{{ depense.facture_liee.montant_total|floatformat:2 }}</span> DZD</div>
           </div>
         </div>
       </div>
@@ -204,7 +204,7 @@
           <div>
             <div class="confirm-panel__title">حذف هذا المصروف؟</div>
             <div class="confirm-panel__body">
-              سيتم حذف المصروف <strong>{{ depense.description|truncatechars:50 }}</strong> بتاريخ <strong>{{ depense.date|date:"d/m/Y" }}</strong> ({{ depense.montant|floatformat:0 }} دج) بشكل نهائي.
+              سيتم حذف المصروف <strong>{{ depense.description|truncatechars:50 }}</strong> بتاريخ <strong>{{ depense.date|date:"d/m/Y" }}</strong> (<span data-money="{{ depense.montant }}">{{ depense.montant|floatformat:2 }}</span> دج) بشكل نهائي.
             </div>
           </div>
           <div class="confirm-panel__actions">

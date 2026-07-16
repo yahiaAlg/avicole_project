@@ -28,7 +28,7 @@
     <div class="kpi-card {% if solde.creance_globale > 0 %}kpi-card--warn{% endif %}">
       <div class="kpi-icon ic-amber"><i class="bx bx-hourglass"></i></div>
       <div class="kpi-card__label">الدين الإجمالي</div>
-      <div class="kpi-card__value">{{ solde.creance_globale|floatformat:0 }} <span class="kpi-currency">دج</span></div>
+      <div class="kpi-card__value"><span data-money="{{ solde.creance_globale }}">{{ solde.creance_globale|floatformat:2 }}</span> <span class="kpi-currency">دج</span></div>
       <div class="kpi-card__sub">المتبقي (كل الفواتير)</div>
     </div>
     <div class="kpi-card {% if solde.nb_factures_retard > 0 %}kpi-card--danger{% endif %}">
@@ -40,13 +40,13 @@
     <div class="kpi-card">
       <div class="kpi-icon ic-green"><i class="bx bxs-credit-card"></i></div>
       <div class="kpi-card__label">إجمالي المحصل</div>
-      <div class="kpi-card__value">{{ solde.total_paiements|floatformat:0 }} <span class="kpi-currency">دج</span></div>
+      <div class="kpi-card__value"><span data-money="{{ solde.total_paiements }}">{{ solde.total_paiements|floatformat:2 }}</span> <span class="kpi-currency">دج</span></div>
       <div class="kpi-card__sub">سجل المدفوعات</div>
     </div>
     <div class="kpi-card {% if solde.acompte_disponible > 0 %}kpi-card--info{% endif %}">
       <div class="kpi-icon ic-teal"><i class="bx bxs-bank"></i></div>
       <div class="kpi-card__label">دفعات مسبقة متاحة</div>
-      <div class="kpi-card__value">{{ solde.acompte_disponible|floatformat:0 }} <span class="kpi-currency">دج</span></div>
+      <div class="kpi-card__value"><span data-money="{{ solde.acompte_disponible }}">{{ solde.acompte_disponible|floatformat:2 }}</span> <span class="kpi-currency">دج</span></div>
       <div class="kpi-card__sub">
         {% if solde.acompte_disponible > 0 %}
         <a href="{% url 'clients:acompte_client_list' %}?client={{ client.pk }}" style="color:#0d9488;text-decoration:none;">تُخصم من الفاتورة القادمة <i class="bx bx-left-arrow-alt"></i></a>
@@ -57,7 +57,7 @@
       <div class="kpi-icon ic-purple"><i class="bx bxs-coin"></i></div>
       <div class="kpi-card__label">سقف الائتمان</div>
       <div class="kpi-card__value">
-        {% if client.plafond_credit > 0 %}{{ client.plafond_credit|floatformat:0 }} <span class="kpi-currency">دج</span>
+        {% if client.plafond_credit > 0 %}<span data-money="{{ client.plafond_credit }}">{{ client.plafond_credit|floatformat:2 }}</span> <span class="kpi-currency">دج</span>
         {% else %}<span style="font-size:16px;color:var(--text-muted);">غير محدود</span>{% endif %}
       </div>
       <div class="kpi-card__sub">
@@ -172,7 +172,7 @@
               <tr class="table-row" style="--row-i:{{ forloop.counter0 }};">
                 <td><a href="{% url 'clients:abonnement_detail' abo.pk %}" class="row-link" style="font-family:'Nunito',sans-serif;font-weight:700;color:var(--text-primary);">{{ abo.produit_fini.designation }}</a></td>
                 <td>
-                  {% if abo.est_forfait %}<span class="pill-info">جزافي — {{ abo.montant_forfait|floatformat:0 }} دج</span>
+                  {% if abo.est_forfait %}<span class="pill-info">جزافي — <span data-money="{{ abo.montant_forfait }}" data-money-suffix=" دج">{{ abo.montant_forfait|floatformat:2 }} دج</span></span>
                   {% else %}<span style="font-size:12px;color:var(--text-muted);">بالكمية</span>{% endif %}
                 </td>
                 <td style="font-size:12px;color:var(--text-muted);">{{ abo.get_frequence_display }}</td>
@@ -228,7 +228,7 @@
                   {% elif f.statut == 'en_litige' %}<span class="pill-danger">نزاع</span>
                   {% endif %}
                 </td>
-                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;">{{ f.reste_a_payer|floatformat:0 }} دج</td>
+                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;"><span data-money="{{ f.reste_a_payer }}" data-money-suffix=" دج">{{ f.reste_a_payer|floatformat:2 }} دج</span></td>
               </tr>
               {% endfor %}
             </tbody>
@@ -278,7 +278,7 @@
                   {% elif bl.statut == 'litige' %}<span class="pill-danger">نزاع</span>
                   {% endif %}
                 </td>
-                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">{{ bl.montant_total|floatformat:0 }} دج</td>
+                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;"><span data-money="{{ bl.montant_total }}" data-money-suffix=" دج">{{ bl.montant_total|floatformat:2 }} دج</span></td>
               </tr>
               {% endfor %}
             </tbody>
@@ -314,7 +314,7 @@
                 {% if not active_branche %}<td style="font-size:12px;color:var(--text-muted);">{{ p.branche.nom }}</td>{% endif %}
                 <td style="font-size:12px;color:var(--text-muted);">{{ p.get_mode_paiement_display }}</td>
                 <td style="font-size:12px;color:var(--text-muted);">{{ p.reference_paiement|default:"—" }}</td>
-                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">+{{ p.montant|floatformat:0 }} دج</td>
+                <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">+<span data-money="{{ p.montant }}" data-money-suffix=" دج">{{ p.montant|floatformat:2 }} دج</span></td>
               </tr>
               {% endfor %}
             </tbody>

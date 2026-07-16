@@ -68,7 +68,7 @@
   </div>
   <div class="prod-kpi-cell">
     <div class="prod-kpi-cell__label">التكلفة الإجمالية المقدّرة</div>
-    <div class="prod-kpi-cell__val" style="color:#dc2626;">{{ totaux.cout_total_dzd|floatformat:0 }}<span class="prod-kpi-cell__unit">DZD</span></div>
+    <div class="prod-kpi-cell__val" style="color:#dc2626;"><span data-money="{{ totaux.cout_total_dzd }}">{{ totaux.cout_total_dzd|floatformat:2 }}</span><span class="prod-kpi-cell__unit">DZD</span></div>
   </div>
   <div class="prod-kpi-cell" id="kpi-poids-moyen-cell">
     <div class="prod-kpi-cell__label">متوسط الوزن الإجمالي</div>
@@ -153,7 +153,7 @@
               <span style="font-family:'Nunito',sans-serif;font-weight:600;color:var(--text-secondary);">{{ r.poids_moyen_kg|floatformat:3 }}</span>
             </td>
             <td style="text-align:right;">
-              <span style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;">{{ r.cout_total_dzd|floatformat:0 }} DZD</span>
+              <span style="font-family:'Nunito',sans-serif;font-weight:700;color:#dc2626;"><span data-money="{{ r.cout_total_dzd }}">{{ r.cout_total_dzd|floatformat:2 }}</span> DZD</span>
             </td>
             <td style="text-align:right;">
               <span style="font-size:12px;color:var(--text-muted);" data-poids="{{ r.poids_total_kg|floatformat:3 }}" data-cout="{{ r.cout_total_dzd|floatformat:2 }}">
@@ -169,7 +169,7 @@
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;padding:12px 14px;">{{ totaux.nb_oiseaux_abattus|floatformat:0 }}</td>
             <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;padding:12px 14px;">{{ totaux.poids_total_kg|floatformat:2 }}</td>
             <td style="padding:12px 14px;"></td>
-            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;padding:12px 14px;color:#dc2626;">{{ totaux.cout_total_dzd|floatformat:0 }} DZD</td>
+            <td style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;padding:12px 14px;color:#dc2626;"><span data-money="{{ totaux.cout_total_dzd }}">{{ totaux.cout_total_dzd|floatformat:2 }}</span> DZD</td>
             <td style="padding:12px 14px;"></td>
           </tr>
         </tfoot>

@@ -1496,6 +1496,16 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 });
+
+// Global money formatter: any element with data-money="<raw number>" gets
+// rendered "1 234,56" style (fr-DZ grouping, 2 decimals).
+document.querySelectorAll('[data-money]').forEach(function (el) {
+  var raw = parseFloat(el.getAttribute('data-money'));
+  if (isNaN(raw)) return;
+  var formatted = new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(raw);
+  var suffix = el.getAttribute('data-money-suffix') || '';
+  el.textContent = formatted + suffix;
+});
 </script>
 
 {% block extra_js %}{% endblock %}

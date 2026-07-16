@@ -81,17 +81,17 @@
             {% endif %}
             <td style="font-size:12.5px;color:var(--text-secondary);">{{ abo.produit_fini.designation }}</td>
             <td>
-              {% if abo.est_forfait %}<span class="pill-info">جزافي — {{ abo.montant_forfait|floatformat:0 }} دج</span>
+              {% if abo.est_forfait %}<span class="pill-info">جزافي — <span data-money="{{ abo.montant_forfait }}" data-money-suffix=" دج">{{ abo.montant_forfait|floatformat:2 }} دج</span></span>
               {% else %}<span style="font-size:12px;color:var(--text-muted);">بالكمية</span>{% endif %}
             </td>
             <td style="font-size:12px;color:var(--text-muted);">{{ abo.get_frequence_display }}</td>
             <td style="font-size:12px;color:var(--text-muted);">{{ abo.date_debut|date:"d/m/Y" }}</td>
             <td style="font-size:12px;color:var(--text-muted);">{{ abo.date_fin|date:"d/m/Y"|default:"—" }}</td>
             <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;">
-              {% if abo.quantite_totale_prevue %}{{ abo.quantite_totale_prevue|floatformat:0 }}{% else %}<span style="color:var(--text-muted);font-size:12px;">غير محدود</span>{% endif %}
+              {% if abo.quantite_totale_prevue %}<span data-money="{{ abo.quantite_totale_prevue }}">{{ abo.quantite_totale_prevue|floatformat:2 }}</span>{% else %}<span style="color:var(--text-muted);font-size:12px;">غير محدود</span>{% endif %}
             </td>
             <td style="text-align:left;font-family:'Nunito',sans-serif;font-weight:700;color:var(--accent-text);">
-              {{ abo.quantite_livree_cumulee|floatformat:0 }}
+              <span data-money="{{ abo.quantite_livree_cumulee }}">{{ abo.quantite_livree_cumulee|floatformat:2 }}</span>
             </td>
             <td>
               {% if abo.statut == 'actif' %}<span class="pill-success">نشط</span>

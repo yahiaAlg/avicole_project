@@ -5,7 +5,7 @@
 {% block page_title %}سجل المدفوعات{% endblock %}
 {% block page_sub_text %}
   {{ totaux.nb|default:0 }} دفعة(دفعات) —
-  الإجمالي: {{ totaux.total|default:0|floatformat:0 }} DZD
+  الإجمالي: <span data-money="{{ totaux.total|default:0 }}">{{ totaux.total|default:0|floatformat:2 }}</span> DZD
 {% endblock %}
 {% block topbar_actions %}
 <a href="?{% if fournisseur_pk %}fournisseur={{ fournisseur_pk }}&{% endif %}{% if mode %}mode={{ mode }}&{% endif %}{% if date_debut %}date_debut={{ date_debut|date:"Y-m-d" }}&{% endif %}{% if date_fin %}date_fin={{ date_fin|date:"Y-m-d" }}&{% endif %}export=csv" class="btn-ghost btn-sm">
@@ -64,7 +64,7 @@
     <div class="metric-card">
       <div class="metric-icon ic-green"><i class="bx bxs-coin"></i></div>
       <div class="metric-label">إجمالي المدفوع</div>
-      <div class="metric-value sm">{{ totaux.total|default:0|floatformat:0 }} <small style="font-size:12px;">DZD</small></div>
+      <div class="metric-value sm"><span data-money="{{ totaux.total|default:0 }}">{{ totaux.total|default:0|floatformat:2 }}</span> <small style="font-size:12px;">DZD</small></div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
@@ -136,7 +136,7 @@
             </td>
             <td><span class="text-mono" style="font-size:12px;color:var(--text-muted);">{{ reglement.reference_paiement|default:"—" }}</span></td>
             <td style="text-align:right;">
-              <span class="val-money" style="color:#15803d;">{{ reglement.montant|floatformat:0 }} DZD</span>
+              <span class="val-money" style="color:#15803d;"><span data-money="{{ reglement.montant }}">{{ reglement.montant|floatformat:2 }}</span> DZD</span>
             </td>
             <td style="color:var(--text-muted);font-size:12px;">{{ reglement.created_by|default:"—" }}</td>
           </tr>
